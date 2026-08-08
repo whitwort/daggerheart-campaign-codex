@@ -491,6 +491,7 @@
 
       const placeholderEl = document.getElementById('map-tab-placeholder');
       const containerEl = document.getElementById('map-container');
+      const mapConfig = window.APP_CONFIG;
 
       try {
         if (typeof L === 'undefined') {
@@ -498,7 +499,7 @@
           return;
         }
 
-        if (!CONFIG.mapImage) {
+        if (!mapConfig.mapImage) {
           placeholderEl.textContent = 'No map image configured yet.';
           return;
         }
@@ -514,7 +515,7 @@
               crs: L.CRS.Simple,
               minZoom: -3
             });
-            L.imageOverlay(CONFIG.mapImage, bounds).addTo(map);
+            L.imageOverlay(mapConfig.mapImage, bounds).addTo(map);
             map.fitBounds(bounds);
 
             setTimeout(function () { map.invalidateSize(); }, 0);
@@ -525,9 +526,9 @@
           }
         };
         img.onerror = function () {
-          placeholderEl.textContent = 'Map image failed to load (' + CONFIG.mapImage + ').';
+          placeholderEl.textContent = 'Map image failed to load (' + mapConfig.mapImage + ').';
         };
-        img.src = CONFIG.mapImage;
+        img.src = mapConfig.mapImage;
       } catch (err) {
         placeholderEl.textContent = 'Map init error: ' + err.message;
       }
