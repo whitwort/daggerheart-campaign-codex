@@ -12,13 +12,16 @@
 
 const CONFIG = {
   // App identity — shown in UI, not used for auth/security.
-  campaignName: '__CAMPAIGN_NAME__',
+  campaignName: "Aether's Children",
 
   // Tab labels — override if "Codex" / "Map" don't fit your setting.
   tabs: {
     map: 'Map',
     codex: 'Codex'
   },
+
+  // Fixed category enum for codex entries — override for other settings.
+  categories: ['NPC', 'Faction', 'Location', 'Item', 'History', 'Organization', 'Event'],
 
   // Firebase project config (client-side; safe to be public — see note below).
   // Get this from Firebase console > Project Settings > General > Your apps > Web app.

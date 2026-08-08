@@ -3,37 +3,98 @@
 <head>
   <base target="_top">
   <style>
-    body { font-family: sans-serif; padding: 2rem; }
-    #status { font-weight: bold; }
+    body { font-family: sans-serif; padding: 1.5rem 2rem; }
+    header { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+    header h1 { margin: 0; font-size: 1.4rem; }
+    #auth-area { margin-left: auto; font-size: 0.9rem; }
+    #role-badge { padding: 0.15rem 0.5rem; border-radius: 3px; background: #eee; margin-right: 0.5rem; }
+    nav#tabs { margin-top: 1rem; border-bottom: 1px solid #ccc; }
+    nav#tabs button { background: none; border: none; padding: 0.5rem 1rem; cursor: pointer; font-size: 1rem; }
+    nav#tabs button.active { border-bottom: 3px solid #444; font-weight: bold; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    #map-tab-placeholder { color: #888; margin-top: 1rem; }
   </style>
 </head>
 <body>
-  <h1><?= config.campaignName ?></h1>
-  <p id="status">Connecting...</p>
-  <p><small>v<?= appVersion ?> — <?= buildCommit ?></small></p>
+  <header>
+    <h1><?= config.campaignName ?></h1>
+    <span><small>v<?= appVersion ?> — <?= buildCommit ?></small></span>
+    <div id="auth-area">
+      <span id="role-badge">Viewer</span>
+      <button id="sign-in-btn">Sign in with Google</button>
+      <button id="sign-out-btn" style="display:none;">Sign out</button>
+    </div>
+  </header>
 
   <script type="module">
+    // Must run BEFORE the codex/map partials are included below: module
+    // scripts execute in document order, and codex.html's script reads
+    // window.firebaseApp / window.CODEX_CONFIG at top level on load.
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-    import { getAuth, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import {
+      getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
     const firebaseConfig = <?!= JSON.stringify(config.firebase) ?>;
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
+    window.firebaseApp = initializeApp(firebaseConfig);
+    window.CODEX_CONFIG = {
+      gmEmail: <?!= JSON.stringify(config.gmEmail) ?>,
+      categories: <?!= JSON.stringify(config.categories) ?>
+    };
 
-    const statusEl = document.getElementById('status');
+    const auth = getAuth(window.firebaseApp);
+    const provider = new GoogleAuthProvider();
 
-    // Phase 0 smoke test: read a known doc, no auth required (open read).
-    getDoc(doc(db, '_health', 'check'))
-      .then((snap) => {
-        statusEl.textContent = snap.exists()
-          ? 'Firestore read OK: ' + JSON.stringify(snap.data())
-          : 'Firestore connected, but _health/check doc not found yet.';
-      })
-      .catch((err) => {
-        statusEl.textContent = 'Firestore read FAILED: ' + err.message;
+    const signInBtn = document.getElementById('sign-in-btn');
+    const signOutBtn = document.getElementById('sign-out-btn');
+    const roleBadge = document.getElementById('role-badge');
+
+    signInBtn.addEventListener('click', function () {
+      signInWithPopup(auth, provider).catch(function (err) {
+        alert('Sign-in failed: ' + err.message);
       });
+    });
+    signOutBtn.addEventListener('click', function () {
+      signOut(auth);
+    });
+
+    onAuthStateChanged(auth, function (user) {
+      if (user) {
+        signInBtn.style.display = 'none';
+        signOutBtn.style.display = 'inline';
+        roleBadge.textContent = user.email === window.CODEX_CONFIG.gmEmail ? 'GM' : user.email;
+      } else {
+        signInBtn.style.display = 'inline';
+        signOutBtn.style.display = 'none';
+        roleBadge.textContent = 'Viewer';
+      }
+    });
+  </script>
+
+  <nav id="tabs">
+    <button id="tab-btn-codex" class="active" data-tab="codex-panel"><?= config.tabs.codex ?></button>
+    <button id="tab-btn-map" data-tab="map-panel"><?= config.tabs.map ?></button>
+  </nav>
+
+  <div id="codex-panel" class="tab-panel active">
+    <?!= include('codex') ?>
+  </div>
+  <div id="map-panel" class="tab-panel">
+    <p id="map-tab-placeholder">Map tab — coming in Phase 3.</p>
+  </div>
+
+  <script>
+    // Plain (non-module) script, safe to run any time after these buttons
+    // exist in the DOM — no dependency on firebaseApp/module load order.
+    document.querySelectorAll('nav#tabs button').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('nav#tabs button').forEach(function (b) { b.classList.remove('active'); });
+        document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab).classList.add('active');
+      });
+    });
   </script>
 </body>
 </html>

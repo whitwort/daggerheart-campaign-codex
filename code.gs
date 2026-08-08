@@ -15,3 +15,9 @@ function doGet(e) {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
+
+// Server-side include, for splitting index.html into partials (Apps Script
+// HtmlService has no native import/bundler — this is the standard pattern).
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
