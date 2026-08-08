@@ -20,6 +20,26 @@
     .tab-panel.active { display: block; }
     #map-tab-placeholder { color: #888; margin-top: 1rem; }
     #map-container { height: 70vh; margin-top: 1rem; background: #ddd; display: none; }
+    #map-gm-controls { display: none; gap: 0.5rem; align-items: center; margin-top: 1rem; }
+    #map-gm-controls button { padding: 0.3rem 0.7rem; cursor: pointer; }
+    #map-gm-controls button.active-mode { outline: 2px solid #4a6fdc; }
+    #map-mode-hint { font-size: 0.85rem; color: #666; }
+
+    #pin-form-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+      align-items: center; justify-content: center; z-index: 100;
+    }
+    #pin-form-overlay.open { display: flex; }
+    #pin-form {
+      background: #fff; border-radius: 4px; padding: 1.25rem 1.5rem;
+      width: 90%; max-width: 400px;
+    }
+    #pin-form h3 { margin-top: 0; }
+    #pin-form label { display: block; margin-top: 0.5rem; font-size: 0.85rem; font-weight: bold; }
+    #pin-form select { width: 100%; box-sizing: border-box; padding: 0.4rem; font-size: 0.9rem; margin-top: 0.2rem; }
+    #pin-form-actions { margin-top: 1.25rem; display: flex; gap: 0.5rem; justify-content: flex-end; }
+    #pin-form-actions button { padding: 0.4rem 0.9rem; cursor: pointer; }
+    #pin-form-error { color: #b00020; font-size: 0.85rem; margin-top: 0.5rem; display: none; }
 
     #codex-tab { display: flex; gap: 1.5rem; margin-top: 1rem; }
     #codex-list-pane { flex: 0 0 320px; }
@@ -102,6 +122,11 @@
   </div>
   <div id="map-panel" class="tab-panel">
     <p id="map-tab-placeholder">Map tab — coming in Phase 3.</p>
+    <div id="map-gm-controls">
+      <button id="map-add-pin-btn">+ Add pin</button>
+      <button id="map-remove-pin-btn">Remove pin</button>
+      <span id="map-mode-hint"></span>
+    </div>
     <div id="map-container"></div>
   </div>
 
@@ -128,6 +153,21 @@
       <div id="entry-form-actions">
         <button id="entry-form-cancel" type="button">Cancel</button>
         <button id="entry-form-save" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="pin-form-overlay">
+    <div id="pin-form">
+      <h3>Link pin to entry</h3>
+      <label for="pin-form-entry">Codex entry</label>
+      <select id="pin-form-entry"></select>
+
+      <p id="pin-form-error"></p>
+
+      <div id="pin-form-actions">
+        <button id="pin-form-cancel" type="button">Cancel</button>
+        <button id="pin-form-save" type="button">Save</button>
       </div>
     </div>
   </div>
@@ -211,6 +251,7 @@
         currentRole = role;
         roleBadge.textContent = role;
         newEntryBtn.style.display = (role === 'gm') ? 'inline-block' : 'none';
+        mapGmControlsEl.style.display = (role === 'gm') ? 'flex' : 'none';
         renderDetailForSelected();
       });
     });
@@ -487,6 +528,101 @@
     let mapImgHeight = 0;
     let pinLayer = null;
     let allPins = [];
+    let mapMode = null; // null | 'add' | 'remove'
+    let pendingPinCoords = null;
+
+    const mapGmControlsEl = document.getElementById('map-gm-controls');
+    const addPinBtn = document.getElementById('map-add-pin-btn');
+    const removePinBtn = document.getElementById('map-remove-pin-btn');
+    const modeHintEl = document.getElementById('map-mode-hint');
+
+    const pinFormOverlayEl = document.getElementById('pin-form-overlay');
+    const pinFormEntryEl = document.getElementById('pin-form-entry');
+    const pinFormErrorEl = document.getElementById('pin-form-error');
+    const pinFormSaveBtn = document.getElementById('pin-form-save');
+    const pinFormCancelBtn = document.getElementById('pin-form-cancel');
+
+    function setMapMode(mode) {
+      mapMode = (mapMode === mode) ? null : mode;
+      addPinBtn.classList.toggle('active-mode', mapMode === 'add');
+      removePinBtn.classList.toggle('active-mode', mapMode === 'remove');
+      if (mapMode === 'add') {
+        modeHintEl.textContent = 'Click the map to place a pin.';
+      } else if (mapMode === 'remove') {
+        modeHintEl.textContent = 'Click a pin to remove it.';
+      } else {
+        modeHintEl.textContent = '';
+      }
+    }
+
+    addPinBtn.addEventListener('click', function () { setMapMode('add'); });
+    removePinBtn.addEventListener('click', function () { setMapMode('remove'); });
+
+    function openPinForm(coords) {
+      pendingPinCoords = coords;
+      pinFormEntryEl.innerHTML = '';
+      allEntries
+        .slice()
+        .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); })
+        .forEach(function (entry) {
+          const opt = document.createElement('option');
+          opt.value = entry.id;
+          opt.textContent = entry.name;
+          pinFormEntryEl.appendChild(opt);
+        });
+      pinFormErrorEl.style.display = 'none';
+      pinFormErrorEl.textContent = '';
+      pinFormOverlayEl.classList.add('open');
+    }
+
+    function closePinForm() {
+      pinFormOverlayEl.classList.remove('open');
+      pendingPinCoords = null;
+    }
+
+    pinFormCancelBtn.addEventListener('click', closePinForm);
+    pinFormOverlayEl.addEventListener('click', function (e) {
+      if (e.target === pinFormOverlayEl) closePinForm();
+    });
+
+    pinFormSaveBtn.addEventListener('click', function () {
+      if (!pendingPinCoords) {
+        closePinForm();
+        return;
+      }
+      const entryId = pinFormEntryEl.value;
+      if (!entryId) {
+        pinFormErrorEl.textContent = 'No entries available to link.';
+        pinFormErrorEl.style.display = 'block';
+        return;
+      }
+
+      pinFormSaveBtn.disabled = true;
+      addDoc(collection(db, 'pins'), {
+        entryId: entryId,
+        x: pendingPinCoords.x,
+        y: pendingPinCoords.y
+      }).then(function () {
+        pinFormSaveBtn.disabled = false;
+        closePinForm();
+        setMapMode('add'); // toggles back off, matching the button that opened it
+      }).catch(function (err) {
+        pinFormSaveBtn.disabled = false;
+        pinFormErrorEl.textContent = 'Save failed: ' + err.message;
+        pinFormErrorEl.style.display = 'block';
+      });
+    });
+
+    function removePin(pin) {
+      const entry = allEntries.find(function (e) { return e.id === pin.entryId; });
+      const label = entry ? entry.name : '(unlinked pin)';
+      const confirmed = window.confirm('Remove pin for "' + label + '"?');
+      if (!confirmed) return;
+
+      deleteDoc(doc(db, 'pins', pin.id)).catch(function (err) {
+        window.alert('Remove pin failed: ' + err.message);
+      });
+    }
 
     function switchToCodexEntry(entryId) {
       selectedId = entryId;
@@ -512,6 +648,10 @@
         const marker = L.marker([lat, pin.x]);
         marker.bindTooltip(entry ? entry.name : '(unlinked pin)');
         marker.on('click', function () {
+          if (mapMode === 'remove' && currentRole === 'gm') {
+            removePin(pin);
+            return;
+          }
           if (entry) {
             switchToCodexEntry(entry.id);
           }
@@ -580,6 +720,13 @@
             });
             L.imageOverlay(CONFIG.mapImage, bounds).addTo(map);
             leafletMap = map;
+
+            map.on('click', function (e) {
+              if (mapMode !== 'add' || currentRole !== 'gm') return;
+              const x = e.latlng.lng;
+              const y = mapImgHeight - e.latlng.lat;
+              openPinForm({ x: x, y: y });
+            });
 
             setTimeout(function () {
               map.invalidateSize();
