@@ -315,6 +315,7 @@
         }
       });
       renderList();
+      renderDetailForSelected();
     }, function (err) {
       listEl.innerHTML = '<li>Error loading entries: ' + err.message + '</li>';
     });
