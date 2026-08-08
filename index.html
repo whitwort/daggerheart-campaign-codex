@@ -35,7 +35,7 @@
     // window.firebaseApp / window.CODEX_CONFIG at top level on load.
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
-      getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+      getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
     const firebaseConfig = <?!= JSON.stringify(config.firebase) ?>;
@@ -55,12 +55,20 @@
     const roleBadge = document.getElementById('role-badge');
 
     signInBtn.addEventListener('click', function () {
-      signInWithPopup(auth, provider).catch(function (err) {
-        alert('Sign-in failed: ' + err.message);
-      });
+      signInWithRedirect(auth, provider);
     });
     signOutBtn.addEventListener('click', function () {
       signOut(auth);
+    });
+
+    // Popup sign-in unreliable here: Apps Script serves the app inside a
+    // sandboxed googleusercontent.com iframe, and browser COOP policies
+    // (worse on Safari/iOS) often block the popup->opener postMessage
+    // handoff, so the popup completes but the app never hears about it.
+    // Redirect avoids that dependency. getRedirectResult catches the
+    // return trip; onAuthStateChanged is the source of truth either way.
+    getRedirectResult(auth).catch(function (err) {
+      alert('Sign-in redirect failed: ' + err.message);
     });
 
     onAuthStateChanged(auth, function (user) {
