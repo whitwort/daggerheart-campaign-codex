@@ -27,6 +27,8 @@
     </div>
   </header>
 
+  <p style="font-size:0.75rem;color:#888;">Origin: <span id="origin-debug"></span></p>
+
   <script type="module">
     // Must run BEFORE the codex/map partials are included below: module
     // scripts execute in document order, and codex.html's script reads
@@ -42,6 +44,8 @@
       gmEmail: <?!= JSON.stringify(config.gmEmail) ?>,
       categories: <?!= JSON.stringify(config.categories) ?>
     };
+
+    document.getElementById('origin-debug').textContent = window.location.origin;
 
     const auth = getAuth(window.firebaseApp);
     const provider = new GoogleAuthProvider();
