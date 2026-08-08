@@ -47,8 +47,6 @@
       <span id="user-email"></span>
       <div id="signin-buttons">
         <button id="signin-google">Sign in with Google</button>
-        <button id="signin-github">GitHub</button>
-        <button id="signin-apple">Apple</button>
       </div>
       <button id="sign-out-btn" style="display:none;">Sign out</button>
     </div>
@@ -82,7 +80,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
-      getAuth, GoogleAuthProvider, GithubAuthProvider, OAuthProvider,
+      getAuth, GoogleAuthProvider,
       signInWithPopup, signOut, onAuthStateChanged
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import {
@@ -98,13 +96,15 @@
     const auth = getAuth(firebaseApp);
     const db = getFirestore(firebaseApp);
 
-    // --- Auth: signInWithPopup now works for all three providers, because
-    // this app is served from Firebase Hosting on daggerheart-campaign-codex
-    // .web.app / .firebaseapp.com — the same origin as authDomain, which is
-    // exactly the requirement that broke signInWithPopup/signInWithRedirect
-    // under the old Apps Script hosting (see auth-pivot-context.md for the
-    // Option A postmortem; this is Option B, the alternative it rejected
-    // until Apple/GitHub sign-in became a requirement).
+    // --- Auth: signInWithPopup works here because this app is served from
+    // Firebase Hosting on daggerheart-campaign-codex.web.app/.firebaseapp.com
+    // — the same origin as authDomain. Under the old Apps Script hosting
+    // (script.googleusercontent.com), this same call hit an unfixable origin
+    // restriction — see auth-pivot-context.md for that postmortem, and the
+    // separate Option A attempt (native Apps Script auth) that followed and
+    // was abandoned when it turned out unable to force a sign-in prompt for
+    // logged-out visitors. Google-only per Gregg's call — GitHub/Apple would
+    // just be adding more providers below if that changes later.
     const roleBadge = document.getElementById('role-badge');
     const userEmailEl = document.getElementById('user-email');
     const signInButtonsEl = document.getElementById('signin-buttons');
@@ -121,28 +121,15 @@
     document.getElementById('signin-google').addEventListener('click', signInWith(function () {
       return new GoogleAuthProvider();
     }));
-    document.getElementById('signin-github').addEventListener('click', signInWith(function () {
-      return new GithubAuthProvider();
-    }));
-    document.getElementById('signin-apple').addEventListener('click', signInWith(function () {
-      const provider = new OAuthProvider('apple.com');
-      provider.addScope('email');
-      provider.addScope('name');
-      return provider;
-    }));
 
     signOutBtn.addEventListener('click', function () {
       signOut(auth);
     });
 
     // --- Role resolution ---------------------------------------------------
-    // GM: signed-in email matches CONFIG.gmEmail (expected via Google).
+    // GM: signed-in email matches CONFIG.gmEmail.
     // Player: signed-in email exists in players/{email} whitelist collection.
-    // Viewer: everyone else, including unauthenticated and any signed-in
-    // user whose provider didn't share an email (GitHub/Apple can both
-    // withhold it depending on the user's privacy settings) — a known gap,
-    // see auth-pivot-context.md follow-ups. No email means no way to look
-    // the user up in the whitelist, so Viewer is the only safe fallback.
+    // Viewer: everyone else, including unauthenticated.
     let currentRole = 'viewer';
 
     function resolveRole(user) {
