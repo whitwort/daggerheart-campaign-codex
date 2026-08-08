@@ -510,15 +510,30 @@
             placeholderEl.style.display = 'none';
             containerEl.style.display = 'block';
 
+            // Match the container's aspect ratio to the image so fitBounds
+            // doesn't leave large empty margins on one axis. Cap height so
+            // very tall/wide maps don't blow out the viewport.
+            const aspect = img.naturalHeight / img.naturalWidth;
+            const availableWidth = containerEl.clientWidth;
+            const targetHeight = Math.min(
+              Math.max(availableWidth * aspect, 300),
+              window.innerHeight * 0.8
+            );
+            containerEl.style.height = targetHeight + 'px';
+
             const bounds = [[0, 0], [img.naturalHeight, img.naturalWidth]];
             const map = L.map('map-container', {
               crs: L.CRS.Simple,
-              minZoom: -3
+              minZoom: -3,
+              zoomSnap: 0.25,
+              zoomDelta: 0.5
             });
             L.imageOverlay(mapConfig.mapImage, bounds).addTo(map);
-            map.fitBounds(bounds);
 
-            setTimeout(function () { map.invalidateSize(); }, 0);
+            setTimeout(function () {
+              map.invalidateSize();
+              map.fitBounds(bounds);
+            }, 0);
           } catch (err) {
             placeholderEl.style.display = 'block';
             containerEl.style.display = 'none';
