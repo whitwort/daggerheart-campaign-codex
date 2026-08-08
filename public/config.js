@@ -25,7 +25,7 @@ window.APP_CONFIG = {
   // Path to the base map image, relative to public/. Drop the file in
   // public/maps/ and update this path, then redeploy (push to main) —
   // see README for the full "add your own map" steps.
-  mapImage: 'maps/genesis-map.png',
+  mapImage: 'maps/genesis-map.jpg',
 
   firebase: {
     apiKey: 'AIzaSyBbmp4gRn7fRIzFcK2nEgCy126Db0RhjB0',
