@@ -34,6 +34,12 @@ const CONFIG = {
     appId: '1:621018661606:web:3a4ac8abef07bae50bf127'
   },
 
+  // OAuth 2.0 Web Client ID (from Firebase console > Authentication > Sign-in
+  // method > Google > Web SDK configuration). Used for Google Identity
+  // Services sign-in — see index.html for why this bypasses Firebase's
+  // signInWithPopup/signInWithRedirect helpers.
+  oauthClientId: '621018661606-lcrboj1o8td4ifuj11d8cjlcv19cjqub.apps.googleusercontent.com',
+
   // GM identity — the one account allowed to write. Must match this value
   // in firestore.rules too (isGM() check) since rules can't read this file.
   gmEmail: 'whitwort@gmail.com'

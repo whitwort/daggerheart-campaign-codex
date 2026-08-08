@@ -22,12 +22,14 @@
     <span><small>v<?= appVersion ?> — <?= buildCommit ?></small></span>
     <div id="auth-area">
       <span id="role-badge">Viewer</span>
-      <button id="sign-in-btn">Sign in with Google</button>
+      <div id="google-signin-button"></div>
       <button id="sign-out-btn" style="display:none;">Sign out</button>
     </div>
   </header>
 
   <p style="font-size:0.75rem;color:#888;">Origin: <span id="origin-debug"></span></p>
+
+  <script src="https://accounts.google.com/gsi/client" async></script>
 
   <script type="module">
     // Must run BEFORE the codex/map partials are included below: module
@@ -35,7 +37,7 @@
     // window.firebaseApp / window.CODEX_CONFIG at top level on load.
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
-      getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged
+      getAuth, GoogleAuthProvider, signInWithCredential, signOut, onAuthStateChanged
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
     const firebaseConfig = <?!= JSON.stringify(config.firebase) ?>;
@@ -48,36 +50,54 @@
     document.getElementById('origin-debug').textContent = window.location.origin;
 
     const auth = getAuth(window.firebaseApp);
-    const provider = new GoogleAuthProvider();
+    const oauthClientId = <?!= JSON.stringify(config.oauthClientId) ?>;
 
-    const signInBtn = document.getElementById('sign-in-btn');
     const signOutBtn = document.getElementById('sign-out-btn');
     const roleBadge = document.getElementById('role-badge');
 
-    signInBtn.addEventListener('click', function () {
-      signInWithRedirect(auth, provider);
-    });
+    // Google Identity Services (GIS), not Firebase's signInWithPopup /
+    // signInWithRedirect: both of those rely on a cross-origin iframe/storage
+    // relay to Firebase's authDomain, which Safari (all of iOS, 16.1+) blocks
+    // by default when the app itself is already inside a third-party iframe
+    // (as Apps Script web apps always are). GIS hands us an ID token directly
+    // in-page; we then exchange it for a Firebase credential.
+    async function handleGoogleCredential(response) {
+      try {
+        const credential = GoogleAuthProvider.credential(response.credential);
+        await signInWithCredential(auth, credential);
+      } catch (err) {
+        alert('Sign-in failed: ' + err.message);
+      }
+    }
+    window.handleGoogleCredential = handleGoogleCredential;
+
+    function initGisWhenReady() {
+      if (window.google && window.google.accounts && window.google.accounts.id) {
+        window.google.accounts.id.initialize({
+          client_id: oauthClientId,
+          callback: handleGoogleCredential
+        });
+        window.google.accounts.id.renderButton(
+          document.getElementById('google-signin-button'),
+          { theme: 'outline', size: 'medium' }
+        );
+      } else {
+        setTimeout(initGisWhenReady, 100);
+      }
+    }
+    initGisWhenReady();
+
     signOutBtn.addEventListener('click', function () {
       signOut(auth);
     });
 
-    // Popup sign-in unreliable here: Apps Script serves the app inside a
-    // sandboxed googleusercontent.com iframe, and browser COOP policies
-    // (worse on Safari/iOS) often block the popup->opener postMessage
-    // handoff, so the popup completes but the app never hears about it.
-    // Redirect avoids that dependency. getRedirectResult catches the
-    // return trip; onAuthStateChanged is the source of truth either way.
-    getRedirectResult(auth).catch(function (err) {
-      alert('Sign-in redirect failed: ' + err.message);
-    });
-
     onAuthStateChanged(auth, function (user) {
       if (user) {
-        signInBtn.style.display = 'none';
+        document.getElementById('google-signin-button').style.display = 'none';
         signOutBtn.style.display = 'inline';
         roleBadge.textContent = user.email === window.CODEX_CONFIG.gmEmail ? 'GM' : user.email;
       } else {
-        signInBtn.style.display = 'inline';
+        document.getElementById('google-signin-button').style.display = 'inline-block';
         signOutBtn.style.display = 'none';
         roleBadge.textContent = 'Viewer';
       }
