@@ -37,6 +37,29 @@
     #codex-view-badge.player { background: #c8e6c9; }
     #codex-tags span { display: inline-block; background: #eee; border-radius: 3px; padding: 0.1rem 0.4rem; font-size: 0.75rem; margin-right: 0.25rem; }
     #codex-empty { color: #888; }
+
+    #codex-new-btn { display: none; margin-bottom: 0.75rem; padding: 0.4rem 0.8rem; cursor: pointer; }
+    #codex-detail-actions { display: none; gap: 0.5rem; margin-top: 1rem; }
+    #codex-detail-actions button { padding: 0.3rem 0.7rem; cursor: pointer; }
+
+    #entry-form-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+      align-items: center; justify-content: center; z-index: 100;
+    }
+    #entry-form-overlay.open { display: flex; }
+    #entry-form {
+      background: #fff; border-radius: 4px; padding: 1.25rem 1.5rem;
+      width: 90%; max-width: 520px; max-height: 85vh; overflow-y: auto;
+    }
+    #entry-form h3 { margin-top: 0; }
+    #entry-form label { display: block; margin-top: 0.75rem; font-size: 0.85rem; font-weight: bold; }
+    #entry-form input[type="text"], #entry-form textarea, #entry-form select {
+      width: 100%; box-sizing: border-box; padding: 0.4rem; font-size: 0.9rem; margin-top: 0.2rem;
+    }
+    #entry-form textarea { min-height: 80px; resize: vertical; }
+    #entry-form-actions { margin-top: 1.25rem; display: flex; gap: 0.5rem; justify-content: flex-end; }
+    #entry-form-actions button { padding: 0.4rem 0.9rem; cursor: pointer; }
+    #entry-form-error { color: #b00020; font-size: 0.85rem; margin-top: 0.5rem; display: none; }
   </style>
 </head>
 <body>
@@ -60,6 +83,7 @@
   <div id="codex-panel" class="tab-panel active">
     <div id="codex-tab">
       <div id="codex-list-pane">
+        <button id="codex-new-btn">+ New entry</button>
         <div id="codex-filters">
           <select id="codex-category-filter">
             <option value="">All categories</option>
@@ -77,6 +101,33 @@
     <p id="map-tab-placeholder">Map tab — coming in Phase 3.</p>
   </div>
 
+  <div id="entry-form-overlay">
+    <div id="entry-form">
+      <h3 id="entry-form-title">New Entry</h3>
+      <label for="entry-form-name">Name</label>
+      <input type="text" id="entry-form-name">
+
+      <label for="entry-form-category">Category</label>
+      <select id="entry-form-category"></select>
+
+      <label for="entry-form-tags">Tags (comma-separated)</label>
+      <input type="text" id="entry-form-tags">
+
+      <label for="entry-form-content-gm">GM content</label>
+      <textarea id="entry-form-content-gm"></textarea>
+
+      <label for="entry-form-content-player">Player content</label>
+      <textarea id="entry-form-content-player"></textarea>
+
+      <p id="entry-form-error"></p>
+
+      <div id="entry-form-actions">
+        <button id="entry-form-cancel" type="button">Cancel</button>
+        <button id="entry-form-save" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
@@ -84,7 +135,7 @@
       signInWithPopup, signOut, onAuthStateChanged
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import {
-      getFirestore, collection, onSnapshot, doc, getDoc
+      getFirestore, collection, onSnapshot, doc, getDoc, addDoc
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     const CONFIG = window.APP_CONFIG;
@@ -153,6 +204,7 @@
       resolveRole(user).then(function (role) {
         currentRole = role;
         roleBadge.textContent = role;
+        newEntryBtn.style.display = (role === 'gm') ? 'inline-block' : 'none';
         renderDetailForSelected();
       });
     });
@@ -163,11 +215,18 @@
     const listEl = document.getElementById('codex-entries');
     const detailEl = document.getElementById('codex-detail');
 
+    const formCategoryEl = document.getElementById('entry-form-category');
+
     CONFIG.categories.forEach(function (cat) {
-      const opt = document.createElement('option');
-      opt.value = cat;
-      opt.textContent = cat;
-      categoryFilterEl.appendChild(opt);
+      const filterOpt = document.createElement('option');
+      filterOpt.value = cat;
+      filterOpt.textContent = cat;
+      categoryFilterEl.appendChild(filterOpt);
+
+      const formOpt = document.createElement('option');
+      formOpt.value = cat;
+      formOpt.textContent = cat;
+      formCategoryEl.appendChild(formOpt);
     });
 
     let allEntries = [];
@@ -290,6 +349,78 @@
 
     categoryFilterEl.addEventListener('change', renderList);
     searchEl.addEventListener('input', renderList);
+
+    // --- Entry authoring (GM only): create ---------------------------------
+    const newEntryBtn = document.getElementById('codex-new-btn');
+    const formOverlayEl = document.getElementById('entry-form-overlay');
+    const formTitleEl = document.getElementById('entry-form-title');
+    const formNameEl = document.getElementById('entry-form-name');
+    const formTagsEl = document.getElementById('entry-form-tags');
+    const formContentGmEl = document.getElementById('entry-form-content-gm');
+    const formContentPlayerEl = document.getElementById('entry-form-content-player');
+    const formErrorEl = document.getElementById('entry-form-error');
+    const formSaveBtn = document.getElementById('entry-form-save');
+    const formCancelBtn = document.getElementById('entry-form-cancel');
+
+    function openEntryForm() {
+      formTitleEl.textContent = 'New Entry';
+      formNameEl.value = '';
+      formCategoryEl.value = CONFIG.categories[0];
+      formTagsEl.value = '';
+      formContentGmEl.value = '';
+      formContentPlayerEl.value = '';
+      formErrorEl.style.display = 'none';
+      formErrorEl.textContent = '';
+      formOverlayEl.classList.add('open');
+      formNameEl.focus();
+    }
+
+    function closeEntryForm() {
+      formOverlayEl.classList.remove('open');
+    }
+
+    function showFormError(message) {
+      formErrorEl.textContent = message;
+      formErrorEl.style.display = 'block';
+    }
+
+    function saveNewEntry() {
+      const name = formNameEl.value.trim();
+      if (!name) {
+        showFormError('Name is required.');
+        return;
+      }
+
+      const tags = formTagsEl.value
+        .split(',')
+        .map(function (t) { return t.trim(); })
+        .filter(function (t) { return t.length > 0; });
+
+      const newEntry = {
+        type: 'codex',
+        name: name,
+        category: formCategoryEl.value,
+        tags: tags,
+        content_gm: formContentGmEl.value,
+        content_player: formContentPlayerEl.value
+      };
+
+      formSaveBtn.disabled = true;
+      addDoc(collection(db, 'entries'), newEntry).then(function () {
+        formSaveBtn.disabled = false;
+        closeEntryForm();
+      }).catch(function (err) {
+        formSaveBtn.disabled = false;
+        showFormError('Save failed: ' + err.message);
+      });
+    }
+
+    newEntryBtn.addEventListener('click', openEntryForm);
+    formCancelBtn.addEventListener('click', closeEntryForm);
+    formSaveBtn.addEventListener('click', saveNewEntry);
+    formOverlayEl.addEventListener('click', function (e) {
+      if (e.target === formOverlayEl) closeEntryForm();
+    });
   </script>
 
   <script>
