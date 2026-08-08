@@ -552,23 +552,29 @@
             placeholderEl.style.display = 'none';
             containerEl.style.display = 'block';
 
-            // Match the container's aspect ratio to the image so fitBounds
-            // doesn't leave large empty margins on one axis. Cap height so
-            // very tall/wide maps don't blow out the viewport.
+            // Size the container to exactly match the image's aspect ratio
+            // (constrained by whichever of width/max-height binds first),
+            // so fitBounds has no mismatched axis to leave a margin on.
             const aspect = img.naturalHeight / img.naturalWidth;
             const availableWidth = containerEl.clientWidth;
-            const targetHeight = Math.min(
-              Math.max(availableWidth * aspect, 300),
-              window.innerHeight * 0.8
-            );
+            const maxHeight = window.innerHeight * 0.8;
+
+            let targetWidth = availableWidth;
+            let targetHeight = targetWidth * aspect;
+            if (targetHeight > maxHeight) {
+              targetHeight = maxHeight;
+              targetWidth = targetHeight / aspect;
+            }
+            containerEl.style.width = targetWidth + 'px';
             containerEl.style.height = targetHeight + 'px';
+            containerEl.style.margin = '1rem auto 0';
 
             mapImgHeight = img.naturalHeight;
             const bounds = [[0, 0], [img.naturalHeight, img.naturalWidth]];
             const map = L.map('map-container', {
               crs: L.CRS.Simple,
               minZoom: -3,
-              zoomSnap: 0.25,
+              zoomSnap: 0,
               zoomDelta: 0.5,
               maxBoundsViscosity: 1.0
             });
@@ -576,24 +582,6 @@
             leafletMap = map;
 
             setTimeout(function () {
-              map.invalidateSize();
-              map.fitBounds(bounds);
-
-              // fitBounds can under-fit slightly (zoom snaps to the
-              // nearest zoomSnap increment), leaving a grey margin on one
-              // axis. Trim the container to the image's actual on-screen
-              // size at the fitted zoom so the edges match exactly, then
-              // lock panning/zoom-out to the image itself so grey never
-              // becomes visible by dragging past an edge either.
-              const llBounds = L.latLngBounds(bounds);
-              const nw = map.latLngToContainerPoint(llBounds.getNorthWest());
-              const se = map.latLngToContainerPoint(llBounds.getSouthEast());
-              const fittedWidth = Math.round(Math.abs(se.x - nw.x));
-              const fittedHeight = Math.round(Math.abs(se.y - nw.y));
-              containerEl.style.width = fittedWidth + 'px';
-              containerEl.style.height = fittedHeight + 'px';
-              containerEl.style.margin = '1rem auto 0';
-
               map.invalidateSize();
               map.fitBounds(bounds);
               map.setMinZoom(map.getZoom());
