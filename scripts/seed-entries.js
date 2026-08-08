@@ -13,7 +13,9 @@
 // Safe to re-run: uses entry.id as the doc ID, so re-running overwrites
 // the same docs rather than duplicating them.
 
-const admin = require('firebase-admin');
+const admin = require('firebase-admin/app');
+const { initializeApp, cert } = admin;
+const { getFirestore } = require('firebase-admin/firestore');
 const path = require('path');
 const fs = require('fs');
 
@@ -25,11 +27,11 @@ if (!fs.existsSync(serviceAccountPath)) {
 
 const serviceAccount = require(serviceAccountPath);
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
+initializeApp({
+  credential: cert(serviceAccount)
 });
 
-const db = admin.firestore();
+const db = getFirestore();
 
 const seedPath = path.join(__dirname, '..', 'data', 'seed-entries.json');
 const entries = JSON.parse(fs.readFileSync(seedPath, 'utf8'));
