@@ -29,6 +29,13 @@ service cloud.firestore {
       allow write: if isGM();
     }
 
+    // Map pins: {entryId, x, y} linking a point on the base map image to a
+    // Codex entry. Same open-read/GM-write model as entries.
+    match /pins/{pinId} {
+      allow read: if true;
+      allow write: if isGM();
+    }
+
     // Default deny for anything not explicitly matched above.
     match /{document=**} {
       allow read, write: if false;
