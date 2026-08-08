@@ -467,9 +467,8 @@
     formOverlayEl.addEventListener('click', function (e) {
       if (e.target === formOverlayEl) closeEntryForm();
     });
-  </script>
 
-  <script>
+    // --- Map tab -------------------------------------------------------
     document.querySelectorAll('nav#tabs button').forEach(function (btn) {
       btn.addEventListener('click', function () {
         document.querySelectorAll('nav#tabs button').forEach(function (b) { b.classList.remove('active'); });
@@ -484,6 +483,50 @@
     });
 
     let mapInitialized = false;
+    let leafletMap = null;
+    let mapImgHeight = 0;
+    let pinLayer = null;
+    let allPins = [];
+
+    function switchToCodexEntry(entryId) {
+      selectedId = entryId;
+      renderList();
+      renderDetailForSelected();
+
+      document.querySelectorAll('nav#tabs button').forEach(function (b) { b.classList.remove('active'); });
+      document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
+      document.getElementById('tab-btn-codex').classList.add('active');
+      document.getElementById('codex-panel').classList.add('active');
+    }
+
+    function renderPins() {
+      if (!leafletMap) return;
+      if (!pinLayer) {
+        pinLayer = L.layerGroup().addTo(leafletMap);
+      }
+      pinLayer.clearLayers();
+
+      allPins.forEach(function (pin) {
+        const entry = allEntries.find(function (e) { return e.id === pin.entryId; });
+        const lat = mapImgHeight - pin.y;
+        const marker = L.marker([lat, pin.x]);
+        marker.bindTooltip(entry ? entry.name : '(unlinked pin)');
+        marker.on('click', function () {
+          if (entry) {
+            switchToCodexEntry(entry.id);
+          }
+        });
+        marker.addTo(pinLayer);
+      });
+    }
+
+    onSnapshot(collection(db, 'pins'), function (snapshot) {
+      allPins = [];
+      snapshot.forEach(function (docSnap) {
+        allPins.push(Object.assign({ id: docSnap.id }, docSnap.data()));
+      });
+      renderPins();
+    });
 
     function initMapIfNeeded() {
       if (mapInitialized) return;
@@ -491,7 +534,6 @@
 
       const placeholderEl = document.getElementById('map-tab-placeholder');
       const containerEl = document.getElementById('map-container');
-      const mapConfig = window.APP_CONFIG;
 
       try {
         if (typeof L === 'undefined') {
@@ -499,7 +541,7 @@
           return;
         }
 
-        if (!mapConfig.mapImage) {
+        if (!CONFIG.mapImage) {
           placeholderEl.textContent = 'No map image configured yet.';
           return;
         }
@@ -521,6 +563,7 @@
             );
             containerEl.style.height = targetHeight + 'px';
 
+            mapImgHeight = img.naturalHeight;
             const bounds = [[0, 0], [img.naturalHeight, img.naturalWidth]];
             const map = L.map('map-container', {
               crs: L.CRS.Simple,
@@ -529,7 +572,8 @@
               zoomDelta: 0.5,
               maxBoundsViscosity: 1.0
             });
-            L.imageOverlay(mapConfig.mapImage, bounds).addTo(map);
+            L.imageOverlay(CONFIG.mapImage, bounds).addTo(map);
+            leafletMap = map;
 
             setTimeout(function () {
               map.invalidateSize();
@@ -554,6 +598,8 @@
               map.fitBounds(bounds);
               map.setMinZoom(map.getZoom());
               map.setMaxBounds(bounds);
+
+              renderPins();
             }, 0);
           } catch (err) {
             placeholderEl.style.display = 'block';
@@ -562,13 +608,15 @@
           }
         };
         img.onerror = function () {
-          placeholderEl.textContent = 'Map image failed to load (' + mapConfig.mapImage + ').';
+          placeholderEl.textContent = 'Map image failed to load (' + CONFIG.mapImage + ').';
         };
-        img.src = mapConfig.mapImage;
+        img.src = CONFIG.mapImage;
       } catch (err) {
         placeholderEl.textContent = 'Map init error: ' + err.message;
       }
     }
-  </script>  <footer id="build-version">build __COMMIT_HASH__</footer>
+  </script>
+
+  <footer id="build-version">build __COMMIT_HASH__</footer>
 </body>
 </html>
