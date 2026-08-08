@@ -60,6 +60,25 @@
     #codex-tags span { display: inline-block; background: #eee; border-radius: 3px; padding: 0.1rem 0.4rem; font-size: 0.75rem; margin-right: 0.25rem; }
     #codex-empty { color: #888; }
 
+    #codex-related { margin-top: 0.75rem; }
+    #codex-related h4 { margin: 0 0 0.35rem 0; font-size: 0.8rem; color: #666; }
+    #codex-related-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .related-chip {
+      display: inline-block; background: #e0e8ff; border-radius: 3px;
+      padding: 0.25rem 0.6rem; font-size: 0.85rem; cursor: pointer; border: none;
+    }
+    .related-chip:hover { background: #c8d4ff; }
+
+    #entry-form-related-list { list-style: none; padding: 0; margin: 0.3rem 0 0 0; }
+    #entry-form-related-list li {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.25rem 0.5rem; background: #f5f5f5; border-radius: 3px; margin-bottom: 0.25rem; font-size: 0.85rem;
+    }
+    #entry-form-related-list button { padding: 0.1rem 0.5rem; cursor: pointer; font-size: 0.8rem; }
+    #entry-form-related-add { display: flex; gap: 0.4rem; margin-top: 0.3rem; }
+    #entry-form-related-add select { flex: 1; margin-top: 0; }
+    #entry-form-related-add button { padding: 0.35rem 0.7rem; cursor: pointer; }
+
     #codex-new-btn { display: none; margin-bottom: 0.75rem; padding: 0.4rem 0.8rem; cursor: pointer; }
     #codex-detail-actions { display: none; gap: 0.5rem; margin-top: 1rem; }
     #codex-detail-actions button { padding: 0.3rem 0.7rem; cursor: pointer; }
@@ -147,6 +166,13 @@
 
       <label for="entry-form-content-player">Player content</label>
       <textarea id="entry-form-content-player"></textarea>
+
+      <label>Related entries</label>
+      <ul id="entry-form-related-list"></ul>
+      <div id="entry-form-related-add">
+        <select id="entry-form-related-select"></select>
+        <button id="entry-form-related-add-btn" type="button">Add</button>
+      </div>
 
       <p id="entry-form-error"></p>
 
@@ -393,6 +419,46 @@
         detailEl.appendChild(tagsDiv);
       }
 
+      // Related entries: only show links to targets visible in the current
+      // effective view (GM sees all; player/viewer only sees targets that
+      // themselves have player-visible content). Dangling IDs (deleted
+      // target entry) are silently skipped.
+      const relatedIds = entry.relatedIds || [];
+      if (relatedIds.length) {
+        const visibleRelated = relatedIds
+          .map(function (id) { return allEntries.find(function (e) { return e.id === id; }); })
+          .filter(function (target) {
+            if (!target) return false;
+            if (showGmContent) return true;
+            return !!(target.content_player && target.content_player.trim());
+          });
+
+        if (visibleRelated.length) {
+          const relatedDiv = document.createElement('div');
+          relatedDiv.id = 'codex-related';
+          const heading = document.createElement('h4');
+          heading.textContent = 'Related';
+          relatedDiv.appendChild(heading);
+
+          const chipsDiv = document.createElement('div');
+          chipsDiv.id = 'codex-related-chips';
+          visibleRelated.forEach(function (target) {
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'related-chip';
+            chip.textContent = target.name;
+            chip.addEventListener('click', function () {
+              selectedId = target.id;
+              renderList();
+              renderDetailForSelected();
+            });
+            chipsDiv.appendChild(chip);
+          });
+          relatedDiv.appendChild(chipsDiv);
+          detailEl.appendChild(relatedDiv);
+        }
+      }
+
       if (currentRole === 'gm') {
         const editBtn = document.createElement('button');
         editBtn.textContent = 'Edit entry';
@@ -424,11 +490,64 @@
     const formTagsEl = document.getElementById('entry-form-tags');
     const formContentGmEl = document.getElementById('entry-form-content-gm');
     const formContentPlayerEl = document.getElementById('entry-form-content-player');
+    const formRelatedListEl = document.getElementById('entry-form-related-list');
+    const formRelatedSelectEl = document.getElementById('entry-form-related-select');
+    const formRelatedAddBtn = document.getElementById('entry-form-related-add-btn');
     const formErrorEl = document.getElementById('entry-form-error');
     const formSaveBtn = document.getElementById('entry-form-save');
     const formCancelBtn = document.getElementById('entry-form-cancel');
 
     let editingEntryId = null;
+    let formRelatedIds = [];
+
+    function renderRelatedFormList() {
+      formRelatedListEl.innerHTML = '';
+      formRelatedIds.forEach(function (id) {
+        const target = allEntries.find(function (e) { return e.id === id; });
+        const li = document.createElement('li');
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = target ? target.name : '(deleted entry)';
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.textContent = 'Remove';
+        removeBtn.addEventListener('click', function () {
+          formRelatedIds = formRelatedIds.filter(function (rid) { return rid !== id; });
+          renderRelatedFormList();
+          populateRelatedSelect();
+        });
+        li.appendChild(nameSpan);
+        li.appendChild(removeBtn);
+        formRelatedListEl.appendChild(li);
+      });
+    }
+
+    function populateRelatedSelect() {
+      formRelatedSelectEl.innerHTML = '';
+      const available = allEntries
+        .filter(function (e) { return e.id !== editingEntryId && formRelatedIds.indexOf(e.id) === -1; })
+        .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+      if (available.length === 0) {
+        const opt = document.createElement('option');
+        opt.textContent = '(no more entries to link)';
+        opt.disabled = true;
+        formRelatedSelectEl.appendChild(opt);
+        return;
+      }
+      available.forEach(function (e) {
+        const opt = document.createElement('option');
+        opt.value = e.id;
+        opt.textContent = e.name;
+        formRelatedSelectEl.appendChild(opt);
+      });
+    }
+
+    formRelatedAddBtn.addEventListener('click', function () {
+      const id = formRelatedSelectEl.value;
+      if (!id || formRelatedIds.indexOf(id) !== -1) return;
+      formRelatedIds.push(id);
+      renderRelatedFormList();
+      populateRelatedSelect();
+    });
 
     function openEntryForm(entry) {
       editingEntryId = entry ? entry.id : null;
@@ -438,6 +557,9 @@
       formTagsEl.value = entry && entry.tags ? entry.tags.join(', ') : '';
       formContentGmEl.value = entry ? entry.content_gm || '' : '';
       formContentPlayerEl.value = entry ? entry.content_player || '' : '';
+      formRelatedIds = entry && entry.relatedIds ? entry.relatedIds.slice() : [];
+      renderRelatedFormList();
+      populateRelatedSelect();
       formErrorEl.style.display = 'none';
       formErrorEl.textContent = '';
       formOverlayEl.classList.add('open');
@@ -471,7 +593,8 @@
         category: formCategoryEl.value,
         tags: tags,
         content_gm: formContentGmEl.value,
-        content_player: formContentPlayerEl.value
+        content_player: formContentPlayerEl.value,
+        relatedIds: formRelatedIds.slice()
       };
 
       formSaveBtn.disabled = true;
