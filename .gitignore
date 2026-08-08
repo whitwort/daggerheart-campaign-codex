@@ -4,6 +4,7 @@
 
 # Firebase service account key - contains private key, must never be committed
 scripts/service-account.json
+scripts/*
 
 # Node
 node_modules/
