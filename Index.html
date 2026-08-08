@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body { font-family: sans-serif; padding: 2rem; }
+    #status { font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1><?= config.campaignName ?></h1>
+  <p id="status">Connecting...</p>
+  <p><small>v<?= appVersion ?> — <?= buildCommit ?></small></p>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    const firebaseConfig = <?!= JSON.stringify(config.firebase) ?>;
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    const statusEl = document.getElementById('status');
+
+    // Phase 0 smoke test: read a known doc, no auth required (open read).
+    getDoc(doc(db, '_health', 'check'))
+      .then((snap) => {
+        statusEl.textContent = snap.exists()
+          ? 'Firestore read OK: ' + JSON.stringify(snap.data())
+          : 'Firestore connected, but _health/check doc not found yet.';
+      })
+      .catch((err) => {
+        statusEl.textContent = 'Firestore read FAILED: ' + err.message;
+      });
+  </script>
+</body>
+</html>

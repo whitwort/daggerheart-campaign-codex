@@ -1,0 +1,37 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isGM() {
+      return request.auth != null
+        && request.auth.token.email == 'whitwort@gmail.com'; // keep in sync with Config.gs gmEmail
+    }
+
+    // Phase 0 smoke-test doc only.
+    match /_health/{docId} {
+      allow read: if true;
+      allow write: if isGM();
+    }
+
+    // Entries: everyone can read (viewer/player/GM alike — no field-level
+    // hiding per design decision; content_gm vs content_player is a client
+    // render choice, not a security boundary). Only GM can write.
+    match /entries/{entryId} {
+      allow read: if true;
+      allow write: if isGM();
+    }
+
+    // GM's player whitelist — used to resolve authenticated-but-unlisted
+    // users to Viewer vs. authenticated-and-listed users to Player.
+    match /players/{email} {
+      allow read: if true;
+      allow write: if isGM();
+    }
+
+    // Default deny for anything not explicitly matched above.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
