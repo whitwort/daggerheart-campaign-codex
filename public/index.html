@@ -135,7 +135,7 @@
       signInWithPopup, signOut, onAuthStateChanged
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import {
-      getFirestore, collection, onSnapshot, doc, getDoc, addDoc
+      getFirestore, collection, onSnapshot, doc, getDoc, addDoc, updateDoc
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     const CONFIG = window.APP_CONFIG;
@@ -345,6 +345,16 @@
         });
         detailEl.appendChild(tagsDiv);
       }
+
+      if (currentRole === 'gm') {
+        const editBtn = document.createElement('button');
+        editBtn.textContent = 'Edit entry';
+        editBtn.style.marginTop = '1rem';
+        editBtn.addEventListener('click', function () {
+          openEntryForm(entry);
+        });
+        detailEl.appendChild(editBtn);
+      }
     }
 
     categoryFilterEl.addEventListener('change', renderList);
@@ -362,13 +372,16 @@
     const formSaveBtn = document.getElementById('entry-form-save');
     const formCancelBtn = document.getElementById('entry-form-cancel');
 
-    function openEntryForm() {
-      formTitleEl.textContent = 'New Entry';
-      formNameEl.value = '';
-      formCategoryEl.value = CONFIG.categories[0];
-      formTagsEl.value = '';
-      formContentGmEl.value = '';
-      formContentPlayerEl.value = '';
+    let editingEntryId = null;
+
+    function openEntryForm(entry) {
+      editingEntryId = entry ? entry.id : null;
+      formTitleEl.textContent = entry ? 'Edit Entry' : 'New Entry';
+      formNameEl.value = entry ? entry.name || '' : '';
+      formCategoryEl.value = entry ? (entry.category || CONFIG.categories[0]) : CONFIG.categories[0];
+      formTagsEl.value = entry && entry.tags ? entry.tags.join(', ') : '';
+      formContentGmEl.value = entry ? entry.content_gm || '' : '';
+      formContentPlayerEl.value = entry ? entry.content_player || '' : '';
       formErrorEl.style.display = 'none';
       formErrorEl.textContent = '';
       formOverlayEl.classList.add('open');
@@ -384,7 +397,7 @@
       formErrorEl.style.display = 'block';
     }
 
-    function saveNewEntry() {
+    function saveEntry() {
       const name = formNameEl.value.trim();
       if (!name) {
         showFormError('Name is required.');
@@ -396,7 +409,7 @@
         .map(function (t) { return t.trim(); })
         .filter(function (t) { return t.length > 0; });
 
-      const newEntry = {
+      const entryData = {
         type: 'codex',
         name: name,
         category: formCategoryEl.value,
@@ -406,7 +419,11 @@
       };
 
       formSaveBtn.disabled = true;
-      addDoc(collection(db, 'entries'), newEntry).then(function () {
+      const savePromise = editingEntryId
+        ? updateDoc(doc(db, 'entries', editingEntryId), entryData)
+        : addDoc(collection(db, 'entries'), entryData);
+
+      savePromise.then(function () {
         formSaveBtn.disabled = false;
         closeEntryForm();
       }).catch(function (err) {
@@ -415,9 +432,9 @@
       });
     }
 
-    newEntryBtn.addEventListener('click', openEntryForm);
+    newEntryBtn.addEventListener('click', function () { openEntryForm(); });
     formCancelBtn.addEventListener('click', closeEntryForm);
-    formSaveBtn.addEventListener('click', saveNewEntry);
+    formSaveBtn.addEventListener('click', saveEntry);
     formOverlayEl.addEventListener('click', function (e) {
       if (e.target === formOverlayEl) closeEntryForm();
     });
