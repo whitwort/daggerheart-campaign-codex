@@ -526,13 +526,34 @@
               crs: L.CRS.Simple,
               minZoom: -3,
               zoomSnap: 0.25,
-              zoomDelta: 0.5
+              zoomDelta: 0.5,
+              maxBoundsViscosity: 1.0
             });
             L.imageOverlay(mapConfig.mapImage, bounds).addTo(map);
 
             setTimeout(function () {
               map.invalidateSize();
               map.fitBounds(bounds);
+
+              // fitBounds can under-fit slightly (zoom snaps to the
+              // nearest zoomSnap increment), leaving a grey margin on one
+              // axis. Trim the container to the image's actual on-screen
+              // size at the fitted zoom so the edges match exactly, then
+              // lock panning/zoom-out to the image itself so grey never
+              // becomes visible by dragging past an edge either.
+              const llBounds = L.latLngBounds(bounds);
+              const nw = map.latLngToContainerPoint(llBounds.getNorthWest());
+              const se = map.latLngToContainerPoint(llBounds.getSouthEast());
+              const fittedWidth = Math.round(Math.abs(se.x - nw.x));
+              const fittedHeight = Math.round(Math.abs(se.y - nw.y));
+              containerEl.style.width = fittedWidth + 'px';
+              containerEl.style.height = fittedHeight + 'px';
+              containerEl.style.margin = '1rem auto 0';
+
+              map.invalidateSize();
+              map.fitBounds(bounds);
+              map.setMinZoom(map.getZoom());
+              map.setMaxBounds(bounds);
             }, 0);
           } catch (err) {
             placeholderEl.style.display = 'block';
