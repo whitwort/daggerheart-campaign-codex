@@ -22,6 +22,11 @@ window.APP_CONFIG = {
 
   categories: ['NPC', 'Faction', 'Location', 'Item', 'History', 'Organization', 'Event'],
 
+  // Path to the base map image, relative to public/. Drop the file in
+  // public/maps/ and update this path, then redeploy (push to main) —
+  // see README for the full "add your own map" steps.
+  mapImage: 'maps/baker-map.jpg',
+
   firebase: {
     apiKey: 'AIzaSyBbmp4gRn7fRIzFcK2nEgCy126Db0RhjB0',
     authDomain: 'daggerheart-campaign-codex.firebaseapp.com',
