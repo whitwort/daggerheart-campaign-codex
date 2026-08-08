@@ -44,7 +44,7 @@ jobs:
       - name: Write service account key
         run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}' > /tmp/firebase-key.json
 
-      - name: Deploy to Firebase Hosting
+      - name: Deploy to Firebase Hosting + Storage rules
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-key.json
-        run: firebase deploy --only hosting --project daggerheart-campaign-codex --non-interactive
+        run: firebase deploy --only hosting,storage --project daggerheart-campaign-codex --non-interactive
