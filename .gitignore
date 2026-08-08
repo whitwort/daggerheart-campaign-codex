@@ -1,0 +1,11 @@
+# clasp credentials - contains OAuth tokens, must never be committed
+.clasprc.json
+*.clasprc.json
+
+# Node
+node_modules/
+
+# OS/editor cruft
+.DS_Store
+*.swp
+*~
