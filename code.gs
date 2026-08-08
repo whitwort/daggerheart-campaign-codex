@@ -1,23 +1,13 @@
-// Daggerheart Campaign Codex - v0.1
+// Daggerheart Campaign Codex — admin/import utilities
 // __COMMIT_HASH__
+//
+// The live app UI is served by Firebase Hosting (see public/index.html),
+// not this project — see auth-pivot-context.md for why (Option B: Hosting
+// gives us an authDomain-matching origin, which client-side Firebase Auth
+// needs for popup/redirect sign-in, especially for non-Google providers).
+//
+// This Apps Script project is kept around for future admin/bulk-import
+// tasks per the original Phase 0 plan (e.g. Phase 6 migration from the
+// old Doc/Slides content) — nothing implemented here yet.
 
-const APP_VERSION = '0.1';
 const BUILD_COMMIT = '__COMMIT_HASH__';
-
-function doGet(e) {
-  const template = HtmlService.createTemplateFromFile('index');
-  template.config = CONFIG;
-  template.appVersion = APP_VERSION;
-  template.buildCommit = BUILD_COMMIT;
-
-  return template.evaluate()
-    .setTitle(CONFIG.campaignName)
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-}
-
-// Server-side include, for splitting index.html into partials (Apps Script
-// HtmlService has no native import/bundler — this is the standard pattern).
-function include(filename) {
-  return HtmlService.createHtmlOutputFromFile(filename).getContent();
-}

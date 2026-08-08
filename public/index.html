@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Aether's Children</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="config.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 1.5rem 2rem; }
+    header { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+    header h1 { margin: 0; font-size: 1.4rem; }
+    #auth-area { margin-left: auto; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem; }
+    #role-badge { padding: 0.15rem 0.5rem; border-radius: 3px; background: #eee; }
+    #signin-buttons button { padding: 0.3rem 0.6rem; font-size: 0.85rem; cursor: pointer; }
+    nav#tabs { margin-top: 1rem; border-bottom: 1px solid #ccc; }
+    nav#tabs button { background: none; border: none; padding: 0.5rem 1rem; cursor: pointer; font-size: 1rem; }
+    nav#tabs button.active { border-bottom: 3px solid #444; font-weight: bold; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    #map-tab-placeholder { color: #888; margin-top: 1rem; }
+
+    #codex-tab { display: flex; gap: 1.5rem; margin-top: 1rem; }
+    #codex-list-pane { flex: 0 0 320px; }
+    #codex-detail-pane { flex: 1; min-width: 0; }
+    #codex-filters { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+    #codex-filters select, #codex-filters input { padding: 0.35rem; font-size: 0.9rem; }
+    #codex-search { flex: 1; }
+    #codex-entries { list-style: none; padding: 0; margin: 0; max-height: 70vh; overflow-y: auto; border: 1px solid #ccc; }
+    #codex-entries li { padding: 0.5rem 0.75rem; border-bottom: 1px solid #eee; cursor: pointer; }
+    #codex-entries li:hover { background: #f5f5f5; }
+    #codex-entries li.active { background: #e0e8ff; }
+    #codex-entries .entry-category { font-size: 0.75rem; color: #666; }
+    #codex-detail { border: 1px solid #ccc; padding: 1rem; min-height: 200px; }
+    #codex-detail h2 { margin-top: 0; }
+    #codex-view-badge { display: inline-block; padding: 0.15rem 0.5rem; font-size: 0.75rem; border-radius: 3px; margin-left: 0.5rem; vertical-align: middle; }
+    #codex-view-badge.gm { background: #ffe0b0; }
+    #codex-view-badge.player { background: #c8e6c9; }
+    #codex-tags span { display: inline-block; background: #eee; border-radius: 3px; padding: 0.1rem 0.4rem; font-size: 0.75rem; margin-right: 0.25rem; }
+    #codex-empty { color: #888; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 id="campaign-title"></h1>
+    <div id="auth-area">
+      <span id="role-badge">Viewer</span>
+      <span id="user-email"></span>
+      <div id="signin-buttons">
+        <button id="signin-google">Sign in with Google</button>
+        <button id="signin-github">GitHub</button>
+        <button id="signin-apple">Apple</button>
+      </div>
+      <button id="sign-out-btn" style="display:none;">Sign out</button>
+    </div>
+  </header>
+
+  <nav id="tabs">
+    <button id="tab-btn-codex" class="active" data-tab="codex-panel">Codex</button>
+    <button id="tab-btn-map" data-tab="map-panel">Map</button>
+  </nav>
+
+  <div id="codex-panel" class="tab-panel active">
+    <div id="codex-tab">
+      <div id="codex-list-pane">
+        <div id="codex-filters">
+          <select id="codex-category-filter">
+            <option value="">All categories</option>
+          </select>
+          <input id="codex-search" type="text" placeholder="Search name/tags...">
+        </div>
+        <ul id="codex-entries"></ul>
+      </div>
+      <div id="codex-detail-pane">
+        <div id="codex-detail"><p id="codex-empty">Select an entry.</p></div>
+      </div>
+    </div>
+  </div>
+  <div id="map-panel" class="tab-panel">
+    <p id="map-tab-placeholder">Map tab — coming in Phase 3.</p>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getAuth, GoogleAuthProvider, GithubAuthProvider, OAuthProvider,
+      signInWithPopup, signOut, onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import {
+      getFirestore, collection, onSnapshot, doc, getDoc
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const CONFIG = window.APP_CONFIG;
+    document.getElementById('campaign-title').textContent = CONFIG.campaignName;
+    document.getElementById('tab-btn-codex').textContent = CONFIG.tabs.codex;
+    document.getElementById('tab-btn-map').textContent = CONFIG.tabs.map;
+
+    const firebaseApp = initializeApp(CONFIG.firebase);
+    const auth = getAuth(firebaseApp);
+    const db = getFirestore(firebaseApp);
+
+    // --- Auth: signInWithPopup now works for all three providers, because
+    // this app is served from Firebase Hosting on daggerheart-campaign-codex
+    // .web.app / .firebaseapp.com — the same origin as authDomain, which is
+    // exactly the requirement that broke signInWithPopup/signInWithRedirect
+    // under the old Apps Script hosting (see auth-pivot-context.md for the
+    // Option A postmortem; this is Option B, the alternative it rejected
+    // until Apple/GitHub sign-in became a requirement).
+    const roleBadge = document.getElementById('role-badge');
+    const userEmailEl = document.getElementById('user-email');
+    const signInButtonsEl = document.getElementById('signin-buttons');
+    const signOutBtn = document.getElementById('sign-out-btn');
+
+    function signInWith(providerFactory) {
+      return function () {
+        signInWithPopup(auth, providerFactory()).catch(function (err) {
+          alert('Sign-in failed: ' + err.message);
+        });
+      };
+    }
+
+    document.getElementById('signin-google').addEventListener('click', signInWith(function () {
+      return new GoogleAuthProvider();
+    }));
+    document.getElementById('signin-github').addEventListener('click', signInWith(function () {
+      return new GithubAuthProvider();
+    }));
+    document.getElementById('signin-apple').addEventListener('click', signInWith(function () {
+      const provider = new OAuthProvider('apple.com');
+      provider.addScope('email');
+      provider.addScope('name');
+      return provider;
+    }));
+
+    signOutBtn.addEventListener('click', function () {
+      signOut(auth);
+    });
+
+    // --- Role resolution ---------------------------------------------------
+    // GM: signed-in email matches CONFIG.gmEmail (expected via Google).
+    // Player: signed-in email exists in players/{email} whitelist collection.
+    // Viewer: everyone else, including unauthenticated and any signed-in
+    // user whose provider didn't share an email (GitHub/Apple can both
+    // withhold it depending on the user's privacy settings) — a known gap,
+    // see auth-pivot-context.md follow-ups. No email means no way to look
+    // the user up in the whitelist, so Viewer is the only safe fallback.
+    let currentRole = 'viewer';
+
+    function resolveRole(user) {
+      if (!user || !user.email) return Promise.resolve('viewer');
+      if (user.email === CONFIG.gmEmail) return Promise.resolve('gm');
+      return getDoc(doc(db, 'players', user.email)).then(function (snap) {
+        return snap.exists() ? 'player' : 'viewer';
+      });
+    }
+
+    onAuthStateChanged(auth, function (user) {
+      if (user) {
+        signInButtonsEl.style.display = 'none';
+        signOutBtn.style.display = 'inline';
+        userEmailEl.textContent = user.email || '(no email shared)';
+      } else {
+        signInButtonsEl.style.display = 'flex';
+        signOutBtn.style.display = 'none';
+        userEmailEl.textContent = '';
+      }
+      resolveRole(user).then(function (role) {
+        currentRole = role;
+        roleBadge.textContent = role;
+        renderDetailForSelected();
+      });
+    });
+
+    // --- Codex tab: live entries read --------------------------------------
+    const categoryFilterEl = document.getElementById('codex-category-filter');
+    const searchEl = document.getElementById('codex-search');
+    const listEl = document.getElementById('codex-entries');
+    const detailEl = document.getElementById('codex-detail');
+
+    CONFIG.categories.forEach(function (cat) {
+      const opt = document.createElement('option');
+      opt.value = cat;
+      opt.textContent = cat;
+      categoryFilterEl.appendChild(opt);
+    });
+
+    let allEntries = [];
+    let selectedId = null;
+    let gmPreviewAsPlayer = false;
+
+    onSnapshot(collection(db, 'entries'), function (snapshot) {
+      allEntries = [];
+      snapshot.forEach(function (docSnap) {
+        const data = docSnap.data();
+        if (data.type === 'codex') {
+          allEntries.push(Object.assign({ id: docSnap.id }, data));
+        }
+      });
+      renderList();
+    }, function (err) {
+      listEl.innerHTML = '<li>Error loading entries: ' + err.message + '</li>';
+    });
+
+    function matchesFilters(entry) {
+      const cat = categoryFilterEl.value;
+      if (cat && entry.category !== cat) return false;
+
+      const q = searchEl.value.trim().toLowerCase();
+      if (!q) return true;
+      const nameMatch = (entry.name || '').toLowerCase().indexOf(q) !== -1;
+      const tagMatch = (entry.tags || []).some(function (t) {
+        return t.toLowerCase().indexOf(q) !== -1;
+      });
+      return nameMatch || tagMatch;
+    }
+
+    function renderList() {
+      const filtered = allEntries
+        .filter(matchesFilters)
+        .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+
+      listEl.innerHTML = '';
+      if (filtered.length === 0) {
+        const li = document.createElement('li');
+        li.textContent = 'No entries match.';
+        listEl.appendChild(li);
+        return;
+      }
+
+      filtered.forEach(function (entry) {
+        const li = document.createElement('li');
+        li.dataset.id = entry.id;
+        if (entry.id === selectedId) li.classList.add('active');
+
+        const nameDiv = document.createElement('div');
+        nameDiv.textContent = entry.name;
+        const catDiv = document.createElement('div');
+        catDiv.className = 'entry-category';
+        catDiv.textContent = entry.category || '';
+
+        li.appendChild(nameDiv);
+        li.appendChild(catDiv);
+        li.addEventListener('click', function () {
+          selectedId = entry.id;
+          renderList();
+          renderDetailForSelected();
+        });
+        listEl.appendChild(li);
+      });
+    }
+
+    function renderDetailForSelected() {
+      const entry = allEntries.find(function (e) { return e.id === selectedId; });
+      if (!entry) {
+        detailEl.innerHTML = '<p id="codex-empty">Select an entry.</p>';
+        return;
+      }
+
+      const effectiveRole = (currentRole === 'gm' && gmPreviewAsPlayer) ? 'player' : currentRole;
+      const showGmContent = effectiveRole === 'gm';
+      const bodyText = showGmContent ? entry.content_gm : entry.content_player;
+
+      detailEl.innerHTML = '';
+
+      const heading = document.createElement('h2');
+      heading.textContent = entry.name;
+
+      const badge = document.createElement('span');
+      badge.id = 'codex-view-badge';
+      badge.className = showGmContent ? 'gm' : 'player';
+      badge.textContent = showGmContent ? 'GM view' : 'Player view';
+      heading.appendChild(badge);
+      detailEl.appendChild(heading);
+
+      if (currentRole === 'gm') {
+        const toggleBtn = document.createElement('button');
+        toggleBtn.textContent = gmPreviewAsPlayer ? 'Show GM content' : 'Preview player view';
+        toggleBtn.addEventListener('click', function () {
+          gmPreviewAsPlayer = !gmPreviewAsPlayer;
+          renderDetailForSelected();
+        });
+        detailEl.appendChild(toggleBtn);
+      }
+
+      const catP = document.createElement('p');
+      catP.innerHTML = '<em>' + (entry.category || '') + '</em>';
+      detailEl.appendChild(catP);
+
+      const bodyP = document.createElement('p');
+      bodyP.textContent = bodyText || '(no content for this view)';
+      detailEl.appendChild(bodyP);
+
+      if (entry.tags && entry.tags.length) {
+        const tagsDiv = document.createElement('div');
+        tagsDiv.id = 'codex-tags';
+        entry.tags.forEach(function (t) {
+          const span = document.createElement('span');
+          span.textContent = t;
+          tagsDiv.appendChild(span);
+        });
+        detailEl.appendChild(tagsDiv);
+      }
+    }
+
+    categoryFilterEl.addEventListener('change', renderList);
+    searchEl.addEventListener('input', renderList);
+  </script>
+
+  <script>
+    document.querySelectorAll('nav#tabs button').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('nav#tabs button').forEach(function (b) { b.classList.remove('active'); });
+        document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab).classList.add('active');
+      });
+    });
+  </script>
+</body>
+</html>
