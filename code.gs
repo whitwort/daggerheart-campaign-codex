@@ -5,7 +5,7 @@ const APP_VERSION = '0.1';
 const BUILD_COMMIT = '__COMMIT_HASH__';
 
 function doGet(e) {
-  const template = HtmlService.createTemplateFromFile('Index');
+  const template = HtmlService.createTemplateFromFile('index');
   template.config = CONFIG;
   template.appVersion = APP_VERSION;
   template.buildCommit = BUILD_COMMIT;

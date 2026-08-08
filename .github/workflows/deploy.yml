@@ -21,7 +21,7 @@ jobs:
         run: echo '${{ secrets.CLASP_CREDENTIALS }}' | base64 -d > ~/.clasprc.json
 
       - name: Stamp build commit hash
-        run: sed -i "s/__COMMIT_HASH__/$(git rev-parse --short HEAD)/" Code.gs
+        run: sed -i "s/__COMMIT_HASH__/$(git rev-parse --short HEAD)/" code.gs
 
       - name: Push to Apps Script
         run: clasp push --force
