@@ -1,0 +1,31 @@
+name: Deploy to Apps Script
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  push-to-apps-script:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install clasp
+        run: npm install -g @google/clasp
+
+      - name: Restore clasp credentials
+        run: echo '${{ secrets.CLASP_CREDENTIALS }}' | base64 -d > ~/.clasprc.json
+
+      - name: Stamp build commit hash
+        run: sed -i "s/__COMMIT_HASH__/$(git rev-parse --short HEAD)/" Code.gs
+
+      - name: Push to Apps Script
+        run: clasp push --force
+
+      - name: Deploy new version
+        run: clasp deploy --description "Auto-deploy $(git rev-parse --short HEAD)"
+        
