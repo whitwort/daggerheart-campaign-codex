@@ -62,6 +62,7 @@
     #entry-form-actions { margin-top: 1.25rem; display: flex; gap: 0.5rem; justify-content: flex-end; }
     #entry-form-actions button { padding: 0.4rem 0.9rem; cursor: pointer; }
     #entry-form-error { color: #b00020; font-size: 0.85rem; margin-top: 0.5rem; display: none; }
+    #build-version { margin-top: 2rem; font-size: 0.7rem; color: #bbb; }
   </style>
 </head>
 <body>
@@ -491,33 +492,46 @@
       const placeholderEl = document.getElementById('map-tab-placeholder');
       const containerEl = document.getElementById('map-container');
 
-      if (!CONFIG.mapImage) {
-        placeholderEl.textContent = 'No map image configured yet.';
-        return;
+      try {
+        if (typeof L === 'undefined') {
+          placeholderEl.textContent = 'Map library (Leaflet) failed to load.';
+          return;
+        }
+
+        if (!CONFIG.mapImage) {
+          placeholderEl.textContent = 'No map image configured yet.';
+          return;
+        }
+
+        const img = new Image();
+        img.onload = function () {
+          try {
+            placeholderEl.style.display = 'none';
+            containerEl.style.display = 'block';
+
+            const bounds = [[0, 0], [img.naturalHeight, img.naturalWidth]];
+            const map = L.map('map-container', {
+              crs: L.CRS.Simple,
+              minZoom: -3
+            });
+            L.imageOverlay(CONFIG.mapImage, bounds).addTo(map);
+            map.fitBounds(bounds);
+
+            setTimeout(function () { map.invalidateSize(); }, 0);
+          } catch (err) {
+            placeholderEl.style.display = 'block';
+            containerEl.style.display = 'none';
+            placeholderEl.textContent = 'Map render error: ' + err.message;
+          }
+        };
+        img.onerror = function () {
+          placeholderEl.textContent = 'Map image failed to load (' + CONFIG.mapImage + ').';
+        };
+        img.src = CONFIG.mapImage;
+      } catch (err) {
+        placeholderEl.textContent = 'Map init error: ' + err.message;
       }
-
-      const img = new Image();
-      img.onload = function () {
-        placeholderEl.style.display = 'none';
-        containerEl.style.display = 'block';
-
-        const bounds = [[0, 0], [img.naturalHeight, img.naturalWidth]];
-        const map = L.map('map-container', {
-          crs: L.CRS.Simple,
-          minZoom: -3
-        });
-        L.imageOverlay(CONFIG.mapImage, bounds).addTo(map);
-        map.fitBounds(bounds);
-
-        // Container was hidden during Leaflet init sizing calc; force a
-        // resize pass now that it's visible and laid out.
-        setTimeout(function () { map.invalidateSize(); }, 0);
-      };
-      img.onerror = function () {
-        placeholderEl.textContent = 'Map image failed to load (' + CONFIG.mapImage + ').';
-      };
-      img.src = CONFIG.mapImage;
     }
-  </script>
+  </script>  <footer id="build-version">build __COMMIT_HASH__</footer>
 </body>
 </html>

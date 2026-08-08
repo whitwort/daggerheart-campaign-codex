@@ -41,6 +41,9 @@ jobs:
       - name: Install firebase-tools
         run: npm install -g firebase-tools
 
+      - name: Stamp build commit hash
+        run: sed -i "s/__COMMIT_HASH__/$(git rev-parse --short HEAD)/" public/index.html
+
       - name: Write service account key
         run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}' > /tmp/firebase-key.json
 
