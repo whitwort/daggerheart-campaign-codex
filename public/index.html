@@ -135,7 +135,7 @@
       signInWithPopup, signOut, onAuthStateChanged
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import {
-      getFirestore, collection, onSnapshot, doc, getDoc, addDoc, updateDoc
+      getFirestore, collection, onSnapshot, doc, getDoc, addDoc, updateDoc, deleteDoc
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     const CONFIG = window.APP_CONFIG;
@@ -354,6 +354,15 @@
           openEntryForm(entry);
         });
         detailEl.appendChild(editBtn);
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = 'Delete entry';
+        deleteBtn.style.marginTop = '1rem';
+        deleteBtn.style.marginLeft = '0.5rem';
+        deleteBtn.addEventListener('click', function () {
+          deleteEntry(entry);
+        });
+        detailEl.appendChild(deleteBtn);
       }
     }
 
@@ -429,6 +438,20 @@
       }).catch(function (err) {
         formSaveBtn.disabled = false;
         showFormError('Save failed: ' + err.message);
+      });
+    }
+
+    function deleteEntry(entry) {
+      const confirmed = window.confirm('Delete "' + entry.name + '"? This cannot be undone.');
+      if (!confirmed) return;
+
+      deleteDoc(doc(db, 'entries', entry.id)).then(function () {
+        if (selectedId === entry.id) {
+          selectedId = null;
+          renderDetailForSelected();
+        }
+      }).catch(function (err) {
+        window.alert('Delete failed: ' + err.message);
       });
     }
 
