@@ -2,6 +2,9 @@
 .clasprc.json
 *.clasprc.json
 
+# Firebase service account key - contains private key, must never be committed
+scripts/service-account.json
+
 # Node
 node_modules/
 
