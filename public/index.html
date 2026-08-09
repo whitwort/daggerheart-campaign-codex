@@ -24,6 +24,7 @@
     #map-gm-controls button { padding: 0.3rem 0.7rem; cursor: pointer; }
     #map-gm-controls button.active-mode { outline: 2px solid #4a6fdc; }
     #map-mode-hint { font-size: 0.85rem; color: #666; }
+    #map-back-btn { display: block; margin-top: 0.75rem; padding: 0.35rem 0.8rem; cursor: pointer; }
 
     #pin-form-overlay {
       display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
@@ -141,6 +142,7 @@
   </div>
   <div id="map-panel" class="tab-panel">
     <p id="map-tab-placeholder">Loading map…</p>
+    <button id="map-back-btn" style="display:none;">&larr; Back to parent map</button>
     <div id="map-gm-controls">
       <button id="map-add-pin-btn">+ Add pin</button>
       <button id="map-remove-pin-btn">Remove pin</button>
@@ -658,11 +660,31 @@
     let mapBootstrapAttempted = false;
     let mapMode = null; // null | 'add' | 'remove'
     let pendingPinCoords = null;
+    let mapNavStack = []; // stack of parent mapIds, for the "back to parent map" control
 
     const mapGmControlsEl = document.getElementById('map-gm-controls');
     const addPinBtn = document.getElementById('map-add-pin-btn');
     const removePinBtn = document.getElementById('map-remove-pin-btn');
     const modeHintEl = document.getElementById('map-mode-hint');
+    const mapBackBtn = document.getElementById('map-back-btn');
+
+    function updateBackButtonVisibility() {
+      mapBackBtn.style.display = mapNavStack.length ? 'block' : 'none';
+    }
+
+    function navigateToChildMap(mapId) {
+      mapNavStack.push(currentMapId);
+      currentMapId = mapId;
+      updateBackButtonVisibility();
+      loadMap(currentMapId);
+    }
+
+    mapBackBtn.addEventListener('click', function () {
+      if (!mapNavStack.length) return;
+      currentMapId = mapNavStack.pop();
+      updateBackButtonVisibility();
+      loadMap(currentMapId);
+    });
 
     const pinFormOverlayEl = document.getElementById('pin-form-overlay');
     const pinFormEntryEl = document.getElementById('pin-form-entry');
@@ -743,8 +765,14 @@
     });
 
     function removePin(pin) {
-      const entry = allEntries.find(function (e) { return e.id === pin.entryId; });
-      const label = entry ? entry.name : '(unlinked pin)';
+      let label;
+      if (pin.childMapId) {
+        const targetMap = allMaps.find(function (m) { return m.id === pin.childMapId; });
+        label = targetMap ? ('map link: ' + targetMap.name) : '(unlinked map pin)';
+      } else {
+        const entry = allEntries.find(function (e) { return e.id === pin.entryId; });
+        label = entry ? entry.name : '(unlinked pin)';
+      }
       const confirmed = window.confirm('Remove pin for "' + label + '"?');
       if (!confirmed) return;
 
@@ -777,8 +805,35 @@
       });
 
       pinsForCurrentMap.forEach(function (pin) {
-        const entry = allEntries.find(function (e) { return e.id === pin.entryId; });
         const lat = mapImgHeight - pin.y;
+
+        if (pin.childMapId) {
+          // Circle pin: links to a child map. Radius is in map units (this
+          // map's own pixel coordinate space), scaling visually with zoom —
+          // meant to be sized to roughly match the region it zooms into.
+          const targetMap = allMaps.find(function (m) { return m.id === pin.childMapId; });
+          const circle = L.circle([lat, pin.x], {
+            radius: pin.radius || 60,
+            color: '#8a4fd6',
+            weight: 2,
+            fillColor: '#8a4fd6',
+            fillOpacity: 0.2
+          });
+          circle.bindTooltip(targetMap ? ('\u2192 ' + targetMap.name) : '(unlinked map pin)');
+          circle.on('click', function () {
+            if (mapMode === 'remove' && currentRole === 'gm') {
+              removePin(pin);
+              return;
+            }
+            if (targetMap) {
+              navigateToChildMap(targetMap.id);
+            }
+          });
+          circle.addTo(pinLayer);
+          return;
+        }
+
+        const entry = allEntries.find(function (e) { return e.id === pin.entryId; });
         const marker = L.marker([lat, pin.x]);
         marker.bindTooltip(entry ? entry.name : '(unlinked pin)');
         marker.on('click', function () {
