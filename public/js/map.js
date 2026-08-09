@@ -17,9 +17,8 @@ const db = getFirestore(firebaseApp);
     const mapBackBtn = document.getElementById('map-back-btn');
     const mapImageUploadEl = document.getElementById('map-image-upload');
 
-    const MAP_IMAGE_MAX_DIMENSION = 4000; // px, before compression
-    const MAP_IMAGE_MAX_RAW_BYTES = 750 * 1024; // ~750KB raw ceiling (Firestore 1MiB doc cap / ~33% base64 overhead) — block, don't chunk
-
+    // Image size/cache constants live in images.js (their sole consumer)
+    // since the module split — see that file.
 
     function updateBackButtonVisibility() {
       mapBackBtn.style.display = state.mapNavStack.length ? 'block' : 'none';
@@ -413,9 +412,7 @@ const db = getFirestore(firebaseApp);
     // entry apart from a newer live one. First application of this
     // pattern, per the phase plan — needs to provably work here before
     // 7d's tiling (many docs per map) depends on the same mechanism.
-    const IMAGE_CACHE_DB_NAME = 'codexImageCache';
-    const IMAGE_CACHE_DB_VERSION = 1;
-    const IMAGE_CACHE_STORE = 'images';
+    // Cache constants + IndexedDB plumbing live in images.js.
 
 
     // Extracted so sign-out can also fully tear down the map view (not

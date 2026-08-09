@@ -9,6 +9,21 @@ const db = getFirestore(firebaseApp);
 const mapImageUploadInputEl = document.getElementById('map-image-upload-input');
 const mapImageUploadStatusEl = document.getElementById('map-image-upload-status');
 
+// Refactor-split fix (Aug 2026): these five constants were left behind as
+// module-scoped consts in map.js when the upload/cache code moved here
+// during the monolith split — module scope isn't shared, so every
+// reference below was a ReferenceError. Broke uploads outright
+// ("Processing error: ... is not defined") and made the 7c cache
+// silently no-op (the error rejected inside openImageCacheDb and was
+// swallowed by the cache's own best-effort catches). node --check can't
+// see cross-module reference errors; the eslint no-undef CI gate added
+// alongside this fix can.
+const MAP_IMAGE_MAX_DIMENSION = 4000; // px, before compression
+const MAP_IMAGE_MAX_RAW_BYTES = 750 * 1024; // ~750KB raw ceiling (Firestore 1MiB doc cap / ~33% base64 overhead) — block, don't chunk
+const IMAGE_CACHE_DB_NAME = 'codexImageCache';
+const IMAGE_CACHE_DB_VERSION = 1;
+const IMAGE_CACHE_STORE = 'images';
+
     function saveMapImage(mapId, base64Data, width, height, sizeBytes) {
       // Deterministic doc ID: overwriting it IS "delete prior primary
       // image for this map" — no separate query+delete needed, no
