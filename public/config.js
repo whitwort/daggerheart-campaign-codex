@@ -20,14 +20,10 @@ window.APP_CONFIG = {
 
   categories: ['NPC', 'Faction', 'Location', 'Item', 'History', 'Organization', 'Event'],
 
-  firebase: {
-    apiKey: 'AIzaSyBbmp4gRn7fRIzFcK2nEgCy126Db0RhjB0',
-    authDomain: 'daggerheart-campaign-codex.firebaseapp.com',
-    projectId: 'daggerheart-campaign-codex',
-    storageBucket: 'daggerheart-campaign-codex.firebasestorage.app',
-    messagingSenderId: '621018661606',
-    appId: '1:621018661606:web:3a4ac8abef07bae50bf127'
-  },
+  // Project identity comes from firebase-env.js (prod by default; the dev
+  // CI job swaps in firebase-env.dev.js). Loaded by index.html before
+  // this file.
+  firebase: window.FIREBASE_ENV,
 
   // GM identity — the one account allowed to write. Must match this value
   // in firestore.rules too (isGM() check — rules can't read this file).
