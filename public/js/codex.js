@@ -3,6 +3,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp, CONFIG } from './firebase.js';
 import { state } from './state.js';
+import { attachListener, detachListener } from './listeners.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -36,18 +37,20 @@ const db = getFirestore(firebaseApp);
     // Fix: only attach once hasAccess is true (see attachDataListeners,
     // called from updateAccessUI), same pattern as attachAdminListeners.
     function attachEntriesListener() {
-      state.entriesUnsub = onSnapshot(collection(db, 'entries'), function (snapshot) {
-        state.allEntries = [];
-        snapshot.forEach(function (docSnap) {
-          const data = docSnap.data();
-          if (data.type === 'codex') {
-            state.allEntries.push(Object.assign({ id: docSnap.id }, data));
-          }
+      attachListener('entriesUnsub', function () {
+        return onSnapshot(collection(db, 'entries'), function (snapshot) {
+          state.allEntries = [];
+          snapshot.forEach(function (docSnap) {
+            const data = docSnap.data();
+            if (data.type === 'codex') {
+              state.allEntries.push(Object.assign({ id: docSnap.id }, data));
+            }
+          });
+          renderList();
+          renderDetailForSelected();
+        }, function (err) {
+          listEl.innerHTML = '<li>Error loading entries: ' + err.message + '</li>';
         });
-        renderList();
-        renderDetailForSelected();
-      }, function (err) {
-        listEl.innerHTML = '<li>Error loading entries: ' + err.message + '</li>';
       });
     }
 
@@ -368,7 +371,7 @@ const db = getFirestore(firebaseApp);
 
 
 function detachEntriesListener() {
-  if (state.entriesUnsub) { state.entriesUnsub(); state.entriesUnsub = null; }
+  detachListener('entriesUnsub');
 }
 
 export {
