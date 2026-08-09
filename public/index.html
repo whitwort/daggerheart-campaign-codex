@@ -283,7 +283,7 @@
       signInWithPopup, signOut, onAuthStateChanged
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import {
-      getFirestore, collection, onSnapshot, doc, getDoc, addDoc, updateDoc, deleteDoc, setDoc, serverTimestamp
+      getFirestore, collection, onSnapshot, doc, addDoc, updateDoc, deleteDoc, setDoc, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     const CONFIG = window.APP_CONFIG;
@@ -347,38 +347,36 @@
     });
 
     // --- Role resolution ---------------------------------------------------
-    // GM: signed-in email matches CONFIG.gmEmail.
-    // Player: signed-in email exists in players/{email} whitelist collection.
+    // GM: signed-in email matches CONFIG.gmEmail (checked once, static).
+    // Player: signed-in email exists in players/{email} whitelist collection
+    // — watched live via onSnapshot so a GM's accept/reject lands in this
+    // user's UI immediately, no reload needed.
     // 'viewer': everyone else, unauthenticated OR authenticated-but-not-
     // whitelisted. Auth-model overhaul (Aug 2026): 'viewer' gets no app
     // access; the login-gate splits signed-out vs. signed-in-unlisted
     // (Phase 7a-4 join-request flow) via currentUser below.
     let currentRole = 'viewer';
     let currentUser = null;
+    let playerDocUnsub = null;
+    let joinRequestDocUnsub = null;
 
-    function resolveRole(user) {
-      if (!user || !user.email) return Promise.resolve('viewer');
-      if (user.email === CONFIG.gmEmail) return Promise.resolve('gm');
-      return getDoc(doc(db, 'players', user.email)).then(function (snap) {
-        return snap.exists() ? 'player' : 'viewer';
-      });
+    function detachLiveRoleListeners() {
+      if (playerDocUnsub) { playerDocUnsub(); playerDocUnsub = null; }
+      if (joinRequestDocUnsub) { joinRequestDocUnsub(); joinRequestDocUnsub = null; }
     }
 
-    function checkJoinRequestStatus(email) {
-      requestJoinBtn.disabled = true;
-      requestJoinStatusEl.style.display = 'none';
-      getDoc(doc(db, 'joinRequests', email)).then(function (snap) {
-        if (snap.exists()) {
-          requestJoinBtn.style.display = 'none';
-          requestJoinStatusEl.style.display = 'block';
-        } else {
-          requestJoinBtn.style.display = 'inline-block';
-          requestJoinBtn.disabled = false;
-        }
-      }).catch(function (err) {
-        console.error('Join-request status check failed:', err.message);
-        requestJoinBtn.disabled = false;
-      });
+    function updateAccessUI(role) {
+      currentRole = role;
+      roleBadge.textContent = role;
+      newEntryBtn.style.display = (role === 'gm') ? 'inline-block' : 'none';
+      mapGmControlsEl.style.display = (role === 'gm') ? 'flex' : 'none';
+      adminTabBtn.style.display = (role === 'gm') ? 'inline-block' : 'none';
+      if (role === 'gm') attachAdminListeners();
+      const hasAccess = (role === 'gm' || role === 'player');
+      loginGateEl.style.display = hasAccess ? 'none' : 'block';
+      mainAppEl.style.display = hasAccess ? 'block' : 'none';
+      renderDetailForSelected();
+      maybeBootstrapRootMap();
     }
 
     requestJoinBtn.addEventListener('click', function () {
@@ -389,13 +387,12 @@
         displayName: currentUser.displayName || '',
         provider: (currentUser.providerData[0] && currentUser.providerData[0].providerId) || '',
         requestedAt: serverTimestamp()
-      }).then(function () {
-        requestJoinBtn.style.display = 'none';
-        requestJoinStatusEl.style.display = 'block';
       }).catch(function (err) {
         requestJoinBtn.disabled = false;
         alert('Request failed: ' + err.message);
       });
+      // No manual UI flip here — the joinRequestDocUnsub listener below
+      // picks up the new doc and updates the button/status itself.
     });
 
     // --- Admin tab (Phase 7a-5/6): GM-only. Listeners are only attached
@@ -524,6 +521,8 @@
 
     onAuthStateChanged(auth, function (user) {
       currentUser = user;
+      detachLiveRoleListeners();
+
       if (user) {
         signInButtonsEl.style.display = 'none';
         signOutBtn.style.display = 'inline';
@@ -533,28 +532,44 @@
         signOutBtn.style.display = 'none';
         userEmailEl.textContent = '';
       }
-      resolveRole(user).then(function (role) {
-        currentRole = role;
-        roleBadge.textContent = role;
-        newEntryBtn.style.display = (role === 'gm') ? 'inline-block' : 'none';
-        mapGmControlsEl.style.display = (role === 'gm') ? 'flex' : 'none';
-        adminTabBtn.style.display = (role === 'gm') ? 'inline-block' : 'none';
-        if (role === 'gm') attachAdminListeners();
-        const hasAccess = (role === 'gm' || role === 'player');
-        loginGateEl.style.display = hasAccess ? 'none' : 'block';
-        mainAppEl.style.display = hasAccess ? 'block' : 'none';
-        if (!hasAccess) {
-          if (user && user.email) {
-            loginGateSignedOutEl.style.display = 'none';
-            loginGateUnlistedEl.style.display = 'block';
-            checkJoinRequestStatus(user.email);
-          } else {
-            loginGateSignedOutEl.style.display = 'block';
-            loginGateUnlistedEl.style.display = 'none';
-          }
+
+      if (!user || !user.email) {
+        loginGateSignedOutEl.style.display = 'block';
+        loginGateUnlistedEl.style.display = 'none';
+        updateAccessUI('viewer');
+        return;
+      }
+
+      if (user.email === CONFIG.gmEmail) {
+        updateAccessUI('gm');
+        return;
+      }
+
+      // Signed in, not GM: candidate player. Live-listen on their own
+      // players/{email} doc so a GM's Accept lands immediately, and on
+      // their own joinRequests/{email} doc so Reject (doc deleted) flips
+      // the UI back to the "Request to join" button without a reload.
+      loginGateSignedOutEl.style.display = 'none';
+      loginGateUnlistedEl.style.display = 'block';
+
+      playerDocUnsub = onSnapshot(doc(db, 'players', user.email), function (snap) {
+        updateAccessUI(snap.exists() ? 'player' : 'viewer');
+      }, function (err) {
+        console.error('players doc listener failed:', err.message);
+      });
+
+      requestJoinBtn.disabled = true;
+      joinRequestDocUnsub = onSnapshot(doc(db, 'joinRequests', user.email), function (snap) {
+        if (snap.exists()) {
+          requestJoinBtn.style.display = 'none';
+          requestJoinStatusEl.style.display = 'block';
+        } else {
+          requestJoinBtn.style.display = 'inline-block';
+          requestJoinBtn.disabled = false;
+          requestJoinStatusEl.style.display = 'none';
         }
-        renderDetailForSelected();
-        maybeBootstrapRootMap();
+      }, function (err) {
+        console.error('joinRequest doc listener failed:', err.message);
       });
     });
 
