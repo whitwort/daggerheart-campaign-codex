@@ -36,5 +36,6 @@ export const state = {
   webpEncoderModulePromise: null,
   mapImageUnsub: null,  // detach/reattach per map load (Phase 7b-3)
   currentMapImageDims: null,  // {width,height} of currently-loaded map's image, for replace-dimension-change warning
+  loadingMapId: null,  // guards against two near-simultaneous loadMap(mapId) calls (e.g. attachMapsListener and attachConfigListener both firing) racing to tear down each other's in-flight image listener before it ever gets its first snapshot
   imageCacheDbPromise: null,
 };

@@ -438,14 +438,29 @@ const db = getFirestore(firebaseApp);
       }
       state.currentMapImageDims = null;
       state.loadedMapId = null;
+      state.loadingMapId = null;
     }
 
     function loadMap(mapId) {
+      // Dedup: attachMapsListener and attachConfigListener can both fire
+      // ensureMapTabReady() -> loadMap(mapId) for the same map within the
+      // same tick (e.g. right after sign-in, or a maps-collection change
+      // alongside a config change). Without this guard, the second call's
+      // teardownMapRuntime() unsubscribes the first call's image listener
+      // before it ever receives its first snapshot -- nothing ever
+      // renders, and the placeholder is stuck on "Loading map image..."
+      // until something else (like a tab switch) calls loadMap() again
+      // as the sole in-flight caller.
+      if (state.loadingMapId === mapId && state.mapImageUnsub) {
+        return;
+      }
+
       const mapDoc = state.allMaps.find(function (m) { return m.id === mapId; });
       const placeholderEl = document.getElementById('map-tab-placeholder');
       const containerEl = document.getElementById('map-container');
 
       teardownMapRuntime();
+      state.loadingMapId = mapId;
 
       state.mapImageUploadTargetMapId = mapDoc ? mapId : null;
       mapImageUploadEl.style.display = (state.currentRole === 'gm' && mapDoc) ? 'flex' : 'none';
