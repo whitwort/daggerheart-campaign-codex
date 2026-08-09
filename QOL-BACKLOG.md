@@ -12,3 +12,15 @@ Carry this file forward in context-handoff docs.
   overlay old positions as a percentage-of-image reference, or drop them
   into a "needs review" list) so they can be relocated one by one instead
   of manually guessing / re-eyeballing every pin.
+
+## Deferred phases
+
+- **Phase 7d (map tiling)** — shelved as of the 7c-1 handoff. The real
+  fix for the original load-time problem turned out to be the libwebp
+  WASM encoder (7b-2 fix): once map images actually compress properly
+  (matching the old ~175KB ImageMagick result instead of an unencoded
+  multi-MB PNG fallback), tiling's complexity (image pyramid generation,
+  `L.GridLayer` subclass, per-tile Firestore docs) isn't justified. Only
+  revisit if a specific map still has real load-time/size problems after
+  proper compression — i.e. if the need is proven in practice, not
+  pre-built speculatively.
