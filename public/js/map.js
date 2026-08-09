@@ -345,12 +345,12 @@ const db = getFirestore(firebaseApp);
 
     // --- Maps (Phase 6): dynamic map registry. Root is no longer a
     // structural convention (parentMapId === null) — it's a GM-selected
-    // pointer in config/campaign.state.rootMapId (Phase 7b). parentMapId still
+    // pointer in config/campaign.rootMapId (Phase 7b). parentMapId still
     // means "nesting parent" only; multiple maps can have it unset
     // without any of them being the app's root.
     function attachConfigListener() {
       onSnapshot(doc(db, 'config', 'campaign'), function (docSnap) {
-        state.rootMapId = docSnap.exists() ? (docSnap.data().state.rootMapId || null) : null;
+        state.rootMapId = docSnap.exists() ? (docSnap.data().rootMapId || null) : null;
         // Bugfix: only fall back to state.rootMapId when state.currentMapId is
         // unset/invalid (resolveCurrentMapId's job, for maps-collection
         // changes). A root-pointer change itself must force-follow
