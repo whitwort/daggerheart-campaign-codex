@@ -68,14 +68,6 @@ npx eslint@8 --no-eslintrc -c .eslintrc.check.json public/js/*.js
 `node --check` alone is not sufficient — it can't see cross-module
 reference errors, which this codebase's module split has produced.
 
-## Important: never commit map/campaign images to this repo
-
-All map and campaign artwork goes through the in-app upload (stored in
-Firestore), **never** into the repo. This repo is public; committed
-artwork caused a copyrighted-content leak that required rewriting
-history — twice, the second time from a stale local clone pushing
-pre-purge history back. Always work from a fresh clone.
-
 ## Configuration
 
 Campaign-specific values live in `public/config.js`. The GM email there
