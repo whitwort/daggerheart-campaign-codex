@@ -1099,6 +1099,21 @@
               fail('Compression failed.');
               return;
             }
+            // Diagnostic (temporary): canvas.toBlob silently falls back
+            // to PNG if the browser doesn't support WebP encode — no
+            // error thrown. Surface actual blob.type/size in-page so we
+            // can tell, on-device, whether that's happening before
+            // chasing a fix.
+            console.log('[map-image-upload] requested image/webp, got blob.type=' + blob.type +
+              ', size=' + blob.size + ' bytes (' + Math.round(blob.size / 1024) + 'KB), dims=' +
+              targetW + 'x' + targetH);
+            mapImageUploadStatusEl.textContent = 'Diag: type=' + blob.type +
+              ' size=' + Math.round(blob.size / 1024) + 'KB';
+            if (blob.type !== 'image/webp') {
+              alert('Diagnostic: canvas.toBlob did not honor image/webp — got "' + blob.type +
+                '" instead, ' + Math.round(blob.size / 1024) + 'KB. This means WebP encoding is ' +
+                'silently falling back, which is very likely why compression is worse than expected.');
+            }
             if (blob.size > MAP_IMAGE_MAX_RAW_BYTES) {
               fail('Image too large after compression (' + Math.round(blob.size / 1024) +
                 'KB, max ' + Math.round(MAP_IMAGE_MAX_RAW_BYTES / 1024) + 'KB). Try a smaller source image.');
