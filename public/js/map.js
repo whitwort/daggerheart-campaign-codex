@@ -418,11 +418,15 @@ const db = getFirestore(firebaseApp);
     const IMAGE_CACHE_STORE = 'images';
 
 
-    function loadMap(mapId) {
-      const mapDoc = state.allMaps.find(function (m) { return m.id === mapId; });
-      const placeholderEl = document.getElementById('map-tab-placeholder');
-      const containerEl = document.getElementById('map-container');
-
+    // Extracted so sign-out can also fully tear down the map view (not
+    // just re-load into it): previously only loadMap() did this cleanup,
+    // so on sign-out the live image listener (mapImageUnsub) kept running
+    // with no auth token, died on permission-denied, and left its error
+    // text on screen -- and since leafletMap/loadedMapId were never
+    // reset either, ensureMapTabReady()'s "already loaded" shortcut
+    // skipped calling loadMap() again on sign-back-in, so the stale
+    // error never cleared without a full page reload.
+    function teardownMapRuntime() {
       if (state.leafletMap) {
         state.leafletMap.remove();
         state.leafletMap = null;
@@ -433,6 +437,15 @@ const db = getFirestore(firebaseApp);
         state.mapImageUnsub = null;
       }
       state.currentMapImageDims = null;
+      state.loadedMapId = null;
+    }
+
+    function loadMap(mapId) {
+      const mapDoc = state.allMaps.find(function (m) { return m.id === mapId; });
+      const placeholderEl = document.getElementById('map-tab-placeholder');
+      const containerEl = document.getElementById('map-container');
+
+      teardownMapRuntime();
 
       state.mapImageUploadTargetMapId = mapDoc ? mapId : null;
       mapImageUploadEl.style.display = (state.currentRole === 'gm' && mapDoc) ? 'flex' : 'none';
@@ -590,6 +603,7 @@ function detachMapDataListeners() {
   if (state.pinsUnsub) { state.pinsUnsub(); state.pinsUnsub = null; }
   if (state.mapsUnsub) { state.mapsUnsub(); state.mapsUnsub = null; }
   if (state.configUnsub) { state.configUnsub(); state.configUnsub = null; }
+  teardownMapRuntime();
 }
 
 export {
