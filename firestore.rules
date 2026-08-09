@@ -8,17 +8,27 @@ service cloud.firestore {
         && request.auth.token.email == 'whitwort@gmail.com'; // keep in sync with Config.gs gmEmail
     }
 
+    // Phase 7a: authenticated + on the players whitelist.
+    function isPlayer() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/players/$(request.auth.token.email));
+    }
+
     // Phase 0 smoke-test doc only.
     match /_health/{docId} {
       allow read: if true;
       allow write: if isGM();
     }
 
-    // Entries: everyone can read (viewer/player/GM alike — no field-level
-    // hiding per design decision; content_gm vs content_player is a client
-    // render choice, not a security boundary). Only GM can write.
+    // Entries: content_gm vs content_player is still a client render choice
+    // (not a security boundary) for content that's readable at all. But
+    // Phase 7a gates the *document* itself: readable if flagged `public`,
+    // or if the requester is signed-in GM/Player. Ungated (missing `public`
+    // field) content is false-safe — treated as not public, i.e. gated.
+    // Only GM can write.
     match /entries/{entryId} {
-      allow read: if true;
+      allow read: if resource.data.public == true
+        || (request.auth != null && (isGM() || isPlayer()));
       allow write: if isGM();
     }
 
@@ -36,10 +46,11 @@ service cloud.firestore {
       allow write: if isGM();
     }
 
-    // Maps: {name, image, parentMapId}. Root map has parentMapId == null.
-    // Phase 6: nested child maps. Same open-read/GM-write model.
+    // Maps: {name, image, parentMapId, public}. Root map has
+    // parentMapId == null. Phase 7a: same public-flag gating as entries.
     match /maps/{mapId} {
-      allow read: if true;
+      allow read: if resource.data.public == true
+        || (request.auth != null && (isGM() || isPlayer()));
       allow write: if isGM();
     }
 
