@@ -28,7 +28,8 @@ loads `js/main.js` as the module entry point.
 
 ```
 public/
-  config.js        campaign name, categories, Firebase project config, GM email
+  config.js        campaign name, categories, GM email
+  firebase-env.js  Firebase project identity (prod; dev CI swaps in firebase-env.dev.js)
   index.html       all markup; build hash stamped by CI
   css/styles.css
   js/
@@ -49,8 +50,8 @@ firestore.rules    security rules (writes GM-only; reads require GM/Player auth)
 GitHub Actions (`.github/workflows/deploy.yml`), direct pushes to
 `main`, no PRs:
 
-- **Push to `main`** → lint gate → deploy hosting + rules to the **dev**
-  project (`daggerheart-campaign-codex-dev`).
+- **Push to `main`** → lint gate → swap in `firebase-env.dev.js` → deploy
+  hosting + rules to the **dev** project (`daggerheart-campaign-codex-dev`).
 - **Publish a GitHub Release** → lint gate → deploy to **prod**
   (`daggerheart-campaign-codex`).
 

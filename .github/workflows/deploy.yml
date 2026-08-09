@@ -26,6 +26,9 @@ jobs:
       - name: Stamp build commit hash
         run: sed -i "s/__COMMIT_HASH__/$(git rev-parse --short HEAD)/" public/index.html
 
+      - name: Point build at the dev Firebase project
+        run: cp public/firebase-env.dev.js public/firebase-env.js
+
       - name: Write service account key
         run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY_DEV }}' > /tmp/firebase-key.json
 
