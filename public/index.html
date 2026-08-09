@@ -372,6 +372,7 @@
       attachEntriesListener();
       attachPinsListener();
       attachMapsListener();
+      attachConfigListener();
     }
 
     function updateAccessUI(role) {
@@ -969,7 +970,7 @@
     let allPins = [];
     let allMaps = [];
     let currentMapId = null;
-    let mapBootstrapAttempted = false;
+    let rootMapId = null; // from config/campaign doc, GM-selected (Phase 7b)
     let mapMode = null; // null | 'add' | 'remove'
     let pendingPinCoords = null;
     let mapNavStack = []; // stack of parent mapIds, for the "back to parent map" control
@@ -1245,9 +1246,8 @@
       }
       pinLayer.clearLayers();
 
-      const rootId = getRootMapId();
       const pinsForCurrentMap = allPins.filter(function (pin) {
-        return pin.mapId ? pin.mapId === currentMapId : currentMapId === rootId;
+        return pin.mapId ? pin.mapId === currentMapId : currentMapId === rootMapId;
       });
 
       pinsForCurrentMap.forEach(function (pin) {
@@ -1305,35 +1305,27 @@
       });
     }
 
-    // --- Maps (Phase 6): dynamic map registry replacing the old
-    // config.js-hardcoded single map. Root map has parentMapId === null.
-    function getRootMapId() {
-      const root = allMaps.find(function (m) { return !m.parentMapId; });
-      return root ? root.id : null;
+    // --- Maps (Phase 6): dynamic map registry. Root is no longer a
+    // structural convention (parentMapId === null) — it's a GM-selected
+    // pointer in config/campaign.rootMapId (Phase 7b). parentMapId still
+    // means "nesting parent" only; multiple maps can have it unset
+    // without any of them being the app's root.
+    function attachConfigListener() {
+      onSnapshot(doc(db, 'config', 'campaign'), function (docSnap) {
+        rootMapId = docSnap.exists() ? (docSnap.data().rootMapId || null) : null;
+        resolveCurrentMapId();
+        if (document.getElementById('map-panel').classList.contains('active')) {
+          ensureMapTabReady();
+        }
+      }, function (err) {
+        console.error('Config listener error:', err.message);
+      });
     }
 
-    // One-time migration bootstrap: if no maps exist yet and the current
-    // user is GM, seed a root map doc from the legacy CONFIG.mapImage
-    // value. Uses a fixed doc ID ('root') rather than addDoc's random ID
-    // so this is idempotent even if multiple page loads/tabs race to
-    // bootstrap simultaneously — they all write the same doc, last write
-    // wins, no duplicates. Runs at most once per page load (guarded by
-    // mapBootstrapAttempted); safe to leave in place long-term as a no-op
-    // once any maps doc exists.
-    function maybeBootstrapRootMap() {
-      if (mapBootstrapAttempted) return;
-      if (allMaps.length > 0) return;
-      if (currentRole !== 'gm') return;
-      if (!CONFIG.mapImage) return;
-      mapBootstrapAttempted = true;
-      setDoc(doc(db, 'maps', 'root'), {
-        name: CONFIG.campaignName || 'Root map',
-        image: CONFIG.mapImage,
-        parentMapId: null
-      }).catch(function (err) {
-        mapBootstrapAttempted = false; // allow retry, e.g. transient network error
-        console.error('Root map bootstrap failed:', err.message);
-      });
+    function resolveCurrentMapId() {
+      if (!currentMapId || !allMaps.find(function (m) { return m.id === currentMapId; })) {
+        currentMapId = rootMapId;
+      }
     }
 
     function attachMapsListener() {
@@ -1342,10 +1334,7 @@
         snapshot.forEach(function (docSnap) {
           allMaps.push(Object.assign({ id: docSnap.id }, docSnap.data()));
         });
-        maybeBootstrapRootMap();
-        if (!currentMapId || !allMaps.find(function (m) { return m.id === currentMapId; })) {
-          currentMapId = getRootMapId();
-        }
+        resolveCurrentMapId();
         if (document.getElementById('map-panel').classList.contains('active')) {
           ensureMapTabReady();
         }
@@ -1375,7 +1364,22 @@
       if (!mapDoc) {
         placeholderEl.style.display = 'block';
         containerEl.style.display = 'none';
-        placeholderEl.textContent = 'No map configured yet.';
+        placeholderEl.textContent = rootMapId
+          ? 'No map configured yet.'
+          : 'No root map selected yet.' + (currentRole === 'gm' ? ' Set one in the Admin tab.' : ' Ask your GM to set one up.');
+        return;
+      }
+
+      // Phase 7b: static Hosting image paths are retired. Until the
+      // Firestore-doc image pipeline (7b-2/7b-3) lands, a map with no
+      // legacy `image` field has nothing to render — show a clear
+      // placeholder rather than a broken map.
+      if (!mapDoc.image) {
+        placeholderEl.style.display = 'block';
+        containerEl.style.display = 'none';
+        placeholderEl.textContent = currentRole === 'gm'
+          ? 'No image set for "' + (mapDoc.name || 'this map') + '" yet. Image upload is coming in Phase 7b-2.'
+          : 'This map has no image yet — ask your GM.';
         return;
       }
 
