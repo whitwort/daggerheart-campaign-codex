@@ -1360,7 +1360,17 @@
     function attachConfigListener() {
       onSnapshot(doc(db, 'config', 'campaign'), function (docSnap) {
         rootMapId = docSnap.exists() ? (docSnap.data().rootMapId || null) : null;
-        resolveCurrentMapId();
+        // Bugfix: only fall back to rootMapId when currentMapId is
+        // unset/invalid (resolveCurrentMapId's job, for maps-collection
+        // changes). A root-pointer change itself must force-follow
+        // whenever the user is at the top level (no child-map nav
+        // stack) — otherwise switching root map->map or map->none while
+        // already viewing the root silently did nothing.
+        if (mapNavStack.length === 0) {
+          currentMapId = rootMapId;
+        } else {
+          resolveCurrentMapId();
+        }
         renderAdminRootMapSelect();
         if (document.getElementById('map-panel').classList.contains('active')) {
           ensureMapTabReady();
