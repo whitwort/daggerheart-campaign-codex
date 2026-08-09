@@ -365,6 +365,15 @@
       if (joinRequestDocUnsub) { joinRequestDocUnsub(); joinRequestDocUnsub = null; }
     }
 
+    let dataListenersAttached = false;
+    function attachDataListeners() {
+      if (dataListenersAttached) return;
+      dataListenersAttached = true;
+      attachEntriesListener();
+      attachPinsListener();
+      attachMapsListener();
+    }
+
     function updateAccessUI(role) {
       currentRole = role;
       roleBadge.textContent = role;
@@ -373,6 +382,7 @@
       adminTabBtn.style.display = (role === 'gm') ? 'inline-block' : 'none';
       if (role === 'gm') attachAdminListeners();
       const hasAccess = (role === 'gm' || role === 'player');
+      if (hasAccess) attachDataListeners();
       loginGateEl.style.display = hasAccess ? 'none' : 'block';
       mainAppEl.style.display = hasAccess ? 'block' : 'none';
       renderDetailForSelected();
@@ -597,19 +607,29 @@
     let selectedId = null;
     let gmPreviewAsPlayer = false;
 
-    onSnapshot(collection(db, 'entries'), function (snapshot) {
-      allEntries = [];
-      snapshot.forEach(function (docSnap) {
-        const data = docSnap.data();
-        if (data.type === 'codex') {
-          allEntries.push(Object.assign({ id: docSnap.id }, data));
-        }
+    // Phase 7a bugfix: this listener (and the pins/maps ones further down)
+    // used to attach unconditionally at page load. For a signed-in-but-
+    // unlisted or signed-out user that hits permission-denied immediately,
+    // and Firestore's SDK does NOT auto-retry a listener after a definitive
+    // permission error — so even after the user became GM/Player, the dead
+    // listener never resumed and entries/map stayed stuck on the error.
+    // Fix: only attach once hasAccess is true (see attachDataListeners,
+    // called from updateAccessUI), same pattern as attachAdminListeners.
+    function attachEntriesListener() {
+      onSnapshot(collection(db, 'entries'), function (snapshot) {
+        allEntries = [];
+        snapshot.forEach(function (docSnap) {
+          const data = docSnap.data();
+          if (data.type === 'codex') {
+            allEntries.push(Object.assign({ id: docSnap.id }, data));
+          }
+        });
+        renderList();
+        renderDetailForSelected();
+      }, function (err) {
+        listEl.innerHTML = '<li>Error loading entries: ' + err.message + '</li>';
       });
-      renderList();
-      renderDetailForSelected();
-    }, function (err) {
-      listEl.innerHTML = '<li>Error loading entries: ' + err.message + '</li>';
-    });
+    }
 
     // Phase 7a-1: `public` field / backfill removed — auth-model overhaul
     // (Aug 2026) means there's no unauthenticated read path to gate at all,
@@ -1275,13 +1295,15 @@
       });
     }
 
-    onSnapshot(collection(db, 'pins'), function (snapshot) {
-      allPins = [];
-      snapshot.forEach(function (docSnap) {
-        allPins.push(Object.assign({ id: docSnap.id }, docSnap.data()));
+    function attachPinsListener() {
+      onSnapshot(collection(db, 'pins'), function (snapshot) {
+        allPins = [];
+        snapshot.forEach(function (docSnap) {
+          allPins.push(Object.assign({ id: docSnap.id }, docSnap.data()));
+        });
+        renderPins();
       });
-      renderPins();
-    });
+    }
 
     // --- Maps (Phase 6): dynamic map registry replacing the old
     // config.js-hardcoded single map. Root map has parentMapId === null.
@@ -1314,19 +1336,21 @@
       });
     }
 
-    onSnapshot(collection(db, 'maps'), function (snapshot) {
-      allMaps = [];
-      snapshot.forEach(function (docSnap) {
-        allMaps.push(Object.assign({ id: docSnap.id }, docSnap.data()));
+    function attachMapsListener() {
+      onSnapshot(collection(db, 'maps'), function (snapshot) {
+        allMaps = [];
+        snapshot.forEach(function (docSnap) {
+          allMaps.push(Object.assign({ id: docSnap.id }, docSnap.data()));
+        });
+        maybeBootstrapRootMap();
+        if (!currentMapId || !allMaps.find(function (m) { return m.id === currentMapId; })) {
+          currentMapId = getRootMapId();
+        }
+        if (document.getElementById('map-panel').classList.contains('active')) {
+          ensureMapTabReady();
+        }
       });
-      maybeBootstrapRootMap();
-      if (!currentMapId || !allMaps.find(function (m) { return m.id === currentMapId; })) {
-        currentMapId = getRootMapId();
-      }
-      if (document.getElementById('map-panel').classList.contains('active')) {
-        ensureMapTabReady();
-      }
-    });
+    }
 
     function ensureMapTabReady() {
       if (!currentMapId) return; // maps not loaded/bootstrapped yet
