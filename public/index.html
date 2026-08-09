@@ -1084,6 +1084,7 @@
 
       mapImageUploadInputEl.disabled = true;
       mapImageUploadStatusEl.textContent = 'Processing...';
+      const priorDims = currentMapImageDims; // captured before overwrite, for the dimension-change warning below
 
       const objectUrl = URL.createObjectURL(file);
       const img = new Image();
@@ -1134,6 +1135,13 @@
                   mapImageUploadStatusEl.textContent = 'Image updated (' + Math.round(blob.size / 1024) + 'KB).';
                   mapImageUploadInputEl.disabled = false;
                   mapImageUploadInputEl.value = '';
+                  // QOL backlog item: replace this with a guided pin-fixup
+                  // flow instead of a bare warning (see QOL-BACKLOG.md).
+                  if (priorDims && (priorDims.width !== targetW || priorDims.height !== targetH)) {
+                    alert('Warning: this map\'s image dimensions changed (' +
+                      priorDims.width + 'x' + priorDims.height + ' \u2192 ' + targetW + 'x' + targetH +
+                      '). Existing pins on this map are stored in the old pixel coordinates and may now be misaligned.');
+                  }
                 })
                 .catch(function (err) { fail('Upload failed: ' + err.message); });
             };
@@ -1536,6 +1544,7 @@
     }
 
     let mapImageUnsub = null; // detach/reattach per map load (Phase 7b-3)
+    let currentMapImageDims = null; // {width,height} of currently-loaded map's image, for replace-dimension-change warning
 
     function loadMap(mapId) {
       const mapDoc = allMaps.find(function (m) { return m.id === mapId; });
@@ -1551,6 +1560,7 @@
         mapImageUnsub();
         mapImageUnsub = null;
       }
+      currentMapImageDims = null;
 
       mapImageUploadTargetMapId = mapDoc ? mapId : null;
       mapImageUploadEl.style.display = (currentRole === 'gm' && mapDoc) ? 'flex' : 'none';
@@ -1589,6 +1599,7 @@
           loadedMapId = null;
         }
         if (!imgSnap.exists()) {
+          currentMapImageDims = null;
           placeholderEl.style.display = 'block';
           containerEl.style.display = 'none';
           placeholderEl.textContent = currentRole === 'gm'
@@ -1596,7 +1607,9 @@
             : 'This map has no image yet — ask your GM.';
           return;
         }
-        renderMapImage(mapId, mapDoc, imgSnap.data());
+        const imgData = imgSnap.data();
+        currentMapImageDims = { width: imgData.width, height: imgData.height };
+        renderMapImage(mapId, mapDoc, imgData);
       }, function (err) {
         placeholderEl.style.display = 'block';
         containerEl.style.display = 'none';
