@@ -36,6 +36,13 @@ service cloud.firestore {
       allow write: if isGM();
     }
 
+    // Maps: {name, image, parentMapId}. Root map has parentMapId == null.
+    // Phase 6: nested child maps. Same open-read/GM-write model.
+    match /maps/{mapId} {
+      allow read: if true;
+      allow write: if isGM();
+    }
+
     // Default deny for anything not explicitly matched above.
     match /{document=**} {
       allow read, write: if false;
