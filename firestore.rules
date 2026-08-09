@@ -21,36 +21,35 @@ service cloud.firestore {
     }
 
     // Entries: content_gm vs content_player is still a client render choice
-    // (not a security boundary) for content that's readable at all. But
-    // Phase 7a gates the *document* itself: readable if flagged `public`,
-    // or if the requester is signed-in GM/Player. Ungated (missing `public`
-    // field) content is false-safe — treated as not public, i.e. gated.
-    // Only GM can write.
+    // (not a security boundary) for content readable at all. Auth-model
+    // overhaul (Aug 2026): no unauthenticated access at all — every user is
+    // either GM or a whitelisted Player. `public` flag from the earlier
+    // Phase 7a design is dropped; Phase 7a-1 supersedes it.
     match /entries/{entryId} {
-      allow read: if resource.data.public == true
-        || (request.auth != null && (isGM() || isPlayer()));
+      allow read: if isGM() || isPlayer();
       allow write: if isGM();
     }
 
-    // GM's player whitelist — used to resolve authenticated-but-unlisted
-    // users to Viewer vs. authenticated-and-listed users to Player.
+    // GM's player whitelist. Any signed-in user can read their OWN doc (to
+    // resolve their own role, including the not-yet-whitelisted case for
+    // the join-request flow); only GM can read the whole collection's other
+    // docs or write.
     match /players/{email} {
-      allow read: if true;
+      allow read: if isGM() || (request.auth != null && request.auth.token.email == email);
       allow write: if isGM();
     }
 
     // Map pins: {entryId, x, y} linking a point on the base map image to a
-    // Codex entry. Same open-read/GM-write model as entries.
+    // Codex entry. Same GM/Player-only read model as entries.
     match /pins/{pinId} {
-      allow read: if true;
+      allow read: if isGM() || isPlayer();
       allow write: if isGM();
     }
 
-    // Maps: {name, image, parentMapId, public}. Root map has
-    // parentMapId == null. Phase 7a: same public-flag gating as entries.
+    // Maps: {name, image, parentMapId}. Root map has parentMapId == null.
+    // `public` flag dropped, same as entries — see note above.
     match /maps/{mapId} {
-      allow read: if resource.data.public == true
-        || (request.auth != null && (isGM() || isPlayer()));
+      allow read: if isGM() || isPlayer();
       allow write: if isGM();
     }
 
