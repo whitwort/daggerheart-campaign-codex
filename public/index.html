@@ -178,6 +178,8 @@
       <label for="entry-form-content-player">Player content</label>
       <textarea id="entry-form-content-player"></textarea>
 
+      <label><input type="checkbox" id="entry-form-public"> Public (visible to signed-out viewers)</label>
+
       <label>Related entries</label>
       <ul id="entry-form-related-list"></ul>
       <div id="entry-form-related-add">
@@ -224,6 +226,7 @@
           <input type="text" id="pin-form-childmap-name" placeholder="e.g. Baker (town)">
           <label for="pin-form-childmap-image">Image filename</label>
           <input type="text" id="pin-form-childmap-image" placeholder="maps/baker-town.webp">
+          <label><input type="checkbox" id="pin-form-childmap-public"> Public (visible to signed-out viewers)</label>
           <p id="pin-form-childmap-image-hint">
             Drop the image file in <code>public/maps/</code> and push to
             <code>main</code> first &mdash; this field just registers the
@@ -253,7 +256,7 @@
       signInWithPopup, signOut, onAuthStateChanged
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import {
-      getFirestore, collection, onSnapshot, doc, getDoc, addDoc, updateDoc, deleteDoc, setDoc
+      getFirestore, collection, onSnapshot, doc, getDoc, addDoc, updateDoc, deleteDoc, setDoc, writeBatch
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     const CONFIG = window.APP_CONFIG;
@@ -326,6 +329,8 @@
         mapGmControlsEl.style.display = (role === 'gm') ? 'flex' : 'none';
         renderDetailForSelected();
         maybeBootstrapRootMap();
+        maybeBackfillPublicFlag('entries', allEntries);
+        maybeBackfillPublicFlag('maps', allMaps);
       });
     });
 
@@ -363,9 +368,36 @@
       });
       renderList();
       renderDetailForSelected();
+      maybeBackfillPublicFlag('entries', allEntries);
     }, function (err) {
       listEl.innerHTML = '<li>Error loading entries: ' + err.message + '</li>';
     });
+
+    // Phase 7a one-time migration: pre-existing entries/maps predate the
+    // `public` field. Gregg owns all current content, so backfill them to
+    // public: true rather than have them silently go dark once the gated
+    // Firestore rules deploy. GM-only, idempotent (only touches docs
+    // actually missing the field), runs once per collection per page load.
+    // IMPORTANT: deploy this code (with rules still open-read) first, let
+    // it run once against production data, THEN deploy the gated rules —
+    // otherwise gated rules go live before anything is flagged public and
+    // non-GM/Player reads break in between.
+    const backfillAttempted = { entries: false, maps: false };
+    function maybeBackfillPublicFlag(collectionName, docs) {
+      if (currentRole !== 'gm') return;
+      if (backfillAttempted[collectionName]) return;
+      const missing = docs.filter(function (d) { return d.public === undefined; });
+      if (missing.length === 0) return;
+      backfillAttempted[collectionName] = true;
+      const batch = writeBatch(db);
+      missing.forEach(function (d) {
+        batch.update(doc(db, collectionName, d.id), { public: true });
+      });
+      batch.commit().catch(function (err) {
+        backfillAttempted[collectionName] = false; // allow retry, e.g. transient network error
+        console.error('Public-flag backfill failed for ' + collectionName + ':', err.message);
+      });
+    }
 
     function matchesFilters(entry) {
       const cat = categoryFilterEl.value;
@@ -538,6 +570,7 @@
     const formTagsEl = document.getElementById('entry-form-tags');
     const formContentGmEl = document.getElementById('entry-form-content-gm');
     const formContentPlayerEl = document.getElementById('entry-form-content-player');
+    const formPublicEl = document.getElementById('entry-form-public');
     const formRelatedListEl = document.getElementById('entry-form-related-list');
     const formRelatedSelectEl = document.getElementById('entry-form-related-select');
     const formRelatedAddBtn = document.getElementById('entry-form-related-add-btn');
@@ -605,6 +638,7 @@
       formTagsEl.value = entry && entry.tags ? entry.tags.join(', ') : '';
       formContentGmEl.value = entry ? entry.content_gm || '' : '';
       formContentPlayerEl.value = entry ? entry.content_player || '' : '';
+      formPublicEl.checked = entry ? !!entry.public : false; // false-safe default for new entries
       formRelatedIds = entry && entry.relatedIds ? entry.relatedIds.slice() : [];
       renderRelatedFormList();
       populateRelatedSelect();
@@ -642,6 +676,7 @@
         tags: tags,
         content_gm: formContentGmEl.value,
         content_player: formContentPlayerEl.value,
+        public: formPublicEl.checked,
         relatedIds: formRelatedIds.slice()
       };
 
@@ -739,6 +774,7 @@
     const pinFormChildMapSelectEl = document.getElementById('pin-form-childmap-select');
     const pinFormChildMapNameEl = document.getElementById('pin-form-childmap-name');
     const pinFormChildMapImageEl = document.getElementById('pin-form-childmap-image');
+    const pinFormChildMapPublicEl = document.getElementById('pin-form-childmap-public');
     const pinFormRadiusEl = document.getElementById('pin-form-radius');
     const pinFormErrorEl = document.getElementById('pin-form-error');
     const pinFormSaveBtn = document.getElementById('pin-form-save');
@@ -833,6 +869,7 @@
 
       pinFormChildMapNameEl.value = '';
       pinFormChildMapImageEl.value = '';
+      pinFormChildMapPublicEl.checked = false;
       pinFormRadiusEl.value = '150';
 
       pinFormErrorEl.style.display = 'none';
@@ -913,7 +950,8 @@
       addDoc(collection(db, 'maps'), {
         name: name,
         image: image,
-        parentMapId: currentMapId
+        parentMapId: currentMapId,
+        public: pinFormChildMapPublicEl.checked
       }).then(function (mapDocRef) {
         return savePin({
           childMapId: mapDocRef.id,
@@ -1059,7 +1097,8 @@
       setDoc(doc(db, 'maps', 'root'), {
         name: CONFIG.campaignName || 'Root map',
         image: CONFIG.mapImage,
-        parentMapId: null
+        parentMapId: null,
+        public: true // pre-existing content, no copyright concern (Phase 7a)
       }).catch(function (err) {
         mapBootstrapAttempted = false; // allow retry, e.g. transient network error
         console.error('Root map bootstrap failed:', err.message);
@@ -1072,6 +1111,7 @@
         allMaps.push(Object.assign({ id: docSnap.id }, docSnap.data()));
       });
       maybeBootstrapRootMap();
+      maybeBackfillPublicFlag('maps', allMaps);
       if (!currentMapId || !allMaps.find(function (m) { return m.id === currentMapId; })) {
         currentMapId = getRootMapId();
       }
