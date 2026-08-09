@@ -1056,6 +1056,22 @@
       });
     }
 
+    // Real WebP encoder (Phase 7b fix): canvas.toBlob('image/webp') isn't
+    // reliable — iOS Safari silently falls back to PNG with no error, and
+    // even where browsers do encode real WebP, native encoders compress
+    // worse than libwebp at the same nominal quality. jSquash ships an
+    // actual libwebp build compiled to WASM, matching the old offline
+    // `convert -quality 85` pipeline. Loaded lazily (only when a GM
+    // actually uploads) and dynamically, not as a top-level import, so a
+    // CDN hiccup breaks only the upload feature, never the whole app.
+    let webpEncoderModulePromise = null;
+    function loadWebpEncoder() {
+      if (!webpEncoderModulePromise) {
+        webpEncoderModulePromise = import('https://esm.sh/@jsquash/webp');
+      }
+      return webpEncoderModulePromise;
+    }
+
     mapImageUploadInputEl.addEventListener('change', function () {
       const file = mapImageUploadInputEl.files[0];
       if (!file) return;
@@ -1092,28 +1108,18 @@
           const canvas = document.createElement('canvas');
           canvas.width = targetW;
           canvas.height = targetH;
-          canvas.getContext('2d').drawImage(img, 0, 0, targetW, targetH);
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, targetW, targetH);
+          const imageData = ctx.getImageData(0, 0, targetW, targetH);
 
-          canvas.toBlob(function (blob) {
-            if (!blob) {
-              fail('Compression failed.');
-              return;
-            }
-            // Diagnostic (temporary): canvas.toBlob silently falls back
-            // to PNG if the browser doesn't support WebP encode — no
-            // error thrown. Surface actual blob.type/size in-page so we
-            // can tell, on-device, whether that's happening before
-            // chasing a fix.
-            console.log('[map-image-upload] requested image/webp, got blob.type=' + blob.type +
-              ', size=' + blob.size + ' bytes (' + Math.round(blob.size / 1024) + 'KB), dims=' +
-              targetW + 'x' + targetH);
-            mapImageUploadStatusEl.textContent = 'Diag: type=' + blob.type +
-              ' size=' + Math.round(blob.size / 1024) + 'KB';
-            if (blob.type !== 'image/webp') {
-              alert('Diagnostic: canvas.toBlob did not honor image/webp — got "' + blob.type +
-                '" instead, ' + Math.round(blob.size / 1024) + 'KB. This means WebP encoding is ' +
-                'silently falling back, which is very likely why compression is worse than expected.');
-            }
+          mapImageUploadStatusEl.textContent = 'Encoding...';
+          loadWebpEncoder().then(function (webpModule) {
+            return webpModule.encode(imageData, { quality: 85 });
+          }).then(function (arrayBuffer) {
+            const blob = new Blob([arrayBuffer], { type: 'image/webp' });
+            console.log('[map-image-upload] libwebp encode: ' + blob.size + ' bytes (' +
+              Math.round(blob.size / 1024) + 'KB), dims=' + targetW + 'x' + targetH);
+
             if (blob.size > MAP_IMAGE_MAX_RAW_BYTES) {
               fail('Image too large after compression (' + Math.round(blob.size / 1024) +
                 'KB, max ' + Math.round(MAP_IMAGE_MAX_RAW_BYTES / 1024) + 'KB). Try a smaller source image.');
@@ -1125,7 +1131,7 @@
               mapImageUploadStatusEl.textContent = 'Uploading...';
               saveMapImage(targetMapId, reader.result, targetW, targetH, blob.size)
                 .then(function () {
-                  mapImageUploadStatusEl.textContent = 'Image updated.';
+                  mapImageUploadStatusEl.textContent = 'Image updated (' + Math.round(blob.size / 1024) + 'KB).';
                   mapImageUploadInputEl.disabled = false;
                   mapImageUploadInputEl.value = '';
                 })
@@ -1133,7 +1139,9 @@
             };
             reader.onerror = function () { fail('Read failed.'); };
             reader.readAsDataURL(blob);
-          }, 'image/webp', 0.85);
+          }).catch(function (err) {
+            fail('WebP encoding failed: ' + err.message);
+          });
         } catch (err) {
           fail('Processing error: ' + err.message);
         }
