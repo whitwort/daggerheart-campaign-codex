@@ -6,6 +6,9 @@ import { state } from './state.js';
 
 const db = getFirestore(firebaseApp);
 
+const mapImageUploadInputEl = document.getElementById('map-image-upload-input');
+const mapImageUploadStatusEl = document.getElementById('map-image-upload-status');
+
     function saveMapImage(mapId, base64Data, width, height, sizeBytes) {
       // Deterministic doc ID: overwriting it IS "delete prior primary
       // image for this map" — no separate query+delete needed, no

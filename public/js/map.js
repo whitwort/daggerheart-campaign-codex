@@ -16,8 +16,6 @@ const db = getFirestore(firebaseApp);
     const modeHintEl = document.getElementById('map-mode-hint');
     const mapBackBtn = document.getElementById('map-back-btn');
     const mapImageUploadEl = document.getElementById('map-image-upload');
-    const mapImageUploadInputEl = document.getElementById('map-image-upload-input');
-    const mapImageUploadStatusEl = document.getElementById('map-image-upload-status');
 
     const MAP_IMAGE_MAX_DIMENSION = 4000; // px, before compression
     const MAP_IMAGE_MAX_RAW_BYTES = 750 * 1024; // ~750KB raw ceiling (Firestore 1MiB doc cap / ~33% base64 overhead) — block, don't chunk
