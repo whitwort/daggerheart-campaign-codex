@@ -4,7 +4,7 @@ import {
   signInWithPopup, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
-  getFirestore, doc, setDoc, serverTimestamp
+  getFirestore, doc, setDoc, serverTimestamp, onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { state } from './state.js';
 import { attachEntriesListener, renderDetailForSelected } from './codex.js';
@@ -43,14 +43,6 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
     const requestJoinBtn = document.getElementById('request-join-btn');
     const requestJoinStatusEl = document.getElementById('request-join-status');
     const adminTabBtn = document.getElementById('tab-btn-admin');
-    const adminPendingBadge = document.getElementById('admin-pending-badge');
-    const adminJoinRequestsEl = document.getElementById('admin-join-requests');
-    const adminAddPlayerEmailEl = document.getElementById('admin-add-player-email');
-    const adminAddPlayerBtn = document.getElementById('admin-add-player-btn');
-    const adminAddPlayerErrorEl = document.getElementById('admin-add-player-error');
-    const adminPlayersListEl = document.getElementById('admin-players-list');
-    const adminRootMapSelectEl = document.getElementById('admin-root-map-select');
-    const adminRootMapStatusEl = document.getElementById('admin-root-map-status');
 
     function signInWith(providerFactory) {
       return function () {

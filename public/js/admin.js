@@ -6,6 +6,15 @@ import { state } from './state.js';
 
 const db = getFirestore(firebaseApp);
 
+const adminPendingBadge = document.getElementById('admin-pending-badge');
+const adminJoinRequestsEl = document.getElementById('admin-join-requests');
+const adminAddPlayerEmailEl = document.getElementById('admin-add-player-email');
+const adminAddPlayerBtn = document.getElementById('admin-add-player-btn');
+const adminAddPlayerErrorEl = document.getElementById('admin-add-player-error');
+const adminPlayersListEl = document.getElementById('admin-players-list');
+const adminRootMapSelectEl = document.getElementById('admin-root-map-select');
+const adminRootMapStatusEl = document.getElementById('admin-root-map-status');
+
     // --- Admin: root map selector (Phase 7b-4). GM-only control, but
     // reads state.allMaps/state.rootMapId which are already live for any authorized
     // user — no separate admin-gated listener needed, just render calls
