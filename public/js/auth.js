@@ -100,7 +100,6 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
       loginGateEl.style.display = hasAccess ? 'none' : 'block';
       mainAppEl.style.display = hasAccess ? 'block' : 'none';
       renderDetailForSelected();
-      maybeBootstrapRootMap();
     }
 
     requestJoinBtn.addEventListener('click', function () {
