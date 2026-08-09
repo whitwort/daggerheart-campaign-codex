@@ -3,9 +3,12 @@ name: Deploy
 on:
   push:
     branches: [main]
+  release:
+    types: [published]
 
 jobs:
-  push-to-apps-script:
+  deploy-hosting-dev:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -14,22 +17,22 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install clasp
-        run: npm install -g @google/clasp
-
-      - name: Restore clasp credentials
-        run: echo '${{ secrets.CLASP_CREDENTIALS }}' | base64 -d > ~/.clasprc.json
+      - name: Install firebase-tools
+        run: npm install -g firebase-tools
 
       - name: Stamp build commit hash
-        run: sed -i "s/__COMMIT_HASH__/$(git rev-parse --short HEAD)/" code.gs
+        run: sed -i "s/__COMMIT_HASH__/$(git rev-parse --short HEAD)/" public/index.html
 
-      - name: Push to Apps Script
-        run: clasp push --force
+      - name: Write service account key
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY_DEV }}' > /tmp/firebase-key.json
 
-      - name: Deploy new version
-        run: clasp deploy --description "Auto-deploy $(git rev-parse --short HEAD)"
+      - name: Deploy to Firebase Hosting (dev)
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-key.json
+        run: firebase deploy --only hosting,firestore:rules --project daggerheart-campaign-codex-dev --non-interactive
 
-  deploy-hosting:
+  deploy-hosting-prod:
+    if: github.event_name == 'release'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,7 +50,7 @@ jobs:
       - name: Write service account key
         run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}' > /tmp/firebase-key.json
 
-      - name: Deploy to Firebase Hosting
+      - name: Deploy to Firebase Hosting (prod)
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-key.json
         run: firebase deploy --only hosting,firestore:rules --project daggerheart-campaign-codex --non-interactive

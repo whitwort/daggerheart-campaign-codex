@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "daggerheart-campaign-codex"
+    "default": "daggerheart-campaign-codex",
+    "prod": "daggerheart-campaign-codex",
+    "dev": "daggerheart-campaign-codex-dev"
   }
 }
