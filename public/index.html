@@ -1401,7 +1401,10 @@
     }
 
     function ensureMapTabReady() {
-      if (!currentMapId) return; // maps not loaded/bootstrapped yet
+      // No early-return on falsy currentMapId: null is now a legitimate
+      // steady state (root explicitly set to none), not just "not loaded
+      // yet" — loadMap(null) correctly tears down any stale map and
+      // shows the right placeholder either way.
       if (leafletMap && loadedMapId === currentMapId) {
         renderPins();
         return;
