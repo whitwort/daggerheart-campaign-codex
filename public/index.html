@@ -25,6 +25,8 @@
     #map-gm-controls button.active-mode { outline: 2px solid #4a6fdc; }
     #map-mode-hint { font-size: 0.85rem; color: #666; }
     #map-back-btn { display: block; margin-top: 0.75rem; padding: 0.35rem 0.8rem; cursor: pointer; }
+    #map-image-upload { display: none; gap: 0.5rem; align-items: center; margin-top: 0.5rem; font-size: 0.85rem; }
+    #map-image-upload-status { color: #666; }
 
     #pin-form-overlay {
       display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
@@ -171,6 +173,11 @@
       <button id="map-remove-pin-btn">Remove pin</button>
       <span id="map-mode-hint"></span>
     </div>
+    <div id="map-image-upload">
+      <label id="map-image-upload-label" for="map-image-upload-input">Set map image</label>
+      <input type="file" id="map-image-upload-input" accept="image/*">
+      <span id="map-image-upload-status"></span>
+    </div>
     <div id="map-container"></div>
   </div>
 
@@ -258,12 +265,9 @@
         <div id="pin-form-childmap-new-fields" style="display:none;">
           <label for="pin-form-childmap-name">New map name</label>
           <input type="text" id="pin-form-childmap-name" placeholder="e.g. Baker (town)">
-          <label for="pin-form-childmap-image">Image filename</label>
-          <input type="text" id="pin-form-childmap-image" placeholder="maps/baker-town.webp">
           <p id="pin-form-childmap-image-hint">
-            Drop the image file in <code>public/maps/</code> and push to
-            <code>main</code> first &mdash; this field just registers the
-            path, it doesn't upload the file.
+            The map is created with no image. After saving, navigate to
+            it and use "Set map image" (GM) to upload one.
           </p>
         </div>
 
@@ -1027,6 +1031,104 @@
     const removePinBtn = document.getElementById('map-remove-pin-btn');
     const modeHintEl = document.getElementById('map-mode-hint');
     const mapBackBtn = document.getElementById('map-back-btn');
+    const mapImageUploadEl = document.getElementById('map-image-upload');
+    const mapImageUploadInputEl = document.getElementById('map-image-upload-input');
+    const mapImageUploadStatusEl = document.getElementById('map-image-upload-status');
+    let mapImageUploadTargetMapId = null; // set by loadMap() on each load, decoupled from currentMapId to avoid races if the user navigates mid-upload
+
+    const MAP_IMAGE_MAX_DIMENSION = 4000; // px, before compression
+    const MAP_IMAGE_MAX_RAW_BYTES = 750 * 1024; // ~750KB raw ceiling (Firestore 1MiB doc cap / ~33% base64 overhead) — block, don't chunk
+
+    function saveMapImage(mapId, base64Data, width, height, sizeBytes) {
+      // Deterministic doc ID: overwriting it IS "delete prior primary
+      // image for this map" — no separate query+delete needed, no
+      // orphaned docs possible.
+      return setDoc(doc(db, 'images', 'map_' + mapId + '_primary'), {
+        ownerType: 'map',
+        ownerId: mapId,
+        role: 'primary',
+        data: base64Data,
+        contentType: 'image/webp',
+        width: width,
+        height: height,
+        sizeBytes: sizeBytes,
+        uploadedAt: serverTimestamp()
+      });
+    }
+
+    mapImageUploadInputEl.addEventListener('change', function () {
+      const file = mapImageUploadInputEl.files[0];
+      if (!file) return;
+      const targetMapId = mapImageUploadTargetMapId;
+      if (!targetMapId) {
+        mapImageUploadStatusEl.textContent = 'No map selected.';
+        mapImageUploadInputEl.value = '';
+        return;
+      }
+
+      mapImageUploadInputEl.disabled = true;
+      mapImageUploadStatusEl.textContent = 'Processing...';
+
+      const objectUrl = URL.createObjectURL(file);
+      const img = new Image();
+
+      function fail(message) {
+        mapImageUploadStatusEl.textContent = message;
+        mapImageUploadInputEl.disabled = false;
+        mapImageUploadInputEl.value = '';
+      }
+
+      img.onload = function () {
+        URL.revokeObjectURL(objectUrl);
+        try {
+          let targetW = img.naturalWidth;
+          let targetH = img.naturalHeight;
+          if (targetW > MAP_IMAGE_MAX_DIMENSION || targetH > MAP_IMAGE_MAX_DIMENSION) {
+            const scale = MAP_IMAGE_MAX_DIMENSION / Math.max(targetW, targetH);
+            targetW = Math.round(targetW * scale);
+            targetH = Math.round(targetH * scale);
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = targetW;
+          canvas.height = targetH;
+          canvas.getContext('2d').drawImage(img, 0, 0, targetW, targetH);
+
+          canvas.toBlob(function (blob) {
+            if (!blob) {
+              fail('Compression failed.');
+              return;
+            }
+            if (blob.size > MAP_IMAGE_MAX_RAW_BYTES) {
+              fail('Image too large after compression (' + Math.round(blob.size / 1024) +
+                'KB, max ' + Math.round(MAP_IMAGE_MAX_RAW_BYTES / 1024) + 'KB). Try a smaller source image.');
+              return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function () {
+              mapImageUploadStatusEl.textContent = 'Uploading...';
+              saveMapImage(targetMapId, reader.result, targetW, targetH, blob.size)
+                .then(function () {
+                  mapImageUploadStatusEl.textContent = 'Image updated.';
+                  mapImageUploadInputEl.disabled = false;
+                  mapImageUploadInputEl.value = '';
+                })
+                .catch(function (err) { fail('Upload failed: ' + err.message); });
+            };
+            reader.onerror = function () { fail('Read failed.'); };
+            reader.readAsDataURL(blob);
+          }, 'image/webp', 0.85);
+        } catch (err) {
+          fail('Processing error: ' + err.message);
+        }
+      };
+      img.onerror = function () {
+        URL.revokeObjectURL(objectUrl);
+        fail('Could not read image file.');
+      };
+      img.src = objectUrl;
+    });
 
     function updateBackButtonVisibility() {
       mapBackBtn.style.display = mapNavStack.length ? 'block' : 'none';
@@ -1054,7 +1156,6 @@
     const pinFormChildMapNewFieldsEl = document.getElementById('pin-form-childmap-new-fields');
     const pinFormChildMapSelectEl = document.getElementById('pin-form-childmap-select');
     const pinFormChildMapNameEl = document.getElementById('pin-form-childmap-name');
-    const pinFormChildMapImageEl = document.getElementById('pin-form-childmap-image');
     const pinFormRadiusEl = document.getElementById('pin-form-radius');
     const pinFormErrorEl = document.getElementById('pin-form-error');
     const pinFormSaveBtn = document.getElementById('pin-form-save');
@@ -1148,7 +1249,6 @@
       }
 
       pinFormChildMapNameEl.value = '';
-      pinFormChildMapImageEl.value = '';
       pinFormRadiusEl.value = '150';
 
       pinFormErrorEl.style.display = 'none';
@@ -1216,11 +1316,12 @@
         return;
       }
 
-      // mode === 'new': create the map doc first, then the pin referencing it
+      // mode === 'new': create the map doc first, then the pin referencing it.
+      // No image field — set via "Set map image" (Phase 7b-2) after
+      // navigating to the new map.
       const name = pinFormChildMapNameEl.value.trim();
-      const image = pinFormChildMapImageEl.value.trim();
-      if (!name || !image) {
-        pinFormErrorEl.textContent = 'New map needs both a name and an image filename.';
+      if (!name) {
+        pinFormErrorEl.textContent = 'New map needs a name.';
         pinFormErrorEl.style.display = 'block';
         return;
       }
@@ -1228,7 +1329,6 @@
       pinFormSaveBtn.disabled = true;
       addDoc(collection(db, 'maps'), {
         name: name,
-        image: image,
         parentMapId: currentMapId
       }).then(function (mapDocRef) {
         return savePin({
@@ -1412,6 +1512,8 @@
       loadMap(currentMapId);
     }
 
+    let mapImageUnsub = null; // detach/reattach per map load (Phase 7b-3)
+
     function loadMap(mapId) {
       const mapDoc = allMaps.find(function (m) { return m.id === mapId; });
       const placeholderEl = document.getElementById('map-tab-placeholder');
@@ -1422,6 +1524,13 @@
         leafletMap = null;
         pinLayer = null;
       }
+      if (mapImageUnsub) {
+        mapImageUnsub();
+        mapImageUnsub = null;
+      }
+
+      mapImageUploadTargetMapId = mapDoc ? mapId : null;
+      mapImageUploadEl.style.display = (currentRole === 'gm' && mapDoc) ? 'flex' : 'none';
 
       if (!mapDoc) {
         placeholderEl.style.display = 'block';
@@ -1432,27 +1541,50 @@
         return;
       }
 
-      // Phase 7b: static Hosting image paths are retired. Until the
-      // Firestore-doc image pipeline (7b-2/7b-3) lands, a map with no
-      // legacy `image` field has nothing to render — show a clear
-      // placeholder rather than a broken map.
-      if (!mapDoc.image) {
+      if (typeof L === 'undefined') {
         placeholderEl.style.display = 'block';
         containerEl.style.display = 'none';
-        placeholderEl.textContent = currentRole === 'gm'
-          ? 'No image set for "' + (mapDoc.name || 'this map') + '" yet. Image upload is coming in Phase 7b-2.'
-          : 'This map has no image yet — ask your GM.';
+        placeholderEl.textContent = 'Map library (Leaflet) failed to load.';
         return;
       }
 
-      try {
-        if (typeof L === 'undefined') {
+      // Phase 7b-3: image lives in Firestore (images/map_{mapId}_primary),
+      // not a static Hosting path. Live-listen so a GM's upload (7b-2)
+      // updates the Map tab for everyone without a reload.
+      placeholderEl.style.display = 'block';
+      containerEl.style.display = 'none';
+      placeholderEl.textContent = 'Loading map image...';
+
+      mapImageUnsub = onSnapshot(doc(db, 'images', 'map_' + mapId + '_primary'), function (imgSnap) {
+        if (loadedMapId === mapId && leafletMap) {
+          // Already rendered this map; a later snapshot for the same map
+          // (e.g. after a re-upload) means the image changed under us —
+          // simplest correct handling is a full reload of this map.
+          leafletMap.remove();
+          leafletMap = null;
+          pinLayer = null;
+          loadedMapId = null;
+        }
+        if (!imgSnap.exists()) {
           placeholderEl.style.display = 'block';
           containerEl.style.display = 'none';
-          placeholderEl.textContent = 'Map library (Leaflet) failed to load.';
+          placeholderEl.textContent = currentRole === 'gm'
+            ? 'No image set for "' + (mapDoc.name || 'this map') + '" yet. Use "Set map image" above.'
+            : 'This map has no image yet — ask your GM.';
           return;
         }
+        renderMapImage(mapId, mapDoc, imgSnap.data());
+      }, function (err) {
+        placeholderEl.style.display = 'block';
+        containerEl.style.display = 'none';
+        placeholderEl.textContent = 'Map image failed to load: ' + err.message;
+      });
+    }
 
+    function renderMapImage(mapId, mapDoc, imageDoc) {
+      const placeholderEl = document.getElementById('map-tab-placeholder');
+      const containerEl = document.getElementById('map-container');
+      try {
         const img = new Image();
         img.onload = function () {
           try {
@@ -1485,7 +1617,7 @@
               zoomDelta: 0.5,
               maxBoundsViscosity: 1.0
             });
-            L.imageOverlay(mapDoc.image, bounds).addTo(map);
+            L.imageOverlay(imageDoc.data, bounds).addTo(map);
             leafletMap = map;
             loadedMapId = mapId;
 
@@ -1512,11 +1644,13 @@
         };
         img.onerror = function () {
           placeholderEl.style.display = 'block';
-          placeholderEl.textContent = 'Map image failed to load (' + mapDoc.image + ').';
+          containerEl.style.display = 'none';
+          placeholderEl.textContent = 'Map image failed to load (corrupt data?).';
         };
-        img.src = mapDoc.image;
+        img.src = imageDoc.data;
       } catch (err) {
         placeholderEl.style.display = 'block';
+        containerEl.style.display = 'none';
         placeholderEl.textContent = 'Map init error: ' + err.message;
       }
     }
