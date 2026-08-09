@@ -1,10 +1,8 @@
 /**
  * config.js
  *
- * Campaign/deployment-specific values for the Hosting-served UI. Mirrors
- * config.gs (which still holds the same values for Apps Script's
- * admin/import-only use) — keep the two in sync by hand for now; there's
- * no build step tying them together.
+ * Campaign/deployment-specific values for the Hosting-served UI.
+ * (The old config.gs mirror is gone with the Apps Script removal.)
  *
  * Firebase config below is not a secret — it identifies which project to
  * talk to, grants no access by itself. Real access control is Firestore
@@ -32,8 +30,8 @@ window.APP_CONFIG = {
   },
 
   // GM identity — the one account allowed to write. Must match this value
-  // in firestore.rules too (isGM() check) and config.gs (rules can't read
-  // either file). GM is expected to sign in with Google, since that's the
-  // provider whose email this matches.
+  // in firestore.rules too (isGM() check — rules can't read this file).
+  // GM is expected to sign in with Google, since that's the provider
+  // whose email this matches.
   gmEmail: 'whitwort@gmail.com'
 };
