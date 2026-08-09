@@ -129,13 +129,21 @@
   </header>
 
   <div id="login-gate" style="display:none;">
-    <p>Sign in to access this campaign codex.</p>
+    <div id="login-gate-signed-out">
+      <p>Sign in to access this campaign codex.</p>
+    </div>
+    <div id="login-gate-unlisted" style="display:none;">
+      <p>You're signed in, but not yet on the player list for this campaign.</p>
+      <button id="request-join-btn">Request to join</button>
+      <p id="request-join-status" style="display:none;">Request sent — waiting for the GM to approve.</p>
+    </div>
   </div>
 
   <div id="main-app" style="display:none;">
   <nav id="tabs">
     <button id="tab-btn-codex" class="active" data-tab="codex-panel">Codex</button>
     <button id="tab-btn-map" data-tab="map-panel">Map</button>
+    <button id="tab-btn-admin" data-tab="admin-panel" style="display:none;">Admin<span id="admin-pending-badge" style="display:none;"></span></button>
   </nav>
 
   <div id="codex-panel" class="tab-panel active">
@@ -164,6 +172,21 @@
       <span id="map-mode-hint"></span>
     </div>
     <div id="map-container"></div>
+  </div>
+
+  <div id="admin-panel" class="tab-panel">
+    <h3>Pending join requests</h3>
+    <ul id="admin-join-requests"><li id="admin-join-requests-empty">No pending requests.</li></ul>
+
+    <h3>Whitelist a player directly</h3>
+    <div id="admin-add-player">
+      <input type="email" id="admin-add-player-email" placeholder="player@example.com">
+      <button id="admin-add-player-btn">Add</button>
+    </div>
+    <p id="admin-add-player-error"></p>
+
+    <h3>Current players</h3>
+    <ul id="admin-players-list"></ul>
   </div>
   </div>
 
@@ -260,7 +283,7 @@
       signInWithPopup, signOut, onAuthStateChanged
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import {
-      getFirestore, collection, onSnapshot, doc, getDoc, addDoc, updateDoc, deleteDoc, setDoc
+      getFirestore, collection, onSnapshot, doc, getDoc, addDoc, updateDoc, deleteDoc, setDoc, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     const CONFIG = window.APP_CONFIG;
@@ -291,6 +314,17 @@
     const signOutBtn = document.getElementById('sign-out-btn');
     const loginGateEl = document.getElementById('login-gate');
     const mainAppEl = document.getElementById('main-app');
+    const loginGateSignedOutEl = document.getElementById('login-gate-signed-out');
+    const loginGateUnlistedEl = document.getElementById('login-gate-unlisted');
+    const requestJoinBtn = document.getElementById('request-join-btn');
+    const requestJoinStatusEl = document.getElementById('request-join-status');
+    const adminTabBtn = document.getElementById('tab-btn-admin');
+    const adminPendingBadge = document.getElementById('admin-pending-badge');
+    const adminJoinRequestsEl = document.getElementById('admin-join-requests');
+    const adminAddPlayerEmailEl = document.getElementById('admin-add-player-email');
+    const adminAddPlayerBtn = document.getElementById('admin-add-player-btn');
+    const adminAddPlayerErrorEl = document.getElementById('admin-add-player-error');
+    const adminPlayersListEl = document.getElementById('admin-players-list');
 
     function signInWith(providerFactory) {
       return function () {
@@ -316,10 +350,11 @@
     // GM: signed-in email matches CONFIG.gmEmail.
     // Player: signed-in email exists in players/{email} whitelist collection.
     // 'viewer': everyone else, unauthenticated OR authenticated-but-not-
-    // whitelisted alike, for now — 7a-4 will split the latter out into its
-    // own join-request flow. Auth-model overhaul (Aug 2026): 'viewer' no
-    // longer gets any app access at all, see login-gate toggle below.
+    // whitelisted. Auth-model overhaul (Aug 2026): 'viewer' gets no app
+    // access; the login-gate splits signed-out vs. signed-in-unlisted
+    // (Phase 7a-4 join-request flow) via currentUser below.
     let currentRole = 'viewer';
+    let currentUser = null;
 
     function resolveRole(user) {
       if (!user || !user.email) return Promise.resolve('viewer');
@@ -329,7 +364,166 @@
       });
     }
 
+    function checkJoinRequestStatus(email) {
+      requestJoinBtn.disabled = true;
+      requestJoinStatusEl.style.display = 'none';
+      getDoc(doc(db, 'joinRequests', email)).then(function (snap) {
+        if (snap.exists()) {
+          requestJoinBtn.style.display = 'none';
+          requestJoinStatusEl.style.display = 'block';
+        } else {
+          requestJoinBtn.style.display = 'inline-block';
+          requestJoinBtn.disabled = false;
+        }
+      }).catch(function (err) {
+        console.error('Join-request status check failed:', err.message);
+        requestJoinBtn.disabled = false;
+      });
+    }
+
+    requestJoinBtn.addEventListener('click', function () {
+      if (!currentUser || !currentUser.email) return;
+      requestJoinBtn.disabled = true;
+      setDoc(doc(db, 'joinRequests', currentUser.email), {
+        email: currentUser.email,
+        displayName: currentUser.displayName || '',
+        provider: (currentUser.providerData[0] && currentUser.providerData[0].providerId) || '',
+        requestedAt: serverTimestamp()
+      }).then(function () {
+        requestJoinBtn.style.display = 'none';
+        requestJoinStatusEl.style.display = 'block';
+      }).catch(function (err) {
+        requestJoinBtn.disabled = false;
+        alert('Request failed: ' + err.message);
+      });
+    });
+
+    // --- Admin tab (Phase 7a-5/6): GM-only. Listeners are only attached
+    // once role first resolves to 'gm' — a query across the whole
+    // joinRequests/players collections isn't authorized by the rules for
+    // anyone else, so attaching this unconditionally would just error for
+    // Players.
+    let adminListenersAttached = false;
+    let allJoinRequests = [];
+    let allPlayers = [];
+
+    function attachAdminListeners() {
+      if (adminListenersAttached) return;
+      adminListenersAttached = true;
+      onSnapshot(collection(db, 'joinRequests'), function (snapshot) {
+        allJoinRequests = [];
+        snapshot.forEach(function (docSnap) {
+          allJoinRequests.push(Object.assign({ id: docSnap.id }, docSnap.data()));
+        });
+        renderAdminJoinRequests();
+      }, function (err) {
+        console.error('joinRequests listener failed:', err.message);
+      });
+
+      onSnapshot(collection(db, 'players'), function (snapshot) {
+        allPlayers = [];
+        snapshot.forEach(function (docSnap) {
+          allPlayers.push(Object.assign({ id: docSnap.id }, docSnap.data()));
+        });
+        renderAdminPlayersList();
+      }, function (err) {
+        console.error('players listener failed:', err.message);
+      });
+    }
+
+    function renderAdminJoinRequests() {
+      adminJoinRequestsEl.innerHTML = '';
+      if (allJoinRequests.length === 0) {
+        const empty = document.createElement('li');
+        empty.textContent = 'No pending requests.';
+        adminJoinRequestsEl.appendChild(empty);
+        adminPendingBadge.style.display = 'none';
+        adminPendingBadge.textContent = '';
+        return;
+      }
+      adminPendingBadge.style.display = 'inline';
+      adminPendingBadge.textContent = ' (' + allJoinRequests.length + ')';
+      allJoinRequests.forEach(function (req) {
+        const li = document.createElement('li');
+        const label = document.createElement('span');
+        label.textContent = (req.displayName ? req.displayName + ' — ' : '') + req.email
+          + ' (' + (req.provider || 'unknown') + ')';
+        const acceptBtn = document.createElement('button');
+        acceptBtn.textContent = 'Accept';
+        acceptBtn.addEventListener('click', function () { acceptJoinRequest(req); });
+        const rejectBtn = document.createElement('button');
+        rejectBtn.textContent = 'Reject';
+        rejectBtn.addEventListener('click', function () { rejectJoinRequest(req); });
+        li.appendChild(label);
+        li.appendChild(acceptBtn);
+        li.appendChild(rejectBtn);
+        adminJoinRequestsEl.appendChild(li);
+      });
+    }
+
+    function acceptJoinRequest(req) {
+      setDoc(doc(db, 'players', req.email), {
+        addedAt: serverTimestamp(),
+        displayName: req.displayName || ''
+      }).then(function () {
+        return deleteDoc(doc(db, 'joinRequests', req.id));
+      }).catch(function (err) {
+        alert('Accept failed: ' + err.message);
+      });
+    }
+
+    function rejectJoinRequest(req) {
+      deleteDoc(doc(db, 'joinRequests', req.id)).catch(function (err) {
+        alert('Reject failed: ' + err.message);
+      });
+    }
+
+    function renderAdminPlayersList() {
+      adminPlayersListEl.innerHTML = '';
+      if (allPlayers.length === 0) {
+        const empty = document.createElement('li');
+        empty.textContent = 'No whitelisted players yet.';
+        adminPlayersListEl.appendChild(empty);
+        return;
+      }
+      allPlayers.slice().sort(function (a, b) { return a.id.localeCompare(b.id); }).forEach(function (p) {
+        const li = document.createElement('li');
+        const label = document.createElement('span');
+        label.textContent = p.id + (p.displayName ? ' (' + p.displayName + ')' : '');
+        const removeBtn = document.createElement('button');
+        removeBtn.textContent = 'Remove';
+        removeBtn.addEventListener('click', function () {
+          const confirmed = window.confirm('Remove ' + p.id + ' from the player whitelist?');
+          if (!confirmed) return;
+          deleteDoc(doc(db, 'players', p.id)).catch(function (err) {
+            alert('Remove failed: ' + err.message);
+          });
+        });
+        li.appendChild(label);
+        li.appendChild(removeBtn);
+        adminPlayersListEl.appendChild(li);
+      });
+    }
+
+    adminAddPlayerBtn.addEventListener('click', function () {
+      const email = adminAddPlayerEmailEl.value.trim().toLowerCase();
+      adminAddPlayerErrorEl.textContent = '';
+      if (!email || email.indexOf('@') === -1) {
+        adminAddPlayerErrorEl.textContent = 'Enter a valid email.';
+        return;
+      }
+      adminAddPlayerBtn.disabled = true;
+      setDoc(doc(db, 'players', email), { addedAt: serverTimestamp() }, { merge: true }).then(function () {
+        adminAddPlayerBtn.disabled = false;
+        adminAddPlayerEmailEl.value = '';
+      }).catch(function (err) {
+        adminAddPlayerBtn.disabled = false;
+        adminAddPlayerErrorEl.textContent = 'Add failed: ' + err.message;
+      });
+    });
+
     onAuthStateChanged(auth, function (user) {
+      currentUser = user;
       if (user) {
         signInButtonsEl.style.display = 'none';
         signOutBtn.style.display = 'inline';
@@ -344,9 +538,21 @@
         roleBadge.textContent = role;
         newEntryBtn.style.display = (role === 'gm') ? 'inline-block' : 'none';
         mapGmControlsEl.style.display = (role === 'gm') ? 'flex' : 'none';
+        adminTabBtn.style.display = (role === 'gm') ? 'inline-block' : 'none';
+        if (role === 'gm') attachAdminListeners();
         const hasAccess = (role === 'gm' || role === 'player');
         loginGateEl.style.display = hasAccess ? 'none' : 'block';
         mainAppEl.style.display = hasAccess ? 'block' : 'none';
+        if (!hasAccess) {
+          if (user && user.email) {
+            loginGateSignedOutEl.style.display = 'none';
+            loginGateUnlistedEl.style.display = 'block';
+            checkJoinRequestStatus(user.email);
+          } else {
+            loginGateSignedOutEl.style.display = 'block';
+            loginGateUnlistedEl.style.display = 'none';
+          }
+        }
         renderDetailForSelected();
         maybeBootstrapRootMap();
       });

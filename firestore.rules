@@ -53,6 +53,18 @@ service cloud.firestore {
       allow write: if isGM();
     }
 
+    // Join requests (Phase 7a-4): a signed-in-but-unlisted user files a
+    // request at their own email-keyed doc; GM reviews and either adds them
+    // to `players` (accept) or deletes the request (reject). A user can
+    // only create/read/delete their OWN request doc (delete lets them
+    // cancel/retry); only GM can read the full collection or update it.
+    match /joinRequests/{email} {
+      allow create: if request.auth != null && request.auth.token.email == email;
+      allow read: if isGM() || (request.auth != null && request.auth.token.email == email);
+      allow delete: if isGM() || (request.auth != null && request.auth.token.email == email);
+      allow update: if isGM();
+    }
+
     // Default deny for anything not explicitly matched above.
     match /{document=**} {
       allow read, write: if false;
