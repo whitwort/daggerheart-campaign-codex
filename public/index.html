@@ -37,7 +37,16 @@
     }
     #pin-form h3 { margin-top: 0; }
     #pin-form label { display: block; margin-top: 0.5rem; font-size: 0.85rem; font-weight: bold; }
-    #pin-form select { width: 100%; box-sizing: border-box; padding: 0.4rem; font-size: 0.9rem; margin-top: 0.2rem; }
+    #pin-form select, #pin-form input[type="text"], #pin-form input[type="number"] {
+      width: 100%; box-sizing: border-box; padding: 0.4rem; font-size: 0.9rem; margin-top: 0.2rem;
+    }
+    #pin-form-type-toggle, #pin-form-childmap-mode-toggle {
+      display: flex; gap: 1rem; margin-top: 0.5rem; font-size: 0.85rem; font-weight: normal;
+    }
+    #pin-form-type-toggle label, #pin-form-childmap-mode-toggle label {
+      display: flex; align-items: center; gap: 0.3rem; font-weight: normal; margin-top: 0;
+    }
+    #pin-form-childmap-image-hint { font-size: 0.75rem; color: #666; margin: 0.3rem 0 0 0; }
     #pin-form-actions { margin-top: 1.25rem; display: flex; gap: 0.5rem; justify-content: flex-end; }
     #pin-form-actions button { padding: 0.4rem 0.9rem; cursor: pointer; }
     #pin-form-error { color: #b00020; font-size: 0.85rem; margin-top: 0.5rem; display: none; }
@@ -187,9 +196,44 @@
 
   <div id="pin-form-overlay">
     <div id="pin-form">
-      <h3>Link pin to entry</h3>
-      <label for="pin-form-entry">Codex entry</label>
-      <select id="pin-form-entry"></select>
+      <h3>Add pin</h3>
+
+      <div id="pin-form-type-toggle">
+        <label><input type="radio" name="pin-form-type" value="entry" checked> Link to entry</label>
+        <label><input type="radio" name="pin-form-type" value="childmap"> Link to child map</label>
+      </div>
+
+      <div id="pin-form-entry-fields">
+        <label for="pin-form-entry">Codex entry</label>
+        <select id="pin-form-entry"></select>
+      </div>
+
+      <div id="pin-form-childmap-fields" style="display:none;">
+        <div id="pin-form-childmap-mode-toggle">
+          <label><input type="radio" name="pin-form-childmap-mode" value="existing" checked> Existing map</label>
+          <label><input type="radio" name="pin-form-childmap-mode" value="new"> New map</label>
+        </div>
+
+        <div id="pin-form-childmap-existing-fields">
+          <label for="pin-form-childmap-select">Child map</label>
+          <select id="pin-form-childmap-select"></select>
+        </div>
+
+        <div id="pin-form-childmap-new-fields" style="display:none;">
+          <label for="pin-form-childmap-name">New map name</label>
+          <input type="text" id="pin-form-childmap-name" placeholder="e.g. Baker (town)">
+          <label for="pin-form-childmap-image">Image filename</label>
+          <input type="text" id="pin-form-childmap-image" placeholder="maps/baker-town.webp">
+          <p id="pin-form-childmap-image-hint">
+            Drop the image file in <code>public/maps/</code> and push to
+            <code>main</code> first &mdash; this field just registers the
+            path, it doesn't upload the file.
+          </p>
+        </div>
+
+        <label for="pin-form-radius">Circle radius (map units)</label>
+        <input type="number" id="pin-form-radius" value="150" min="1">
+      </div>
 
       <p id="pin-form-error"></p>
 
@@ -688,9 +732,46 @@
 
     const pinFormOverlayEl = document.getElementById('pin-form-overlay');
     const pinFormEntryEl = document.getElementById('pin-form-entry');
+    const pinFormEntryFieldsEl = document.getElementById('pin-form-entry-fields');
+    const pinFormChildMapFieldsEl = document.getElementById('pin-form-childmap-fields');
+    const pinFormChildMapExistingFieldsEl = document.getElementById('pin-form-childmap-existing-fields');
+    const pinFormChildMapNewFieldsEl = document.getElementById('pin-form-childmap-new-fields');
+    const pinFormChildMapSelectEl = document.getElementById('pin-form-childmap-select');
+    const pinFormChildMapNameEl = document.getElementById('pin-form-childmap-name');
+    const pinFormChildMapImageEl = document.getElementById('pin-form-childmap-image');
+    const pinFormRadiusEl = document.getElementById('pin-form-radius');
     const pinFormErrorEl = document.getElementById('pin-form-error');
     const pinFormSaveBtn = document.getElementById('pin-form-save');
     const pinFormCancelBtn = document.getElementById('pin-form-cancel');
+
+    function getPinFormType() {
+      const checked = document.querySelector('input[name="pin-form-type"]:checked');
+      return checked ? checked.value : 'entry';
+    }
+
+    function getChildMapMode() {
+      const checked = document.querySelector('input[name="pin-form-childmap-mode"]:checked');
+      return checked ? checked.value : 'existing';
+    }
+
+    function updatePinFormTypeVisibility() {
+      const type = getPinFormType();
+      pinFormEntryFieldsEl.style.display = (type === 'entry') ? 'block' : 'none';
+      pinFormChildMapFieldsEl.style.display = (type === 'childmap') ? 'block' : 'none';
+    }
+
+    function updateChildMapModeVisibility() {
+      const mode = getChildMapMode();
+      pinFormChildMapExistingFieldsEl.style.display = (mode === 'existing') ? 'block' : 'none';
+      pinFormChildMapNewFieldsEl.style.display = (mode === 'new') ? 'block' : 'none';
+    }
+
+    Array.prototype.forEach.call(document.querySelectorAll('input[name="pin-form-type"]'), function (radio) {
+      radio.addEventListener('change', updatePinFormTypeVisibility);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('input[name="pin-form-childmap-mode"]'), function (radio) {
+      radio.addEventListener('change', updateChildMapModeVisibility);
+    });
 
     function setMapMode(mode) {
       mapMode = (mapMode === mode) ? null : mode;
@@ -710,6 +791,12 @@
 
     function openPinForm(coords) {
       pendingPinCoords = coords;
+
+      document.querySelector('input[name="pin-form-type"][value="entry"]').checked = true;
+      document.querySelector('input[name="pin-form-childmap-mode"][value="existing"]').checked = true;
+      updatePinFormTypeVisibility();
+      updateChildMapModeVisibility();
+
       pinFormEntryEl.innerHTML = '';
       allEntries
         .slice()
@@ -720,6 +807,34 @@
           opt.textContent = entry.name;
           pinFormEntryEl.appendChild(opt);
         });
+
+      // Candidate child maps: any map that isn't the current map itself.
+      // Not excluding deeper cycles (e.g. linking to an ancestor) here —
+      // simple guard, not exhaustive; GM is trusted not to build a loop.
+      pinFormChildMapSelectEl.innerHTML = '';
+      const candidates = allMaps
+        .filter(function (m) { return m.id !== currentMapId; })
+        .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+      if (candidates.length === 0) {
+        const opt = document.createElement('option');
+        opt.textContent = '(no other maps yet — create one below)';
+        opt.disabled = true;
+        pinFormChildMapSelectEl.appendChild(opt);
+        document.querySelector('input[name="pin-form-childmap-mode"][value="new"]').checked = true;
+        updateChildMapModeVisibility();
+      } else {
+        candidates.forEach(function (m) {
+          const opt = document.createElement('option');
+          opt.value = m.id;
+          opt.textContent = m.name;
+          pinFormChildMapSelectEl.appendChild(opt);
+        });
+      }
+
+      pinFormChildMapNameEl.value = '';
+      pinFormChildMapImageEl.value = '';
+      pinFormRadiusEl.value = '150';
+
       pinFormErrorEl.style.display = 'none';
       pinFormErrorEl.textContent = '';
       pinFormOverlayEl.classList.add('open');
@@ -740,20 +855,83 @@
         closePinForm();
         return;
       }
-      const entryId = pinFormEntryEl.value;
-      if (!entryId) {
-        pinFormErrorEl.textContent = 'No entries available to link.';
+
+      const type = getPinFormType();
+
+      if (type === 'entry') {
+        const entryId = pinFormEntryEl.value;
+        if (!entryId) {
+          pinFormErrorEl.textContent = 'No entries available to link.';
+          pinFormErrorEl.style.display = 'block';
+          return;
+        }
+        savePin({
+          entryId: entryId,
+          x: pendingPinCoords.x,
+          y: pendingPinCoords.y,
+          mapId: currentMapId
+        });
+        return;
+      }
+
+      // type === 'childmap'
+      const radius = Number(pinFormRadiusEl.value);
+      if (!radius || radius <= 0) {
+        pinFormErrorEl.textContent = 'Radius must be a positive number.';
+        pinFormErrorEl.style.display = 'block';
+        return;
+      }
+
+      const mode = getChildMapMode();
+      if (mode === 'existing') {
+        const childMapId = pinFormChildMapSelectEl.value;
+        if (!childMapId) {
+          pinFormErrorEl.textContent = 'No child map selected.';
+          pinFormErrorEl.style.display = 'block';
+          return;
+        }
+        savePin({
+          childMapId: childMapId,
+          radius: radius,
+          x: pendingPinCoords.x,
+          y: pendingPinCoords.y,
+          mapId: currentMapId
+        });
+        return;
+      }
+
+      // mode === 'new': create the map doc first, then the pin referencing it
+      const name = pinFormChildMapNameEl.value.trim();
+      const image = pinFormChildMapImageEl.value.trim();
+      if (!name || !image) {
+        pinFormErrorEl.textContent = 'New map needs both a name and an image filename.';
         pinFormErrorEl.style.display = 'block';
         return;
       }
 
       pinFormSaveBtn.disabled = true;
-      addDoc(collection(db, 'pins'), {
-        entryId: entryId,
-        x: pendingPinCoords.x,
-        y: pendingPinCoords.y,
-        mapId: currentMapId
-      }).then(function () {
+      addDoc(collection(db, 'maps'), {
+        name: name,
+        image: image,
+        parentMapId: currentMapId
+      }).then(function (mapDocRef) {
+        return savePin({
+          childMapId: mapDocRef.id,
+          radius: radius,
+          x: pendingPinCoords.x,
+          y: pendingPinCoords.y,
+          mapId: currentMapId
+        });
+      }).catch(function (err) {
+        pinFormSaveBtn.disabled = false;
+        pinFormErrorEl.textContent = 'Create map failed: ' + err.message;
+        pinFormErrorEl.style.display = 'block';
+      });
+    });
+
+    function savePin(pinData) {
+      pinFormSaveBtn.disabled = true;
+      return addDoc(collection(db, 'pins'), pinData).then(function () {
         pinFormSaveBtn.disabled = false;
         closePinForm();
         setMapMode('add'); // toggles back off, matching the button that opened it
@@ -762,7 +940,7 @@
         pinFormErrorEl.textContent = 'Save failed: ' + err.message;
         pinFormErrorEl.style.display = 'block';
       });
-    });
+    }
 
     function removePin(pin) {
       let label;
