@@ -1546,6 +1546,67 @@
     let mapImageUnsub = null; // detach/reattach per map load (Phase 7b-3)
     let currentMapImageDims = null; // {width,height} of currently-loaded map's image, for replace-dimension-change warning
 
+    // --- Phase 7c-1: IndexedDB cache for map images. Not localStorage —
+    // base64 image blobs can exceed its quota. Firestore's own listener
+    // stays the source of truth (correctness, live updates); this cache
+    // only provides instant paint from a prior session while the
+    // listener does its network round-trip, keyed by the image doc ID
+    // with a `version` field (uploadedAt millis) so we can tell a cached
+    // entry apart from a newer live one. First application of this
+    // pattern, per the phase plan — needs to provably work here before
+    // 7d's tiling (many docs per map) depends on the same mechanism.
+    const IMAGE_CACHE_DB_NAME = 'codexImageCache';
+    const IMAGE_CACHE_DB_VERSION = 1;
+    const IMAGE_CACHE_STORE = 'images';
+    let imageCacheDbPromise = null;
+
+    function openImageCacheDb() {
+      if (!imageCacheDbPromise) {
+        imageCacheDbPromise = new Promise(function (resolve, reject) {
+          if (!('indexedDB' in window)) {
+            reject(new Error('IndexedDB not available'));
+            return;
+          }
+          const req = indexedDB.open(IMAGE_CACHE_DB_NAME, IMAGE_CACHE_DB_VERSION);
+          req.onupgradeneeded = function () {
+            if (!req.result.objectStoreNames.contains(IMAGE_CACHE_STORE)) {
+              req.result.createObjectStore(IMAGE_CACHE_STORE, { keyPath: 'docId' });
+            }
+          };
+          req.onsuccess = function () { resolve(req.result); };
+          req.onerror = function () { reject(req.error); };
+        });
+      }
+      return imageCacheDbPromise;
+    }
+
+    function getCachedImage(docId) {
+      return openImageCacheDb().then(function (db) {
+        return new Promise(function (resolve, reject) {
+          const tx = db.transaction(IMAGE_CACHE_STORE, 'readonly');
+          const req = tx.objectStore(IMAGE_CACHE_STORE).get(docId);
+          req.onsuccess = function () { resolve(req.result || null); };
+          req.onerror = function () { reject(req.error); };
+        });
+      }).catch(function (err) {
+        console.warn('[image-cache] read failed:', err.message);
+        return null; // cache is an optimization only, never block the real load path on failure
+      });
+    }
+
+    function putCachedImage(record) {
+      return openImageCacheDb().then(function (db) {
+        return new Promise(function (resolve, reject) {
+          const tx = db.transaction(IMAGE_CACHE_STORE, 'readwrite');
+          tx.objectStore(IMAGE_CACHE_STORE).put(record);
+          tx.oncomplete = function () { resolve(); };
+          tx.onerror = function () { reject(tx.error); };
+        });
+      }).catch(function (err) {
+        console.warn('[image-cache] write failed:', err.message);
+      });
+    }
+
     function loadMap(mapId) {
       const mapDoc = allMaps.find(function (m) { return m.id === mapId; });
       const placeholderEl = document.getElementById('map-tab-placeholder');
@@ -1588,7 +1649,20 @@
       containerEl.style.display = 'none';
       placeholderEl.textContent = 'Loading map image...';
 
-      mapImageUnsub = onSnapshot(doc(db, 'images', 'map_' + mapId + '_primary'), function (imgSnap) {
+      const imageDocId = 'map_' + mapId + '_primary';
+
+      // Phase 7c-1: paint instantly from IndexedDB cache (if any) while
+      // the listener below does its network round-trip. loadedMapId
+      // check guards against the live snapshot having already won the
+      // race and rendered first — cache is a fallback, never an override.
+      getCachedImage(imageDocId).then(function (cached) {
+        if (cached && mapImageUploadTargetMapId === mapId && loadedMapId !== mapId) {
+          currentMapImageDims = { width: cached.width, height: cached.height };
+          renderMapImage(mapId, mapDoc, cached);
+        }
+      });
+
+      mapImageUnsub = onSnapshot(doc(db, 'images', imageDocId), function (imgSnap) {
         if (loadedMapId === mapId && leafletMap) {
           // Already rendered this map; a later snapshot for the same map
           // (e.g. after a re-upload) means the image changed under us —
@@ -1610,6 +1684,16 @@
         const imgData = imgSnap.data();
         currentMapImageDims = { width: imgData.width, height: imgData.height };
         renderMapImage(mapId, mapDoc, imgData);
+        // Fire-and-forget cache write; source-of-truth render above never
+        // waits on this.
+        putCachedImage({
+          docId: imageDocId,
+          version: (imgData.uploadedAt && imgData.uploadedAt.toMillis) ? imgData.uploadedAt.toMillis() : Date.now(),
+          data: imgData.data,
+          width: imgData.width,
+          height: imgData.height,
+          contentType: imgData.contentType
+        });
       }, function (err) {
         placeholderEl.style.display = 'block';
         containerEl.style.display = 'none';
