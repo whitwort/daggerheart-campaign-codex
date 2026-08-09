@@ -22,15 +22,6 @@ window.APP_CONFIG = {
 
   categories: ['NPC', 'Faction', 'Location', 'Item', 'History', 'Organization', 'Event'],
 
-  // Path to the base map image, relative to public/. Drop the file in
-  // public/maps/ and update this path, then redeploy (push to main) —
-  // see README for the full "add your own map" steps. Note: as of Phase
-  // 6a this is only used as a one-time seed value when the `maps`
-  // Firestore collection is empty (bootstraps the root map doc). Once
-  // that doc exists, editing this value does nothing — update the doc's
-  // `image` field directly (e.g. via the Firebase console) instead.
-  mapImage: 'maps/genesis-map.webp',
-
   firebase: {
     apiKey: 'AIzaSyBbmp4gRn7fRIzFcK2nEgCy126Db0RhjB0',
     authDomain: 'daggerheart-campaign-codex.firebaseapp.com',

@@ -53,6 +53,22 @@ service cloud.firestore {
       allow write: if isGM();
     }
 
+    // Images (Phase 7b): {ownerType, ownerId, role, data, contentType,
+    // width, height, sizeBytes, uploadedAt}. Same GM/Player-only read
+    // model as entries/maps/pins — no separate public/private concept.
+    match /images/{imageId} {
+      allow read: if isGM() || isPlayer();
+      allow write: if isGM();
+    }
+
+    // Campaign-wide config (Phase 7b): currently just { rootMapId }, GM-
+    // selected via the Admin tab. Replaces the old parentMapId==null
+    // structural-root convention.
+    match /config/{docId} {
+      allow read: if isGM() || isPlayer();
+      allow write: if isGM();
+    }
+
     // Join requests (Phase 7a-4): a signed-in-but-unlisted user files a
     // request at their own email-keyed doc; GM reviews and either adds them
     // to `players` (accept) or deletes the request (reject). A user can
