@@ -334,7 +334,7 @@ const db = getFirestore(firebaseApp);
     }
 
     function attachPinsListener() {
-      onSnapshot(collection(db, 'pins'), function (snapshot) {
+      state.pinsUnsub = onSnapshot(collection(db, 'pins'), function (snapshot) {
         state.allPins = [];
         snapshot.forEach(function (docSnap) {
           state.allPins.push(Object.assign({ id: docSnap.id }, docSnap.data()));
@@ -349,7 +349,7 @@ const db = getFirestore(firebaseApp);
     // means "nesting parent" only; multiple maps can have it unset
     // without any of them being the app's root.
     function attachConfigListener() {
-      onSnapshot(doc(db, 'config', 'campaign'), function (docSnap) {
+      state.configUnsub = onSnapshot(doc(db, 'config', 'campaign'), function (docSnap) {
         state.rootMapId = docSnap.exists() ? (docSnap.data().rootMapId || null) : null;
         // Bugfix: only fall back to state.rootMapId when state.currentMapId is
         // unset/invalid (resolveCurrentMapId's job, for maps-collection
@@ -378,7 +378,7 @@ const db = getFirestore(firebaseApp);
     }
 
     function attachMapsListener() {
-      onSnapshot(collection(db, 'maps'), function (snapshot) {
+      state.mapsUnsub = onSnapshot(collection(db, 'maps'), function (snapshot) {
         state.allMaps = [];
         snapshot.forEach(function (docSnap) {
           state.allMaps.push(Object.assign({ id: docSnap.id }, docSnap.data()));
@@ -586,7 +586,13 @@ const db = getFirestore(firebaseApp);
       }
     }
 
+function detachMapDataListeners() {
+  if (state.pinsUnsub) { state.pinsUnsub(); state.pinsUnsub = null; }
+  if (state.mapsUnsub) { state.mapsUnsub(); state.mapsUnsub = null; }
+  if (state.configUnsub) { state.configUnsub(); state.configUnsub = null; }
+}
+
 export {
-  attachPinsListener, attachMapsListener, attachConfigListener,
+  attachPinsListener, attachMapsListener, attachConfigListener, detachMapDataListeners,
   ensureMapTabReady, loadMap
 };
