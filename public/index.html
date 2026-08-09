@@ -175,6 +175,12 @@
   </div>
 
   <div id="admin-panel" class="tab-panel">
+    <h3>Root map</h3>
+    <div id="admin-root-map">
+      <select id="admin-root-map-select"><option value="">-- none --</option></select>
+    </div>
+    <p id="admin-root-map-status"></p>
+
     <h3>Pending join requests</h3>
     <ul id="admin-join-requests"><li id="admin-join-requests-empty">No pending requests.</li></ul>
 
@@ -325,6 +331,8 @@
     const adminAddPlayerBtn = document.getElementById('admin-add-player-btn');
     const adminAddPlayerErrorEl = document.getElementById('admin-add-player-error');
     const adminPlayersListEl = document.getElementById('admin-players-list');
+    const adminRootMapSelectEl = document.getElementById('admin-root-map-select');
+    const adminRootMapStatusEl = document.getElementById('admin-root-map-status');
 
     function signInWith(providerFactory) {
       return function () {
@@ -404,6 +412,45 @@
       });
       // No manual UI flip here — the joinRequestDocUnsub listener below
       // picks up the new doc and updates the button/status itself.
+    });
+
+    // --- Admin: root map selector (Phase 7b-4). GM-only control, but
+    // reads allMaps/rootMapId which are already live for any authorized
+    // user — no separate admin-gated listener needed, just render calls
+    // from the existing maps/config listeners.
+    let adminRootMapUpdating = false; // guards select re-render fighting the user's own in-flight change
+
+    function renderAdminRootMapSelect() {
+      if (adminRootMapUpdating) return;
+      const previousValue = adminRootMapSelectEl.value;
+      adminRootMapSelectEl.innerHTML = '<option value="">-- none --</option>';
+      allMaps.forEach(function (m) {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.name || m.id;
+        adminRootMapSelectEl.appendChild(opt);
+      });
+      adminRootMapSelectEl.value = rootMapId || '';
+      if (adminRootMapSelectEl.value !== (rootMapId || '')) {
+        // rootMapId points at a map that no longer exists in allMaps.
+        adminRootMapSelectEl.value = previousValue;
+      }
+    }
+
+    adminRootMapSelectEl.addEventListener('change', function () {
+      const newRootMapId = adminRootMapSelectEl.value || null;
+      adminRootMapUpdating = true;
+      adminRootMapStatusEl.textContent = 'Saving...';
+      setDoc(doc(db, 'config', 'campaign'), { rootMapId: newRootMapId }, { merge: true })
+        .then(function () {
+          adminRootMapStatusEl.textContent = 'Saved.';
+        })
+        .catch(function (err) {
+          adminRootMapStatusEl.textContent = 'Save failed: ' + err.message;
+        })
+        .finally(function () {
+          adminRootMapUpdating = false;
+        });
     });
 
     // --- Admin tab (Phase 7a-5/6): GM-only. Listeners are only attached
@@ -1314,6 +1361,7 @@
       onSnapshot(doc(db, 'config', 'campaign'), function (docSnap) {
         rootMapId = docSnap.exists() ? (docSnap.data().rootMapId || null) : null;
         resolveCurrentMapId();
+        renderAdminRootMapSelect();
         if (document.getElementById('map-panel').classList.contains('active')) {
           ensureMapTabReady();
         }
@@ -1335,6 +1383,7 @@
           allMaps.push(Object.assign({ id: docSnap.id }, docSnap.data()));
         });
         resolveCurrentMapId();
+        renderAdminRootMapSelect();
         if (document.getElementById('map-panel').classList.contains('active')) {
           ensureMapTabReady();
         }
