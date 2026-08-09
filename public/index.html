@@ -140,7 +140,7 @@
     </div>
   </div>
   <div id="map-panel" class="tab-panel">
-    <p id="map-tab-placeholder">Map tab — coming in Phase 3.</p>
+    <p id="map-tab-placeholder">Loading map…</p>
     <div id="map-gm-controls">
       <button id="map-add-pin-btn">+ Add pin</button>
       <button id="map-remove-pin-btn">Remove pin</button>
@@ -279,6 +279,7 @@
         newEntryBtn.style.display = (role === 'gm') ? 'inline-block' : 'none';
         mapGmControlsEl.style.display = (role === 'gm') ? 'flex' : 'none';
         renderDetailForSelected();
+        maybeBootstrapRootMap();
       });
     });
 
@@ -642,16 +643,19 @@
         document.getElementById(btn.dataset.tab).classList.add('active');
 
         if (btn.dataset.tab === 'map-panel') {
-          initMapIfNeeded();
+          ensureMapTabReady();
         }
       });
     });
 
-    let mapInitialized = false;
     let leafletMap = null;
+    let loadedMapId = null;
     let mapImgHeight = 0;
     let pinLayer = null;
     let allPins = [];
+    let allMaps = [];
+    let currentMapId = null;
+    let mapBootstrapAttempted = false;
     let mapMode = null; // null | 'add' | 'remove'
     let pendingPinCoords = null;
 
@@ -725,7 +729,8 @@
       addDoc(collection(db, 'pins'), {
         entryId: entryId,
         x: pendingPinCoords.x,
-        y: pendingPinCoords.y
+        y: pendingPinCoords.y,
+        mapId: currentMapId
       }).then(function () {
         pinFormSaveBtn.disabled = false;
         closePinForm();
@@ -766,7 +771,12 @@
       }
       pinLayer.clearLayers();
 
-      allPins.forEach(function (pin) {
+      const rootId = getRootMapId();
+      const pinsForCurrentMap = allPins.filter(function (pin) {
+        return pin.mapId ? pin.mapId === currentMapId : currentMapId === rootId;
+      });
+
+      pinsForCurrentMap.forEach(function (pin) {
         const entry = allEntries.find(function (e) { return e.id === pin.entryId; });
         const lat = mapImgHeight - pin.y;
         const marker = L.marker([lat, pin.x]);
@@ -792,21 +802,79 @@
       renderPins();
     });
 
-    function initMapIfNeeded() {
-      if (mapInitialized) return;
-      mapInitialized = true;
+    // --- Maps (Phase 6): dynamic map registry replacing the old
+    // config.js-hardcoded single map. Root map has parentMapId === null.
+    function getRootMapId() {
+      const root = allMaps.find(function (m) { return !m.parentMapId; });
+      return root ? root.id : null;
+    }
 
+    // One-time migration bootstrap: if no maps exist yet and the current
+    // user is GM, seed a root map doc from the legacy CONFIG.mapImage
+    // value. Runs at most once per page load; safe to leave in place
+    // long-term as a no-op once the root doc exists.
+    function maybeBootstrapRootMap() {
+      if (mapBootstrapAttempted) return;
+      if (allMaps.length > 0) return;
+      if (currentRole !== 'gm') return;
+      if (!CONFIG.mapImage) return;
+      mapBootstrapAttempted = true;
+      addDoc(collection(db, 'maps'), {
+        name: CONFIG.campaignName || 'Root map',
+        image: CONFIG.mapImage,
+        parentMapId: null
+      }).catch(function (err) {
+        mapBootstrapAttempted = false; // allow retry, e.g. transient network error
+        console.error('Root map bootstrap failed:', err.message);
+      });
+    }
+
+    onSnapshot(collection(db, 'maps'), function (snapshot) {
+      allMaps = [];
+      snapshot.forEach(function (docSnap) {
+        allMaps.push(Object.assign({ id: docSnap.id }, docSnap.data()));
+      });
+      maybeBootstrapRootMap();
+      if (!currentMapId || !allMaps.find(function (m) { return m.id === currentMapId; })) {
+        currentMapId = getRootMapId();
+      }
+      if (document.getElementById('map-panel').classList.contains('active')) {
+        ensureMapTabReady();
+      }
+    });
+
+    function ensureMapTabReady() {
+      if (!currentMapId) return; // maps not loaded/bootstrapped yet
+      if (leafletMap && loadedMapId === currentMapId) {
+        renderPins();
+        return;
+      }
+      loadMap(currentMapId);
+    }
+
+    function loadMap(mapId) {
+      const mapDoc = allMaps.find(function (m) { return m.id === mapId; });
       const placeholderEl = document.getElementById('map-tab-placeholder');
       const containerEl = document.getElementById('map-container');
 
+      if (leafletMap) {
+        leafletMap.remove();
+        leafletMap = null;
+        pinLayer = null;
+      }
+
+      if (!mapDoc) {
+        placeholderEl.style.display = 'block';
+        containerEl.style.display = 'none';
+        placeholderEl.textContent = 'No map configured yet.';
+        return;
+      }
+
       try {
         if (typeof L === 'undefined') {
+          placeholderEl.style.display = 'block';
+          containerEl.style.display = 'none';
           placeholderEl.textContent = 'Map library (Leaflet) failed to load.';
-          return;
-        }
-
-        if (!CONFIG.mapImage) {
-          placeholderEl.textContent = 'No map image configured yet.';
           return;
         }
 
@@ -842,8 +910,9 @@
               zoomDelta: 0.5,
               maxBoundsViscosity: 1.0
             });
-            L.imageOverlay(CONFIG.mapImage, bounds).addTo(map);
+            L.imageOverlay(mapDoc.image, bounds).addTo(map);
             leafletMap = map;
+            loadedMapId = mapId;
 
             map.on('click', function (e) {
               if (mapMode !== 'add' || currentRole !== 'gm') return;
@@ -867,10 +936,12 @@
           }
         };
         img.onerror = function () {
-          placeholderEl.textContent = 'Map image failed to load (' + CONFIG.mapImage + ').';
+          placeholderEl.style.display = 'block';
+          placeholderEl.textContent = 'Map image failed to load (' + mapDoc.image + ').';
         };
-        img.src = CONFIG.mapImage;
+        img.src = mapDoc.image;
       } catch (err) {
+        placeholderEl.style.display = 'block';
         placeholderEl.textContent = 'Map init error: ' + err.message;
       }
     }
