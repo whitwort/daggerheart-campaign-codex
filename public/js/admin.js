@@ -62,7 +62,7 @@ const adminRootMapStatusEl = document.getElementById('admin-root-map-status');
     function attachAdminListeners() {
       if (state.adminListenersAttached) return;
       state.adminListenersAttached = true;
-      onSnapshot(collection(db, 'joinRequests'), function (snapshot) {
+      state.joinRequestsUnsub = onSnapshot(collection(db, 'joinRequests'), function (snapshot) {
         state.allJoinRequests = [];
         snapshot.forEach(function (docSnap) {
           state.allJoinRequests.push(Object.assign({ id: docSnap.id }, docSnap.data()));
@@ -72,7 +72,7 @@ const adminRootMapStatusEl = document.getElementById('admin-root-map-status');
         console.error('joinRequests listener failed:', err.message);
       });
 
-      onSnapshot(collection(db, 'players'), function (snapshot) {
+      state.playersUnsub = onSnapshot(collection(db, 'players'), function (snapshot) {
         state.allPlayers = [];
         snapshot.forEach(function (docSnap) {
           state.allPlayers.push(Object.assign({ id: docSnap.id }, docSnap.data()));
@@ -175,4 +175,10 @@ const adminRootMapStatusEl = document.getElementById('admin-root-map-status');
     });
 
 
-export { attachAdminListeners, renderAdminRootMapSelect };
+function detachAdminListeners() {
+  if (state.joinRequestsUnsub) { state.joinRequestsUnsub(); state.joinRequestsUnsub = null; }
+  if (state.playersUnsub) { state.playersUnsub(); state.playersUnsub = null; }
+  state.adminListenersAttached = false;
+}
+
+export { attachAdminListeners, detachAdminListeners, renderAdminRootMapSelect };

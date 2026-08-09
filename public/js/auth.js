@@ -7,9 +7,9 @@ import {
   getFirestore, doc, setDoc, serverTimestamp, onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { state } from './state.js';
-import { attachEntriesListener, renderDetailForSelected } from './codex.js';
-import { attachPinsListener, attachMapsListener, attachConfigListener } from './map.js';
-import { attachAdminListeners } from './admin.js';
+import { attachEntriesListener, detachEntriesListener, renderDetailForSelected } from './codex.js';
+import { attachPinsListener, attachMapsListener, attachConfigListener, detachMapDataListeners } from './map.js';
+import { attachAdminListeners, detachAdminListeners } from './admin.js';
 
 export const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
@@ -88,6 +88,22 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
       attachConfigListener();
     }
 
+    // Bugfix: attachDataListeners()/attachAdminListeners() only ever ran
+    // once (guarded by their *Attached flags), but nothing ever detached
+    // the underlying onSnapshot listeners on sign-out. Firestore kills a
+    // listener permanently on a permission-denied error (e.g. from the
+    // auth token disappearing) and never auto-retries it -- so signing
+    // out then back in left every tab stuck on its last error state,
+    // since the *Attached guard prevented ever resubscribing. Fix:
+    // explicitly detach + reset the guard on every auth change, same
+    // pattern as detachLiveRoleListeners() below.
+    function detachDataListeners() {
+      detachEntriesListener();
+      detachMapDataListeners();
+      detachAdminListeners();
+      state.dataListenersAttached = false;
+    }
+
     function updateAccessUI(role) {
       state.currentRole = role;
       roleBadge.textContent = role;
@@ -122,6 +138,7 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
     onAuthStateChanged(auth, function (user) {
       state.currentUser = user;
       detachLiveRoleListeners();
+      detachDataListeners();
 
       if (user) {
         signInButtonsEl.style.display = 'none';

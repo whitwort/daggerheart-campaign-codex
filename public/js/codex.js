@@ -36,7 +36,7 @@ const db = getFirestore(firebaseApp);
     // Fix: only attach once hasAccess is true (see attachDataListeners,
     // called from updateAccessUI), same pattern as attachAdminListeners.
     function attachEntriesListener() {
-      onSnapshot(collection(db, 'entries'), function (snapshot) {
+      state.entriesUnsub = onSnapshot(collection(db, 'entries'), function (snapshot) {
         state.allEntries = [];
         snapshot.forEach(function (docSnap) {
           const data = docSnap.data();
@@ -367,7 +367,11 @@ const db = getFirestore(firebaseApp);
     });
 
 
+function detachEntriesListener() {
+  if (state.entriesUnsub) { state.entriesUnsub(); state.entriesUnsub = null; }
+}
+
 export {
-  attachEntriesListener, renderList, renderDetailForSelected,
+  attachEntriesListener, detachEntriesListener, renderList, renderDetailForSelected,
   openEntryForm, closeEntryForm, saveEntry, deleteEntry
 };
