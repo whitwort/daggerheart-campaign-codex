@@ -3,6 +3,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
+import { attachListener, detachListener } from './listeners.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -60,26 +61,28 @@ const adminRootMapStatusEl = document.getElementById('admin-root-map-status');
     // Players.
 
     function attachAdminListeners() {
-      if (state.adminListenersAttached) return;
-      state.adminListenersAttached = true;
-      state.joinRequestsUnsub = onSnapshot(collection(db, 'joinRequests'), function (snapshot) {
-        state.allJoinRequests = [];
-        snapshot.forEach(function (docSnap) {
-          state.allJoinRequests.push(Object.assign({ id: docSnap.id }, docSnap.data()));
+      attachListener('joinRequestsUnsub', function () {
+        return onSnapshot(collection(db, 'joinRequests'), function (snapshot) {
+          state.allJoinRequests = [];
+          snapshot.forEach(function (docSnap) {
+            state.allJoinRequests.push(Object.assign({ id: docSnap.id }, docSnap.data()));
+          });
+          renderAdminJoinRequests();
+        }, function (err) {
+          console.error('joinRequests listener failed:', err.message);
         });
-        renderAdminJoinRequests();
-      }, function (err) {
-        console.error('joinRequests listener failed:', err.message);
       });
 
-      state.playersUnsub = onSnapshot(collection(db, 'players'), function (snapshot) {
-        state.allPlayers = [];
-        snapshot.forEach(function (docSnap) {
-          state.allPlayers.push(Object.assign({ id: docSnap.id }, docSnap.data()));
+      attachListener('playersUnsub', function () {
+        return onSnapshot(collection(db, 'players'), function (snapshot) {
+          state.allPlayers = [];
+          snapshot.forEach(function (docSnap) {
+            state.allPlayers.push(Object.assign({ id: docSnap.id }, docSnap.data()));
+          });
+          renderAdminPlayersList();
+        }, function (err) {
+          console.error('players listener failed:', err.message);
         });
-        renderAdminPlayersList();
-      }, function (err) {
-        console.error('players listener failed:', err.message);
       });
     }
 
@@ -176,9 +179,8 @@ const adminRootMapStatusEl = document.getElementById('admin-root-map-status');
 
 
 function detachAdminListeners() {
-  if (state.joinRequestsUnsub) { state.joinRequestsUnsub(); state.joinRequestsUnsub = null; }
-  if (state.playersUnsub) { state.playersUnsub(); state.playersUnsub = null; }
-  state.adminListenersAttached = false;
+  detachListener('joinRequestsUnsub');
+  detachListener('playersUnsub');
 }
 
 export { attachAdminListeners, detachAdminListeners, renderAdminRootMapSelect };

@@ -5,13 +5,11 @@ export const state = {
   currentUser: null,
   playerDocUnsub: null,
   joinRequestDocUnsub: null,
-  dataListenersAttached: false,
   entriesUnsub: null,
   pinsUnsub: null,
   mapsUnsub: null,
   configUnsub: null,
   adminRootMapUpdating: false,  // guards select re-render fighting the user's own in-flight change
-  adminListenersAttached: false,
   joinRequestsUnsub: null,
   playersUnsub: null,
   allJoinRequests: [],

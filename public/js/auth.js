@@ -7,6 +7,7 @@ import {
   getFirestore, doc, setDoc, serverTimestamp, onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { state } from './state.js';
+import { attachListener, detachListener } from './listeners.js';
 import { attachEntriesListener, detachEntriesListener, renderDetailForSelected } from './codex.js';
 import { attachPinsListener, attachMapsListener, attachConfigListener, detachMapDataListeners } from './map.js';
 import { attachAdminListeners, detachAdminListeners } from './admin.js';
@@ -75,13 +76,13 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
     // (Phase 7a-4 join-request flow) via state.currentUser below.
 
     function detachLiveRoleListeners() {
-      if (state.playerDocUnsub) { state.playerDocUnsub(); state.playerDocUnsub = null; }
-      if (state.joinRequestDocUnsub) { state.joinRequestDocUnsub(); state.joinRequestDocUnsub = null; }
+      detachListener('playerDocUnsub');
+      detachListener('joinRequestDocUnsub');
     }
 
+    // No *Attached flag needed anymore: each attach*Listener call is
+    // per-key idempotent via listeners.js.
     function attachDataListeners() {
-      if (state.dataListenersAttached) return;
-      state.dataListenersAttached = true;
       attachEntriesListener();
       attachPinsListener();
       attachMapsListener();
@@ -101,7 +102,6 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
       detachEntriesListener();
       detachMapDataListeners();
       detachAdminListeners();
-      state.dataListenersAttached = false;
     }
 
     function updateAccessUI(role) {
@@ -169,24 +169,28 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
       loginGateSignedOutEl.style.display = 'none';
       loginGateUnlistedEl.style.display = 'block';
 
-      state.playerDocUnsub = onSnapshot(doc(db, 'players', user.email), function (snap) {
-        updateAccessUI(snap.exists() ? 'player' : 'viewer');
-      }, function (err) {
-        console.error('players doc listener failed:', err.message);
+      attachListener('playerDocUnsub', function () {
+        return onSnapshot(doc(db, 'players', user.email), function (snap) {
+          updateAccessUI(snap.exists() ? 'player' : 'viewer');
+        }, function (err) {
+          console.error('players doc listener failed:', err.message);
+        });
       });
 
       requestJoinBtn.disabled = true;
-      state.joinRequestDocUnsub = onSnapshot(doc(db, 'joinRequests', user.email), function (snap) {
-        if (snap.exists()) {
-          requestJoinBtn.style.display = 'none';
-          requestJoinStatusEl.style.display = 'block';
-        } else {
-          requestJoinBtn.style.display = 'inline-block';
-          requestJoinBtn.disabled = false;
-          requestJoinStatusEl.style.display = 'none';
-        }
-      }, function (err) {
-        console.error('joinRequest doc listener failed:', err.message);
+      attachListener('joinRequestDocUnsub', function () {
+        return onSnapshot(doc(db, 'joinRequests', user.email), function (snap) {
+          if (snap.exists()) {
+            requestJoinBtn.style.display = 'none';
+            requestJoinStatusEl.style.display = 'block';
+          } else {
+            requestJoinBtn.style.display = 'inline-block';
+            requestJoinBtn.disabled = false;
+            requestJoinStatusEl.style.display = 'none';
+          }
+        }, function (err) {
+          console.error('joinRequest doc listener failed:', err.message);
+        });
       });
     });
 

@@ -6,6 +6,7 @@ import { state } from './state.js';
 import { renderList, renderDetailForSelected } from './codex.js';
 import { renderAdminRootMapSelect } from './admin.js';
 import { getCachedImage, putCachedImage } from './images.js';
+import { attachListener, detachListener } from './listeners.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -333,12 +334,16 @@ const db = getFirestore(firebaseApp);
     }
 
     function attachPinsListener() {
-      state.pinsUnsub = onSnapshot(collection(db, 'pins'), function (snapshot) {
-        state.allPins = [];
-        snapshot.forEach(function (docSnap) {
-          state.allPins.push(Object.assign({ id: docSnap.id }, docSnap.data()));
+      attachListener('pinsUnsub', function () {
+        return onSnapshot(collection(db, 'pins'), function (snapshot) {
+          state.allPins = [];
+          snapshot.forEach(function (docSnap) {
+            state.allPins.push(Object.assign({ id: docSnap.id }, docSnap.data()));
+          });
+          renderPins();
+        }, function (err) {
+          console.error('pins listener error:', err.message);
         });
-        renderPins();
       });
     }
 
@@ -348,25 +353,27 @@ const db = getFirestore(firebaseApp);
     // means "nesting parent" only; multiple maps can have it unset
     // without any of them being the app's root.
     function attachConfigListener() {
-      state.configUnsub = onSnapshot(doc(db, 'config', 'campaign'), function (docSnap) {
-        state.rootMapId = docSnap.exists() ? (docSnap.data().rootMapId || null) : null;
-        // Bugfix: only fall back to state.rootMapId when state.currentMapId is
-        // unset/invalid (resolveCurrentMapId's job, for maps-collection
-        // changes). A root-pointer change itself must force-follow
-        // whenever the user is at the top level (no child-map nav
-        // stack) — otherwise switching root map->map or map->none while
-        // already viewing the root silently did nothing.
-        if (state.mapNavStack.length === 0) {
-          state.currentMapId = state.rootMapId;
-        } else {
-          resolveCurrentMapId();
-        }
-        renderAdminRootMapSelect();
-        if (document.getElementById('map-panel').classList.contains('active')) {
-          ensureMapTabReady();
-        }
-      }, function (err) {
-        console.error('Config listener error:', err.message);
+      attachListener('configUnsub', function () {
+        return onSnapshot(doc(db, 'config', 'campaign'), function (docSnap) {
+          state.rootMapId = docSnap.exists() ? (docSnap.data().rootMapId || null) : null;
+          // Bugfix: only fall back to state.rootMapId when state.currentMapId is
+          // unset/invalid (resolveCurrentMapId's job, for maps-collection
+          // changes). A root-pointer change itself must force-follow
+          // whenever the user is at the top level (no child-map nav
+          // stack) — otherwise switching root map->map or map->none while
+          // already viewing the root silently did nothing.
+          if (state.mapNavStack.length === 0) {
+            state.currentMapId = state.rootMapId;
+          } else {
+            resolveCurrentMapId();
+          }
+          renderAdminRootMapSelect();
+          if (document.getElementById('map-panel').classList.contains('active')) {
+            ensureMapTabReady();
+          }
+        }, function (err) {
+          console.error('Config listener error:', err.message);
+        });
       });
     }
 
@@ -377,16 +384,20 @@ const db = getFirestore(firebaseApp);
     }
 
     function attachMapsListener() {
-      state.mapsUnsub = onSnapshot(collection(db, 'maps'), function (snapshot) {
-        state.allMaps = [];
-        snapshot.forEach(function (docSnap) {
-          state.allMaps.push(Object.assign({ id: docSnap.id }, docSnap.data()));
+      attachListener('mapsUnsub', function () {
+        return onSnapshot(collection(db, 'maps'), function (snapshot) {
+          state.allMaps = [];
+          snapshot.forEach(function (docSnap) {
+            state.allMaps.push(Object.assign({ id: docSnap.id }, docSnap.data()));
+          });
+          resolveCurrentMapId();
+          renderAdminRootMapSelect();
+          if (document.getElementById('map-panel').classList.contains('active')) {
+            ensureMapTabReady();
+          }
+        }, function (err) {
+          console.error('maps listener error:', err.message);
         });
-        resolveCurrentMapId();
-        renderAdminRootMapSelect();
-        if (document.getElementById('map-panel').classList.contains('active')) {
-          ensureMapTabReady();
-        }
       });
     }
 
@@ -612,9 +623,9 @@ const db = getFirestore(firebaseApp);
     }
 
 function detachMapDataListeners() {
-  if (state.pinsUnsub) { state.pinsUnsub(); state.pinsUnsub = null; }
-  if (state.mapsUnsub) { state.mapsUnsub(); state.mapsUnsub = null; }
-  if (state.configUnsub) { state.configUnsub(); state.configUnsub = null; }
+  detachListener('pinsUnsub');
+  detachListener('mapsUnsub');
+  detachListener('configUnsub');
   teardownMapRuntime();
 }
 
