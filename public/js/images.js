@@ -12,6 +12,11 @@ const db = getFirestore(firebaseApp);
 // every reference. The eslint no-undef CI gate now catches this class.
 const IMAGE_MAX_DIMENSION = 4000; // px, before compression
 const IMAGE_MAX_RAW_BYTES = 750 * 1024; // ~750KB raw ceiling (Firestore 1MiB doc cap / ~33% base64 overhead) — block, don't chunk
+// Phase 10a: quality search, highest first. Fixed quality:85 wasted headroom
+// on simple/high-contrast images (flat colors, line art, text) that
+// compress well under budget at much higher quality; this tries each level
+// in turn and keeps the first (highest) that fits IMAGE_MAX_RAW_BYTES.
+const IMAGE_QUALITY_LEVELS = [95, 92, 88, 85, 80, 75];
 const IMAGE_CACHE_DB_NAME = 'codexImageCache';
 const IMAGE_CACHE_DB_VERSION = 1;
 const IMAGE_CACHE_STORE = 'images';
@@ -61,24 +66,38 @@ const IMAGE_CACHE_STORE = 'images';
 
             status('Encoding...');
             loadWebpEncoder().then(function (webpModule) {
-              return webpModule.encode(imageData, { quality: 85 });
-            }).then(function (arrayBuffer) {
-              const blob = new Blob([arrayBuffer], { type: 'image/webp' });
-              console.log('[entity-image-upload] libwebp encode: ' + blob.size + ' bytes (' +
-                Math.round(blob.size / 1024) + 'KB), dims=' + targetW + 'x' + targetH);
+              // Try quality levels highest-first; keep the first (best) one
+              // that fits under the byte ceiling. Sequential, not parallel:
+              // stops as soon as one fits, so the common case (simple map
+              // art fits at 95) only pays for one encode.
+              function tryQuality(i) {
+                if (i >= IMAGE_QUALITY_LEVELS.length) {
+                  reject(new Error('Image too large after compression even at lowest quality (max ' +
+                    Math.round(IMAGE_MAX_RAW_BYTES / 1024) + 'KB). Try a smaller source image.'));
+                  return;
+                }
+                const q = IMAGE_QUALITY_LEVELS[i];
+                webpModule.encode(imageData, { quality: q }).then(function (arrayBuffer) {
+                  const blob = new Blob([arrayBuffer], { type: 'image/webp' });
+                  console.log('[entity-image-upload] libwebp encode @q' + q + ': ' + blob.size + ' bytes (' +
+                    Math.round(blob.size / 1024) + 'KB), dims=' + targetW + 'x' + targetH);
 
-              if (blob.size > IMAGE_MAX_RAW_BYTES) {
-                reject(new Error('Image too large after compression (' + Math.round(blob.size / 1024) +
-                  'KB, max ' + Math.round(IMAGE_MAX_RAW_BYTES / 1024) + 'KB). Try a smaller source image.'));
-                return;
+                  if (blob.size > IMAGE_MAX_RAW_BYTES) {
+                    tryQuality(i + 1);
+                    return;
+                  }
+
+                  const reader = new FileReader();
+                  reader.onload = function () {
+                    resolve({ dataUrl: reader.result, width: targetW, height: targetH, sizeBytes: blob.size });
+                  };
+                  reader.onerror = function () { reject(new Error('Read failed.')); };
+                  reader.readAsDataURL(blob);
+                }).catch(function (err) {
+                  reject(new Error('WebP encoding failed: ' + err.message));
+                });
               }
-
-              const reader = new FileReader();
-              reader.onload = function () {
-                resolve({ dataUrl: reader.result, width: targetW, height: targetH, sizeBytes: blob.size });
-              };
-              reader.onerror = function () { reject(new Error('Read failed.')); };
-              reader.readAsDataURL(blob);
+              tryQuality(0);
             }).catch(function (err) {
               reject(new Error('WebP encoding failed: ' + err.message));
             });
