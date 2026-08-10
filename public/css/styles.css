@@ -258,9 +258,15 @@
     #admin-panel h2 { border-bottom: 1px solid #ccc; padding-bottom: 0.3rem; font-size: 1.1rem; }
     .admin-notification {
       display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;
-      background: #fff8e1; border: 1px solid #f0dfa0; border-radius: 4px;
-      padding: 0.5rem 0.75rem; margin-bottom: 0.5rem;
+      border-radius: 4px; padding: 0.5rem 0.75rem; margin-bottom: 0.5rem;
+      border: 1px solid; /* color set per variant below */
     }
+    .admin-notification-message { background: #fff8e1; border-color: #f0dfa0; }
+    .admin-notification-warning { background: #fff3e0; border-color: #f0c090; }
+    .admin-notification-error   { background: #fdecea; border-color: #f0a8a0; }
+    #admin-players-table { width: 100%; border-collapse: collapse; margin-bottom: 0.5rem; }
+    #admin-players-table th, #admin-players-table td { text-align: left; padding: 0.35rem 0.5rem; border-bottom: 1px solid #eee; }
+    #admin-players-table td:last-child { text-align: right; }
     #admin-db-tabs { display: flex; gap: 0.25rem; margin-top: 0.75rem; border-bottom: 1px solid #ccc; }
     #admin-db-tabs button {
       padding: 0.4rem 0.9rem; cursor: pointer; background: none; border: none;
