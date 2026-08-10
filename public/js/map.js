@@ -1,7 +1,7 @@
 import {
-  getFirestore, collection, onSnapshot, doc, addDoc, deleteDoc
+  getFirestore, collection, onSnapshot, doc, addDoc, updateDoc, deleteDoc
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { firebaseApp } from './firebase.js';
+import { firebaseApp, CONFIG } from './firebase.js';
 import { state } from './state.js';
 import {
   renderList, renderDetailForSelected, isEntityPlayerVisible,
@@ -13,527 +13,749 @@ import { attachListener, detachListener, safeSnapshotHandler } from './listeners
 
 const db = getFirestore(firebaseApp);
 
+// Image size/cache constants live in images.js (their sole consumer)
+// since the module split — see that file.
 
-    const mapGmControlsEl = document.getElementById('map-gm-controls');
-    const addPinBtn = document.getElementById('map-add-pin-btn');
-    const removePinBtn = document.getElementById('map-remove-pin-btn');
-    const modeHintEl = document.getElementById('map-mode-hint');
-    const mapBackBtn = document.getElementById('map-back-btn');
+const mapGmControlsEl = document.getElementById('map-gm-controls');
+const newPinBtn = document.getElementById('map-new-pin-btn');
+const editPinBtn = document.getElementById('map-edit-pin-btn');
+const removePinBtn = document.getElementById('map-remove-pin-btn');
+const modeHintEl = document.getElementById('map-mode-hint');
+const breadcrumbEl = document.getElementById('map-breadcrumb');
 
-    // Image size/cache constants live in images.js (their sole consumer)
-    // since the module split — see that file.
+// A pin always links to an entity — no pin "type". Whether it renders as
+// a marker (plain entity) or a zoom circle (Location with a map image)
+// is derived from the target entity at render time, never from anything
+// captured at pin-creation time — so a location that gains a map image
+// after pins already point at it still upgrades to a circle.
+function isMapEntity(entity) {
+  return !!entity && entity.category === 'Location' && !!entity.hasMapImage;
+}
 
-    function updateBackButtonVisibility() {
-      mapBackBtn.style.display = state.mapNavStack.length ? 'block' : 'none';
+// CSS class carrying the entry-type color (see styles.css "Pin color
+// legend" block — that's the single place to edit colors).
+function categoryPinClass(category) {
+  const slug = (category || 'default').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return 'pin-cat-' + (slug || 'default');
+}
+
+function pinDivIcon(category, extraClass) {
+  return L.divIcon({
+    className: '',
+    html: '<div class="map-pin-dot ' + categoryPinClass(category) + (extraClass ? ' ' + extraClass : '') + '"></div>',
+    iconSize: [16, 16],
+    iconAnchor: [8, 8]
+  });
+}
+
+// --- Navigation: a Location's map, jumped to directly by id. Used by
+// breadcrumb links, the Entry Browser's "map" link, and clicking a
+// circle pin. Position in the map hierarchy is always derived live from
+// entity.parentId (see buildBreadcrumbChain) rather than a click-history
+// stack, so this is a plain jump — no stack bookkeeping needed. -----------
+function navigateToMapForEntity(entityId) {
+  state.currentMapEntityId = entityId;
+  const mapTabBtn = document.getElementById('tab-btn-map');
+  if (mapTabBtn && !document.getElementById('map-panel').classList.contains('active')) {
+    mapTabBtn.click();
+  } else {
+    loadMap(entityId);
+  }
+}
+registerMapNavigationHandler(navigateToMapForEntity);
+
+function switchToCodexEntity(entityId) {
+  state.selectedId = entityId;
+  renderList();
+  renderDetailForSelected();
+
+  document.querySelectorAll('nav#tabs button').forEach(function (b) { b.classList.remove('active'); });
+  document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
+  document.getElementById('tab-btn-codex').classList.add('active');
+  document.getElementById('codex-panel').classList.add('active');
+}
+
+// --- Breadcrumb: walks entity.parentId from the current map entity up
+// to the top of the tree (structural hierarchy, not navigation history —
+// stable no matter how the GM got here: pin click, Entry Browser link,
+// or another breadcrumb link). Each link opens that entity's map if it
+// has one, otherwise its Codex entry. -------------------------------------
+function buildBreadcrumbChain(mapEntityId) {
+  const chain = [];
+  const seen = {};
+  let cur = state.allEntities.find(function (e) { return e.id === mapEntityId; });
+  while (cur && !seen[cur.id]) {
+    chain.unshift(cur);
+    seen[cur.id] = true;
+    cur = cur.parentId ? state.allEntities.find(function (e) { return e.id === cur.parentId; }) : null;
+  }
+  return chain;
+}
+
+function renderBreadcrumb() {
+  breadcrumbEl.innerHTML = '';
+  const chain = buildBreadcrumbChain(state.currentMapEntityId);
+  if (chain.length < 2) {
+    breadcrumbEl.style.display = 'none';
+    return;
+  }
+  breadcrumbEl.style.display = 'flex';
+  chain.forEach(function (entity, idx) {
+    if (idx > 0) {
+      const sep = document.createElement('span');
+      sep.className = 'map-breadcrumb-sep';
+      sep.textContent = '/';
+      breadcrumbEl.appendChild(sep);
     }
-
-    // "Maps" are Location entities with a map image; navigation walks
-    // entity ids. The old standalone `maps` collection is dead.
-    function navigateToMapEntity(entityId) {
-      state.mapNavStack.push(state.currentMapEntityId);
-      state.currentMapEntityId = entityId;
-      updateBackButtonVisibility();
-      loadMap(state.currentMapEntityId);
-    }
-
-    mapBackBtn.addEventListener('click', function () {
-      if (!state.mapNavStack.length) return;
-      state.currentMapEntityId = state.mapNavStack.pop();
-      updateBackButtonVisibility();
-      loadMap(state.currentMapEntityId);
-    });
-
-    const pinFormOverlayEl = document.getElementById('pin-form-overlay');
-    const pinFormEntityEl = document.getElementById('pin-form-entity');
-    const pinFormRadiusRowEl = document.getElementById('pin-form-radius-row');
-    const pinFormRadiusEl = document.getElementById('pin-form-radius');
-    const pinFormErrorEl = document.getElementById('pin-form-error');
-    const pinFormSaveBtn = document.getElementById('pin-form-save');
-    const pinFormCancelBtn = document.getElementById('pin-form-cancel');
-
-    // A pin always links to an entity — no pin "type". Whether it renders
-    // as a marker (plain entity) or a zoom circle (Location with a map
-    // image) is derived from the target entity at render time. The radius
-    // input only applies to the circle case.
-    function isMapEntity(entity) {
-      return !!entity && entity.category === 'Location' && !!entity.hasMapImage;
-    }
-
-    function updatePinFormRadiusVisibility() {
-      const target = state.allEntities.find(function (e) { return e.id === pinFormEntityEl.value; });
-      pinFormRadiusRowEl.style.display = isMapEntity(target) ? 'block' : 'none';
-    }
-
-    pinFormEntityEl.addEventListener('change', updatePinFormRadiusVisibility);
-
-    function setMapMode(mode) {
-      state.mapMode = (state.mapMode === mode) ? null : mode;
-      addPinBtn.classList.toggle('active-mode', state.mapMode === 'add');
-      removePinBtn.classList.toggle('active-mode', state.mapMode === 'remove');
-      if (state.mapMode === 'add') {
-        modeHintEl.textContent = 'Click the map to place a pin.';
-      } else if (state.mapMode === 'remove') {
-        modeHintEl.textContent = 'Click a pin to remove it.';
+    const isCurrent = idx === chain.length - 1;
+    const link = document.createElement('button');
+    link.type = 'button';
+    link.className = 'map-breadcrumb-link' + (isCurrent ? ' current' : '');
+    link.textContent = entity.name;
+    link.addEventListener('click', function () {
+      if (isMapEntity(entity)) {
+        navigateToMapForEntity(entity.id);
       } else {
-        modeHintEl.textContent = '';
+        switchToCodexEntity(entity.id);
       }
-    }
-
-    addPinBtn.addEventListener('click', function () { setMapMode('add'); });
-    removePinBtn.addEventListener('click', function () { setMapMode('remove'); });
-
-    function openPinForm(coords) {
-      state.pendingPinCoords = coords;
-
-      pinFormEntityEl.innerHTML = '';
-      state.allEntities
-        .slice()
-        // Not offering the currently-viewed location itself as a target —
-        // a self-pin would be a circle that zooms to the map it's on.
-        .filter(function (e) { return e.id !== state.currentMapEntityId; })
-        .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); })
-        .forEach(function (entity) {
-          const opt = document.createElement('option');
-          opt.value = entity.id;
-          opt.textContent = entity.name;
-          pinFormEntityEl.appendChild(opt);
-        });
-
-      pinFormRadiusEl.value = '150';
-      updatePinFormRadiusVisibility();
-
-      pinFormErrorEl.style.display = 'none';
-      pinFormErrorEl.textContent = '';
-      pinFormOverlayEl.classList.add('open');
-    }
-
-    function closePinForm() {
-      pinFormOverlayEl.classList.remove('open');
-      state.pendingPinCoords = null;
-    }
-
-    pinFormCancelBtn.addEventListener('click', closePinForm);
-    pinFormOverlayEl.addEventListener('click', function (e) {
-      if (e.target === pinFormOverlayEl) closePinForm();
     });
+    breadcrumbEl.appendChild(link);
+    const icon = document.createElement('span');
+    icon.className = 'map-breadcrumb-icon';
+    // Placeholder icons: map vs. codex/lore entry.
+    icon.textContent = isMapEntity(entity) ? '\uD83D\uDDFA\uFE0F' : '\uD83D\uDCD6';
+    breadcrumbEl.appendChild(icon);
+  });
+}
 
-    pinFormSaveBtn.addEventListener('click', function () {
-      if (!state.pendingPinCoords) {
-        closePinForm();
-        return;
-      }
+// --- GM pin controls: New / Edit / Remove, mutually exclusive modes ------
+function setMapMode(mode) {
+  state.mapMode = (state.mapMode === mode) ? null : mode;
+  newPinBtn.classList.toggle('active-mode', state.mapMode === 'add');
+  editPinBtn.classList.toggle('active-mode', state.mapMode === 'edit');
+  removePinBtn.classList.toggle('active-mode', state.mapMode === 'remove');
+  if (state.mapMode === 'add') {
+    modeHintEl.textContent = 'Click the map to place a pin.';
+  } else if (state.mapMode === 'edit') {
+    modeHintEl.textContent = 'Click a pin to edit it.';
+  } else if (state.mapMode === 'remove') {
+    modeHintEl.textContent = 'Click a pin to remove it.';
+  } else {
+    modeHintEl.textContent = '';
+  }
+}
 
-      const entityId = pinFormEntityEl.value;
-      if (!entityId) {
-        pinFormErrorEl.textContent = 'No entities available to link.';
-        pinFormErrorEl.style.display = 'block';
-        return;
-      }
+newPinBtn.addEventListener('click', function () { setMapMode('add'); });
+editPinBtn.addEventListener('click', function () { setMapMode('edit'); });
+removePinBtn.addEventListener('click', function () { setMapMode('remove'); });
 
-      const pinData = {
-        entityId: entityId,
-        x: state.pendingPinCoords.x,
-        y: state.pendingPinCoords.y,
-        mapEntityId: state.currentMapEntityId
-      };
+function removePin(pin) {
+  const entity = state.allEntities.find(function (e) { return e.id === pin.entityId; });
+  const label = entity ? entity.name : '(unlinked pin)';
+  const confirmed = window.confirm('Remove pin for "' + label + '"?');
+  if (!confirmed) return;
+  deleteDoc(doc(db, 'pins', pin.id)).catch(function (err) {
+    window.alert('Remove pin failed: ' + err.message);
+  });
+}
 
-      const target = state.allEntities.find(function (e) { return e.id === entityId; });
-      if (isMapEntity(target)) {
-        const radius = Number(pinFormRadiusEl.value);
-        if (!radius || radius <= 0) {
-          pinFormErrorEl.textContent = 'Radius must be a positive number.';
-          pinFormErrorEl.style.display = 'block';
-          return;
-        }
-        pinData.radius = radius;
-      }
+// --- Pin panel: docked side panel (map stays visible/clickable behind
+// it), rich entity picker (item 3), live radius-slider preview, and a
+// draggable-marker "move" mode — all built once here, opened for both
+// New and Edit. ------------------------------------------------------------
+const pinPanelEl = document.getElementById('pin-panel');
+const pinPanelTitleEl = document.getElementById('pin-panel-title');
+const pinPanelSearchEl = document.getElementById('pin-panel-search');
+const pinPanelEntityListEl = document.getElementById('pin-panel-entity-list');
+const pinPanelRadiusRowEl = document.getElementById('pin-panel-radius-row');
+const pinPanelRadiusEl = document.getElementById('pin-panel-radius');
+const pinPanelRadiusValueEl = document.getElementById('pin-panel-radius-value');
+const pinPanelMoveBtn = document.getElementById('pin-panel-move-btn');
+const pinPanelMoveHintEl = document.getElementById('pin-panel-move-hint');
+const pinPanelErrorEl = document.getElementById('pin-panel-error');
+const pinPanelSaveBtn = document.getElementById('pin-panel-save');
+const pinPanelCancelBtn = document.getElementById('pin-panel-cancel');
 
-      savePin(pinData);
+// Preview layer: shows the pin being placed/edited directly on the map
+// while the panel is open — a draggable marker (position handle) plus,
+// for circle-type targets, a non-interactive circle synced to it.
+let previewMarker = null;
+let previewCircle = null;
+
+function clearPinPreview() {
+  if (previewMarker) { state.leafletMap.removeLayer(previewMarker); previewMarker = null; }
+  if (previewCircle) { state.leafletMap.removeLayer(previewCircle); previewCircle = null; }
+}
+
+function updatePinPreview() {
+  if (!state.leafletMap || !state.pinDraft) return;
+  const draft = state.pinDraft;
+  const target = state.allEntities.find(function (e) { return e.id === draft.entityId; });
+  const lat = state.mapImgHeight - draft.y;
+
+  if (!previewMarker) {
+    previewMarker = L.marker([lat, draft.x], { draggable: !!draft.moveMode });
+    previewMarker.on('drag', function (e) {
+      const pos = e.target.getLatLng();
+      draft.x = pos.lng;
+      draft.y = state.mapImgHeight - pos.lat;
+      if (previewCircle) previewCircle.setLatLng(pos);
     });
+    previewMarker.addTo(state.leafletMap);
+  } else {
+    previewMarker.setLatLng([lat, draft.x]);
+  }
+  previewMarker.setIcon(pinDivIcon(target ? target.category : null, 'preview'));
+  previewMarker.dragging[draft.moveMode ? 'enable' : 'disable']();
 
-    function savePin(pinData) {
-      pinFormSaveBtn.disabled = true;
-      return addDoc(collection(db, 'pins'), pinData).then(function () {
-        pinFormSaveBtn.disabled = false;
-        closePinForm();
-        setMapMode('add'); // toggles back off, matching the button that opened it
-      }).catch(function (err) {
-        pinFormSaveBtn.disabled = false;
-        pinFormErrorEl.textContent = 'Save failed: ' + err.message;
-        pinFormErrorEl.style.display = 'block';
+  const wantsCircle = isMapEntity(target);
+  if (wantsCircle) {
+    if (!previewCircle) {
+      previewCircle = L.circle([lat, draft.x], {
+        radius: draft.radius || 150,
+        className: 'map-pin-circle ' + categoryPinClass(target.category),
+        weight: 2, fillOpacity: 0.2, interactive: false
       });
+      previewCircle.addTo(state.leafletMap);
+    } else {
+      previewCircle.setLatLng([lat, draft.x]);
+      previewCircle.setRadius(draft.radius || 150);
+      previewCircle.setStyle({ className: 'map-pin-circle ' + categoryPinClass(target.category) });
     }
+  } else if (previewCircle) {
+    state.leafletMap.removeLayer(previewCircle);
+    previewCircle = null;
+  }
+}
 
-    function removePin(pin) {
-      const entity = state.allEntities.find(function (e) { return e.id === pin.entityId; });
-      const label = entity ? entity.name : '(unlinked pin)';
-      const confirmed = window.confirm('Remove pin for "' + label + '"?');
-      if (!confirmed) return;
+function renderPinPickerEntityList() {
+  pinPanelEntityListEl.innerHTML = '';
+  const draft = state.pinDraft;
+  const q = pinPanelSearchEl.value.trim().toLowerCase();
 
-      deleteDoc(doc(db, 'pins', pin.id)).catch(function (err) {
-        window.alert('Remove pin failed: ' + err.message);
+  const candidates = state.allEntities
+    .filter(function (e) { return e.id !== state.currentMapEntityId; }) // no self-pin
+    .filter(function (e) {
+      if (!q) return true;
+      return (e.name || '').toLowerCase().indexOf(q) !== -1;
+    })
+    .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+
+  const byCategory = {};
+  candidates.forEach(function (e) {
+    const cat = e.category || '(uncategorized)';
+    if (!byCategory[cat]) byCategory[cat] = [];
+    byCategory[cat].push(e);
+  });
+  const orderedCats = CONFIG.categories.filter(function (c) { return byCategory[c]; });
+  Object.keys(byCategory).forEach(function (c) { if (orderedCats.indexOf(c) === -1) orderedCats.push(c); });
+
+  if (!orderedCats.length) {
+    const emptyP = document.createElement('p');
+    emptyP.className = 'lore-empty';
+    emptyP.textContent = 'No matching entities.';
+    pinPanelEntityListEl.appendChild(emptyP);
+    return;
+  }
+
+  orderedCats.forEach(function (cat) {
+    const entities = byCategory[cat];
+    const collapsed = q ? false : (state.pinPickerCollapse[cat] !== false);
+
+    const header = document.createElement('div');
+    header.className = 'entity-group-header' + (collapsed ? ' collapsed' : '');
+    header.textContent = cat + ' (' + entities.length + ')';
+    header.addEventListener('click', function () {
+      state.pinPickerCollapse[cat] = collapsed ? false : true;
+      renderPinPickerEntityList();
+    });
+    pinPanelEntityListEl.appendChild(header);
+
+    const ul = document.createElement('ul');
+    ul.className = 'entity-group-list' + (collapsed ? ' collapsed' : '');
+    entities.forEach(function (entity) {
+      const li = document.createElement('li');
+      li.textContent = entity.name;
+      if (draft && draft.entityId === entity.id) li.classList.add('active');
+      li.addEventListener('click', function () {
+        draft.entityId = entity.id;
+        updatePinPanelForTarget();
+        renderPinPickerEntityList();
+        updatePinPreview();
       });
+      ul.appendChild(li);
+    });
+    pinPanelEntityListEl.appendChild(ul);
+  });
+}
+
+function updatePinPanelForTarget() {
+  const draft = state.pinDraft;
+  const target = state.allEntities.find(function (e) { return e.id === draft.entityId; });
+  const showRadius = isMapEntity(target);
+  pinPanelRadiusRowEl.style.display = showRadius ? 'block' : 'none';
+  if (showRadius) {
+    pinPanelRadiusEl.value = draft.radius || 150;
+    pinPanelRadiusValueEl.textContent = pinPanelRadiusEl.value;
+  }
+}
+
+pinPanelSearchEl.addEventListener('input', renderPinPickerEntityList);
+pinPanelRadiusEl.addEventListener('input', function () {
+  if (!state.pinDraft) return;
+  state.pinDraft.radius = Number(pinPanelRadiusEl.value);
+  pinPanelRadiusValueEl.textContent = pinPanelRadiusEl.value;
+  updatePinPreview();
+});
+pinPanelMoveBtn.addEventListener('click', function () {
+  if (!state.pinDraft) return;
+  state.pinDraft.moveMode = !state.pinDraft.moveMode;
+  pinPanelMoveBtn.classList.toggle('active-mode', state.pinDraft.moveMode);
+  pinPanelMoveBtn.textContent = state.pinDraft.moveMode ? 'Stop moving' : 'Move pin position';
+  pinPanelMoveHintEl.style.display = state.pinDraft.moveMode ? 'block' : 'none';
+  updatePinPreview();
+});
+
+function openPinPanel(existingPin, coords) {
+  state.pinDraft = existingPin
+    ? { id: existingPin.id, entityId: existingPin.entityId, x: existingPin.x, y: existingPin.y, radius: existingPin.radius || 150, moveMode: false }
+    : { id: null, entityId: null, x: coords.x, y: coords.y, radius: 150, moveMode: false };
+
+  // Default to the first available entity so the preview has something
+  // to show immediately (New pin only — Edit already has one).
+  if (!state.pinDraft.entityId) {
+    const first = state.allEntities.find(function (e) { return e.id !== state.currentMapEntityId; });
+    if (first) state.pinDraft.entityId = first.id;
+  }
+
+  pinPanelTitleEl.textContent = existingPin ? 'Edit pin' : 'New pin';
+  pinPanelSearchEl.value = '';
+  pinPanelMoveBtn.classList.remove('active-mode');
+  pinPanelMoveBtn.textContent = 'Move pin position';
+  pinPanelMoveHintEl.style.display = 'none';
+  pinPanelErrorEl.style.display = 'none';
+  pinPanelErrorEl.textContent = '';
+
+  updatePinPanelForTarget();
+  renderPinPickerEntityList();
+  clearPinPreview();
+  updatePinPreview();
+  pinPanelEl.classList.add('open');
+}
+
+function closePinPanel() {
+  pinPanelEl.classList.remove('open');
+  clearPinPreview();
+  state.pinDraft = null;
+}
+
+function showPinPanelError(message) {
+  pinPanelErrorEl.textContent = message;
+  pinPanelErrorEl.style.display = 'block';
+}
+
+pinPanelCancelBtn.addEventListener('click', function () {
+  closePinPanel();
+  setMapMode(null);
+});
+
+pinPanelSaveBtn.addEventListener('click', function () {
+  const draft = state.pinDraft;
+  if (!draft) return;
+  if (!draft.entityId) {
+    showPinPanelError('Choose a target entity.');
+    return;
+  }
+  const target = state.allEntities.find(function (e) { return e.id === draft.entityId; });
+  const pinData = {
+    entityId: draft.entityId,
+    x: draft.x,
+    y: draft.y,
+    mapEntityId: state.currentMapEntityId
+  };
+  if (isMapEntity(target)) {
+    const radius = Number(draft.radius);
+    if (!radius || radius <= 0) {
+      showPinPanelError('Radius must be a positive number.');
+      return;
+    }
+    pinData.radius = radius;
+  }
+
+  pinPanelSaveBtn.disabled = true;
+  const savePromise = draft.id
+    ? updateDoc(doc(db, 'pins', draft.id), pinData)
+    : addDoc(collection(db, 'pins'), pinData);
+  savePromise.then(function () {
+    pinPanelSaveBtn.disabled = false;
+    closePinPanel();
+    setMapMode(null);
+  }).catch(function (err) {
+    pinPanelSaveBtn.disabled = false;
+    showPinPanelError('Save failed: ' + err.message);
+  });
+});
+
+// --- Pin rendering ---------------------------------------------------------
+
+function renderPins() {
+  if (!state.leafletMap) return;
+  if (!state.pinLayer) {
+    state.pinLayer = L.layerGroup().addTo(state.leafletMap);
+  }
+  state.pinLayer.clearLayers();
+
+  const pinsForCurrentMap = state.allPins.filter(function (pin) {
+    return pin.mapEntityId === state.currentMapEntityId;
+  });
+
+  const gmView = state.currentRole === 'gm' && !state.gmPreviewAsPlayer;
+
+  pinsForCurrentMap.forEach(function (pin) {
+    const lat = state.mapImgHeight - pin.y;
+    const entity = state.allEntities.find(function (e) { return e.id === pin.entityId; });
+
+    // Players don't see pins for hidden entities — a pin whose tooltip
+    // names a secret entity is itself a spoiler.
+    if (entity && !gmView && !isEntityPlayerVisible(entity.id)) return;
+
+    function handleClick() {
+      if (state.mapMode === 'remove' && state.currentRole === 'gm') {
+        removePin(pin);
+        return false;
+      }
+      if (state.mapMode === 'edit' && state.currentRole === 'gm') {
+        openPinPanel(pin, null);
+        return false;
+      }
+      return true;
     }
 
-    function switchToCodexEntity(entityId) {
-      state.selectedId = entityId;
-      renderList();
-      renderDetailForSelected();
-
-      document.querySelectorAll('nav#tabs button').forEach(function (b) { b.classList.remove('active'); });
-      document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
-      document.getElementById('tab-btn-codex').classList.add('active');
-      document.getElementById('codex-panel').classList.add('active');
+    if (isMapEntity(entity)) {
+      // Location with a map image: zoom circle. Radius is in map units
+      // (this map's own pixel coordinate space), scaling visually with
+      // zoom — sized to roughly match the region it zooms into.
+      const circle = L.circle([lat, pin.x], {
+        radius: pin.radius || 150,
+        className: 'map-pin-circle ' + categoryPinClass(entity.category),
+        weight: 2, fillOpacity: 0.2
+      });
+      circle.bindTooltip('\u2192 ' + entity.name);
+      circle.on('click', function () {
+        if (!handleClick()) return;
+        navigateToMapForEntity(entity.id);
+      });
+      circle.addTo(state.pinLayer);
+      return;
     }
 
-    // Re-render pins whenever entity/lore visibility or entity data
-    // changes (GM reveal, preview toggle, hasMapImage flips) so pin
-    // filtering and marker-vs-circle shape track live.
-    registerVisibilityChangeHandler(function () {
-      resolveCurrentMapEntityId();
+    // Any other entity (or a location without a map image yet): a small
+    // colored marker (color = entry type) that jumps to the codex detail.
+    const marker = L.marker([lat, pin.x], { icon: pinDivIcon(entity ? entity.category : null) });
+    marker.bindTooltip(entity ? entity.name : '(unlinked pin)');
+    marker.on('click', function () {
+      if (!handleClick()) return;
+      if (entity) switchToCodexEntity(entity.id);
+    });
+    marker.addTo(state.pinLayer);
+  });
+}
+
+// --- Legend: a small Leaflet control listing entry-type -> color, so the
+// colors used above are self-explanatory on the map itself. -------------
+function addLegendControl(map) {
+  const legend = L.control({ position: 'bottomleft' });
+  legend.onAdd = function () {
+    const div = L.DomUtil.create('div', 'map-pin-legend');
+    CONFIG.categories.forEach(function (cat) {
+      const row = document.createElement('div');
+      row.className = 'map-pin-legend-row';
+      const swatch = document.createElement('span');
+      swatch.className = 'map-pin-legend-swatch ' + categoryPinClass(cat);
+      row.appendChild(swatch);
+      const label = document.createElement('span');
+      label.textContent = cat;
+      row.appendChild(label);
+      div.appendChild(row);
+    });
+    L.DomEvent.disableClickPropagation(div);
+    return div;
+  };
+  legend.addTo(map);
+}
+
+function attachPinsListener() {
+  attachListener('pinsUnsub', function () {
+    return onSnapshot(collection(db, 'pins'), safeSnapshotHandler('pins', function (snapshot) {
+      state.allPins = [];
+      snapshot.forEach(function (docSnap) {
+        state.allPins.push(Object.assign({ id: docSnap.id }, docSnap.data()));
+      });
+      renderPins();
+    }), function (err) {
+      console.error('pins listener error:', err.message);
+    });
+  });
+}
+
+// --- Root pointer: config/campaign.rootEntityId — a GM-selected Location
+// entity whose map image is the top-level map. Entity data itself
+// arrives via codex.js's entities listener (which notifies the
+// visibility-change handler below for revalidation). Tracks whether the
+// current view was "following" the root so a root change re-follows it,
+// without needing a navigation-history stack (breadcrumbs derive
+// position from parentId, not from history).
+let lastKnownRootEntityId = null;
+function attachConfigListener() {
+  attachListener('configUnsub', function () {
+    return onSnapshot(doc(db, 'config', 'campaign'), safeSnapshotHandler('config', function (docSnap) {
+      const newRoot = docSnap.exists() ? (docSnap.data().rootEntityId || null) : null;
+      const wasFollowingRoot = state.currentMapEntityId === lastKnownRootEntityId;
+      state.rootEntityId = newRoot;
+      if (wasFollowingRoot) {
+        state.currentMapEntityId = newRoot;
+      } else {
+        resolveCurrentMapEntityId();
+      }
+      lastKnownRootEntityId = newRoot;
+      renderAdminRootEntitySelect();
       if (document.getElementById('map-panel').classList.contains('active')) {
         ensureMapTabReady();
       }
-      renderPins();
+    }), function (err) {
+      console.error('Config listener error:', err.message);
     });
+  });
+}
 
-    function renderPins() {
-      if (!state.leafletMap) return;
-      if (!state.pinLayer) {
-        state.pinLayer = L.layerGroup().addTo(state.leafletMap);
-      }
-      state.pinLayer.clearLayers();
+function resolveCurrentMapEntityId() {
+  if (!state.currentMapEntityId
+      || !state.allEntities.find(function (e) { return e.id === state.currentMapEntityId; })) {
+    state.currentMapEntityId = state.rootEntityId;
+  }
+}
 
-      const pinsForCurrentMap = state.allPins.filter(function (pin) {
-        return pin.mapEntityId === state.currentMapEntityId;
-      });
+function ensureMapTabReady() {
+  // No early-return on falsy currentMapEntityId: null is a legitimate
+  // steady state (no root configured), not just "not loaded yet" —
+  // loadMap(null) tears down any stale map and shows the right
+  // placeholder either way.
+  if (state.leafletMap && state.loadedMapId === state.currentMapEntityId) {
+    renderPins();
+    renderBreadcrumb();
+    return;
+  }
+  loadMap(state.currentMapEntityId);
+}
 
-      const gmView = state.currentRole === 'gm' && !state.gmPreviewAsPlayer;
+// Re-render pins whenever entity/lore visibility or entity data changes
+// (GM reveal, preview toggle, hasMapImage flips) so pin filtering and
+// marker-vs-circle shape track live.
+registerVisibilityChangeHandler(function () {
+  resolveCurrentMapEntityId();
+  if (document.getElementById('map-panel').classList.contains('active')) {
+    ensureMapTabReady();
+  }
+  renderPins();
+  renderBreadcrumb();
+});
 
-      pinsForCurrentMap.forEach(function (pin) {
-        const lat = state.mapImgHeight - pin.y;
-        const entity = state.allEntities.find(function (e) { return e.id === pin.entityId; });
+// Extracted so sign-out can also fully tear down the map view (not just
+// re-load into it): previously only loadMap() did this cleanup, so on
+// sign-out the live image listener (mapImageUnsub) kept running with no
+// auth token, died on permission-denied, and left its error text on
+// screen -- and since leafletMap/loadedMapId were never reset either,
+// ensureMapTabReady()'s "already loaded" shortcut skipped calling
+// loadMap() again on sign-back-in, so the stale error never cleared
+// without a full page reload.
+function teardownMapRuntime() {
+  closePinPanel();
+  setMapMode(null);
+  if (state.leafletMap) {
+    state.leafletMap.remove();
+    state.leafletMap = null;
+    state.pinLayer = null;
+  }
+  if (state.mapImageUnsub) {
+    state.mapImageUnsub();
+    state.mapImageUnsub = null;
+  }
+  state.currentMapImageDims = null;
+  state.loadedMapId = null;
+  state.loadingMapId = null;
+}
 
-        // Players don't see pins for hidden entities — a pin whose tooltip
-        // names a secret entity is itself a spoiler.
-        if (entity && !gmView && !isEntityPlayerVisible(entity.id)) return;
+function loadMap(mapEntityId) {
+  // Dedup: the entities-change handler and attachConfigListener can both
+  // fire ensureMapTabReady() -> loadMap() for the same entity within the
+  // same tick (e.g. right after sign-in, or an entities change alongside
+  // a config change). Without this guard, the second call's
+  // teardownMapRuntime() unsubscribes the first call's image listener
+  // before it ever receives its first snapshot -- nothing ever renders,
+  // and the placeholder is stuck on "Loading map image..." until
+  // something else calls loadMap() again as the sole in-flight caller.
+  if (state.loadingMapId === mapEntityId && state.mapImageUnsub) {
+    return;
+  }
 
-        if (isMapEntity(entity)) {
-          // Location with a map image: zoom circle. Radius is in map units
-          // (this map's own pixel coordinate space), scaling visually with
-          // zoom — sized to roughly match the region it zooms into.
-          const circle = L.circle([lat, pin.x], {
-            radius: pin.radius || 150,
-            color: '#8a4fd6',
-            weight: 2,
-            fillColor: '#8a4fd6',
-            fillOpacity: 0.2
-          });
-          circle.bindTooltip('\u2192 ' + entity.name);
-          circle.on('click', function () {
-            if (state.mapMode === 'remove' && state.currentRole === 'gm') {
-              removePin(pin);
-              return;
-            }
-            navigateToMapEntity(entity.id);
-          });
-          circle.addTo(state.pinLayer);
-          return;
-        }
+  const mapEntity = state.allEntities.find(function (e) { return e.id === mapEntityId; });
+  const placeholderEl = document.getElementById('map-tab-placeholder');
+  const containerEl = document.getElementById('map-container');
 
-        // Any other entity (or a location without a map image yet): marker
-        // that jumps to the codex detail.
-        const marker = L.marker([lat, pin.x]);
-        marker.bindTooltip(entity ? entity.name : '(unlinked pin)');
-        marker.on('click', function () {
-          if (state.mapMode === 'remove' && state.currentRole === 'gm') {
-            removePin(pin);
-            return;
-          }
-          if (entity) {
-            switchToCodexEntity(entity.id);
-          }
-        });
-        marker.addTo(state.pinLayer);
-      });
+  teardownMapRuntime();
+  state.loadingMapId = mapEntityId;
+  renderBreadcrumb();
+
+  if (!mapEntity) {
+    placeholderEl.style.display = 'block';
+    containerEl.style.display = 'none';
+    placeholderEl.textContent = state.rootEntityId
+      ? 'No map configured yet.'
+      : 'No root location selected yet.' + (state.currentRole === 'gm' ? ' Set one in the Admin tab.' : ' Ask your GM to set one up.');
+    return;
+  }
+
+  if (typeof L === 'undefined') {
+    placeholderEl.style.display = 'block';
+    containerEl.style.display = 'none';
+    placeholderEl.textContent = 'Map library (Leaflet) failed to load.';
+    return;
+  }
+
+  // Image lives in Firestore (images/entity_{id}_map). Live-listen so a
+  // GM's upload (via the entity edit fields) updates the Map tab for
+  // everyone without a reload.
+  placeholderEl.style.display = 'block';
+  containerEl.style.display = 'none';
+  placeholderEl.textContent = 'Loading map image...';
+
+  const imageDocId = entityMapImageDocId(mapEntityId);
+
+  // Phase 7c-1: paint instantly from IndexedDB cache (if any) while the
+  // listener below does its network round-trip. state.loadedMapId check
+  // guards against the live snapshot having already won the race and
+  // rendered first — cache is a fallback, never an override.
+  getCachedImage(imageDocId).then(function (cached) {
+    if (cached && state.loadingMapId === mapEntityId && state.loadedMapId !== mapEntityId) {
+      state.currentMapImageDims = { width: cached.width, height: cached.height };
+      renderMapImage(mapEntityId, cached);
     }
+  });
 
-    function attachPinsListener() {
-      attachListener('pinsUnsub', function () {
-        return onSnapshot(collection(db, 'pins'), safeSnapshotHandler('pins', function (snapshot) {
-          state.allPins = [];
-          snapshot.forEach(function (docSnap) {
-            state.allPins.push(Object.assign({ id: docSnap.id }, docSnap.data()));
-          });
-          renderPins();
-        }), function (err) {
-          console.error('pins listener error:', err.message);
-        });
-      });
-    }
-
-    // --- Root pointer: config/campaign.rootEntityId — a GM-selected
-    // Location entity whose map image is the top-level map. Entity data
-    // itself arrives via codex.js's entities listener (which notifies the
-    // visibility-change handler above for revalidation).
-    function attachConfigListener() {
-      attachListener('configUnsub', function () {
-        return onSnapshot(doc(db, 'config', 'campaign'), safeSnapshotHandler('config', function (docSnap) {
-          state.rootEntityId = docSnap.exists() ? (docSnap.data().rootEntityId || null) : null;
-          // Bugfix (carried over): a root-pointer change must force-follow
-          // whenever the user is at the top level (no nav stack) —
-          // otherwise switching the root while already viewing it
-          // silently did nothing.
-          if (state.mapNavStack.length === 0) {
-            state.currentMapEntityId = state.rootEntityId;
-          } else {
-            resolveCurrentMapEntityId();
-          }
-          renderAdminRootEntitySelect();
-          if (document.getElementById('map-panel').classList.contains('active')) {
-            ensureMapTabReady();
-          }
-        }), function (err) {
-          console.error('Config listener error:', err.message);
-        });
-      });
-    }
-
-    function resolveCurrentMapEntityId() {
-      if (!state.currentMapEntityId
-          || !state.allEntities.find(function (e) { return e.id === state.currentMapEntityId; })) {
-        state.currentMapEntityId = state.rootEntityId;
-      }
-    }
-
-    function ensureMapTabReady() {
-      // No early-return on falsy currentMapEntityId: null is a legitimate
-      // steady state (no root configured), not just "not loaded yet" —
-      // loadMap(null) tears down any stale map and shows the right
-      // placeholder either way.
-      if (state.leafletMap && state.loadedMapId === state.currentMapEntityId) {
-        renderPins();
-        return;
-      }
-      loadMap(state.currentMapEntityId);
-    }
-
-    // Entry Browser "map" link: jump straight to a Location's map,
-    // resetting the back-nav stack (it's a fresh top-level view, not a
-    // descent from whatever map was open before).
-    function navigateToMapForEntity(entityId) {
-      state.currentMapEntityId = entityId;
-      state.mapNavStack = [];
-      const mapTabBtn = document.getElementById('tab-btn-map');
-      if (mapTabBtn) mapTabBtn.click();
-    }
-    registerMapNavigationHandler(navigateToMapForEntity);
-
-
-    // --- Phase 7c-1: IndexedDB cache for map images. Not localStorage —
-    // base64 image blobs can exceed its quota. Firestore's own listener
-    // stays the source of truth (correctness, live updates); this cache
-    // only provides instant paint from a prior session while the
-    // listener does its network round-trip, keyed by the image doc ID
-    // with a `version` field (uploadedAt millis) so we can tell a cached
-    // entry apart from a newer live one. First application of this
-    // pattern, per the phase plan — needs to provably work here before
-    // 7d's tiling (many docs per map) depends on the same mechanism.
-    // Cache constants + IndexedDB plumbing live in images.js.
-
-
-    // Extracted so sign-out can also fully tear down the map view (not
-    // just re-load into it): previously only loadMap() did this cleanup,
-    // so on sign-out the live image listener (mapImageUnsub) kept running
-    // with no auth token, died on permission-denied, and left its error
-    // text on screen -- and since leafletMap/loadedMapId were never
-    // reset either, ensureMapTabReady()'s "already loaded" shortcut
-    // skipped calling loadMap() again on sign-back-in, so the stale
-    // error never cleared without a full page reload.
-    function teardownMapRuntime() {
-      if (state.leafletMap) {
-        state.leafletMap.remove();
-        state.leafletMap = null;
-        state.pinLayer = null;
-      }
-      if (state.mapImageUnsub) {
-        state.mapImageUnsub();
-        state.mapImageUnsub = null;
-      }
-      state.currentMapImageDims = null;
+  state.mapImageUnsub = onSnapshot(doc(db, 'images', imageDocId), safeSnapshotHandler('mapImage', function (imgSnap) {
+    if (state.loadedMapId === mapEntityId && state.leafletMap) {
+      // Already rendered this map; a later snapshot for the same map
+      // (e.g. after a re-upload) means the image changed under us —
+      // simplest correct handling is a full reload of this map.
+      state.leafletMap.remove();
+      state.leafletMap = null;
+      state.pinLayer = null;
       state.loadedMapId = null;
-      state.loadingMapId = null;
     }
-
-    function loadMap(mapEntityId) {
-      // Dedup: the entities-change handler and attachConfigListener can
-      // both fire ensureMapTabReady() -> loadMap() for the same entity
-      // within the same tick (e.g. right after sign-in, or an entities
-      // change alongside a config change). Without this guard, the second
-      // call's teardownMapRuntime() unsubscribes the first call's image
-      // listener before it ever receives its first snapshot -- nothing
-      // ever renders, and the placeholder is stuck on "Loading map
-      // image..." until something else calls loadMap() again as the sole
-      // in-flight caller.
-      if (state.loadingMapId === mapEntityId && state.mapImageUnsub) {
-        return;
-      }
-
-      const mapEntity = state.allEntities.find(function (e) { return e.id === mapEntityId; });
-      const placeholderEl = document.getElementById('map-tab-placeholder');
-      const containerEl = document.getElementById('map-container');
-
-      teardownMapRuntime();
-      state.loadingMapId = mapEntityId;
-
-      if (!mapEntity) {
-        placeholderEl.style.display = 'block';
-        containerEl.style.display = 'none';
-        placeholderEl.textContent = state.rootEntityId
-          ? 'No map configured yet.'
-          : 'No root location selected yet.' + (state.currentRole === 'gm' ? ' Set one in the Admin tab.' : ' Ask your GM to set one up.');
-        return;
-      }
-
-      if (typeof L === 'undefined') {
-        placeholderEl.style.display = 'block';
-        containerEl.style.display = 'none';
-        placeholderEl.textContent = 'Map library (Leaflet) failed to load.';
-        return;
-      }
-
-      // Image lives in Firestore (images/entity_{id}_map). Live-listen so
-      // a GM's upload (via the entity form) updates the Map tab for
-      // everyone without a reload.
+    if (!imgSnap.exists()) {
+      state.currentMapImageDims = null;
       placeholderEl.style.display = 'block';
       containerEl.style.display = 'none';
-      placeholderEl.textContent = 'Loading map image...';
-
-      const imageDocId = entityMapImageDocId(mapEntityId);
-
-      // Phase 7c-1: paint instantly from IndexedDB cache (if any) while
-      // the listener below does its network round-trip. state.loadedMapId
-      // check guards against the live snapshot having already won the
-      // race and rendered first — cache is a fallback, never an override.
-      getCachedImage(imageDocId).then(function (cached) {
-        if (cached && state.loadingMapId === mapEntityId && state.loadedMapId !== mapEntityId) {
-          state.currentMapImageDims = { width: cached.width, height: cached.height };
-          renderMapImage(mapEntityId, cached);
-        }
-      });
-
-      state.mapImageUnsub = onSnapshot(doc(db, 'images', imageDocId), safeSnapshotHandler('mapImage', function (imgSnap) {
-        if (state.loadedMapId === mapEntityId && state.leafletMap) {
-          // Already rendered this map; a later snapshot for the same map
-          // (e.g. after a re-upload) means the image changed under us —
-          // simplest correct handling is a full reload of this map.
-          state.leafletMap.remove();
-          state.leafletMap = null;
-          state.pinLayer = null;
-          state.loadedMapId = null;
-        }
-        if (!imgSnap.exists()) {
-          state.currentMapImageDims = null;
-          placeholderEl.style.display = 'block';
-          containerEl.style.display = 'none';
-          placeholderEl.textContent = state.currentRole === 'gm'
-            ? 'No map image for "' + (mapEntity.name || 'this location') + '" yet. Add one via Edit Entity in the Codex.'
-            : 'This map has no image yet — ask your GM.';
-          return;
-        }
-        const imgData = imgSnap.data();
-        state.currentMapImageDims = { width: imgData.width, height: imgData.height };
-        renderMapImage(mapEntityId, imgData);
-        // Fire-and-forget cache write; source-of-truth render above never
-        // waits on this.
-        putCachedImage({
-          docId: imageDocId,
-          version: (imgData.uploadedAt && imgData.uploadedAt.toMillis) ? imgData.uploadedAt.toMillis() : Date.now(),
-          data: imgData.data,
-          width: imgData.width,
-          height: imgData.height,
-          contentType: imgData.contentType
-        });
-      }), function (err) {
-        placeholderEl.style.display = 'block';
-        containerEl.style.display = 'none';
-        placeholderEl.textContent = 'Map image failed to load: ' + err.message;
-      });
+      placeholderEl.textContent = state.currentRole === 'gm'
+        ? 'No map image for "' + (mapEntity.name || 'this location') + '" yet. Add one via Edit on its Codex entry.'
+        : 'This map has no image yet — ask your GM.';
+      return;
     }
+    const imgData = imgSnap.data();
+    state.currentMapImageDims = { width: imgData.width, height: imgData.height };
+    renderMapImage(mapEntityId, imgData);
+    // Fire-and-forget cache write; source-of-truth render above never
+    // waits on this.
+    putCachedImage({
+      docId: imageDocId,
+      version: (imgData.uploadedAt && imgData.uploadedAt.toMillis) ? imgData.uploadedAt.toMillis() : Date.now(),
+      data: imgData.data,
+      width: imgData.width,
+      height: imgData.height,
+      contentType: imgData.contentType
+    });
+  }), function (err) {
+    placeholderEl.style.display = 'block';
+    containerEl.style.display = 'none';
+    placeholderEl.textContent = 'Map image failed to load: ' + err.message;
+  });
+}
 
-    function renderMapImage(mapEntityId, imageDoc) {
-      const placeholderEl = document.getElementById('map-tab-placeholder');
-      const containerEl = document.getElementById('map-container');
+function renderMapImage(mapEntityId, imageDoc) {
+  const placeholderEl = document.getElementById('map-tab-placeholder');
+  const containerEl = document.getElementById('map-container');
+  try {
+    const img = new Image();
+    img.onload = function () {
       try {
-        const img = new Image();
-        img.onload = function () {
-          try {
-            placeholderEl.style.display = 'none';
-            containerEl.style.display = 'block';
+        placeholderEl.style.display = 'none';
+        containerEl.style.display = 'block';
 
-            // Size the container to exactly match the image's aspect ratio
-            // (constrained by whichever of width/max-height binds first),
-            // so fitBounds has no mismatched axis to leave a margin on.
-            const aspect = img.naturalHeight / img.naturalWidth;
-            const availableWidth = containerEl.clientWidth;
-            const maxHeight = window.innerHeight * 0.8;
+        // Size the container to exactly match the image's aspect ratio
+        // (constrained by whichever of width/max-height binds first), so
+        // fitBounds has no mismatched axis to leave a margin on.
+        const aspect = img.naturalHeight / img.naturalWidth;
+        const availableWidth = containerEl.clientWidth;
+        const maxHeight = window.innerHeight * 0.8;
 
-            let targetWidth = availableWidth;
-            let targetHeight = targetWidth * aspect;
-            if (targetHeight > maxHeight) {
-              targetHeight = maxHeight;
-              targetWidth = targetHeight / aspect;
-            }
-            containerEl.style.width = targetWidth + 'px';
-            containerEl.style.height = targetHeight + 'px';
-            containerEl.style.margin = '1rem auto 0';
+        let targetWidth = availableWidth;
+        let targetHeight = targetWidth * aspect;
+        if (targetHeight > maxHeight) {
+          targetHeight = maxHeight;
+          targetWidth = targetHeight / aspect;
+        }
+        containerEl.style.width = targetWidth + 'px';
+        containerEl.style.height = targetHeight + 'px';
+        containerEl.style.margin = '1rem auto 0';
 
-            state.mapImgHeight = img.naturalHeight;
-            const bounds = [[0, 0], [img.naturalHeight, img.naturalWidth]];
-            const map = L.map('map-container', {
-              crs: L.CRS.Simple,
-              minZoom: -3,
-              zoomSnap: 0,
-              zoomDelta: 0.5,
-              maxBoundsViscosity: 1.0
-            });
-            L.imageOverlay(imageDoc.data, bounds).addTo(map);
-            state.leafletMap = map;
-            state.loadedMapId = mapEntityId;
+        state.mapImgHeight = img.naturalHeight;
+        const bounds = [[0, 0], [img.naturalHeight, img.naturalWidth]];
+        const map = L.map('map-container', {
+          crs: L.CRS.Simple,
+          minZoom: -3,
+          zoomSnap: 0,
+          zoomDelta: 0.5,
+          maxBoundsViscosity: 1.0
+        });
+        L.imageOverlay(imageDoc.data, bounds).addTo(map);
+        addLegendControl(map);
+        state.leafletMap = map;
+        state.loadedMapId = mapEntityId;
 
-            map.on('click', function (e) {
-              if (state.mapMode !== 'add' || state.currentRole !== 'gm') return;
-              const x = e.latlng.lng;
-              const y = state.mapImgHeight - e.latlng.lat;
-              openPinForm({ x: x, y: y });
-            });
+        map.on('click', function (e) {
+          if (state.mapMode !== 'add' || state.currentRole !== 'gm') return;
+          const x = e.latlng.lng;
+          const y = state.mapImgHeight - e.latlng.lat;
+          openPinPanel(null, { x: x, y: y });
+        });
 
-            setTimeout(function () {
-              map.invalidateSize();
-              map.fitBounds(bounds);
-              map.setMinZoom(map.getZoom());
-              map.setMaxBounds(bounds);
+        setTimeout(function () {
+          map.invalidateSize();
+          map.fitBounds(bounds);
+          map.setMinZoom(map.getZoom());
+          map.setMaxBounds(bounds);
 
-              renderPins();
-            }, 0);
-          } catch (err) {
-            placeholderEl.style.display = 'block';
-            containerEl.style.display = 'none';
-            placeholderEl.textContent = 'Map render error: ' + err.message;
-          }
-        };
-        img.onerror = function () {
-          placeholderEl.style.display = 'block';
-          containerEl.style.display = 'none';
-          placeholderEl.textContent = 'Map image failed to load (corrupt data?).';
-        };
-        img.src = imageDoc.data;
+          renderPins();
+          renderBreadcrumb();
+        }, 0);
       } catch (err) {
         placeholderEl.style.display = 'block';
         containerEl.style.display = 'none';
-        placeholderEl.textContent = 'Map init error: ' + err.message;
+        placeholderEl.textContent = 'Map render error: ' + err.message;
       }
-    }
+    };
+    img.onerror = function () {
+      placeholderEl.style.display = 'block';
+      containerEl.style.display = 'none';
+      placeholderEl.textContent = 'Map image failed to load (corrupt data?).';
+    };
+    img.src = imageDoc.data;
+  } catch (err) {
+    placeholderEl.style.display = 'block';
+    containerEl.style.display = 'none';
+    placeholderEl.textContent = 'Map init error: ' + err.message;
+  }
+}
 
 function detachMapDataListeners() {
   detachListener('pinsUnsub');

@@ -94,7 +94,9 @@ const adminRootEntityStatusEl = document.getElementById('admin-root-entity-statu
     function renderAdminJoinRequests() {
       adminJoinRequestsEl.innerHTML = '';
       if (state.allJoinRequests.length === 0) {
-        const empty = document.createElement('li');
+        const empty = document.createElement('p');
+        empty.id = 'admin-join-requests-empty';
+        empty.className = 'lore-empty';
         empty.textContent = 'No pending requests.';
         adminJoinRequestsEl.appendChild(empty);
         adminPendingBadge.style.display = 'none';
@@ -104,20 +106,26 @@ const adminRootEntityStatusEl = document.getElementById('admin-root-entity-statu
       adminPendingBadge.style.display = 'inline';
       adminPendingBadge.textContent = ' (' + state.allJoinRequests.length + ')';
       state.allJoinRequests.forEach(function (req) {
-        const li = document.createElement('li');
+        const box = document.createElement('div');
+        box.className = 'admin-notification';
         const label = document.createElement('span');
         label.textContent = (req.displayName ? req.displayName + ' — ' : '') + req.email
           + ' (' + (req.provider || 'unknown') + ')';
+        box.appendChild(label);
+
+        const actions = document.createElement('div');
+        actions.className = 'actions-row-right';
         const acceptBtn = document.createElement('button');
         acceptBtn.textContent = 'Accept';
         acceptBtn.addEventListener('click', function () { acceptJoinRequest(req); });
+        actions.appendChild(acceptBtn);
         const rejectBtn = document.createElement('button');
         rejectBtn.textContent = 'Reject';
         rejectBtn.addEventListener('click', function () { rejectJoinRequest(req); });
-        li.appendChild(label);
-        li.appendChild(acceptBtn);
-        li.appendChild(rejectBtn);
-        adminJoinRequestsEl.appendChild(li);
+        actions.appendChild(rejectBtn);
+        box.appendChild(actions);
+
+        adminJoinRequestsEl.appendChild(box);
       });
     }
 
@@ -187,5 +195,15 @@ function detachAdminListeners() {
   detachListener('joinRequestsUnsub');
   detachListener('playersUnsub');
 }
+
+// --- Database subsection: Import | Export sub-tabs ------------------------
+document.querySelectorAll('#admin-db-tabs button').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    document.querySelectorAll('#admin-db-tabs button').forEach(function (b) { b.classList.remove('active'); });
+    document.querySelectorAll('.admin-db-tab-panel').forEach(function (p) { p.classList.remove('active'); });
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.dbTab).classList.add('active');
+  });
+});
 
 export { attachAdminListeners, detachAdminListeners, renderAdminRootEntitySelect };

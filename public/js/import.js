@@ -413,33 +413,3 @@ function runImport() {
 importValidateBtn.addEventListener('click', validateImport);
 importRunBtn.addEventListener('click', runImport);
 
-// --- One-off data fix: category renames (Aug 2026) ----------------------
-// NPC -> Character, History -> World Facts. Idempotent (no-ops once no
-// docs carry the old names). Temporary: remove this block (and its
-// Admin-tab markup) once run on both dev and prod data.
-const fixNpcBtn = document.getElementById('admin-fix-npc-category-btn');
-const fixNpcStatusEl = document.getElementById('admin-fix-npc-category-status');
-const CATEGORY_RENAMES = { 'NPC': 'Character', 'History': 'World Facts' };
-fixNpcBtn.addEventListener('click', function () {
-  const targets = state.allEntities.filter(function (e) {
-    return e.category in CATEGORY_RENAMES;
-  });
-  if (targets.length === 0) {
-    fixNpcStatusEl.textContent = 'No entities with old category names.';
-    return;
-  }
-  fixNpcBtn.disabled = true;
-  const batch = writeBatch(db);
-  targets.forEach(function (e) {
-    batch.update(doc(db, 'entities', e.id), {
-      category: CATEGORY_RENAMES[e.category], updatedAt: serverTimestamp()
-    });
-  });
-  batch.commit().then(function () {
-    fixNpcStatusEl.textContent = 'Renamed categories on ' + targets.length + ' entities.';
-  }).catch(function (err) {
-    fixNpcStatusEl.textContent = 'Failed: ' + err.message;
-  }).finally(function () {
-    fixNpcBtn.disabled = false;
-  });
-});
