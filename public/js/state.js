@@ -17,6 +17,8 @@ export const state = {
   playersUnsub: null,
   allJoinRequests: [],
   allPlayers: [],
+  adminPlayerEditId: null,
+  adminPlayerEditDraft: '',
   allEntities: [],
   allLoreItems: [],
   selectedId: null,
