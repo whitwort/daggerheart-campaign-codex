@@ -145,17 +145,16 @@
 
       <div id="admin-db-import" class="admin-db-tab-panel active">
         <p>Paste JSON or Upload a file.</p>
-        <div class="actions-row-left">
+        <textarea id="admin-import-json" rows="8" style="width:100%;box-sizing:border-box;font-family:monospace;" placeholder='{"entities": []}'></textarea>
+        <div class="actions-row-right">
           <button type="button" id="admin-import-upload-btn">Upload</button>
           <input type="file" id="admin-import-file-input" accept="application/json,.json" style="display:none;">
         </div>
-        <textarea id="admin-import-json" rows="8" style="width:100%;box-sizing:border-box;font-family:monospace;" placeholder='{"entities": []}'></textarea>
         <div id="admin-import-summary" class="actions-row-left"></div>
         <button type="button" id="admin-import-log-toggle" class="collapse-toggle">Log &#9656;</button>
         <div id="admin-import-log-body" style="display:none;">
           <pre id="admin-import-report" style="white-space:pre-wrap;overflow-x:auto;"></pre>
         </div>
-        <div id="admin-import-conflicts"></div>
         <div class="actions-row-right">
           <button id="admin-import-run-btn" disabled>Import</button>
         </div>
@@ -179,6 +178,18 @@
       <div class="modal-actions">
         <button id="entity-new-save" type="button">Save</button>
         <button id="entity-new-cancel" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="admin-import-conflicts-overlay" class="modal-overlay">
+    <div id="admin-import-conflicts-box" class="modal-box">
+      <h3>Resolve import conflicts</h3>
+      <p>These entities already exist (matched by slug). Choose how to handle each, then confirm.</p>
+      <div id="admin-import-conflicts"></div>
+      <div class="modal-actions">
+        <button id="admin-import-conflicts-confirm" type="button">Import</button>
+        <button id="admin-import-conflicts-cancel" type="button">Cancel</button>
       </div>
     </div>
   </div>

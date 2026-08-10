@@ -45,6 +45,9 @@ const importJsonEl = document.getElementById('admin-import-json');
 const importRunBtn = document.getElementById('admin-import-run-btn');
 const importReportEl = document.getElementById('admin-import-report');
 const importConflictsEl = document.getElementById('admin-import-conflicts');
+const importConflictsOverlayEl = document.getElementById('admin-import-conflicts-overlay');
+const importConflictsConfirmBtn = document.getElementById('admin-import-conflicts-confirm');
+const importConflictsCancelBtn = document.getElementById('admin-import-conflicts-cancel');
 const importSummaryEl = document.getElementById('admin-import-summary');
 const importLogToggleEl = document.getElementById('admin-import-log-toggle');
 const importLogBodyEl = document.getElementById('admin-import-log-body');
@@ -569,7 +572,23 @@ function runImport() {
   });
 }
 
-importRunBtn.addEventListener('click', runImport);
+importRunBtn.addEventListener('click', function () {
+  if (!validatedPlan) return;
+  if (validatedPlan.duplicates.length > 0) {
+    importConflictsOverlayEl.classList.add('open');
+  } else {
+    runImport();
+  }
+});
+
+importConflictsConfirmBtn.addEventListener('click', function () {
+  importConflictsOverlayEl.classList.remove('open');
+  runImport();
+});
+
+importConflictsCancelBtn.addEventListener('click', function () {
+  importConflictsOverlayEl.classList.remove('open');
+});
 
 export { ensureImportEditorReady };
 
