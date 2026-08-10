@@ -88,50 +88,69 @@
     </div>
   </div>
   <div id="map-panel" class="tab-panel">
-    <p id="map-tab-placeholder">Loading map…</p>
-    <button id="map-back-btn" style="display:none;">&larr; Back to parent map</button>
-    <div id="map-gm-controls">
-      <button id="map-add-pin-btn">+ Add pin</button>
-      <button id="map-remove-pin-btn">Remove pin</button>
-      <span id="map-mode-hint"></span>
-    </div>
+    <p id="map-tab-placeholder">Loading map&hellip;</p>
+    <div id="map-breadcrumb"></div>
     <div id="map-container"></div>
+    <div id="map-gm-controls" class="actions-row">
+      <div class="actions-row-left"><span id="map-mode-hint"></span></div>
+      <div class="actions-row-right">
+        <button id="map-new-pin-btn">+ New pin</button>
+        <button id="map-edit-pin-btn">Edit pin</button>
+        <button id="map-remove-pin-btn">Remove pin</button>
+      </div>
+    </div>
   </div>
 
   <div id="admin-panel" class="tab-panel">
-    <h3>Root location</h3>
-    <p id="admin-root-entity-hint">The Map tab shows this Location entity's map image.</p>
-    <div id="admin-root-entity">
-      <select id="admin-root-entity-select"><option value="">-- none --</option></select>
-    </div>
-    <p id="admin-root-entity-status"></p>
+    <section id="admin-section-players">
+      <h2>Manage Players</h2>
 
-    <h3>Pending join requests</h3>
-    <ul id="admin-join-requests"><li id="admin-join-requests-empty">No pending requests.</li></ul>
+      <h3>Pending join requests</h3>
+      <div id="admin-join-requests"><p id="admin-join-requests-empty" class="lore-empty">No pending requests.</p></div>
 
-    <h3>Whitelist a player directly</h3>
-    <div id="admin-add-player">
-      <input type="email" id="admin-add-player-email" placeholder="player@example.com">
-      <button id="admin-add-player-btn">Add</button>
-    </div>
-    <p id="admin-add-player-error"></p>
+      <h3>Current players</h3>
+      <ul id="admin-players-list"></ul>
 
-    <h3>Current players</h3>
-    <ul id="admin-players-list"></ul>
+      <h3>Whitelist a player directly</h3>
+      <div id="admin-add-player">
+        <input type="email" id="admin-add-player-email" placeholder="player@example.com">
+        <button id="admin-add-player-btn">Add</button>
+      </div>
+      <p id="admin-add-player-error"></p>
+    </section>
 
-    <h3>Bulk import</h3>
-    <p>Paste import JSON ({"entities": [...]}), Validate, review the report, then Import.</p>
-    <textarea id="admin-import-json" rows="8" style="width:100%;box-sizing:border-box;font-family:monospace;" placeholder='{"entities": []}'></textarea>
-    <div>
-      <button id="admin-import-validate-btn">Validate</button>
-      <button id="admin-import-run-btn" disabled>Import</button>
-    </div>
-    <pre id="admin-import-report" style="white-space:pre-wrap;overflow-x:auto;"></pre>
-    <div id="admin-import-conflicts"></div>
+    <section id="admin-section-config">
+      <h2>Configuration</h2>
+      <h3>Map root location</h3>
+      <p id="admin-root-entity-hint">The Map tab shows this Location entity's map image.</p>
+      <div id="admin-root-entity">
+        <select id="admin-root-entity-select"><option value="">-- none --</option></select>
+      </div>
+      <p id="admin-root-entity-status"></p>
+    </section>
 
-    <h3>One-off data fixes</h3>
-    <button id="admin-fix-npc-category-btn">Category renames (NPC &rarr; Character, History &rarr; World Facts)</button>
-    <p id="admin-fix-npc-category-status"></p>
+    <section id="admin-section-database">
+      <h2>Database</h2>
+      <div id="admin-db-tabs">
+        <button type="button" class="active" data-db-tab="admin-db-import">Import</button>
+        <button type="button" data-db-tab="admin-db-export">Export</button>
+      </div>
+
+      <div id="admin-db-import" class="admin-db-tab-panel active">
+        <p>Paste import JSON ({"entities": [...]}), Validate, review the report, then Import.</p>
+        <textarea id="admin-import-json" rows="8" style="width:100%;box-sizing:border-box;font-family:monospace;" placeholder='{"entities": []}'></textarea>
+        <div>
+          <button id="admin-import-validate-btn">Validate</button>
+          <button id="admin-import-run-btn" disabled>Import</button>
+        </div>
+        <pre id="admin-import-report" style="white-space:pre-wrap;overflow-x:auto;"></pre>
+        <div id="admin-import-conflicts"></div>
+      </div>
+
+      <div id="admin-db-export" class="admin-db-tab-panel">
+        <p class="lore-empty">Export tools are coming in a future update.</p>
+      </div>
+    </section>
   </div>
   </div>
 
@@ -150,28 +169,32 @@
     </div>
   </div>
 
-  <div id="pin-form-overlay">
-    <div id="pin-form">
-      <h3>Add pin</h3>
+  <div id="pin-panel">
+    <h3 id="pin-panel-title">New pin</h3>
 
-      <label for="pin-form-entity">Codex entity</label>
-      <select id="pin-form-entity"></select>
+    <label for="pin-panel-search">Target entity</label>
+    <input type="text" id="pin-panel-search" placeholder="Search name/tags...">
+    <div id="pin-panel-entity-list"></div>
 
-      <div id="pin-form-radius-row" style="display:none;">
-        <label for="pin-form-radius">Circle radius (map units)</label>
-        <input type="number" id="pin-form-radius" value="150" min="1">
-        <p id="pin-form-radius-hint">
-          This entity is a location with a map — the pin renders as a
-          circle that zooms to its map when clicked.
-        </p>
-      </div>
+    <div id="pin-panel-radius-row" style="display:none;">
+      <label for="pin-panel-radius">Circle radius (<span id="pin-panel-radius-value"></span> map units)</label>
+      <input type="range" id="pin-panel-radius" min="20" max="1000" value="150">
+      <p id="pin-panel-radius-hint">
+        This entity is a location with a map — the pin renders as a
+        circle that zooms to its map when clicked.
+      </p>
+    </div>
 
-      <p id="pin-form-error"></p>
+    <div id="pin-panel-move-row">
+      <button id="pin-panel-move-btn" type="button">Move pin position</button>
+      <p id="pin-panel-move-hint" style="display:none;">Drag the marker on the map to reposition it.</p>
+    </div>
 
-      <div id="pin-form-actions">
-        <button id="pin-form-save" type="button">Save</button>
-        <button id="pin-form-cancel" type="button">Cancel</button>
-      </div>
+    <p id="pin-panel-error" class="modal-error"></p>
+
+    <div class="modal-actions">
+      <button id="pin-panel-save" type="button">Save</button>
+      <button id="pin-panel-cancel" type="button">Cancel</button>
     </div>
   </div>
 

@@ -33,9 +33,9 @@ export const state = {
   allPins: [],
   currentMapEntityId: null,  // Location entity whose map image is shown
   rootEntityId: null,  // from config/campaign doc, GM-selected root Location entity
-  mapMode: null,  // null | 'add' | 'remove'
-  pendingPinCoords: null,
-  mapNavStack: [],  // stack of parent mapIds, for the "back to parent map" control
+  mapMode: null,  // null | 'add' | 'edit' | 'remove'
+  pinDraft: null,  // { id: existingPinId|null, entityId, x, y, radius, moveMode } — open pin panel's in-progress state
+  pinPickerCollapse: {},  // pin panel's entity picker accordion collapse state (category -> collapsed bool), mirrors categoryCollapse
   webpEncoderModulePromise: null,
   mapImageUnsub: null,  // detach/reattach per map load (Phase 7b-3)
   currentMapImageDims: null,  // {width,height} of currently-loaded map's image, for replace-dimension-change warning
