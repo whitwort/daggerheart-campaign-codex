@@ -89,12 +89,14 @@ service cloud.firestore {
     // (trust-the-table model, see phase 8 handoff).
 
     // Entities: unified lore/location objects. Replaces `entries`.
-    // {slug, name, category, parentId, relatedIds, mapId, tags,
-    //  createdAt, updatedAt}
+    // {slug, name, category, parentId, relatedIds, visibility,
+    //  hasMapImage, tags, createdAt, updatedAt}
+    // 'mapId' is a dead legacy field still present on early test docs;
+    // tolerated in hasOnly so updates to those docs don't fail.
     function isValidEntity() {
       return request.resource.data.keys().hasOnly(
           ['slug', 'name', 'category', 'parentId', 'relatedIds', 'mapId',
-           'visibility', 'tags', 'createdAt', 'updatedAt'])
+           'hasMapImage', 'visibility', 'tags', 'createdAt', 'updatedAt'])
         && request.resource.data.visibility in ['gm-only', 'all-players']
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0

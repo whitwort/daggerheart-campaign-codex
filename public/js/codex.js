@@ -1,11 +1,16 @@
 import {
-  getFirestore, collection, onSnapshot, doc, addDoc, updateDoc, deleteDoc,
-  writeBatch, serverTimestamp
+  getFirestore, collection, onSnapshot, doc, setDoc, addDoc, updateDoc, deleteDoc,
+  query, where, writeBatch, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp, CONFIG } from './firebase.js';
 import { state } from './state.js';
 import { attachListener, detachListener } from './listeners.js';
 import { renderMarkdownInto } from './markdown.js';
+import { renderAdminRootEntitySelect } from './admin.js';
+import {
+  uploadEntityMapImage, deleteEntityMapImage,
+  uploadEntityGalleryImage, deleteEntityGalleryImage, setGalleryImageVisibility
+} from './images.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -45,6 +50,7 @@ const db = getFirestore(firebaseApp);
           });
           renderList();
           renderDetailForSelected();
+          renderAdminRootEntitySelect();
           notifyVisibilityChange();
         }, function (err) {
           listEl.innerHTML = '<li>Error loading entities: ' + err.message + '</li>';
@@ -71,6 +77,50 @@ const db = getFirestore(firebaseApp);
     function detachCodexListeners() {
       detachListener('entitiesUnsub');
       detachListener('loreItemsUnsub');
+      setEntityImagesTarget(null);
+    }
+
+    // --- Per-entity images listener -----------------------------------------
+    // Image docs carry base64 payloads (up to ~750KB each), so a whole-
+    // collection listener is off the table — we live-listen only to the
+    // one entity currently in focus (open form wins over selection).
+    // Manual lifecycle, same deliberate-exception stance as mapImageUnsub.
+    function setEntityImagesTarget(entityId) {
+      if (state.entityImagesTargetId === entityId && state.entityImagesUnsub) return;
+      if (state.entityImagesUnsub) {
+        state.entityImagesUnsub();
+        state.entityImagesUnsub = null;
+      }
+      state.entityImagesTargetId = entityId;
+      state.currentEntityImages = [];
+      if (!entityId) return;
+      state.entityImagesUnsub = onSnapshot(
+        query(collection(db, 'images'), where('ownerId', '==', entityId)),
+        function (snapshot) {
+          if (state.entityImagesTargetId !== entityId) return; // stale snapshot after retarget
+          state.currentEntityImages = [];
+          snapshot.forEach(function (docSnap) {
+            state.currentEntityImages.push(Object.assign({ id: docSnap.id }, docSnap.data()));
+          });
+          renderDetailForSelected();
+          renderEntityFormImages();
+        },
+        function (err) {
+          console.error('entity images listener error:', err.message);
+        });
+    }
+
+    function galleryImagesFor(entityId, gmView) {
+      return state.currentEntityImages
+        .filter(function (img) {
+          return img.ownerId === entityId && img.role === 'gallery'
+            && (gmView || img.visibility === 'all-players');
+        })
+        .sort(function (a, b) {
+          const ta = (a.uploadedAt && a.uploadedAt.toMillis) ? a.uploadedAt.toMillis() : 0;
+          const tb = (b.uploadedAt && b.uploadedAt.toMillis) ? b.uploadedAt.toMillis() : 0;
+          return ta - tb;
+        });
     }
 
     // Modules whose rendering depends on lore visibility (map.js: pin
@@ -179,6 +229,13 @@ const db = getFirestore(firebaseApp);
     function renderDetailForSelected() {
       const entity = state.allEntities.find(function (e) { return e.id === state.selectedId; });
       const gmView = isGmView();
+
+      // Keep the per-entity images listener pointed at the entity in
+      // focus; an open entity form wins (it may be a New form with a
+      // pre-generated id that differs from the selection).
+      if (!formOverlayEl.classList.contains('open')) {
+        setEntityImagesTarget(entity ? entity.id : null);
+      }
 
       if (!entity || (!gmView && !isEntityPlayerVisible(entity.id))) {
         detailEl.innerHTML = '<p id="codex-empty">Select an entity.</p>';
@@ -324,6 +381,48 @@ const db = getFirestore(firebaseApp);
         detailEl.appendChild(tagsDiv);
       }
 
+      // --- Gallery ---
+      const galleryImages = galleryImagesFor(entity.id, gmView);
+      if (galleryImages.length) {
+        const galleryDiv = document.createElement('div');
+        galleryDiv.id = 'codex-gallery';
+        galleryImages.forEach(function (img) {
+          const figDiv = document.createElement('div');
+          figDiv.className = 'gallery-item';
+
+          const imgEl = document.createElement('img');
+          imgEl.src = img.data;
+          imgEl.alt = entity.name;
+          figDiv.appendChild(imgEl);
+
+          if (gmView) {
+            const barDiv = document.createElement('div');
+            barDiv.className = 'gallery-item-bar';
+            const visBadge = document.createElement('span');
+            visBadge.className = 'lore-vis-badge ' +
+              (img.visibility === 'all-players' ? 'visible' : 'hidden');
+            visBadge.textContent = img.visibility;
+            barDiv.appendChild(visBadge);
+
+            const revealBtn = document.createElement('button');
+            revealBtn.className = 'lore-item-btn';
+            revealBtn.textContent = img.visibility === 'gm-only' ? 'Reveal' : 'Hide';
+            revealBtn.addEventListener('click', function () {
+              setGalleryImageVisibility(img.id,
+                img.visibility === 'gm-only' ? 'all-players' : 'gm-only'
+              ).catch(function (err) {
+                window.alert('Visibility change failed: ' + err.message);
+              });
+            });
+            barDiv.appendChild(revealBtn);
+            figDiv.appendChild(barDiv);
+          }
+
+          galleryDiv.appendChild(figDiv);
+        });
+        detailEl.appendChild(galleryDiv);
+      }
+
       // --- Related entities ---
       // Player view only links to targets that are themselves player-
       // visible; dangling IDs (deleted target) silently skipped.
@@ -398,6 +497,13 @@ const db = getFirestore(firebaseApp);
     const formErrorEl = document.getElementById('entity-form-error');
     const formSaveBtn = document.getElementById('entity-form-save');
     const formCancelBtn = document.getElementById('entity-form-cancel');
+    const formMapImageSectionEl = document.getElementById('entity-form-map-image-section');
+    const formMapImageStatusEl = document.getElementById('entity-form-map-image-status');
+    const formMapImageInputEl = document.getElementById('entity-form-map-image-input');
+    const formMapImageDeleteBtn = document.getElementById('entity-form-map-image-delete');
+    const formGalleryListEl = document.getElementById('entity-form-gallery-list');
+    const formGalleryInputEl = document.getElementById('entity-form-gallery-input');
+    const formGalleryStatusEl = document.getElementById('entity-form-gallery-status');
 
     // slug: human-readable debugging/import aid, NOT the canonical key
     // (auto doc ID is). Regenerated from name on every save; uniqueness is
@@ -480,6 +586,15 @@ const db = getFirestore(firebaseApp);
 
     function openEntityForm(entity) {
       state.editingEntityId = entity ? entity.id : null;
+      state.entityFormIsNew = !entity;
+      // New: pre-generate the doc id so images can be uploaded before the
+      // first save (they reference the entity id). The entity doc itself
+      // is only written on Save; Cancel cleans up any images uploaded in
+      // this form session.
+      state.entityFormDocId = entity ? entity.id : doc(collection(db, 'entities')).id;
+      state.entityFormUploadedImageIds = [];
+      state.entityFormHasMapImage = !!(entity && entity.hasMapImage);
+      setEntityImagesTarget(state.entityFormDocId);
       formTitleEl.textContent = entity ? 'Edit Entity' : 'New Entity';
       formNameEl.value = entity ? entity.name || '' : '';
       formCategoryEl.value = entity ? (entity.category || CONFIG.categories[0]) : CONFIG.categories[0];
@@ -490,13 +605,149 @@ const db = getFirestore(firebaseApp);
       populateRelatedSelect();
       formErrorEl.style.display = 'none';
       formErrorEl.textContent = '';
+      formMapImageStatusEl.textContent = '';
+      formGalleryStatusEl.textContent = '';
+      renderEntityFormImages();
       formOverlayEl.classList.add('open');
       formNameEl.focus();
     }
 
     function closeEntityForm() {
       formOverlayEl.classList.remove('open');
+      state.entityFormDocId = null;
+      // Point the images listener back at the selection.
+      const selected = state.allEntities.find(function (e) { return e.id === state.selectedId; });
+      setEntityImagesTarget(selected ? selected.id : null);
     }
+
+    // Cancel on a New entity: the entity doc was never written, so any
+    // images uploaded during this form session would be orphans — delete
+    // them. On Edit, image changes applied live and Cancel keeps them
+    // (only the field edits are discarded).
+    function cancelEntityForm() {
+      if (state.entityFormIsNew && state.entityFormUploadedImageIds.length) {
+        state.entityFormUploadedImageIds.forEach(function (imageId) {
+          deleteDoc(doc(db, 'images', imageId)).catch(function (err) {
+            console.warn('orphan image cleanup failed:', err.message);
+          });
+        });
+      }
+      closeEntityForm();
+    }
+
+    // --- Entity form image sections -----------------------------------------
+    // Map image section only applies to Locations (0 or 1 map image);
+    // gallery applies to every entity (0+ images, each with visibility).
+    function renderEntityFormImages() {
+      if (!formOverlayEl.classList.contains('open')) return;
+
+      formMapImageSectionEl.style.display =
+        (formCategoryEl.value === 'Location') ? 'block' : 'none';
+
+      const entityId = state.entityFormDocId;
+      const mapImg = state.currentEntityImages.find(function (img) {
+        return img.ownerId === entityId && img.role === 'map';
+      });
+      formMapImageStatusEl.textContent = mapImg
+        ? 'Map image set (' + mapImg.width + 'x' + mapImg.height + ', ' + Math.round(mapImg.sizeBytes / 1024) + 'KB).'
+        : 'No map image.';
+      formMapImageDeleteBtn.style.display = mapImg ? 'inline-block' : 'none';
+
+      formGalleryListEl.innerHTML = '';
+      galleryImagesFor(entityId, true).forEach(function (img) {
+        const li = document.createElement('li');
+        const thumb = document.createElement('img');
+        thumb.src = img.data;
+        li.appendChild(thumb);
+
+        const visBadge = document.createElement('span');
+        visBadge.className = 'lore-vis-badge ' +
+          (img.visibility === 'all-players' ? 'visible' : 'hidden');
+        visBadge.textContent = img.visibility;
+        li.appendChild(visBadge);
+
+        const revealBtn = document.createElement('button');
+        revealBtn.type = 'button';
+        revealBtn.className = 'lore-item-btn';
+        revealBtn.textContent = img.visibility === 'gm-only' ? 'Reveal' : 'Hide';
+        revealBtn.addEventListener('click', function () {
+          setGalleryImageVisibility(img.id,
+            img.visibility === 'gm-only' ? 'all-players' : 'gm-only'
+          ).catch(function (err) {
+            window.alert('Visibility change failed: ' + err.message);
+          });
+        });
+        li.appendChild(revealBtn);
+
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'lore-item-btn';
+        delBtn.textContent = 'Delete';
+        delBtn.addEventListener('click', function () {
+          if (!window.confirm('Delete this gallery image?')) return;
+          deleteEntityGalleryImage(img.id).then(function () {
+            state.entityFormUploadedImageIds = state.entityFormUploadedImageIds
+              .filter(function (id) { return id !== img.id; });
+          }).catch(function (err) {
+            window.alert('Delete failed: ' + err.message);
+          });
+        });
+        li.appendChild(delBtn);
+
+        formGalleryListEl.appendChild(li);
+      });
+    }
+
+    formCategoryEl.addEventListener('change', renderEntityFormImages);
+
+    formMapImageInputEl.addEventListener('change', function () {
+      const file = formMapImageInputEl.files[0];
+      if (!file) return;
+      formMapImageInputEl.disabled = true;
+      uploadEntityMapImage(state.entityFormDocId, file, {
+        entityDocExists: !state.entityFormIsNew,
+        onStatus: function (text) { formMapImageStatusEl.textContent = text; }
+      }).then(function (imageId) {
+        state.entityFormHasMapImage = true;
+        if (state.entityFormUploadedImageIds.indexOf(imageId) === -1) {
+          state.entityFormUploadedImageIds.push(imageId);
+        }
+        // Status text refreshed by the images listener snapshot.
+      }).catch(function (err) {
+        formMapImageStatusEl.textContent = err.message;
+      }).finally(function () {
+        formMapImageInputEl.disabled = false;
+        formMapImageInputEl.value = '';
+      });
+    });
+
+    formMapImageDeleteBtn.addEventListener('click', function () {
+      if (!window.confirm('Delete this location\u2019s map image? Pins on its map will be unreachable until a new image is set.')) return;
+      deleteEntityMapImage(state.entityFormDocId, {
+        entityDocExists: !state.entityFormIsNew
+      }).then(function () {
+        state.entityFormHasMapImage = false;
+      }).catch(function (err) {
+        window.alert('Delete failed: ' + err.message);
+      });
+    });
+
+    formGalleryInputEl.addEventListener('change', function () {
+      const file = formGalleryInputEl.files[0];
+      if (!file) return;
+      formGalleryInputEl.disabled = true;
+      uploadEntityGalleryImage(state.entityFormDocId, file, {
+        onStatus: function (text) { formGalleryStatusEl.textContent = text; }
+      }).then(function (imageId) {
+        state.entityFormUploadedImageIds.push(imageId);
+        formGalleryStatusEl.textContent = '';
+      }).catch(function (err) {
+        formGalleryStatusEl.textContent = err.message;
+      }).finally(function () {
+        formGalleryInputEl.disabled = false;
+        formGalleryInputEl.value = '';
+      });
+    });
 
     function showFormError(message) {
       formErrorEl.textContent = message;
@@ -521,8 +772,8 @@ const db = getFirestore(firebaseApp);
         category: formCategoryEl.value,
         parentId: formParentEl.value || null,
         relatedIds: state.formRelatedIds.slice(),
-        mapId: null,  // no UI yet; entity<->map association is a later increment
         visibility: 'gm-only',  // new entities start hidden; one-tap Reveal in detail
+        hasMapImage: state.entityFormHasMapImage,
         tags: tags,
         updatedAt: serverTimestamp()
       };
@@ -530,16 +781,16 @@ const db = getFirestore(firebaseApp);
       formSaveBtn.disabled = true;
       let savePromise;
       if (state.editingEntityId) {
-        // Preserve existing mapId on edit (form doesn't manage it yet).
         const existing = state.allEntities.find(function (e) { return e.id === state.editingEntityId; });
-        entityData.mapId = existing ? (existing.mapId || null) : null;
         // Form doesn't manage visibility; preserved on edit, flipped only
         // via the one-tap Reveal/Hide button.
         entityData.visibility = (existing && existing.visibility === 'all-players') ? 'all-players' : 'gm-only';
         savePromise = updateDoc(doc(db, 'entities', state.editingEntityId), entityData);
       } else {
         entityData.createdAt = serverTimestamp();
-        savePromise = addDoc(collection(db, 'entities'), entityData);
+        // setDoc with the pre-generated id (not addDoc) — images uploaded
+        // during this form session already reference it.
+        savePromise = setDoc(doc(db, 'entities', state.entityFormDocId), entityData);
       }
 
       savePromise.then(function () {
@@ -551,19 +802,26 @@ const db = getFirestore(firebaseApp);
       });
     }
 
-    // Deleting an entity also deletes its loreItems (no orphans). Batched:
-    // atomic, and total doc count here is far below the 500-op batch cap.
+    // Deleting an entity also deletes its loreItems and images (no
+    // orphans). Batched: atomic, and total op count here is far below the
+    // 500-op batch cap. Image docs for the entity are known from the
+    // per-entity listener (targeted at the selection, which is the only
+    // place delete is offered).
     function deleteEntity(entity) {
       const ownedLore = state.allLoreItems.filter(function (item) { return item.entityId === entity.id; });
+      const ownedImages = state.currentEntityImages.filter(function (img) { return img.ownerId === entity.id; });
       const confirmed = window.confirm(
-        'Delete "' + entity.name + '" and its ' + ownedLore.length +
-        ' lore item(s)? This cannot be undone.');
+        'Delete "' + entity.name + '", its ' + ownedLore.length +
+        ' lore item(s), and ' + ownedImages.length + ' image(s)? This cannot be undone.');
       if (!confirmed) return;
 
       const batch = writeBatch(db);
       batch.delete(doc(db, 'entities', entity.id));
       ownedLore.forEach(function (item) {
         batch.delete(doc(db, 'loreItems', item.id));
+      });
+      ownedImages.forEach(function (img) {
+        batch.delete(doc(db, 'images', img.id));
       });
       batch.commit().then(function () {
         if (state.selectedId === entity.id) {
@@ -576,10 +834,10 @@ const db = getFirestore(firebaseApp);
     }
 
     newEntityBtn.addEventListener('click', function () { openEntityForm(); });
-    formCancelBtn.addEventListener('click', closeEntityForm);
+    formCancelBtn.addEventListener('click', cancelEntityForm);
     formSaveBtn.addEventListener('click', saveEntity);
     formOverlayEl.addEventListener('click', function (e) {
-      if (e.target === formOverlayEl) closeEntityForm();
+      if (e.target === formOverlayEl) cancelEntityForm();
     });
 
     // --- Lore item authoring (GM only for now) ------------------------------
