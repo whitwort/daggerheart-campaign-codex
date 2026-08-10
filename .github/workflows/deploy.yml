@@ -35,7 +35,7 @@ jobs:
       - name: Deploy to Firebase Hosting (dev)
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-key.json
-        run: firebase deploy --only hosting,firestore:rules --project daggerheart-campaign-codex-dev --non-interactive
+        run: firebase deploy --only hosting,firestore:rules,firestore:indexes --project daggerheart-campaign-codex-dev --non-interactive
 
   deploy-hosting-prod:
     if: github.event_name == 'release'
@@ -62,4 +62,4 @@ jobs:
       - name: Deploy to Firebase Hosting (prod)
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-key.json
-        run: firebase deploy --only hosting,firestore:rules --project daggerheart-campaign-codex --non-interactive
+        run: firebase deploy --only hosting,firestore:rules,firestore:indexes --project daggerheart-campaign-codex --non-interactive
