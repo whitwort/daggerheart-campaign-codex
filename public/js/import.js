@@ -1,5 +1,6 @@
 import {
-  getFirestore, collection, doc, writeBatch, serverTimestamp
+  getFirestore, collection, doc, writeBatch, serverTimestamp,
+  query, where, getDocs
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp, CONFIG } from './firebase.js';
 import { state } from './state.js';
@@ -12,10 +13,23 @@ const db = getFirestore(firebaseApp);
 //   { "entities": [ { "name", "category", "parentSlug": string|null,
 //       "relatedSlugs": [..]?, "tags": [..]?, "lore": ["md", ..]? }, .. ] }
 // Semantics:
-// - Dedup by slug (slugified name) against existing entities: a match is
-//   reported and skipped entirely (entity AND its lore) but its existing
-//   doc id still resolves parentSlug/relatedSlugs references from other
-//   batch items.
+// - Dedup by slug (slugified name) against existing entities: each match
+//   is listed as a conflict with a per-entity choice:
+//     skip (default) - entity AND its lore ignored; its existing doc id
+//       still resolves parentSlug/relatedSlugs references from other
+//       batch items.
+//     replace - existing doc id kept (pins/relations/images stay valid);
+//       the entity doc is fully rewritten from the import. hasMapImage
+//       and mapId are preserved from the existing doc (the import JSON
+//       cannot express map images; overwriting would orphan an uploaded
+//       map). ALL existing lore items are deleted and imported lore is
+//       written fresh.
+//     update - merge: name/category/parentId always replaced (parentSlug
+//       is required in the shape, so null counts as provided);
+//       relatedIds/tags replaced only if the key is present in the JSON;
+//       visibility untouched. Imported lore appends after existing lore
+//       (order continues), skipping items whose content exactly matches
+//       an existing item, so re-runs don't duplicate.
 // - parentSlug/relatedSlugs resolve against existing entities first, then
 //   other batch items. Unresolvable -> validation error.
 // - All new entity doc ids are pre-generated at validation time, so batch
@@ -28,6 +42,7 @@ const importJsonEl = document.getElementById('admin-import-json');
 const importValidateBtn = document.getElementById('admin-import-validate-btn');
 const importRunBtn = document.getElementById('admin-import-run-btn');
 const importReportEl = document.getElementById('admin-import-report');
+const importConflictsEl = document.getElementById('admin-import-conflicts');
 
 // Keep in sync with slugify() in codex.js (private there; 4 lines, not
 // worth an export/cycle risk).
@@ -44,6 +59,7 @@ let validatedPlan = null;
 function invalidatePlan() {
   validatedPlan = null;
   importRunBtn.disabled = true;
+  importConflictsEl.innerHTML = '';
 }
 
 importJsonEl.addEventListener('input', invalidatePlan);
@@ -111,7 +127,8 @@ function validateImport() {
     items.push({
       id: id, slug: slug, name: name, category: raw.category,
       parentSlug: raw.parentSlug, relatedSlugs: relatedSlugs,
-      tags: tags, lore: lore, isDuplicate: isDuplicate
+      tags: tags, lore: lore, isDuplicate: isDuplicate,
+      hasRelated: ('relatedSlugs' in raw), hasTags: ('tags' in raw)
     });
   });
 
@@ -123,8 +140,9 @@ function validateImport() {
     if (s in batchBySlug) return batchBySlug[s];
     return null;
   }
+  // Resolve refs for duplicates too: replace/update need parentId and
+  // relatedIds just like creates do.
   items.forEach(function (item) {
-    if (item.isDuplicate) return;
     if (item.parentSlug === null) {
       item.parentId = null;
     } else {
@@ -155,8 +173,8 @@ function validateImport() {
       + (it.lore.length ? ' [' + it.lore.length + ' lore]' : ''));
   });
   if (duplicates.length) {
-    lines.push('Skipped as duplicates (slug already exists):');
-    duplicates.forEach(function (it) { lines.push('  = ' + it.name + ' (' + it.slug + ')'); });
+    lines.push('Conflicts (slug already exists) — choose per entity below: '
+      + duplicates.length);
   }
   if (errors.length) {
     lines.push('ERRORS (' + errors.length + ') — fix before importing:');
@@ -164,42 +182,85 @@ function validateImport() {
   }
   importReportEl.textContent = lines.join('\n');
 
-  if (errors.length === 0 && creates.length > 0) {
-    validatedPlan = creates;
+  if (errors.length === 0) {
+    duplicates.forEach(function (it) {
+      const row = document.createElement('div');
+      row.className = 'import-conflict-row';
+      const sel = document.createElement('select');
+      ['skip', 'replace', 'update'].forEach(function (v) {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v;
+        sel.appendChild(opt);
+      });
+      it.choiceEl = sel;
+      const label = document.createElement('span');
+      label.textContent = ' [' + it.category + '] ' + it.name
+        + (it.lore.length ? ' (' + it.lore.length + ' lore)' : '');
+      row.appendChild(sel);
+      row.appendChild(label);
+      importConflictsEl.appendChild(row);
+    });
+  }
+
+  if (errors.length === 0 && (creates.length > 0 || duplicates.length > 0)) {
+    validatedPlan = { creates: creates, duplicates: duplicates };
     importRunBtn.disabled = false;
   }
 }
 
+// Fetch all existing lore items for one entity id (replace: to delete
+// them; update: for order continuation + exact-content dedupe).
+function fetchLoreFor(entityId) {
+  const q = query(collection(db, 'loreItems'), where('entityId', '==', entityId));
+  return getDocs(q).then(function (snap) {
+    const out = [];
+    snap.forEach(function (d) { out.push({ id: d.id, data: d.data() }); });
+    return out;
+  });
+}
+
 function runImport() {
   if (!validatedPlan) return;
-  const plan = validatedPlan;
+  const creates = validatedPlan.creates;
+  // Read choices before invalidation tears the selects down.
+  const replaces = [];
+  const updates = [];
+  let skipped = 0;
+  validatedPlan.duplicates.forEach(function (it) {
+    const choice = it.choiceEl ? it.choiceEl.value : 'skip';
+    if (choice === 'replace') replaces.push(it);
+    else if (choice === 'update') updates.push(it);
+    else skipped += 1;
+  });
   invalidatePlan();
   importValidateBtn.disabled = true;
-  importReportEl.textContent = 'Importing...';
+  importReportEl.textContent = 'Preparing import...';
 
-  // Build the flat op list: one entity set + N loreItem sets per item.
-  const ops = [];
-  plan.forEach(function (it) {
-    ops.push({
-      ref: doc(db, 'entities', it.id),
-      data: {
-        slug: it.slug,
-        name: it.name,
-        category: it.category,
-        parentId: it.parentId,
-        relatedIds: it.relatedIds,
-        visibility: 'gm-only',
-        hasMapImage: false,
-        tags: it.tags,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      }
+  // Existing entity docs by id (for hasMapImage/mapId preservation on
+  // replace).
+  const existingById = {};
+  state.allEntities.forEach(function (e) { existingById[e.id] = e; });
+
+  // Fetch existing lore for every replace/update target, sequentially.
+  const loreByEntity = {};
+  let fetches = Promise.resolve();
+  replaces.concat(updates).forEach(function (it) {
+    fetches = fetches.then(function () {
+      return fetchLoreFor(it.id).then(function (loreDocs) {
+        loreByEntity[it.id] = loreDocs;
+      });
     });
-    it.lore.forEach(function (content, order) {
+  });
+
+  fetches.then(function () {
+    const ops = [];
+    function newLoreOp(entityId, content, order) {
       ops.push({
+        type: 'set',
         ref: doc(collection(db, 'loreItems')),
         data: {
-          entityId: it.id,
+          entityId: entityId,
           kind: 'imported',
           authorId: null,
           authorType: 'gm',
@@ -210,41 +271,116 @@ function runImport() {
           updatedAt: serverTimestamp()
         }
       });
+    }
+
+    creates.forEach(function (it) {
+      ops.push({
+        type: 'set',
+        ref: doc(db, 'entities', it.id),
+        data: {
+          slug: it.slug,
+          name: it.name,
+          category: it.category,
+          parentId: it.parentId,
+          relatedIds: it.relatedIds,
+          visibility: 'gm-only',
+          hasMapImage: false,
+          tags: it.tags,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }
+      });
+      it.lore.forEach(function (content, order) { newLoreOp(it.id, content, order); });
     });
-  });
 
-  // Firestore writeBatch cap is 500 ops; chunk and commit sequentially.
-  const CHUNK = 450;
-  const chunks = [];
-  for (let i = 0; i < ops.length; i += CHUNK) chunks.push(ops.slice(i, i + CHUNK));
+    replaces.forEach(function (it) {
+      const existing = existingById[it.id] || {};
+      const data = {
+        slug: it.slug,
+        name: it.name,
+        category: it.category,
+        parentId: it.parentId,
+        relatedIds: it.relatedIds,
+        visibility: 'gm-only',
+        hasMapImage: existing.hasMapImage || false,
+        tags: it.tags,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+      if (existing.mapId !== undefined) data.mapId = existing.mapId;
+      ops.push({ type: 'set', ref: doc(db, 'entities', it.id), data: data });
+      (loreByEntity[it.id] || []).forEach(function (ld) {
+        ops.push({ type: 'delete', ref: doc(db, 'loreItems', ld.id) });
+      });
+      it.lore.forEach(function (content, order) { newLoreOp(it.id, content, order); });
+    });
 
-  let committed = 0;
-  let p = Promise.resolve();
-  chunks.forEach(function (chunk) {
-    p = p.then(function () {
-      const batch = writeBatch(db);
-      chunk.forEach(function (op) { batch.set(op.ref, op.data); });
-      return batch.commit().then(function () {
-        committed += chunk.length;
-        importReportEl.textContent = 'Importing... ' + committed + '/' + ops.length + ' writes';
+    updates.forEach(function (it) {
+      const data = {
+        slug: it.slug,
+        name: it.name,
+        category: it.category,
+        parentId: it.parentId,
+        updatedAt: serverTimestamp()
+      };
+      if (it.hasRelated) data.relatedIds = it.relatedIds;
+      if (it.hasTags) data.tags = it.tags;
+      ops.push({ type: 'update', ref: doc(db, 'entities', it.id), data: data });
+      const existingLore = loreByEntity[it.id] || [];
+      const existingContent = {};
+      let maxOrder = -1;
+      existingLore.forEach(function (ld) {
+        existingContent[(ld.data.content || '').trim()] = true;
+        if (typeof ld.data.order === 'number' && ld.data.order > maxOrder) {
+          maxOrder = ld.data.order;
+        }
+      });
+      let next = maxOrder + 1;
+      it.lore.forEach(function (content) {
+        if (existingContent[content.trim()]) return;
+        newLoreOp(it.id, content, next);
+        next += 1;
       });
     });
-  });
-  p.then(function () {
-    importReportEl.textContent = 'Import complete: ' + plan.length + ' entities, '
-      + (ops.length - plan.length) + ' lore items ('
-      + committed + ' writes). Entities list updates live.';
-    importValidateBtn.disabled = false;
+
+    // Firestore writeBatch cap is 500 ops; chunk and commit sequentially.
+    const CHUNK = 450;
+    const chunks = [];
+    for (let i = 0; i < ops.length; i += CHUNK) chunks.push(ops.slice(i, i + CHUNK));
+
+    let committed = 0;
+    let p = Promise.resolve();
+    chunks.forEach(function (chunk) {
+      p = p.then(function () {
+        const batch = writeBatch(db);
+        chunk.forEach(function (op) {
+          if (op.type === 'delete') batch.delete(op.ref);
+          else if (op.type === 'update') batch.update(op.ref, op.data);
+          else batch.set(op.ref, op.data);
+        });
+        return batch.commit().then(function () {
+          committed += chunk.length;
+          importReportEl.textContent = 'Importing... ' + committed + '/' + ops.length + ' writes';
+        });
+      });
+    });
+    return p.then(function () {
+      importReportEl.textContent = 'Import complete: '
+        + creates.length + ' created, '
+        + replaces.length + ' replaced, '
+        + updates.length + ' updated, '
+        + skipped + ' skipped ('
+        + committed + ' writes). Entities list updates live.';
+      importValidateBtn.disabled = false;
+    });
   }).catch(function (err) {
     // Batches are atomic individually but not across chunks: a failure
-    // mid-run leaves earlier chunks committed. Re-running Validate +
-    // Import is safe for entities (setDoc, fixed ids) but would duplicate
-    // loreItems of already-committed entities — hence the explicit
-    // instruction to re-Validate, which will now see those entities as
-    // existing duplicates and skip them.
-    importReportEl.textContent = 'Import FAILED after ' + committed + '/' + ops.length
-      + ' writes: ' + err.message
-      + '\nRe-run Validate: already-committed entities will now be skipped as duplicates.';
+    // mid-run leaves earlier chunks committed. Re-run Validate: entities
+    // already committed will now show as conflicts; choose skip (or
+    // update, which dedupes lore by exact content) rather than replaying
+    // the whole batch blindly.
+    importReportEl.textContent = 'Import FAILED: ' + err.message
+      + '\nRe-run Validate; already-committed entities appear as conflicts (default skip).';
     importValidateBtn.disabled = false;
   });
 }
