@@ -7,7 +7,7 @@ players — live at the table and between sessions. Built for the
 
 ## What it does
 
-- **Codex**: campaign lore entries (NPCs, factions, locations, items,
+- **Codex**: campaign lore entries (characters, factions, locations, items,
   history, events) with GM-only vs. player-visible content, tags,
   search, and cross-links between entries.
 - **Map**: nested zoomable maps (Leaflet) with pins linking to codex
