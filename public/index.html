@@ -65,17 +65,17 @@
   <div id="codex-panel" class="tab-panel active">
     <div id="codex-tab">
       <div id="codex-list-pane">
-        <button id="codex-new-btn">+ New entry</button>
+        <button id="codex-new-btn">+ New entity</button>
         <div id="codex-filters">
           <select id="codex-category-filter">
             <option value="">All categories</option>
           </select>
           <input id="codex-search" type="text" placeholder="Search name/tags...">
         </div>
-        <ul id="codex-entries"></ul>
+        <ul id="codex-entities"></ul>
       </div>
       <div id="codex-detail-pane">
-        <div id="codex-detail"><p id="codex-empty">Select an entry.</p></div>
+        <div id="codex-detail"><p id="codex-empty">Select an entity.</p></div>
       </div>
     </div>
   </div>
@@ -117,36 +117,55 @@
   </div>
   </div>
 
-  <div id="entry-form-overlay">
-    <div id="entry-form">
-      <h3 id="entry-form-title">New Entry</h3>
-      <label for="entry-form-name">Name</label>
-      <input type="text" id="entry-form-name">
+  <div id="entity-form-overlay">
+    <div id="entity-form">
+      <h3 id="entity-form-title">New Entity</h3>
+      <label for="entity-form-name">Name</label>
+      <input type="text" id="entity-form-name">
 
-      <label for="entry-form-category">Category</label>
-      <select id="entry-form-category"></select>
+      <label for="entity-form-category">Category</label>
+      <select id="entity-form-category"></select>
 
-      <label for="entry-form-tags">Tags (comma-separated)</label>
-      <input type="text" id="entry-form-tags">
+      <label for="entity-form-parent">Parent entity</label>
+      <select id="entity-form-parent"></select>
 
-      <label for="entry-form-content-gm">GM content</label>
-      <textarea id="entry-form-content-gm"></textarea>
+      <label for="entity-form-tags">Tags (comma-separated)</label>
+      <input type="text" id="entity-form-tags">
 
-      <label for="entry-form-content-player">Player content</label>
-      <textarea id="entry-form-content-player"></textarea>
-
-      <label>Related entries</label>
-      <ul id="entry-form-related-list"></ul>
-      <div id="entry-form-related-add">
-        <select id="entry-form-related-select"></select>
-        <button id="entry-form-related-add-btn" type="button">Add</button>
+      <label>Related entities</label>
+      <ul id="entity-form-related-list"></ul>
+      <div id="entity-form-related-add">
+        <select id="entity-form-related-select"></select>
+        <button id="entity-form-related-add-btn" type="button">Add</button>
       </div>
 
-      <p id="entry-form-error"></p>
+      <p id="entity-form-error"></p>
 
-      <div id="entry-form-actions">
-        <button id="entry-form-cancel" type="button">Cancel</button>
-        <button id="entry-form-save" type="button">Save</button>
+      <div id="entity-form-actions">
+        <button id="entity-form-cancel" type="button">Cancel</button>
+        <button id="entity-form-save" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="lore-form-overlay">
+    <div id="lore-form">
+      <h3 id="lore-form-title">Add Lore</h3>
+
+      <label for="lore-form-content">Content (Markdown)</label>
+      <textarea id="lore-form-content"></textarea>
+
+      <label for="lore-form-visibility">Visibility</label>
+      <select id="lore-form-visibility">
+        <option value="gm-only">GM only</option>
+        <option value="all-players">All players</option>
+      </select>
+
+      <p id="lore-form-error"></p>
+
+      <div id="lore-form-actions">
+        <button id="lore-form-cancel" type="button">Cancel</button>
+        <button id="lore-form-save" type="button">Save</button>
       </div>
     </div>
   </div>
@@ -156,13 +175,13 @@
       <h3>Add pin</h3>
 
       <div id="pin-form-type-toggle">
-        <label><input type="radio" name="pin-form-type" value="entry" checked> Link to entry</label>
+        <label><input type="radio" name="pin-form-type" value="entity" checked> Link to entity</label>
         <label><input type="radio" name="pin-form-type" value="childmap"> Link to child map</label>
       </div>
 
-      <div id="pin-form-entry-fields">
-        <label for="pin-form-entry">Codex entry</label>
-        <select id="pin-form-entry"></select>
+      <div id="pin-form-entity-fields">
+        <label for="pin-form-entity">Codex entity</label>
+        <select id="pin-form-entity"></select>
       </div>
 
       <div id="pin-form-childmap-fields" style="display:none;">
