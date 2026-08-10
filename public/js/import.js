@@ -42,10 +42,101 @@ const db = getFirestore(firebaseApp);
 //   visibility 'gm-only', order = source array index.
 
 const importJsonEl = document.getElementById('admin-import-json');
-const importValidateBtn = document.getElementById('admin-import-validate-btn');
 const importRunBtn = document.getElementById('admin-import-run-btn');
 const importReportEl = document.getElementById('admin-import-report');
 const importConflictsEl = document.getElementById('admin-import-conflicts');
+const importSummaryEl = document.getElementById('admin-import-summary');
+const importLogToggleEl = document.getElementById('admin-import-log-toggle');
+const importLogBodyEl = document.getElementById('admin-import-log-body');
+const importUploadBtn = document.getElementById('admin-import-upload-btn');
+const importFileInputEl = document.getElementById('admin-import-file-input');
+
+importLogToggleEl.addEventListener('click', function () {
+  const open = importLogBodyEl.style.display !== 'none';
+  importLogBodyEl.style.display = open ? 'none' : 'block';
+  importLogToggleEl.innerHTML = 'Log ' + (open ? '&#9656;' : '&#9662;');
+});
+
+// --- CodeMirror (lazy-loaded, JSON syntax highlighting in the import
+// textarea). Loaded on first visit to the Admin tab, not at page load.
+let cmInstance = null;
+let cmLoadPromise = null;
+
+function loadCodeMirrorAssets() {
+  if (cmLoadPromise) return cmLoadPromise;
+  cmLoadPromise = new Promise(function (resolve, reject) {
+    const cssLink = document.createElement('link');
+    cssLink.rel = 'stylesheet';
+    cssLink.href = 'https://unpkg.com/codemirror@5.65.16/lib/codemirror.css';
+    document.head.appendChild(cssLink);
+
+    const coreScript = document.createElement('script');
+    coreScript.src = 'https://unpkg.com/codemirror@5.65.16/lib/codemirror.js';
+    coreScript.onload = function () {
+      const modeScript = document.createElement('script');
+      modeScript.src = 'https://unpkg.com/codemirror@5.65.16/mode/javascript/javascript.js';
+      modeScript.onload = function () { resolve(window.CodeMirror); };
+      modeScript.onerror = function () { reject(new Error('Failed to load CodeMirror JSON mode')); };
+      document.head.appendChild(modeScript);
+    };
+    coreScript.onerror = function () { reject(new Error('Failed to load CodeMirror')); };
+    document.head.appendChild(coreScript);
+  });
+  return cmLoadPromise;
+}
+
+function ensureImportEditorReady() {
+  if (cmInstance) return;
+  loadCodeMirrorAssets().then(function (CodeMirror) {
+    if (cmInstance) return;
+    cmInstance = CodeMirror.fromTextArea(importJsonEl, {
+      mode: { name: 'javascript', json: true },
+      lineNumbers: true,
+      lineWrapping: true
+    });
+    cmInstance.on('change', scheduleValidate);
+  }).catch(function (err) {
+    console.error('CodeMirror load failed, falling back to plain textarea:', err.message);
+  });
+}
+
+function getImportText() {
+  return cmInstance ? cmInstance.getValue() : importJsonEl.value;
+}
+
+function setImportText(text) {
+  if (cmInstance) cmInstance.setValue(text);
+  else importJsonEl.value = text;
+}
+
+// Fallback for the (brief, pre-CodeMirror-load) window and in case the
+// CDN load fails.
+importJsonEl.addEventListener('input', function () {
+  if (!cmInstance) scheduleValidate();
+});
+
+importUploadBtn.addEventListener('click', function () {
+  importFileInputEl.click();
+});
+
+importFileInputEl.addEventListener('change', function () {
+  const file = importFileInputEl.files && importFileInputEl.files[0];
+  importFileInputEl.value = '';
+  if (!file) return;
+  if (getImportText().trim() !== '') {
+    const confirmed = window.confirm('Replace current textarea content with this file?');
+    if (!confirmed) return;
+  }
+  const reader = new FileReader();
+  reader.onload = function () {
+    setImportText(String(reader.result));
+    validateImport();
+  };
+  reader.onerror = function () {
+    window.alert('File read failed: ' + reader.error.message);
+  };
+  reader.readAsText(file);
+});
 
 // Keep in sync with slugify() in codex.js (private there; 4 lines, not
 // worth an export/cycle risk).
@@ -65,22 +156,54 @@ function invalidatePlan() {
   importConflictsEl.innerHTML = '';
 }
 
-importJsonEl.addEventListener('input', invalidatePlan);
+let validateDebounceHandle = null;
+function scheduleValidate() {
+  invalidatePlan();
+  if (validateDebounceHandle) clearTimeout(validateDebounceHandle);
+  validateDebounceHandle = setTimeout(validateImport, 650);
+}
+
+function renderSummaryBadges(counts) {
+  importSummaryEl.innerHTML = '';
+  function badge(text, cls) {
+    const span = document.createElement('span');
+    span.className = 'import-badge ' + cls;
+    span.textContent = text;
+    importSummaryEl.appendChild(span);
+  }
+  if (counts.errors > 0) {
+    badge(counts.errors + ' error' + (counts.errors === 1 ? '' : 's'), 'import-badge-error');
+    return;
+  }
+  badge(counts.additions + ' addition' + (counts.additions === 1 ? '' : 's'), 'import-badge-add');
+  if (counts.conflicts > 0) {
+    badge(counts.conflicts + ' conflict' + (counts.conflicts === 1 ? '' : 's'), 'import-badge-conflict');
+  }
+}
 
 function validateImport() {
   invalidatePlan();
+  importSummaryEl.innerHTML = '';
   const errors = [];
   const lines = [];
 
+  const text = getImportText().trim();
+  if (text === '') {
+    importReportEl.textContent = '';
+    return;
+  }
+
   let parsed;
   try {
-    parsed = JSON.parse(importJsonEl.value);
+    parsed = JSON.parse(text);
   } catch (err) {
     importReportEl.textContent = 'JSON parse failed: ' + err.message;
+    renderSummaryBadges({ errors: 1, additions: 0, conflicts: 0 });
     return;
   }
   if (!parsed || !Array.isArray(parsed.entities)) {
     importReportEl.textContent = 'Expected an object with an "entities" array.';
+    renderSummaryBadges({ errors: 1, additions: 0, conflicts: 0 });
     return;
   }
 
@@ -197,11 +320,15 @@ function validateImport() {
     errors.forEach(function (e) { lines.push('  ! ' + e); });
   }
   importReportEl.textContent = lines.join('\n');
+  renderSummaryBadges({ errors: errors.length, additions: creates.length, conflicts: duplicates.length });
 
   if (errors.length === 0) {
     duplicates.forEach(function (it) {
       const row = document.createElement('div');
       row.className = 'import-conflict-row';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      it.selectEl = checkbox;
       const sel = document.createElement('select');
       ['skip', 'replace', 'update'].forEach(function (v) {
         const opt = document.createElement('option');
@@ -213,10 +340,43 @@ function validateImport() {
       const label = document.createElement('span');
       label.textContent = ' [' + it.category + '] ' + it.name
         + (it.lore.length ? ' (' + it.lore.length + ' lore)' : '');
+      row.appendChild(checkbox);
       row.appendChild(sel);
       row.appendChild(label);
       importConflictsEl.appendChild(row);
     });
+
+    if (duplicates.length > 0) {
+      const bulkRow = document.createElement('div');
+      bulkRow.className = 'import-bulk-row';
+      const selectAllLabel = document.createElement('label');
+      const selectAllCb = document.createElement('input');
+      selectAllCb.type = 'checkbox';
+      selectAllCb.addEventListener('change', function () {
+        duplicates.forEach(function (it) { it.selectEl.checked = selectAllCb.checked; });
+      });
+      selectAllLabel.appendChild(selectAllCb);
+      selectAllLabel.appendChild(document.createTextNode(' Select all'));
+      const bulkMethodSel = document.createElement('select');
+      ['skip', 'replace', 'update'].forEach(function (v) {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v;
+        bulkMethodSel.appendChild(opt);
+      });
+      const applyBtn = document.createElement('button');
+      applyBtn.type = 'button';
+      applyBtn.textContent = 'Apply to selected';
+      applyBtn.addEventListener('click', function () {
+        duplicates.forEach(function (it) {
+          if (it.selectEl.checked) it.choiceEl.value = bulkMethodSel.value;
+        });
+      });
+      bulkRow.appendChild(selectAllLabel);
+      bulkRow.appendChild(bulkMethodSel);
+      bulkRow.appendChild(applyBtn);
+      importConflictsEl.insertBefore(bulkRow, importConflictsEl.firstChild);
+    }
   }
 
   if (errors.length === 0 && (creates.length > 0 || duplicates.length > 0)) {
@@ -250,7 +410,7 @@ function runImport() {
     else skipped += 1;
   });
   invalidatePlan();
-  importValidateBtn.disabled = true;
+  importRunBtn.disabled = true;
   importReportEl.textContent = 'Preparing import...';
 
   // Existing entity docs by id (for hasMapImage/mapId preservation on
@@ -396,20 +556,20 @@ function runImport() {
         + updates.length + ' updated, '
         + skipped + ' skipped ('
         + committed + ' writes). Entities list updates live.';
-      importValidateBtn.disabled = false;
     });
   }).catch(function (err) {
     // Batches are atomic individually but not across chunks: a failure
-    // mid-run leaves earlier chunks committed. Re-run Validate: entities
-    // already committed will now show as conflicts; choose skip (or
-    // update, which dedupes lore by exact content) rather than replaying
-    // the whole batch blindly.
+    // mid-run leaves earlier chunks committed. Re-validates automatically:
+    // entities already committed will now show as conflicts; choose skip
+    // (or update, which dedupes lore by exact content) rather than
+    // replaying the whole batch blindly.
     importReportEl.textContent = 'Import FAILED: ' + err.message
-      + '\nRe-run Validate; already-committed entities appear as conflicts (default skip).';
-    importValidateBtn.disabled = false;
+      + '\nRevalidating; already-committed entities will show as conflicts (default skip).';
+    scheduleValidate();
   });
 }
 
-importValidateBtn.addEventListener('click', validateImport);
 importRunBtn.addEventListener('click', runImport);
+
+export { ensureImportEditorReady };
 
