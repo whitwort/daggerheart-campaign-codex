@@ -470,6 +470,13 @@ function renderPins() {
   // for it the entire session.
   const editingPinId = state.pinDraft ? state.pinDraft.id : null;
 
+  // Legend scoping: track which categories actually have a rendered pin
+  // on this map, in this view (GM/player), so the legend only lists
+  // types actually present here rather than every category that ever
+  // exists anywhere. Built alongside the same filter pass rather than a
+  // second pass so it can't drift from what's actually on screen.
+  const categoriesPresent = new Set();
+
   pinsForCurrentMap.forEach(function (pin) {
     if (pin.id === editingPinId) return;
     const lat = state.mapImgHeight - pin.y;
@@ -478,6 +485,8 @@ function renderPins() {
     // Players don't see pins for hidden entities — a pin whose tooltip
     // names a secret entity is itself a spoiler.
     if (entity && !gmView && !isEntityPlayerVisible(entity.id)) return;
+
+    if (entity) categoriesPresent.add(entity.category);
 
     function handleClick() {
       if (state.mapMode === 'remove' && state.currentRole === 'gm') {
@@ -519,15 +528,38 @@ function renderPins() {
     });
     marker.addTo(state.pinLayer);
   });
+
+  updateLegend(categoriesPresent);
 }
 
 // --- Legend: a small Leaflet control listing entry-type -> color, so the
-// colors used above are self-explanatory on the map itself. -------------
+// colors used above are self-explanatory on the map itself. Scoped to
+// only the categories with a visible pin on the current map/view (see
+// renderPins' categoriesPresent) rather than every category that exists
+// campaign-wide, so it stays a short, relevant key instead of a fixed
+// list most of which is usually absent from any single map. -------------
 function addLegendControl(map) {
   const legend = L.control({ position: 'bottomleft' });
   legend.onAdd = function () {
     const div = L.DomUtil.create('div', 'map-pin-legend');
-    CONFIG.categories.filter(function (cat) { return !isMetaCategory(cat); }).forEach(function (cat) {
+    L.DomEvent.disableClickPropagation(div);
+    state.mapLegendDiv = div;
+    return div;
+  };
+  legend.addTo(map);
+}
+
+// Rebuild the legend's rows from a Set of category names. Called at the
+// end of every renderPins() so the legend tracks live pin/visibility
+// changes (GM reveal, preview toggle, add/remove pin), not just the
+// state at map load.
+function updateLegend(categoriesPresent) {
+  const div = state.mapLegendDiv;
+  if (!div) return;
+  div.innerHTML = '';
+  CONFIG.categories
+    .filter(function (cat) { return !isMetaCategory(cat) && categoriesPresent.has(cat); })
+    .forEach(function (cat) {
       const row = document.createElement('div');
       row.className = 'map-pin-legend-row';
       const swatch = document.createElement('span');
@@ -538,10 +570,6 @@ function addLegendControl(map) {
       row.appendChild(label);
       div.appendChild(row);
     });
-    L.DomEvent.disableClickPropagation(div);
-    return div;
-  };
-  legend.addTo(map);
 }
 
 function attachPinsListener() {
@@ -640,6 +668,7 @@ function teardownMapRuntime() {
     state.leafletMap.remove();
     state.leafletMap = null;
     state.pinLayer = null;
+    state.mapLegendDiv = null;
   }
   if (state.mapImageUnsub) {
     state.mapImageUnsub();
