@@ -9,7 +9,7 @@ import {
 import { state } from './state.js';
 import { attachListener, detachListener } from './listeners.js';
 import { attachCodexListeners, detachCodexListeners, renderList, renderDetailForSelected } from './codex.js';
-import { attachPinsListener, attachMapsListener, attachConfigListener, detachMapDataListeners } from './map.js';
+import { attachPinsListener, attachConfigListener, detachMapDataListeners } from './map.js';
 import { attachAdminListeners, detachAdminListeners } from './admin.js';
 
 export const auth = getAuth(firebaseApp);
@@ -85,7 +85,6 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
     function attachDataListeners() {
       attachCodexListeners();
       attachPinsListener();
-      attachMapsListener();
       attachConfigListener();
     }
 

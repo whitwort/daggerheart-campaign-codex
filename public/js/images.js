@@ -1,45 +1,20 @@
 import {
-  getFirestore, doc, setDoc, serverTimestamp
+  getFirestore, doc, collection, setDoc, addDoc, deleteDoc, updateDoc,
+  writeBatch, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
 
 const db = getFirestore(firebaseApp);
 
-const mapImageUploadInputEl = document.getElementById('map-image-upload-input');
-const mapImageUploadStatusEl = document.getElementById('map-image-upload-status');
-
-// Refactor-split fix (Aug 2026): these five constants were left behind as
-// module-scoped consts in map.js when the upload/cache code moved here
-// during the monolith split — module scope isn't shared, so every
-// reference below was a ReferenceError. Broke uploads outright
-// ("Processing error: ... is not defined") and made the 7c cache
-// silently no-op (the error rejected inside openImageCacheDb and was
-// swallowed by the cache's own best-effort catches). node --check can't
-// see cross-module reference errors; the eslint no-undef CI gate added
-// alongside this fix can.
-const MAP_IMAGE_MAX_DIMENSION = 4000; // px, before compression
-const MAP_IMAGE_MAX_RAW_BYTES = 750 * 1024; // ~750KB raw ceiling (Firestore 1MiB doc cap / ~33% base64 overhead) — block, don't chunk
+// Refactor-split fix (Aug 2026): these constants live here (their sole
+// consumer) — module scope isn't shared; leaving them in map.js broke
+// every reference. The eslint no-undef CI gate now catches this class.
+const IMAGE_MAX_DIMENSION = 4000; // px, before compression
+const IMAGE_MAX_RAW_BYTES = 750 * 1024; // ~750KB raw ceiling (Firestore 1MiB doc cap / ~33% base64 overhead) — block, don't chunk
 const IMAGE_CACHE_DB_NAME = 'codexImageCache';
 const IMAGE_CACHE_DB_VERSION = 1;
 const IMAGE_CACHE_STORE = 'images';
-
-    function saveMapImage(mapId, base64Data, width, height, sizeBytes) {
-      // Deterministic doc ID: overwriting it IS "delete prior primary
-      // image for this map" — no separate query+delete needed, no
-      // orphaned docs possible.
-      return setDoc(doc(db, 'images', 'map_' + mapId + '_primary'), {
-        ownerType: 'map',
-        ownerId: mapId,
-        role: 'primary',
-        data: base64Data,
-        contentType: 'image/webp',
-        width: width,
-        height: height,
-        sizeBytes: sizeBytes,
-        uploadedAt: serverTimestamp()
-      });
-    }
 
     // Real WebP encoder (Phase 7b fix): canvas.toBlob('image/webp') isn't
     // reliable — iOS Safari silently falls back to PNG with no error, and
@@ -56,95 +31,152 @@ const IMAGE_CACHE_STORE = 'images';
       return state.webpEncoderModulePromise;
     }
 
+    // Process a File through the resize/WebP pipeline. Resolves
+    // { dataUrl, width, height, sizeBytes }; rejects with a user-facing
+    // Error message on any failure.
+    function processImageFile(file, onStatus) {
+      function status(text) { if (onStatus) onStatus(text); }
+      return new Promise(function (resolve, reject) {
+        status('Processing...');
+        const objectUrl = URL.createObjectURL(file);
+        const img = new Image();
 
-    mapImageUploadInputEl.addEventListener('change', function () {
-      const file = mapImageUploadInputEl.files[0];
-      if (!file) return;
-      const targetMapId = state.mapImageUploadTargetMapId;
-      if (!targetMapId) {
-        mapImageUploadStatusEl.textContent = 'No map selected.';
-        mapImageUploadInputEl.value = '';
-        return;
-      }
-
-      mapImageUploadInputEl.disabled = true;
-      mapImageUploadStatusEl.textContent = 'Processing...';
-      const priorDims = state.currentMapImageDims; // captured before overwrite, for the dimension-change warning below
-
-      const objectUrl = URL.createObjectURL(file);
-      const img = new Image();
-
-      function fail(message) {
-        mapImageUploadStatusEl.textContent = message;
-        mapImageUploadInputEl.disabled = false;
-        mapImageUploadInputEl.value = '';
-      }
-
-      img.onload = function () {
-        URL.revokeObjectURL(objectUrl);
-        try {
-          let targetW = img.naturalWidth;
-          let targetH = img.naturalHeight;
-          if (targetW > MAP_IMAGE_MAX_DIMENSION || targetH > MAP_IMAGE_MAX_DIMENSION) {
-            const scale = MAP_IMAGE_MAX_DIMENSION / Math.max(targetW, targetH);
-            targetW = Math.round(targetW * scale);
-            targetH = Math.round(targetH * scale);
-          }
-
-          const canvas = document.createElement('canvas');
-          canvas.width = targetW;
-          canvas.height = targetH;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, targetW, targetH);
-          const imageData = ctx.getImageData(0, 0, targetW, targetH);
-
-          mapImageUploadStatusEl.textContent = 'Encoding...';
-          loadWebpEncoder().then(function (webpModule) {
-            return webpModule.encode(imageData, { quality: 85 });
-          }).then(function (arrayBuffer) {
-            const blob = new Blob([arrayBuffer], { type: 'image/webp' });
-            console.log('[map-image-upload] libwebp encode: ' + blob.size + ' bytes (' +
-              Math.round(blob.size / 1024) + 'KB), dims=' + targetW + 'x' + targetH);
-
-            if (blob.size > MAP_IMAGE_MAX_RAW_BYTES) {
-              fail('Image too large after compression (' + Math.round(blob.size / 1024) +
-                'KB, max ' + Math.round(MAP_IMAGE_MAX_RAW_BYTES / 1024) + 'KB). Try a smaller source image.');
-              return;
+        img.onload = function () {
+          URL.revokeObjectURL(objectUrl);
+          try {
+            let targetW = img.naturalWidth;
+            let targetH = img.naturalHeight;
+            if (targetW > IMAGE_MAX_DIMENSION || targetH > IMAGE_MAX_DIMENSION) {
+              const scale = IMAGE_MAX_DIMENSION / Math.max(targetW, targetH);
+              targetW = Math.round(targetW * scale);
+              targetH = Math.round(targetH * scale);
             }
 
-            const reader = new FileReader();
-            reader.onload = function () {
-              mapImageUploadStatusEl.textContent = 'Uploading...';
-              saveMapImage(targetMapId, reader.result, targetW, targetH, blob.size)
-                .then(function () {
-                  mapImageUploadStatusEl.textContent = 'Image updated (' + Math.round(blob.size / 1024) + 'KB).';
-                  mapImageUploadInputEl.disabled = false;
-                  mapImageUploadInputEl.value = '';
-                  // QOL backlog item: replace this with a guided pin-fixup
-                  // flow instead of a bare warning (see QOL-BACKLOG.md).
-                  if (priorDims && (priorDims.width !== targetW || priorDims.height !== targetH)) {
-                    alert('Warning: this map\'s image dimensions changed (' +
-                      priorDims.width + 'x' + priorDims.height + ' \u2192 ' + targetW + 'x' + targetH +
-                      '). Existing pins on this map are stored in the old pixel coordinates and may now be misaligned.');
-                  }
-                })
-                .catch(function (err) { fail('Upload failed: ' + err.message); });
-            };
-            reader.onerror = function () { fail('Read failed.'); };
-            reader.readAsDataURL(blob);
-          }).catch(function (err) {
-            fail('WebP encoding failed: ' + err.message);
+            const canvas = document.createElement('canvas');
+            canvas.width = targetW;
+            canvas.height = targetH;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, targetW, targetH);
+            const imageData = ctx.getImageData(0, 0, targetW, targetH);
+
+            status('Encoding...');
+            loadWebpEncoder().then(function (webpModule) {
+              return webpModule.encode(imageData, { quality: 85 });
+            }).then(function (arrayBuffer) {
+              const blob = new Blob([arrayBuffer], { type: 'image/webp' });
+              console.log('[entity-image-upload] libwebp encode: ' + blob.size + ' bytes (' +
+                Math.round(blob.size / 1024) + 'KB), dims=' + targetW + 'x' + targetH);
+
+              if (blob.size > IMAGE_MAX_RAW_BYTES) {
+                reject(new Error('Image too large after compression (' + Math.round(blob.size / 1024) +
+                  'KB, max ' + Math.round(IMAGE_MAX_RAW_BYTES / 1024) + 'KB). Try a smaller source image.'));
+                return;
+              }
+
+              const reader = new FileReader();
+              reader.onload = function () {
+                resolve({ dataUrl: reader.result, width: targetW, height: targetH, sizeBytes: blob.size });
+              };
+              reader.onerror = function () { reject(new Error('Read failed.')); };
+              reader.readAsDataURL(blob);
+            }).catch(function (err) {
+              reject(new Error('WebP encoding failed: ' + err.message));
+            });
+          } catch (err) {
+            reject(new Error('Processing error: ' + err.message));
+          }
+        };
+        img.onerror = function () {
+          URL.revokeObjectURL(objectUrl);
+          reject(new Error('Could not read image file.'));
+        };
+        img.src = objectUrl;
+      });
+    }
+
+    function entityMapImageDocId(entityId) {
+      return 'entity_' + entityId + '_map';
+    }
+
+    // Upload a map image for a Location entity. Deterministic doc ID:
+    // overwriting it IS "replace this entity's map image" — idempotent,
+    // no orphans. Also maintains the entity's hasMapImage flag (used for
+    // synchronous circle-vs-marker pin rendering) — skipped when
+    // opts.entityDocExists is false (New Entity form: the entity doc isn't
+    // written until Save; the form sets the flag in its own save payload).
+    function uploadEntityMapImage(entityId, file, opts) {
+      const onStatus = opts && opts.onStatus;
+      const entityDocExists = !opts || opts.entityDocExists !== false;
+      return processImageFile(file, onStatus).then(function (processed) {
+        if (onStatus) onStatus('Uploading...');
+        const imageDocId = entityMapImageDocId(entityId);
+        const imageData = {
+          ownerType: 'entity',
+          ownerId: entityId,
+          role: 'map',
+          data: processed.dataUrl,
+          contentType: 'image/webp',
+          width: processed.width,
+          height: processed.height,
+          sizeBytes: processed.sizeBytes,
+          uploadedAt: serverTimestamp()
+        };
+        if (entityDocExists) {
+          const batch = writeBatch(db);
+          batch.set(doc(db, 'images', imageDocId), imageData);
+          batch.update(doc(db, 'entities', entityId), {
+            hasMapImage: true, updatedAt: serverTimestamp()
           });
-        } catch (err) {
-          fail('Processing error: ' + err.message);
+          return batch.commit().then(function () { return imageDocId; });
         }
-      };
-      img.onerror = function () {
-        URL.revokeObjectURL(objectUrl);
-        fail('Could not read image file.');
-      };
-      img.src = objectUrl;
-    });
+        return setDoc(doc(db, 'images', imageDocId), imageData)
+          .then(function () { return imageDocId; });
+      });
+    }
+
+    function deleteEntityMapImage(entityId, opts) {
+      const entityDocExists = !opts || opts.entityDocExists !== false;
+      const imageDocId = entityMapImageDocId(entityId);
+      if (entityDocExists) {
+        const batch = writeBatch(db);
+        batch.delete(doc(db, 'images', imageDocId));
+        batch.update(doc(db, 'entities', entityId), {
+          hasMapImage: false, updatedAt: serverTimestamp()
+        });
+        return batch.commit();
+      }
+      return deleteDoc(doc(db, 'images', imageDocId));
+    }
+
+    // Gallery images: 0+ per entity, auto-ID docs (content entities, not
+    // structural singletons), each with its own gm-only/all-players
+    // visibility like loreItems. New uploads start hidden.
+    function uploadEntityGalleryImage(entityId, file, opts) {
+      const onStatus = opts && opts.onStatus;
+      return processImageFile(file, onStatus).then(function (processed) {
+        if (onStatus) onStatus('Uploading...');
+        return addDoc(collection(db, 'images'), {
+          ownerType: 'entity',
+          ownerId: entityId,
+          role: 'gallery',
+          visibility: 'gm-only',
+          data: processed.dataUrl,
+          contentType: 'image/webp',
+          width: processed.width,
+          height: processed.height,
+          sizeBytes: processed.sizeBytes,
+          uploadedAt: serverTimestamp()
+        }).then(function (ref) { return ref.id; });
+      });
+    }
+
+    function deleteEntityGalleryImage(imageDocId) {
+      return deleteDoc(doc(db, 'images', imageDocId));
+    }
+
+    function setGalleryImageVisibility(imageDocId, visibility) {
+      return updateDoc(doc(db, 'images', imageDocId), { visibility: visibility });
+    }
 
 
     function openImageCacheDb() {
@@ -195,4 +227,9 @@ const IMAGE_CACHE_STORE = 'images';
     }
 
 
-export { saveMapImage, getCachedImage, putCachedImage };
+export {
+  entityMapImageDocId,
+  uploadEntityMapImage, deleteEntityMapImage,
+  uploadEntityGalleryImage, deleteEntityGalleryImage, setGalleryImageVisibility,
+  getCachedImage, putCachedImage
+};
