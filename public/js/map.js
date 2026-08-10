@@ -389,6 +389,7 @@ function openPinPanel(existingPin, coords) {
   clearPinPreview();
   updatePinPreview();
   pinPanelEl.classList.add('open');
+  renderPins(); // hides the pin being edited, if it already exists
 }
 
 function closePinPanel() {
@@ -397,6 +398,7 @@ function closePinPanel() {
   pinMoveIndicatorEl.classList.remove('open');
   clearPinPreview();
   state.pinDraft = null;
+  renderPins(); // un-hides it
 }
 
 function showPinPanelError(message) {
@@ -461,13 +463,15 @@ function renderPins() {
 
   const gmView = state.currentRole === 'gm' && !state.gmPreviewAsPlayer;
 
-  // While a pin is being actively dragged (move mode), hide its static
-  // rendering here — the draggable preview marker stands in for it, so
-  // it reads as "the one true pin" moving rather than a duplicate ghost.
-  const movingPinId = (state.pinDraft && state.pinDraft.moveMode) ? state.pinDraft.id : null;
+  // The pin being edited is hidden from its static rendering for the
+  // whole time the panel is open (not just mid-drag) — otherwise it
+  // reappears the moment a drag ends, before Save/Cancel, which looks
+  // like two pins for a beat. The draggable preview marker stands in
+  // for it the entire session.
+  const editingPinId = state.pinDraft ? state.pinDraft.id : null;
 
   pinsForCurrentMap.forEach(function (pin) {
-    if (pin.id === movingPinId) return;
+    if (pin.id === editingPinId) return;
     const lat = state.mapImgHeight - pin.y;
     const entity = state.allEntities.find(function (e) { return e.id === pin.entityId; });
 
@@ -597,6 +601,11 @@ function ensureMapTabReady() {
   // loadMap(null) tears down any stale map and shows the right
   // placeholder either way.
   if (state.leafletMap && state.loadedMapId === state.currentMapEntityId) {
+    // Tab was hidden (display:none) then shown again: the container's
+    // measured size goes stale while hidden, which is what produces the
+    // "map drifted off-center with grey margins" bug — invalidateSize()
+    // re-measures and re-centers without a full reload.
+    state.leafletMap.invalidateSize();
     renderPins();
     renderBreadcrumb();
     return;

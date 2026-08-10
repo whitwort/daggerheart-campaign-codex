@@ -1228,7 +1228,7 @@ function renderDetailForSelected() {
   ['lore', 'notes'].forEach(function (tabKey) {
     const tabBtn = document.createElement('button');
     tabBtn.type = 'button';
-    tabBtn.textContent = tabKey === 'lore' ? 'Lore' : 'Notes';
+    tabBtn.textContent = tabKey === 'lore' ? 'Discovered lore' : 'Our notes';
     if (state.detailActiveTab === tabKey) tabBtn.classList.add('active');
     tabBtn.addEventListener('click', function () {
       state.detailActiveTab = tabKey;
