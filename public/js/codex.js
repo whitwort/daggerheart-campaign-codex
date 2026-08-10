@@ -4,6 +4,7 @@ import {
 import { firebaseApp, CONFIG } from './firebase.js';
 import { state } from './state.js';
 import { attachListener, detachListener } from './listeners.js';
+import { renderMarkdownInto } from './markdown.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -143,9 +144,14 @@ const db = getFirestore(firebaseApp);
       catP.innerHTML = '<em>' + (entry.category || '') + '</em>';
       detailEl.appendChild(catP);
 
-      const bodyP = document.createElement('p');
-      bodyP.textContent = bodyText || '(no content for this view)';
-      detailEl.appendChild(bodyP);
+      const bodyDiv = document.createElement('div');
+      bodyDiv.className = 'codex-body';
+      if (bodyText) {
+        renderMarkdownInto(bodyDiv, bodyText);
+      } else {
+        bodyDiv.textContent = '(no content for this view)';
+      }
+      detailEl.appendChild(bodyDiv);
 
       if (entry.tags && entry.tags.length) {
         const tagsDiv = document.createElement('div');
