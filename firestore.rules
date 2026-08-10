@@ -94,7 +94,8 @@ service cloud.firestore {
     function isValidEntity() {
       return request.resource.data.keys().hasOnly(
           ['slug', 'name', 'category', 'parentId', 'relatedIds', 'mapId',
-           'tags', 'createdAt', 'updatedAt'])
+           'visibility', 'tags', 'createdAt', 'updatedAt'])
+        && request.resource.data.visibility in ['gm-only', 'all-players']
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.slug is string
