@@ -172,3 +172,6 @@
     /* Import conflict rows (Admin bulk import) */
     .import-conflict-row { display: flex; align-items: center; gap: 0.5rem; margin: 0.25rem 0; }
     .import-conflict-row select { min-width: 6.5rem; }
+
+    /* Category-specific metadata under the entity heading */
+    .entity-meta-line { color: #555; font-size: 0.9rem; margin: -0.25rem 0 0.75rem; }

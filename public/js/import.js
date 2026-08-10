@@ -11,7 +11,10 @@ const db = getFirestore(firebaseApp);
 // GM-only (lives in the Admin tab). Paste JSON -> Validate -> Import.
 // Input shape:
 //   { "entities": [ { "name", "category", "parentSlug": string|null,
-//       "relatedSlugs": [..]?, "tags": [..]?, "lore": ["md", ..]? }, .. ] }
+//       "relatedSlugs": [..]?, "tags": [..]?, "lore": ["md", ..]?,
+//       "ancestry": string?, "aliases": [..]?, "date": string? }, .. ] }
+// ancestry/aliases are meant for Characters, date for Scenes/Events, but
+// the importer doesn't enforce category pairing — the form does.
 // Semantics:
 // - Dedup by slug (slugified name) against existing entities: each match
 //   is listed as a conflict with a per-entity choice:
@@ -116,6 +119,16 @@ function validateImport() {
     if (lore.some(function (c) { return typeof c !== 'string' || c.trim() === ''; })) {
       errors.push(label + ' (' + name + '): lore entries must be non-empty strings'); return;
     }
+    if ('ancestry' in raw && typeof raw.ancestry !== 'string') {
+      errors.push(label + ' (' + name + '): ancestry must be a string'); return;
+    }
+    if ('date' in raw && typeof raw.date !== 'string') {
+      errors.push(label + ' (' + name + '): date must be a string'); return;
+    }
+    const aliases = raw.aliases || [];
+    if (!Array.isArray(aliases) || aliases.some(function (a) { return typeof a !== 'string'; })) {
+      errors.push(label + ' (' + name + '): aliases must be an array of strings'); return;
+    }
     const slug = slugify(name);
     if (slug === '') { errors.push(label + ' (' + name + '): name slugifies to empty'); return; }
     if (slug in batchBySlug) {
@@ -128,7 +141,10 @@ function validateImport() {
       id: id, slug: slug, name: name, category: raw.category,
       parentSlug: raw.parentSlug, relatedSlugs: relatedSlugs,
       tags: tags, lore: lore, isDuplicate: isDuplicate,
-      hasRelated: ('relatedSlugs' in raw), hasTags: ('tags' in raw)
+      ancestry: raw.ancestry || null, aliases: aliases, date: raw.date || null,
+      hasRelated: ('relatedSlugs' in raw), hasTags: ('tags' in raw),
+      hasAncestry: ('ancestry' in raw), hasAliases: ('aliases' in raw),
+      hasDate: ('date' in raw)
     });
   });
 
@@ -283,6 +299,9 @@ function runImport() {
           category: it.category,
           parentId: it.parentId,
           relatedIds: it.relatedIds,
+          ancestry: it.ancestry,
+          aliases: it.aliases,
+          date: it.date,
           visibility: 'gm-only',
           hasMapImage: false,
           tags: it.tags,
@@ -301,6 +320,9 @@ function runImport() {
         category: it.category,
         parentId: it.parentId,
         relatedIds: it.relatedIds,
+        ancestry: it.ancestry,
+        aliases: it.aliases,
+        date: it.date,
         visibility: 'gm-only',
         hasMapImage: existing.hasMapImage || false,
         tags: it.tags,
@@ -325,6 +347,9 @@ function runImport() {
       };
       if (it.hasRelated) data.relatedIds = it.relatedIds;
       if (it.hasTags) data.tags = it.tags;
+      if (it.hasAncestry) data.ancestry = it.ancestry;
+      if (it.hasAliases) data.aliases = it.aliases;
+      if (it.hasDate) data.date = it.date;
       ops.push({ type: 'update', ref: doc(db, 'entities', it.id), data: data });
       const existingLore = loreByEntity[it.id] || [];
       const existingContent = {};
@@ -388,25 +413,30 @@ function runImport() {
 importValidateBtn.addEventListener('click', validateImport);
 importRunBtn.addEventListener('click', runImport);
 
-// --- One-off data fix: NPC -> Character rename (Aug 2026) ---------------
-// Temporary: remove this block (and its Admin-tab markup) once run.
+// --- One-off data fix: category renames (Aug 2026) ----------------------
+// NPC -> Character, History -> World Facts. Idempotent (no-ops once no
+// docs carry the old names). Temporary: remove this block (and its
+// Admin-tab markup) once run on both dev and prod data.
 const fixNpcBtn = document.getElementById('admin-fix-npc-category-btn');
 const fixNpcStatusEl = document.getElementById('admin-fix-npc-category-status');
+const CATEGORY_RENAMES = { 'NPC': 'Character', 'History': 'World Facts' };
 fixNpcBtn.addEventListener('click', function () {
-  const targets = state.allEntities.filter(function (e) { return e.category === 'NPC'; });
+  const targets = state.allEntities.filter(function (e) {
+    return e.category in CATEGORY_RENAMES;
+  });
   if (targets.length === 0) {
-    fixNpcStatusEl.textContent = 'No entities with category NPC.';
+    fixNpcStatusEl.textContent = 'No entities with old category names.';
     return;
   }
   fixNpcBtn.disabled = true;
   const batch = writeBatch(db);
   targets.forEach(function (e) {
     batch.update(doc(db, 'entities', e.id), {
-      category: 'Character', updatedAt: serverTimestamp()
+      category: CATEGORY_RENAMES[e.category], updatedAt: serverTimestamp()
     });
   });
   batch.commit().then(function () {
-    fixNpcStatusEl.textContent = 'Updated ' + targets.length + ' entities to Character.';
+    fixNpcStatusEl.textContent = 'Renamed categories on ' + targets.length + ' entities.';
   }).catch(function (err) {
     fixNpcStatusEl.textContent = 'Failed: ' + err.message;
   }).finally(function () {
