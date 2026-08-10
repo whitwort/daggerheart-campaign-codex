@@ -22,6 +22,25 @@
     #map-image-upload { display: none; gap: 0.5rem; align-items: center; margin-top: 0.5rem; font-size: 0.85rem; }
     #map-image-upload-status { color: #666; }
 
+    /* Generic modal (used by pin-form and the New-entity dialog) */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+      align-items: center; justify-content: center; z-index: 1000;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: #fff; border-radius: 4px; padding: 1.25rem 1.5rem;
+      width: 90%; max-width: 420px; max-height: 85vh; overflow-y: auto;
+    }
+    .modal-box h3 { margin-top: 0; }
+    .modal-box label { display: block; margin-top: 0.75rem; font-size: 0.85rem; font-weight: bold; }
+    .modal-box input[type="text"], .modal-box select, .modal-box textarea {
+      width: 100%; box-sizing: border-box; padding: 0.4rem; font-size: 0.9rem; margin-top: 0.2rem;
+    }
+    .modal-actions { margin-top: 1.25rem; display: flex; gap: 0.5rem; justify-content: flex-end; }
+    .modal-actions button { padding: 0.4rem 0.9rem; cursor: pointer; }
+    .modal-error { color: #b00020; font-size: 0.85rem; margin-top: 0.5rem; display: none; }
+
     #pin-form-overlay {
       display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
       align-items: center; justify-content: center; z-index: 1000;
@@ -57,7 +76,7 @@
     #codex-list-actions { display: flex; justify-content: flex-end; margin-top: 0.5rem; }
     #codex-new-btn { padding: 0.4rem 0.8rem; cursor: pointer; }
 
-    /* Entry Browser: accordion grouped by category */
+    /* Table of Contents: accordion grouped by category */
     #codex-entities { max-height: 70vh; overflow-y: auto; border: 1px solid #ccc; }
     .entity-group-header {
       display: flex; justify-content: space-between; align-items: center;
@@ -70,20 +89,25 @@
     .entity-group-header.collapsed .entity-group-caret { transform: rotate(-90deg); }
     .entity-group-list { list-style: none; padding: 0; margin: 0; }
     .entity-group-list.collapsed { display: none; }
+    /* Flex row (not absolute positioning) so the li's height always
+       includes its right-hand column — fixes the hidden-badge/map-link
+       overlapping the row below it. */
     .entity-group-list li {
-      position: relative; padding: 0.5rem 3.75rem 0.5rem 0.75rem;
-      border-bottom: 1px solid #eee; cursor: pointer;
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;
+      padding: 0.5rem 0.75rem; border-bottom: 1px solid #eee; cursor: pointer;
     }
     .entity-group-list li:hover { background: #f5f5f5; }
     .entity-group-list li.active { background: #e0e8ff; }
-    .entity-group-list .entity-category { font-size: 0.75rem; color: #666; }
+    .entity-group-list .entity-name { min-width: 0; }
+    .entity-group-list .entity-right-col {
+      display: flex; flex-direction: column; align-items: flex-end; gap: 0.2rem; flex-shrink: 0;
+    }
     .entity-hidden-badge {
-      position: absolute; top: 0.5rem; right: 0.75rem;
       padding: 0.05rem 0.4rem; font-size: 0.7rem; border-radius: 3px; background: #ffe0b0;
     }
     .entity-map-link {
-      position: absolute; top: 1.6rem; right: 0.75rem;
-      font-size: 0.75rem; color: #3451b2; text-decoration: underline dotted; cursor: pointer; background: none; border: none; padding: 0;
+      font-size: 0.75rem; color: #3451b2; text-decoration: underline dotted;
+      cursor: pointer; background: none; border: none; padding: 0;
     }
     .entity-map-link:hover { text-decoration: underline; }
 
@@ -91,6 +115,11 @@
     #codex-detail h2 { margin-top: 0; }
     #codex-card-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
     #codex-card-heading h2 { margin: 0; }
+    #codex-card-heading input[type="text"] { font-size: 1.3rem; padding: 0.2rem 0.3rem; }
+    #codex-card-heading-left { flex: 1; min-width: 0; }
+    #codex-card-heading-right {
+      display: flex; flex-direction: column; align-items: flex-end; gap: 0.3rem; flex-shrink: 0;
+    }
     #codex-view-badge { display: inline-block; padding: 0.15rem 0.5rem; font-size: 0.75rem; border-radius: 3px; white-space: nowrap; }
     #codex-view-badge.gm { background: #ffe0b0; }
     #codex-view-badge.player { background: #c8e6c9; }
@@ -98,9 +127,9 @@
     #codex-empty { color: #888; }
 
     /* Generic action-row placement: gm buttons bottom-right of the
-       element they affect; player/gm (shared) buttons bottom-left. */
+       element they affect; player/gm (shared) buttons/text bottom-left. */
     .actions-row { display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; gap: 0.5rem; }
-    .actions-row-left, .actions-row-right { display: flex; gap: 0.5rem; }
+    .actions-row-left, .actions-row-right { display: flex; align-items: center; gap: 0.5rem; }
     .actions-row-right { margin-left: auto; }
     .actions-row button { padding: 0.3rem 0.7rem; cursor: pointer; }
 
@@ -113,7 +142,7 @@
     #codex-detail-tabs button.active { border-bottom-color: #444; font-weight: bold; }
     #codex-detail-tab-panel { padding-top: 0.75rem; }
 
-    /* Toggle switch (lore/gallery reveal-hide) */
+    /* Toggle switch (entity/lore/gallery reveal-hide, always upper-right) */
     .toggle-switch { position: relative; display: inline-block; width: 2.4rem; height: 1.4rem; vertical-align: middle; }
     .toggle-switch input { opacity: 0; width: 0; height: 0; }
     .toggle-switch .toggle-slider {
@@ -126,6 +155,7 @@
     .toggle-switch input:checked + .toggle-slider { background: #8bc98f; }
     .toggle-switch input:checked + .toggle-slider::before { transform: translateX(1rem); }
     .toggle-switch-label { font-size: 0.7rem; color: #666; margin-right: 0.3rem; vertical-align: middle; }
+    .entity-visibility-toggle-row { display: flex; align-items: center; gap: 0.3rem; }
 
     /* Player-view lore list */
     .lore-bullet-list { margin: 0.5rem 0 0; padding-left: 1.25rem; }
@@ -142,38 +172,26 @@
     }
     .related-chip:hover { background: #c8d4ff; }
 
-    #entity-form-related-list { list-style: none; padding: 0; margin: 0.3rem 0 0 0; }
-    #entity-form-related-list li {
+    /* Inline entity edit fields (replaces the old entity-form modal) */
+    .entity-edit-block { margin-top: 0.5rem; }
+    .entity-edit-block label { display: block; margin-top: 0.75rem; font-size: 0.85rem; font-weight: bold; }
+    .entity-edit-block input[type="text"], .entity-edit-block select, .entity-edit-block textarea {
+      width: 100%; box-sizing: border-box; padding: 0.4rem; font-size: 0.9rem; margin-top: 0.2rem;
+    }
+    .related-edit-list { list-style: none; padding: 0; margin: 0.3rem 0 0 0; }
+    .related-edit-list li {
       display: flex; align-items: center; justify-content: space-between;
       padding: 0.25rem 0.5rem; background: #f5f5f5; border-radius: 3px; margin-bottom: 0.25rem; font-size: 0.85rem;
     }
-    #entity-form-related-list button { padding: 0.1rem 0.5rem; cursor: pointer; font-size: 0.8rem; }
-    #entity-form-related-add { display: flex; gap: 0.4rem; margin-top: 0.3rem; }
-    #entity-form-related-add select { flex: 1; margin-top: 0; }
-    #entity-form-related-add button { padding: 0.35rem 0.7rem; cursor: pointer; }
+    .related-edit-list button { padding: 0.1rem 0.5rem; cursor: pointer; font-size: 0.8rem; }
+    .related-edit-add { display: flex; gap: 0.4rem; margin-top: 0.3rem; }
+    .related-edit-add select { flex: 1; margin-top: 0; }
+    .related-edit-add button { padding: 0.35rem 0.7rem; cursor: pointer; }
+    .image-edit-status { font-size: 0.8rem; color: #666; margin: 0.2rem 0; display: block; }
+    .gallery-edit-list { list-style: none; padding: 0; margin: 0.3rem 0; }
+    .gallery-edit-list li { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
+    .gallery-edit-list img { width: 64px; height: 64px; object-fit: cover; border: 1px solid #ddd; border-radius: 4px; }
 
-    #codex-new-btn { display: none; margin-bottom: 0.75rem; padding: 0.4rem 0.8rem; cursor: pointer; }
-    #codex-detail-actions { display: none; gap: 0.5rem; margin-top: 1rem; }
-    #codex-detail-actions button { padding: 0.3rem 0.7rem; cursor: pointer; }
-
-    #entity-form-overlay {
-      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
-      align-items: center; justify-content: center; z-index: 1000;
-    }
-    #entity-form-overlay.open { display: flex; }
-    #entity-form {
-      background: #fff; border-radius: 4px; padding: 1.25rem 1.5rem;
-      width: 90%; max-width: 520px; max-height: 85vh; overflow-y: auto;
-    }
-    #entity-form h3 { margin-top: 0; }
-    #entity-form label { display: block; margin-top: 0.75rem; font-size: 0.85rem; font-weight: bold; }
-    #entity-form input[type="text"], #entity-form textarea, #entity-form select {
-      width: 100%; box-sizing: border-box; padding: 0.4rem; font-size: 0.9rem; margin-top: 0.2rem;
-    }
-    #entity-form textarea { min-height: 80px; resize: vertical; }
-    #entity-form-actions { margin-top: 1.25rem; display: flex; gap: 0.5rem; justify-content: flex-end; }
-    #entity-form-actions button { padding: 0.4rem 0.9rem; cursor: pointer; }
-    #entity-form-error { color: #b00020; font-size: 0.85rem; margin-top: 0.5rem; display: none; }
     #build-version { margin-top: 2rem; font-size: 0.7rem; color: #bbb; }
 
     /* Lore items (Phase 8) */
@@ -188,26 +206,8 @@
     .lore-item-body > :first-child { margin-top: 0; }
     .lore-item-body > :last-child { margin-bottom: 0; }
     .lore-empty { color: #888; }
-
-    /* Lore form overlay: reuse entity-form overlay styling */
-    #lore-form-overlay {
-      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
-      align-items: center; justify-content: center; z-index: 1000;
-    }
-    #lore-form-overlay.open { display: flex; }
-    #lore-form {
-      background: #fff; padding: 1.25rem; border-radius: 6px;
-      width: min(560px, 92vw); max-height: 85vh; overflow-y: auto;
-    }
-    #lore-form h3 { margin-top: 0; }
-    #lore-form label { display: block; margin-top: 0.75rem; font-size: 0.85rem; font-weight: bold; }
-    #lore-form textarea, #lore-form select {
-      width: 100%; box-sizing: border-box; padding: 0.4rem; margin-top: 0.25rem; font-size: 0.9rem;
-    }
-    #lore-form textarea { min-height: 160px; resize: vertical; font-family: inherit; }
-    #lore-form-actions { margin-top: 1.25rem; display: flex; gap: 0.5rem; justify-content: flex-end; }
-    #lore-form-actions button { padding: 0.4rem 0.9rem; cursor: pointer; }
-    #lore-form-error { color: #b00020; font-size: 0.85rem; margin-top: 0.5rem; display: none; }
+    .lore-edit-textarea { min-height: 140px; resize: vertical; font-family: inherit; }
+    .lore-edit-hint { font-size: 0.75rem; color: #666; }
 
     /* Admin create-map + entity hidden badge (Phase 8) */
     #admin-create-map { display: flex; gap: 0.4rem; }
@@ -215,16 +215,11 @@
     #admin-create-map button { padding: 0.35rem 0.8rem; cursor: pointer; }
     #admin-create-map-status { font-size: 0.85rem; color: #666; }
 
-
     /* Entity images (Phase 8) */
     #codex-gallery { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.75rem; }
     .gallery-item { max-width: 260px; }
     .gallery-item img { width: 100%; height: auto; display: block; border: 1px solid #ddd; border-radius: 4px; }
     .gallery-item-bar { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.25rem; }
-    #entity-form-gallery-list { list-style: none; padding: 0; margin: 0.3rem 0; }
-    #entity-form-gallery-list li { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
-    #entity-form-gallery-list img { width: 64px; height: 64px; object-fit: cover; border: 1px solid #ddd; border-radius: 4px; }
-    #entity-form-map-image-status, #entity-form-gallery-status { font-size: 0.8rem; color: #666; margin: 0.2rem 0; }
     #pin-form-radius-hint { font-size: 0.75rem; color: #666; margin: 0.3rem 0 0 0; }
     #admin-root-entity-hint { font-size: 0.85rem; color: #666; }
 
