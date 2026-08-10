@@ -81,7 +81,7 @@
           <button id="codex-new-btn">+ New entity</button>
         </div>
       </div>
-      <div id="codex-detail-pane">
+      <div id="codex-detail-pane" class="empty">
         <h3 class="pane-title">My Knowledge</h3>
         <div id="codex-detail"><p id="codex-empty">Select a page from your Codex&hellip;</p></div>
       </div>
@@ -196,6 +196,11 @@
       <button id="pin-panel-save" type="button">Save</button>
       <button id="pin-panel-cancel" type="button">Cancel</button>
     </div>
+  </div>
+
+  <div id="pin-move-indicator">
+    <span>Drag the pin to reposition it, then release.</span>
+    <button id="pin-move-done-btn" type="button">Done</button>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

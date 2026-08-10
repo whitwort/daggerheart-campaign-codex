@@ -25,6 +25,7 @@ const categoryFilterEl = document.getElementById('codex-category-filter');
 const searchEl = document.getElementById('codex-search');
 const listEl = document.getElementById('codex-entities');
 const detailEl = document.getElementById('codex-detail');
+const detailPaneEl = document.getElementById('codex-detail-pane');
 const newEntityBtn = document.getElementById('codex-new-btn');
 
 // slug: human-readable debugging/import aid, NOT the canonical key (auto
@@ -309,7 +310,8 @@ function renderList() {
         const mapLink = document.createElement('button');
         mapLink.type = 'button';
         mapLink.className = 'entity-map-link';
-        mapLink.textContent = 'map';
+        mapLink.title = 'Open map';
+        mapLink.textContent = CONFIG.icons.map;
         mapLink.addEventListener('click', function (ev) {
           ev.stopPropagation();
           if (mapNavigationHandler) mapNavigationHandler(entity.id);
@@ -1118,9 +1120,11 @@ function renderDetailForSelected() {
   setEntityImagesTarget(entity ? entity.id : null);
 
   if (!entity || (!gmView && !isEntityPlayerVisible(entity.id))) {
+    detailPaneEl.classList.add('empty');
     detailEl.innerHTML = '<p id="codex-empty">Select a page from your Codex&hellip;</p>';
     return;
   }
+  detailPaneEl.classList.remove('empty');
 
   const editing = gmView && state.detailEditMode && state.detailEditDraft;
   const draft = editing ? state.detailEditDraft : null;
@@ -1201,7 +1205,8 @@ function renderDetailForSelected() {
     const mapLink = document.createElement('button');
     mapLink.type = 'button';
     mapLink.className = 'entity-map-link';
-    mapLink.textContent = 'View map';
+    mapLink.title = 'Open map';
+    mapLink.textContent = CONFIG.icons.map;
     mapLink.addEventListener('click', function () {
       if (mapNavigationHandler) mapNavigationHandler(entity.id);
     });
