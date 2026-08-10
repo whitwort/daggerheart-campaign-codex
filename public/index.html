@@ -110,6 +110,15 @@
 
     <h3>Current players</h3>
     <ul id="admin-players-list"></ul>
+
+    <h3>Bulk import</h3>
+    <p>Paste import JSON ({"entities": [...]}), Validate, review the report, then Import.</p>
+    <textarea id="admin-import-json" rows="8" style="width:100%;box-sizing:border-box;font-family:monospace;" placeholder='{"entities": []}'></textarea>
+    <div>
+      <button id="admin-import-validate-btn">Validate</button>
+      <button id="admin-import-run-btn" disabled>Import</button>
+    </div>
+    <pre id="admin-import-report" style="white-space:pre-wrap;overflow-x:auto;"></pre>
   </div>
   </div>
 
