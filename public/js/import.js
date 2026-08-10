@@ -66,10 +66,12 @@ function validateImport() {
   }
 
   // Existing slug -> doc id (first wins; existing duplicate slugs are a
-  // pre-existing condition, just noted).
+  // pre-existing condition, just noted). Fall back to slugified name for
+  // docs missing a slug field (early test docs).
   const existingBySlug = {};
   state.allEntities.forEach(function (e) {
-    if (e.slug && !(e.slug in existingBySlug)) existingBySlug[e.slug] = e.id;
+    const s = e.slug || (e.name ? slugify(e.name) : '');
+    if (s && !(s in existingBySlug)) existingBySlug[s] = e.id;
   });
 
   // First pass: shape checks, slug assignment, in-batch duplicate check,
@@ -113,8 +115,10 @@ function validateImport() {
     });
   });
 
-  // Second pass: resolve references.
-  function resolveSlug(s) {
+  // Second pass: resolve references. Incoming refs are slugified too, so
+  // "Genesis" or "The Hub" resolve the same as "genesis"/"the-hub".
+  function resolveSlug(raw) {
+    const s = slugify(raw);
     if (s in existingBySlug) return existingBySlug[s];
     if (s in batchBySlug) return batchBySlug[s];
     return null;
