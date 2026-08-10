@@ -32,4 +32,28 @@ function detachListener(stateKey) {
   }
 }
 
-export { attachListener, detachListener };
+// Wrap a snapshot callback so an exception in render code cannot
+// propagate into the Firestore SDK's async queue. An uncaught throw
+// inside an onSnapshot observer permanently wedges the SDK client —
+// EVERY listener silently stops delivering events until page reload,
+// while state already holds the update that was being processed. That's
+// exactly the observed failure: live updates freeze everywhere, but
+// clicking (which re-renders from state) or reloading shows correct
+// data. Errors are surfaced on the in-page debug banner (no devtools on
+// iOS) instead of killing the client.
+function safeSnapshotHandler(name, fn) {
+  return function () {
+    try {
+      return fn.apply(null, arguments);
+    } catch (err) {
+      console.error('[' + name + '] snapshot handler error:', err);
+      if (window.__showDebugBanner) {
+        window.__showDebugBanner('[' + name + '] snapshot handler error: ' +
+          (err && err.message ? err.message : err) +
+          (err && err.stack ? '\n' + err.stack.split('\n').slice(0, 3).join('\n') : ''));
+      }
+    }
+  };
+}
+
+export { attachListener, detachListener, safeSnapshotHandler };

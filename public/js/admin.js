@@ -3,7 +3,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
-import { attachListener, detachListener } from './listeners.js';
+import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -67,25 +67,25 @@ const adminRootEntityStatusEl = document.getElementById('admin-root-entity-statu
 
     function attachAdminListeners() {
       attachListener('joinRequestsUnsub', function () {
-        return onSnapshot(collection(db, 'joinRequests'), function (snapshot) {
+        return onSnapshot(collection(db, 'joinRequests'), safeSnapshotHandler('joinRequests', function (snapshot) {
           state.allJoinRequests = [];
           snapshot.forEach(function (docSnap) {
             state.allJoinRequests.push(Object.assign({ id: docSnap.id }, docSnap.data()));
           });
           renderAdminJoinRequests();
-        }, function (err) {
+        }), function (err) {
           console.error('joinRequests listener failed:', err.message);
         });
       });
 
       attachListener('playersUnsub', function () {
-        return onSnapshot(collection(db, 'players'), function (snapshot) {
+        return onSnapshot(collection(db, 'players'), safeSnapshotHandler('players', function (snapshot) {
           state.allPlayers = [];
           snapshot.forEach(function (docSnap) {
             state.allPlayers.push(Object.assign({ id: docSnap.id }, docSnap.data()));
           });
           renderAdminPlayersList();
-        }, function (err) {
+        }), function (err) {
           console.error('players listener failed:', err.message);
         });
       });
