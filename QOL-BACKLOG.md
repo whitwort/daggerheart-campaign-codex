@@ -3,15 +3,15 @@
 Future quality-of-life improvements, not currently scheduled into a phase.
 Carry this file forward in context-handoff docs.
 
-- **Guided pin re-fixup on map image replace.** When a GM replaces a
-  map's image with one of different dimensions, existing pins (stored as
-  raw pixel coords in the old image's coordinate space) may end up
-  misaligned. Currently (Phase 7b) this just pops an `alert()` warning
-  after upload. Replace with actual UI: after a dimension-changing
-  replace, walk the GM through each existing pin on that map (e.g.
-  overlay old positions as a percentage-of-image reference, or drop them
-  into a "needs review" list) so they can be relocated one by one instead
-  of manually guessing / re-eyeballing every pin.
+- **Pin-safety on Location map image change — scheduled: Phase 9.** The
+  old alert-on-dimension-change warning was dropped when map images moved
+  to the entity form (entity-based maps rework, Aug 2026); currently a
+  changed map image silently leaves existing pins (raw pixel coords in
+  the old image's coordinate space) possibly misaligned. Phase 9: when a
+  Location entity's map image is uploaded/replaced AND pins exist with
+  `mapEntityId` pointing at that entity, either (first pass) warn the GM
+  that pin locations may be wrong, or (better) show a guided UI to walk
+  through checking/relocating each existing pin on that map.
 
 ## Deferred phases
 

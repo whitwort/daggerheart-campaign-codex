@@ -4,7 +4,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp, CONFIG } from './firebase.js';
 import { state } from './state.js';
-import { attachListener, detachListener } from './listeners.js';
+import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
 import { renderMarkdownInto } from './markdown.js';
 import { renderAdminRootEntitySelect } from './admin.js';
 import {
@@ -43,7 +43,7 @@ const db = getFirestore(firebaseApp);
     // and never retries. Callers (auth.js) own that gating.
     function attachCodexListeners() {
       attachListener('entitiesUnsub', function () {
-        return onSnapshot(collection(db, 'entities'), function (snapshot) {
+        return onSnapshot(collection(db, 'entities'), safeSnapshotHandler('entities', function (snapshot) {
           state.allEntities = [];
           snapshot.forEach(function (docSnap) {
             state.allEntities.push(Object.assign({ id: docSnap.id }, docSnap.data()));
@@ -52,13 +52,13 @@ const db = getFirestore(firebaseApp);
           renderDetailForSelected();
           renderAdminRootEntitySelect();
           notifyVisibilityChange();
-        }, function (err) {
+        }), function (err) {
           listEl.innerHTML = '<li>Error loading entities: ' + err.message + '</li>';
         });
       });
 
       attachListener('loreItemsUnsub', function () {
-        return onSnapshot(collection(db, 'loreItems'), function (snapshot) {
+        return onSnapshot(collection(db, 'loreItems'), safeSnapshotHandler('loreItems', function (snapshot) {
           state.allLoreItems = [];
           snapshot.forEach(function (docSnap) {
             state.allLoreItems.push(Object.assign({ id: docSnap.id }, docSnap.data()));
@@ -68,7 +68,7 @@ const db = getFirestore(firebaseApp);
           renderList();
           renderDetailForSelected();
           notifyVisibilityChange();
-        }, function (err) {
+        }), function (err) {
           detailEl.innerHTML = '<p>Error loading lore: ' + err.message + '</p>';
         });
       });
@@ -96,7 +96,7 @@ const db = getFirestore(firebaseApp);
       if (!entityId) return;
       state.entityImagesUnsub = onSnapshot(
         query(collection(db, 'images'), where('ownerId', '==', entityId)),
-        function (snapshot) {
+        safeSnapshotHandler('entityImages', function (snapshot) {
           if (state.entityImagesTargetId !== entityId) return; // stale snapshot after retarget
           state.currentEntityImages = [];
           snapshot.forEach(function (docSnap) {
@@ -104,7 +104,7 @@ const db = getFirestore(firebaseApp);
           });
           renderDetailForSelected();
           renderEntityFormImages();
-        },
+        }),
         function (err) {
           console.error('entity images listener error:', err.message);
         });

@@ -7,7 +7,7 @@ import {
   getFirestore, doc, setDoc, serverTimestamp, onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { state } from './state.js';
-import { attachListener, detachListener } from './listeners.js';
+import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
 import { attachCodexListeners, detachCodexListeners, renderList, renderDetailForSelected } from './codex.js';
 import { attachPinsListener, attachConfigListener, detachMapDataListeners } from './map.js';
 import { attachAdminListeners, detachAdminListeners } from './admin.js';
@@ -170,16 +170,16 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
       loginGateUnlistedEl.style.display = 'block';
 
       attachListener('playerDocUnsub', function () {
-        return onSnapshot(doc(db, 'players', user.email), function (snap) {
+        return onSnapshot(doc(db, 'players', user.email), safeSnapshotHandler('playerDoc', function (snap) {
           updateAccessUI(snap.exists() ? 'player' : 'viewer');
-        }, function (err) {
+        }), function (err) {
           console.error('players doc listener failed:', err.message);
         });
       });
 
       requestJoinBtn.disabled = true;
       attachListener('joinRequestDocUnsub', function () {
-        return onSnapshot(doc(db, 'joinRequests', user.email), function (snap) {
+        return onSnapshot(doc(db, 'joinRequests', user.email), safeSnapshotHandler('joinRequestDoc', function (snap) {
           if (snap.exists()) {
             requestJoinBtn.style.display = 'none';
             requestJoinStatusEl.style.display = 'block';
@@ -188,7 +188,7 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
             requestJoinBtn.disabled = false;
             requestJoinStatusEl.style.display = 'none';
           }
-        }, function (err) {
+        }), function (err) {
           console.error('joinRequest doc listener failed:', err.message);
         });
       });
