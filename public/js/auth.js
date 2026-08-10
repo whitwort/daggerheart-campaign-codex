@@ -8,7 +8,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { state } from './state.js';
 import { attachListener, detachListener } from './listeners.js';
-import { attachEntriesListener, detachEntriesListener, renderDetailForSelected } from './codex.js';
+import { attachCodexListeners, detachCodexListeners, renderList, renderDetailForSelected } from './codex.js';
 import { attachPinsListener, attachMapsListener, attachConfigListener, detachMapDataListeners } from './map.js';
 import { attachAdminListeners, detachAdminListeners } from './admin.js';
 
@@ -83,7 +83,7 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
     // No *Attached flag needed anymore: each attach*Listener call is
     // per-key idempotent via listeners.js.
     function attachDataListeners() {
-      attachEntriesListener();
+      attachCodexListeners();
       attachPinsListener();
       attachMapsListener();
       attachConfigListener();
@@ -99,7 +99,7 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
     // explicitly detach + reset the guard on every auth change, same
     // pattern as detachLiveRoleListeners() below.
     function detachDataListeners() {
-      detachEntriesListener();
+      detachCodexListeners();
       detachMapDataListeners();
       detachAdminListeners();
     }
@@ -115,6 +115,7 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
       if (hasAccess) attachDataListeners();
       loginGateEl.style.display = hasAccess ? 'none' : 'block';
       mainAppEl.style.display = hasAccess ? 'block' : 'none';
+      renderList();  // player-visibility filter depends on role
       renderDetailForSelected();
     }
 
