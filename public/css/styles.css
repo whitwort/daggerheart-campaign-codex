@@ -42,12 +42,11 @@
     .pin-cat-game-mechanics { --pin-color: #606c38; }
     .pin-cat-default { --pin-color: #555; }
 
-    .map-pin-dot {
-      width: 1rem; height: 1rem; border-radius: 50%;
-      border: 2px solid #fff; box-shadow: 0 0 2px rgba(0,0,0,0.6);
-      background: var(--pin-color, #555);
-    }
-    .map-pin-dot.preview { opacity: 0.75; outline: 2px dashed #333; }
+    .map-pin-marker { filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)); }
+    .map-pin-marker-body { fill: var(--pin-color, #555); stroke: #fff; stroke-width: 1.5; }
+    .map-pin-marker-dot { fill: #fff; }
+    .map-pin-marker.preview { opacity: 0.8; }
+    .map-pin-marker.preview .map-pin-marker-body { stroke: #333; stroke-dasharray: 3 2; }
     .map-pin-circle { stroke: var(--pin-color, #555); fill: var(--pin-color, #555); }
     .map-pin-legend {
       background: #fff; padding: 0.5rem 0.6rem; border-radius: 4px;
@@ -83,6 +82,7 @@
       padding: 1rem 1.25rem; box-shadow: 0 2px 10px rgba(0,0,0,0.35); z-index: 900;
     }
     #pin-panel.open { display: block; }
+    #pin-panel.open.move-mode { display: none; }
     #pin-panel h3 { margin-top: 0; }
     #pin-panel label { display: block; margin-top: 0.75rem; font-size: 0.85rem; font-weight: bold; }
     #pin-panel-search { width: 100%; box-sizing: border-box; padding: 0.4rem; font-size: 0.9rem; margin-top: 0.2rem; }
@@ -94,6 +94,18 @@
     #pin-panel-move-row button.active-mode { outline: 2px solid #4a6fdc; }
     #pin-panel-move-hint { font-size: 0.75rem; color: #666; margin: 0.3rem 0 0 0; }
     #pin-panel-error { color: #b00020; font-size: 0.85rem; margin-top: 0.5rem; display: none; }
+
+    /* Shown instead of the (hidden) pin panel while a pin is actively
+       being dragged, so nothing on screen obscures the map/pin — small
+       and corner-docked rather than another panel over the map. */
+    #pin-move-indicator {
+      display: none; position: fixed; top: 5rem; left: 1rem; z-index: 900;
+      background: #fff; border-radius: 6px; padding: 0.6rem 0.9rem;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.35); font-size: 0.85rem;
+      align-items: center; gap: 0.6rem;
+    }
+    #pin-move-indicator.open { display: flex; }
+    #pin-move-indicator button { padding: 0.3rem 0.7rem; cursor: pointer; }
 
     #codex-tab { display: flex; gap: 1.5rem; margin-top: 1rem; }
     #codex-list-pane { flex: 0 0 320px; }
@@ -135,12 +147,14 @@
       padding: 0.05rem 0.4rem; font-size: 0.7rem; border-radius: 3px; background: #ffe0b0;
     }
     .entity-map-link {
-      font-size: 0.75rem; color: #3451b2; text-decoration: underline dotted;
+      font-size: 1rem; line-height: 1; color: #3451b2; text-decoration: none;
       cursor: pointer; background: none; border: none; padding: 0;
     }
-    .entity-map-link:hover { text-decoration: underline; }
+    .entity-map-link:hover { opacity: 0.7; }
 
     #codex-detail { border: 1px solid #ccc; padding: 1rem; min-height: 200px; }
+    #codex-detail-pane.empty h3.pane-title { display: none; }
+    #codex-detail-pane.empty #codex-detail { border: none; padding: 0; min-height: 0; }
     #codex-detail h2 { margin-top: 0; }
     #codex-card-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
     #codex-card-heading h2 { margin: 0; }
@@ -235,7 +249,7 @@
     .lore-item-body > :first-child { margin-top: 0; }
     .lore-item-body > :last-child { margin-bottom: 0; }
     .lore-empty { color: #888; }
-    .lore-edit-textarea { min-height: 140px; resize: vertical; font-family: inherit; }
+    .lore-edit-textarea { width: 100%; box-sizing: border-box; min-height: 140px; resize: vertical; font-family: inherit; }
     .lore-edit-hint { font-size: 0.75rem; color: #666; }
 
     /* Admin tab subsections */

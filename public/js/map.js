@@ -39,12 +39,19 @@ function categoryPinClass(category) {
   return 'pin-cat-' + (slug || 'default');
 }
 
+// Teardrop marker icon (Leaflet's classic map-pin shape), colored by
+// entry type via the CSS custom property set on its wrapping .pin-cat-*
+// class (see styles.css "Pin color legend"). Anchor sits at the tip.
 function pinDivIcon(category, extraClass) {
+  const svg = '<svg class="map-pin-marker-svg" width="26" height="36" viewBox="0 0 26 36" xmlns="http://www.w3.org/2000/svg">'
+    + '<path d="M13 0C5.8 0 0 5.8 0 13c0 9.75 13 23 13 23s13-13.25 13-23C26 5.8 20.2 0 13 0z" class="map-pin-marker-body"/>'
+    + '<circle cx="13" cy="13" r="5" class="map-pin-marker-dot"/>'
+    + '</svg>';
   return L.divIcon({
-    className: '',
-    html: '<div class="map-pin-dot ' + categoryPinClass(category) + (extraClass ? ' ' + extraClass : '') + '"></div>',
-    iconSize: [16, 16],
-    iconAnchor: [8, 8]
+    className: 'map-pin-marker ' + categoryPinClass(category) + (extraClass ? ' ' + extraClass : ''),
+    html: svg,
+    iconSize: [26, 36],
+    iconAnchor: [13, 36]
   });
 }
 
@@ -122,8 +129,7 @@ function renderBreadcrumb() {
     breadcrumbEl.appendChild(link);
     const icon = document.createElement('span');
     icon.className = 'map-breadcrumb-icon';
-    // Placeholder icons: map vs. codex/lore entry.
-    icon.textContent = isMapEntity(entity) ? '\uD83D\uDDFA\uFE0F' : '\uD83D\uDCD6';
+    icon.textContent = isMapEntity(entity) ? CONFIG.icons.map : CONFIG.icons.codex;
     breadcrumbEl.appendChild(icon);
   });
 }
@@ -175,6 +181,8 @@ const pinPanelMoveHintEl = document.getElementById('pin-panel-move-hint');
 const pinPanelErrorEl = document.getElementById('pin-panel-error');
 const pinPanelSaveBtn = document.getElementById('pin-panel-save');
 const pinPanelCancelBtn = document.getElementById('pin-panel-cancel');
+const pinMoveIndicatorEl = document.getElementById('pin-move-indicator');
+const pinMoveDoneBtn = document.getElementById('pin-move-done-btn');
 
 // Preview layer: shows the pin being placed/edited directly on the map
 // while the panel is open — a draggable marker (position handle) plus,
@@ -200,6 +208,9 @@ function updatePinPreview() {
       draft.x = pos.lng;
       draft.y = state.mapImgHeight - pos.lat;
       if (previewCircle) previewCircle.setLatLng(pos);
+    });
+    previewMarker.on('dragend', function () {
+      exitMoveMode();
     });
     previewMarker.addTo(state.leafletMap);
   } else {
@@ -228,6 +239,10 @@ function updatePinPreview() {
   }
 }
 
+function isMetaCategory(category) {
+  return (CONFIG.metaCategories || []).indexOf(category) !== -1;
+}
+
 function renderPinPickerEntityList() {
   pinPanelEntityListEl.innerHTML = '';
   const draft = state.pinDraft;
@@ -235,6 +250,7 @@ function renderPinPickerEntityList() {
 
   const candidates = state.allEntities
     .filter(function (e) { return e.id !== state.currentMapEntityId; }) // no self-pin
+    .filter(function (e) { return !isMetaCategory(e.category); }) // Meta types never get a pin
     .filter(function (e) {
       if (!q) return true;
       return (e.name || '').toLowerCase().indexOf(q) !== -1;
@@ -309,12 +325,42 @@ pinPanelRadiusEl.addEventListener('input', function () {
 });
 pinPanelMoveBtn.addEventListener('click', function () {
   if (!state.pinDraft) return;
-  state.pinDraft.moveMode = !state.pinDraft.moveMode;
-  pinPanelMoveBtn.classList.toggle('active-mode', state.pinDraft.moveMode);
-  pinPanelMoveBtn.textContent = state.pinDraft.moveMode ? 'Stop moving' : 'Move pin position';
-  pinPanelMoveHintEl.style.display = state.pinDraft.moveMode ? 'block' : 'none';
-  updatePinPreview();
+  if (state.pinDraft.moveMode) {
+    exitMoveMode();
+  } else {
+    enterMoveMode();
+  }
 });
+pinMoveDoneBtn.addEventListener('click', exitMoveMode);
+
+// Move mode: hides the pin panel entirely (item 6/7 — nothing should sit
+// over the map while dragging) and hides the pin's own static rendering
+// in the pin layer (so the draggable preview marker reads as "the one
+// true pin", not a ghost on top of a still-visible original). A small
+// corner indicator replaces the panel so there's always a way out even
+// if the user never actually drags.
+function enterMoveMode() {
+  state.pinDraft.moveMode = true;
+  pinPanelEl.classList.add('move-mode');
+  pinPanelMoveBtn.classList.add('active-mode');
+  pinPanelMoveBtn.textContent = 'Stop moving';
+  pinPanelMoveHintEl.style.display = 'block';
+  pinMoveIndicatorEl.classList.add('open');
+  updatePinPreview();
+  renderPins();
+}
+
+function exitMoveMode() {
+  if (!state.pinDraft) return;
+  state.pinDraft.moveMode = false;
+  pinPanelEl.classList.remove('move-mode');
+  pinMoveIndicatorEl.classList.remove('open');
+  pinPanelMoveBtn.classList.remove('active-mode');
+  pinPanelMoveBtn.textContent = 'Move pin position';
+  pinPanelMoveHintEl.style.display = 'none';
+  updatePinPreview();
+  renderPins();
+}
 
 function openPinPanel(existingPin, coords) {
   state.pinDraft = existingPin
@@ -324,12 +370,14 @@ function openPinPanel(existingPin, coords) {
   // Default to the first available entity so the preview has something
   // to show immediately (New pin only — Edit already has one).
   if (!state.pinDraft.entityId) {
-    const first = state.allEntities.find(function (e) { return e.id !== state.currentMapEntityId; });
+    const first = state.allEntities.find(function (e) { return e.id !== state.currentMapEntityId && !isMetaCategory(e.category); });
     if (first) state.pinDraft.entityId = first.id;
   }
 
   pinPanelTitleEl.textContent = existingPin ? 'Edit pin' : 'New pin';
   pinPanelSearchEl.value = '';
+  pinPanelEl.classList.remove('move-mode');
+  pinMoveIndicatorEl.classList.remove('open');
   pinPanelMoveBtn.classList.remove('active-mode');
   pinPanelMoveBtn.textContent = 'Move pin position';
   pinPanelMoveHintEl.style.display = 'none';
@@ -345,6 +393,8 @@ function openPinPanel(existingPin, coords) {
 
 function closePinPanel() {
   pinPanelEl.classList.remove('open');
+  pinPanelEl.classList.remove('move-mode');
+  pinMoveIndicatorEl.classList.remove('open');
   clearPinPreview();
   state.pinDraft = null;
 }
@@ -411,7 +461,13 @@ function renderPins() {
 
   const gmView = state.currentRole === 'gm' && !state.gmPreviewAsPlayer;
 
+  // While a pin is being actively dragged (move mode), hide its static
+  // rendering here — the draggable preview marker stands in for it, so
+  // it reads as "the one true pin" moving rather than a duplicate ghost.
+  const movingPinId = (state.pinDraft && state.pinDraft.moveMode) ? state.pinDraft.id : null;
+
   pinsForCurrentMap.forEach(function (pin) {
+    if (pin.id === movingPinId) return;
     const lat = state.mapImgHeight - pin.y;
     const entity = state.allEntities.find(function (e) { return e.id === pin.entityId; });
 
@@ -467,7 +523,7 @@ function addLegendControl(map) {
   const legend = L.control({ position: 'bottomleft' });
   legend.onAdd = function () {
     const div = L.DomUtil.create('div', 'map-pin-legend');
-    CONFIG.categories.forEach(function (cat) {
+    CONFIG.categories.filter(function (cat) { return !isMetaCategory(cat); }).forEach(function (cat) {
       const row = document.createElement('div');
       row.className = 'map-pin-legend-row';
       const swatch = document.createElement('span');
