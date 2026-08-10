@@ -45,6 +45,7 @@ const importJsonEl = document.getElementById('admin-import-json');
 const importRunBtn = document.getElementById('admin-import-run-btn');
 const importReportEl = document.getElementById('admin-import-report');
 const importConflictsEl = document.getElementById('admin-import-conflicts');
+const importBulkRowEl = document.getElementById('admin-import-bulk-row');
 const importConflictsOverlayEl = document.getElementById('admin-import-conflicts-overlay');
 const importConflictsConfirmBtn = document.getElementById('admin-import-conflicts-confirm');
 const importConflictsCancelBtn = document.getElementById('admin-import-conflicts-cancel');
@@ -153,10 +154,17 @@ function slugify(name) {
 // Invalidated on any textarea edit.
 let validatedPlan = null;
 
+function clearConflictRows() {
+  Array.from(importConflictsEl.children).forEach(function (el) {
+    if (!el.classList.contains('import-conflicts-grid-header')) importConflictsEl.removeChild(el);
+  });
+  importBulkRowEl.innerHTML = '';
+}
+
 function invalidatePlan() {
   validatedPlan = null;
   importRunBtn.disabled = true;
-  importConflictsEl.innerHTML = '';
+  clearConflictRows();
 }
 
 let validateDebounceHandle = null;
@@ -327,11 +335,17 @@ function validateImport() {
 
   if (errors.length === 0) {
     duplicates.forEach(function (it) {
-      const row = document.createElement('div');
-      row.className = 'import-conflict-row';
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       it.selectEl = checkbox;
+
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = '[' + it.category + '] ' + it.name;
+
+      const loreSpan = document.createElement('span');
+      loreSpan.className = 'import-lore-count';
+      loreSpan.textContent = it.lore.length ? (it.lore.length + ' lore') : '\u2014';
+
       const sel = document.createElement('select');
       ['skip', 'replace', 'update'].forEach(function (v) {
         const opt = document.createElement('option');
@@ -340,13 +354,11 @@ function validateImport() {
         sel.appendChild(opt);
       });
       it.choiceEl = sel;
-      const label = document.createElement('span');
-      label.textContent = ' [' + it.category + '] ' + it.name
-        + (it.lore.length ? ' (' + it.lore.length + ' lore)' : '');
-      row.appendChild(checkbox);
-      row.appendChild(sel);
-      row.appendChild(label);
-      importConflictsEl.appendChild(row);
+
+      importConflictsEl.appendChild(checkbox);
+      importConflictsEl.appendChild(nameSpan);
+      importConflictsEl.appendChild(loreSpan);
+      importConflictsEl.appendChild(sel);
     });
 
     if (duplicates.length > 0) {
@@ -378,7 +390,7 @@ function validateImport() {
       bulkRow.appendChild(selectAllLabel);
       bulkRow.appendChild(bulkMethodSel);
       bulkRow.appendChild(applyBtn);
-      importConflictsEl.insertBefore(bulkRow, importConflictsEl.firstChild);
+      importBulkRowEl.appendChild(bulkRow);
     }
   }
 
