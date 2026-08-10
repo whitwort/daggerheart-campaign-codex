@@ -557,9 +557,15 @@ function updateLegend(categoriesPresent) {
   const div = state.mapLegendDiv;
   if (!div) return;
   div.innerHTML = '';
-  CONFIG.categories
-    .filter(function (cat) { return !isMetaCategory(cat) && categoriesPresent.has(cat); })
-    .forEach(function (cat) {
+  const visibleCats = CONFIG.categories
+    .filter(function (cat) { return !isMetaCategory(cat) && categoriesPresent.has(cat); });
+
+  // Nothing to show (e.g. a map with no pins yet, or a player view where
+  // every pin here is currently hidden): hide the control entirely so
+  // its background/padding don't leave an empty white box on the map.
+  div.style.display = visibleCats.length ? '' : 'none';
+
+  visibleCats.forEach(function (cat) {
       const row = document.createElement('div');
       row.className = 'map-pin-legend-row';
       const swatch = document.createElement('span');
