@@ -21,16 +21,11 @@ export const state = {
   allLoreItems: [],
   selectedId: null,
   gmPreviewAsPlayer: false,
-  categoryCollapse: {},  // Entry Browser accordion: category -> collapsed(bool); default expanded
+  categoryCollapse: {},  // Entry Browser accordion: category -> collapsed(bool); default COLLAPSED (only explicit `false` expands)
   detailActiveTab: 'lore',  // Entry Card tab box: 'lore' | 'notes'; resets to 'lore' on selection change
-  editingEntityId: null,
-  entityFormDocId: null,     // doc id the open entity form writes to — pre-generated for New so images can attach before first save
-  entityFormIsNew: false,
-  entityFormUploadedImageIds: [],  // image docs uploaded during this form session (cleanup on New+Cancel)
-  entityFormHasMapImage: false,    // tracked locally for New (entity doc doesn't exist yet for the flag update)
-  editingLoreItemId: null,  // null = creating; loreItem doc id when editing
-  loreFormEntityId: null,   // which entity the open lore form belongs to
-  formRelatedIds: [],
+  detailEditMode: false,   // true = the open Entry Card is showing inline edit fields for the entity itself
+  detailEditDraft: null,   // { name, category, ancestry, aliases, date, parentId, tags, relatedIds } — in-progress entity edit; re-populates edit inputs across re-renders so unrelated snapshot updates don't clobber typing
+  loreEdit: null,          // { entityId, id: existingLoreId|null, content, visibility } — in-progress lore item edit/create; id===null means a brand-new (unsaved) item
   leafletMap: null,
   loadedMapId: null,
   mapImgHeight: 0,

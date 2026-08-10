@@ -23,8 +23,8 @@ jobs:
       - name: Lint (no-undef gate)
         run: npx --yes eslint@8 --no-eslintrc -c .eslintrc.check.json public/js/*.js
 
-      - name: Stamp build commit hash
-        run: sed -i "s/__COMMIT_HASH__/$(git rev-parse --short HEAD) (dev)/" public/index.html
+      - name: Stamp build label
+        run: sed -i "s/__BUILD_LABEL__/build $(git rev-parse --short HEAD) (dev)/" public/index.html
 
       - name: Point build at the dev Firebase project
         run: cp public/firebase-env.dev.js public/firebase-env.js
@@ -53,8 +53,13 @@ jobs:
       - name: Lint (no-undef gate)
         run: npx --yes eslint@8 --no-eslintrc -c .eslintrc.check.json public/js/*.js
 
-      - name: Stamp build commit hash
-        run: sed -i "s/__COMMIT_HASH__/$(git rev-parse --short HEAD)/" public/index.html
+      - name: Stamp build label
+        env:
+          RELEASE_NAME: ${{ github.event.release.name }}
+        run: |
+          HASH=$(git rev-parse --short HEAD)
+          LABEL="version ${RELEASE_NAME} (${HASH} prod)"
+          sed -i "s#__BUILD_LABEL__#${LABEL}#" public/index.html
 
       - name: Write service account key
         run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}' > /tmp/firebase-key.json
