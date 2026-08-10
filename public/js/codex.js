@@ -6,7 +6,7 @@ import { firebaseApp, CONFIG } from './firebase.js';
 import { state } from './state.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
 import { renderMarkdownInto } from './markdown.js';
-import { renderAdminRootEntitySelect } from './admin.js';
+import { renderAdminRootEntitySelect, renderAdminPlayersList } from './admin.js';
 import {
   uploadEntityMapImage, deleteEntityMapImage,
   uploadEntityGalleryImage, deleteEntityGalleryImage, setGalleryImageVisibility
@@ -57,6 +57,7 @@ function attachCodexListeners() {
       renderList();
       renderDetailForSelected();
       renderAdminRootEntitySelect();
+      renderAdminPlayersList();
       notifyVisibilityChange();
     }), function (err) {
       listEl.innerHTML = '<p>Error loading entities: ' + err.message + '</p>';
@@ -446,7 +447,8 @@ function buildEntityDraft(entity) {
     date: entity.date || '',
     parentId: entity.parentId || '',
     tags: (entity.tags || []).join(', '),
-    relatedIds: (entity.relatedIds || []).slice()
+    relatedIds: (entity.relatedIds || []).slice(),
+    ownerId: entity.ownerId || ''
   };
 }
 
@@ -479,6 +481,7 @@ function saveEntityEdit(entity) {
     ancestry: (cat === 'Character' && draft.ancestry.trim()) ? draft.ancestry.trim() : null,
     aliases: (cat === 'Character') ? aliases : [],
     date: ((cat === 'Scene' || cat === 'Event') && draft.date.trim()) ? draft.date.trim() : null,
+    ownerId: (cat === 'Character' && draft.ownerId) ? draft.ownerId : null,
     parentId: draft.parentId || null,
     relatedIds: draft.relatedIds.slice(),
     tags: tags,
@@ -1163,6 +1166,25 @@ function renderDetailForSelected() {
     if (draft.category === 'Character') {
       leftCol.appendChild(makeEditField('Ancestry', draft.ancestry, function (v) { draft.ancestry = v; }));
       leftCol.appendChild(makeEditField('Aliases (comma-separated)', draft.aliases, function (v) { draft.aliases = v; }));
+      const ownerWrap = document.createElement('div');
+      const ownerLabel = document.createElement('label');
+      ownerLabel.textContent = 'Owned by player';
+      ownerWrap.appendChild(ownerLabel);
+      const ownerSelect = document.createElement('select');
+      const noneOpt = document.createElement('option');
+      noneOpt.value = '';
+      noneOpt.textContent = '-- unassigned --';
+      ownerSelect.appendChild(noneOpt);
+      (state.allPlayers || []).slice().sort(function (a, b) { return a.id.localeCompare(b.id); }).forEach(function (p) {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.displayName ? (p.displayName + ' (' + p.id + ')') : p.id;
+        ownerSelect.appendChild(opt);
+      });
+      ownerSelect.value = draft.ownerId;
+      ownerSelect.addEventListener('change', function () { draft.ownerId = ownerSelect.value; });
+      ownerWrap.appendChild(ownerSelect);
+      leftCol.appendChild(ownerWrap);
     }
     if (draft.category === 'Scene' || draft.category === 'Event') {
       leftCol.appendChild(makeEditField('Date', draft.date, function (v) { draft.date = v; }, { placeholder: 'e.g. Day 2, 3500 ya' }));
@@ -1182,6 +1204,7 @@ function renderDetailForSelected() {
     if (entity.ancestry) metaBits.push('Ancestry: ' + entity.ancestry);
     if (entity.aliases && entity.aliases.length) metaBits.push('Also known as: ' + entity.aliases.join(', '));
     if (entity.date) metaBits.push('Date: ' + entity.date);
+    if (entity.ownerId && gmView) metaBits.push('Owned by: ' + entity.ownerId);
     if (metaBits.length) {
       const metaDiv = document.createElement('div');
       metaDiv.className = 'entity-meta-line';

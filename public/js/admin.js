@@ -10,9 +10,12 @@ const db = getFirestore(firebaseApp);
 const adminPendingBadge = document.getElementById('admin-pending-badge');
 const adminJoinRequestsEl = document.getElementById('admin-join-requests');
 const adminAddPlayerEmailEl = document.getElementById('admin-add-player-email');
-const adminAddPlayerBtn = document.getElementById('admin-add-player-btn');
+const adminNewPlayerBtn = document.getElementById('admin-new-player-btn');
+const adminNewPlayerFormEl = document.getElementById('admin-new-player-form');
+const adminAddPlayerSaveBtn = document.getElementById('admin-add-player-save-btn');
+const adminAddPlayerCancelBtn = document.getElementById('admin-add-player-cancel-btn');
 const adminAddPlayerErrorEl = document.getElementById('admin-add-player-error');
-const adminPlayersListEl = document.getElementById('admin-players-list');
+const adminPlayersTbodyEl = document.getElementById('admin-players-tbody');
 const adminRootEntitySelectEl = document.getElementById('admin-root-entity-select');
 const adminRootEntityStatusEl = document.getElementById('admin-root-entity-status');
 
@@ -94,11 +97,6 @@ const adminRootEntityStatusEl = document.getElementById('admin-root-entity-statu
     function renderAdminJoinRequests() {
       adminJoinRequestsEl.innerHTML = '';
       if (state.allJoinRequests.length === 0) {
-        const empty = document.createElement('p');
-        empty.id = 'admin-join-requests-empty';
-        empty.className = 'lore-empty';
-        empty.textContent = 'No pending requests.';
-        adminJoinRequestsEl.appendChild(empty);
         adminPendingBadge.style.display = 'none';
         adminPendingBadge.textContent = '';
         return;
@@ -107,7 +105,7 @@ const adminRootEntityStatusEl = document.getElementById('admin-root-entity-statu
       adminPendingBadge.textContent = ' (' + state.allJoinRequests.length + ')';
       state.allJoinRequests.forEach(function (req) {
         const box = document.createElement('div');
-        box.className = 'admin-notification';
+        box.className = 'admin-notification admin-notification-message';
         const label = document.createElement('span');
         label.textContent = (req.displayName ? req.displayName + ' — ' : '') + req.email
           + ' (' + (req.provider || 'unknown') + ')';
@@ -146,46 +144,123 @@ const adminRootEntityStatusEl = document.getElementById('admin-root-entity-statu
       });
     }
 
+    function charactersOwnedBy(email) {
+      return state.allEntities
+        .filter(function (e) { return e.category === 'Character' && e.ownerId === email; })
+        .map(function (e) { return e.name; });
+    }
+
     function renderAdminPlayersList() {
-      adminPlayersListEl.innerHTML = '';
+      adminPlayersTbodyEl.innerHTML = '';
       if (state.allPlayers.length === 0) {
-        const empty = document.createElement('li');
-        empty.textContent = 'No whitelisted players yet.';
-        adminPlayersListEl.appendChild(empty);
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 4;
+        cell.className = 'lore-empty';
+        cell.textContent = 'No whitelisted players yet.';
+        row.appendChild(cell);
+        adminPlayersTbodyEl.appendChild(row);
         return;
       }
       state.allPlayers.slice().sort(function (a, b) { return a.id.localeCompare(b.id); }).forEach(function (p) {
-        const li = document.createElement('li');
-        const label = document.createElement('span');
-        label.textContent = p.id + (p.displayName ? ' (' + p.displayName + ')' : '');
-        const removeBtn = document.createElement('button');
-        removeBtn.textContent = 'Remove';
-        removeBtn.addEventListener('click', function () {
-          const confirmed = window.confirm('Remove ' + p.id + ' from the player whitelist?');
-          if (!confirmed) return;
-          deleteDoc(doc(db, 'players', p.id)).catch(function (err) {
-            alert('Remove failed: ' + err.message);
+        const editing = state.adminPlayerEditId === p.id;
+        const row = document.createElement('tr');
+
+        const idCell = document.createElement('td');
+        idCell.textContent = p.id;
+        row.appendChild(idCell);
+
+        const nameCell = document.createElement('td');
+        if (editing) {
+          const nameInput = document.createElement('input');
+          nameInput.type = 'text';
+          nameInput.value = state.adminPlayerEditDraft;
+          nameInput.addEventListener('input', function () { state.adminPlayerEditDraft = nameInput.value; });
+          nameCell.appendChild(nameInput);
+        } else {
+          nameCell.textContent = p.displayName || '';
+        }
+        row.appendChild(nameCell);
+
+        const charsCell = document.createElement('td');
+        charsCell.textContent = charactersOwnedBy(p.id).join(', ');
+        row.appendChild(charsCell);
+
+        const actionsCell = document.createElement('td');
+        const actions = document.createElement('div');
+        actions.className = 'actions-row-right';
+        if (editing) {
+          const saveBtn = document.createElement('button');
+          saveBtn.textContent = 'Save';
+          saveBtn.addEventListener('click', function () {
+            setDoc(doc(db, 'players', p.id), { displayName: state.adminPlayerEditDraft.trim() }, { merge: true }).then(function () {
+              state.adminPlayerEditId = null;
+              renderAdminPlayersList();
+            }).catch(function (err) {
+              alert('Save failed: ' + err.message);
+            });
           });
-        });
-        li.appendChild(label);
-        li.appendChild(removeBtn);
-        adminPlayersListEl.appendChild(li);
+          const cancelBtn = document.createElement('button');
+          cancelBtn.textContent = 'Cancel';
+          cancelBtn.addEventListener('click', function () {
+            state.adminPlayerEditId = null;
+            renderAdminPlayersList();
+          });
+          actions.appendChild(saveBtn);
+          actions.appendChild(cancelBtn);
+        } else {
+          const editBtn = document.createElement('button');
+          editBtn.textContent = 'Edit';
+          editBtn.addEventListener('click', function () {
+            state.adminPlayerEditId = p.id;
+            state.adminPlayerEditDraft = p.displayName || '';
+            renderAdminPlayersList();
+          });
+          const removeBtn = document.createElement('button');
+          removeBtn.textContent = 'Remove';
+          removeBtn.addEventListener('click', function () {
+            const confirmed = window.confirm('Remove ' + p.id + ' from the player whitelist?');
+            if (!confirmed) return;
+            deleteDoc(doc(db, 'players', p.id)).catch(function (err) {
+              alert('Remove failed: ' + err.message);
+            });
+          });
+          actions.appendChild(editBtn);
+          actions.appendChild(removeBtn);
+        }
+        actionsCell.appendChild(actions);
+        row.appendChild(actionsCell);
+
+        adminPlayersTbodyEl.appendChild(row);
       });
     }
 
-    adminAddPlayerBtn.addEventListener('click', function () {
+    adminNewPlayerBtn.addEventListener('click', function () {
+      adminNewPlayerFormEl.style.display = 'block';
+      adminAddPlayerErrorEl.textContent = '';
+      adminAddPlayerEmailEl.value = '';
+      adminAddPlayerEmailEl.focus();
+    });
+
+    adminAddPlayerCancelBtn.addEventListener('click', function () {
+      adminNewPlayerFormEl.style.display = 'none';
+      adminAddPlayerErrorEl.textContent = '';
+    });
+
+    adminAddPlayerSaveBtn.addEventListener('click', function () {
       const email = adminAddPlayerEmailEl.value.trim().toLowerCase();
       adminAddPlayerErrorEl.textContent = '';
       if (!email || email.indexOf('@') === -1) {
         adminAddPlayerErrorEl.textContent = 'Enter a valid email.';
         return;
       }
-      adminAddPlayerBtn.disabled = true;
+      adminAddPlayerSaveBtn.disabled = true;
       setDoc(doc(db, 'players', email), { addedAt: serverTimestamp() }, { merge: true }).then(function () {
-        adminAddPlayerBtn.disabled = false;
+        adminAddPlayerSaveBtn.disabled = false;
+        adminNewPlayerFormEl.style.display = 'none';
         adminAddPlayerEmailEl.value = '';
       }).catch(function (err) {
-        adminAddPlayerBtn.disabled = false;
+        adminAddPlayerSaveBtn.disabled = false;
         adminAddPlayerErrorEl.textContent = 'Add failed: ' + err.message;
       });
     });
@@ -206,4 +281,4 @@ document.querySelectorAll('#admin-db-tabs button').forEach(function (btn) {
   });
 });
 
-export { attachAdminListeners, detachAdminListeners, renderAdminRootEntitySelect };
+export { attachAdminListeners, detachAdminListeners, renderAdminRootEntitySelect, renderAdminPlayersList };

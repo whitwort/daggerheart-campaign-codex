@@ -106,15 +106,22 @@
       <h2>Manage Players</h2>
 
       <h3>Pending join requests</h3>
-      <div id="admin-join-requests"><p id="admin-join-requests-empty" class="lore-empty">No pending requests.</p></div>
+      <div id="admin-join-requests"></div>
 
       <h3>Current players</h3>
-      <ul id="admin-players-list"></ul>
-
-      <h3>Whitelist a player directly</h3>
-      <div id="admin-add-player">
+      <table id="admin-players-table">
+        <thead>
+          <tr><th>Player ID</th><th>Player name</th><th>Characters</th><th></th></tr>
+        </thead>
+        <tbody id="admin-players-tbody"></tbody>
+      </table>
+      <div class="actions-row-right">
+        <button id="admin-new-player-btn">+ New player</button>
+      </div>
+      <div id="admin-new-player-form" style="display:none;">
         <input type="email" id="admin-add-player-email" placeholder="player@example.com">
-        <button id="admin-add-player-btn">Add</button>
+        <button id="admin-add-player-save-btn">Save</button>
+        <button id="admin-add-player-cancel-btn">Cancel</button>
       </div>
       <p id="admin-add-player-error"></p>
     </section>
