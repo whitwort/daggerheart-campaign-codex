@@ -24,7 +24,7 @@ jobs:
         run: npx --yes eslint@8 --no-eslintrc -c .eslintrc.check.json public/js/*.js
 
       - name: Stamp build commit hash
-        run: sed -i "s/__COMMIT_HASH__/$(git rev-parse --short HEAD)/" public/index.html
+        run: sed -i "s/__COMMIT_HASH__/$(git rev-parse --short HEAD) (dev)/" public/index.html
 
       - name: Point build at the dev Firebase project
         run: cp public/firebase-env.dev.js public/firebase-env.js

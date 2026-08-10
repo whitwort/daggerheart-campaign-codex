@@ -3,7 +3,10 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
-import { renderList, renderDetailForSelected, isEntityPlayerVisible, registerVisibilityChangeHandler } from './codex.js';
+import {
+  renderList, renderDetailForSelected, isEntityPlayerVisible,
+  registerVisibilityChangeHandler, registerMapNavigationHandler
+} from './codex.js';
 import { renderAdminRootEntitySelect } from './admin.js';
 import { entityMapImageDocId, getCachedImage, putCachedImage } from './images.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
@@ -314,6 +317,17 @@ const db = getFirestore(firebaseApp);
       }
       loadMap(state.currentMapEntityId);
     }
+
+    // Entry Browser "map" link: jump straight to a Location's map,
+    // resetting the back-nav stack (it's a fresh top-level view, not a
+    // descent from whatever map was open before).
+    function navigateToMapForEntity(entityId) {
+      state.currentMapEntityId = entityId;
+      state.mapNavStack = [];
+      const mapTabBtn = document.getElementById('tab-btn-map');
+      if (mapTabBtn) mapTabBtn.click();
+    }
+    registerMapNavigationHandler(navigateToMapForEntity);
 
 
     // --- Phase 7c-1: IndexedDB cache for map images. Not localStorage —
