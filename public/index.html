@@ -122,7 +122,7 @@
     <div id="admin-import-conflicts"></div>
 
     <h3>One-off data fixes</h3>
-    <button id="admin-fix-npc-category-btn">Recategorize NPC &rarr; Character</button>
+    <button id="admin-fix-npc-category-btn">Category renames (NPC &rarr; Character, History &rarr; World Facts)</button>
     <p id="admin-fix-npc-category-status"></p>
   </div>
   </div>
@@ -141,6 +141,16 @@
 
       <label for="entity-form-tags">Tags (comma-separated)</label>
       <input type="text" id="entity-form-tags">
+      <div id="entity-form-character-fields">
+        <label for="entity-form-ancestry">Ancestry</label>
+        <input type="text" id="entity-form-ancestry">
+        <label for="entity-form-aliases">Aliases (comma-separated)</label>
+        <input type="text" id="entity-form-aliases">
+      </div>
+      <div id="entity-form-date-field">
+        <label for="entity-form-date">Date</label>
+        <input type="text" id="entity-form-date" placeholder="e.g. Day 2, 3500 ya">
+      </div>
 
       <label>Related entities</label>
       <ul id="entity-form-related-list"></ul>

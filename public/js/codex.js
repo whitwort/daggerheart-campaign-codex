@@ -25,6 +25,21 @@ const db = getFirestore(firebaseApp);
     const detailEl = document.getElementById('codex-detail');
 
     const formCategoryEl = document.getElementById('entity-form-category');
+    const formAncestryEl = document.getElementById('entity-form-ancestry');
+    const formAliasesEl = document.getElementById('entity-form-aliases');
+    const formDateEl = document.getElementById('entity-form-date');
+    const formCharacterFieldsEl = document.getElementById('entity-form-character-fields');
+    const formDateFieldEl = document.getElementById('entity-form-date-field');
+
+    // Category-specific form fields: ancestry/aliases for Characters,
+    // date for Scenes and Events. Values persist in the hidden inputs
+    // while toggling categories within one form session; save writes
+    // null/[] for fields the final category doesn't use.
+    function updateCategoryFields() {
+      const cat = formCategoryEl.value;
+      formCharacterFieldsEl.style.display = (cat === 'Character') ? 'block' : 'none';
+      formDateFieldEl.style.display = (cat === 'Scene' || cat === 'Event') ? 'block' : 'none';
+    }
 
     CONFIG.categories.forEach(function (cat) {
       const filterOpt = document.createElement('option');
@@ -235,9 +250,15 @@ const db = getFirestore(firebaseApp);
     // name isn't linked (self-link is noise). Runs on the rendered DOM,
     // walking text nodes and skipping real <a> links from the markdown.
     function applyWikiLinks(rootEl, currentEntityId, gmView) {
-      const candidates = state.allEntities.filter(function (e) {
-        return e.id !== currentEntityId && e.name
-          && (gmView || isEntityPlayerVisible(e.id));
+      const candidates = [];
+      state.allEntities.forEach(function (e) {
+        if (e.id === currentEntityId || !e.name) return;
+        if (!gmView && !isEntityPlayerVisible(e.id)) return;
+        candidates.push({ name: e.name, id: e.id });
+        // Aliases link to the same entity ("Janine Cody" -> Merv).
+        (e.aliases || []).forEach(function (a) {
+          if (a) candidates.push({ name: a, id: e.id });
+        });
       });
       if (!candidates.length) return;
       candidates.sort(function (a, b) { return b.name.length - a.name.length; });
@@ -326,6 +347,20 @@ const db = getFirestore(firebaseApp);
       badge.textContent = gmView ? 'GM view' : 'Player view';
       heading.appendChild(badge);
       detailEl.appendChild(heading);
+
+      // Category-specific metadata line(s).
+      const metaBits = [];
+      if (entity.ancestry) metaBits.push('Ancestry: ' + entity.ancestry);
+      if (entity.aliases && entity.aliases.length) {
+        metaBits.push('Also known as: ' + entity.aliases.join(', '));
+      }
+      if (entity.date) metaBits.push('Date: ' + entity.date);
+      if (metaBits.length) {
+        const metaDiv = document.createElement('div');
+        metaDiv.className = 'entity-meta-line';
+        metaDiv.textContent = metaBits.join(' \u00b7 ');
+        detailEl.appendChild(metaDiv);
+      }
 
       if (state.currentRole === 'gm' && gmView) {
         const entityHidden = entity.visibility !== 'all-players';
@@ -674,6 +709,10 @@ const db = getFirestore(firebaseApp);
       formNameEl.value = entity ? entity.name || '' : '';
       formCategoryEl.value = entity ? (entity.category || CONFIG.categories[0]) : CONFIG.categories[0];
       formTagsEl.value = entity && entity.tags ? entity.tags.join(', ') : '';
+      formAncestryEl.value = entity && entity.ancestry ? entity.ancestry : '';
+      formAliasesEl.value = entity && entity.aliases ? entity.aliases.join(', ') : '';
+      formDateEl.value = entity && entity.date ? entity.date : '';
+      updateCategoryFields();
       state.formRelatedIds = entity && entity.relatedIds ? entity.relatedIds.slice() : [];
       populateParentSelect(entity ? entity.parentId : null);
       renderRelatedFormList();
@@ -778,6 +817,7 @@ const db = getFirestore(firebaseApp);
     }
 
     formCategoryEl.addEventListener('change', renderEntityFormImages);
+    formCategoryEl.addEventListener('change', updateCategoryFields);
 
     formMapImageInputEl.addEventListener('change', function () {
       const file = formMapImageInputEl.files[0];
@@ -845,10 +885,20 @@ const db = getFirestore(firebaseApp);
         .map(function (t) { return t.trim(); })
         .filter(function (t) { return t.length > 0; });
 
+      const cat = formCategoryEl.value;
+      const aliases = formAliasesEl.value
+        .split(',')
+        .map(function (t) { return t.trim(); })
+        .filter(function (t) { return t.length > 0; });
       const entityData = {
         slug: slugify(name),
         name: name,
-        category: formCategoryEl.value,
+        category: cat,
+        // Category-specific fields; null/[] when the category doesn't
+        // use them so stale values are cleared on category change.
+        ancestry: (cat === 'Character' && formAncestryEl.value.trim()) ? formAncestryEl.value.trim() : null,
+        aliases: (cat === 'Character') ? aliases : [],
+        date: ((cat === 'Scene' || cat === 'Event') && formDateEl.value.trim()) ? formDateEl.value.trim() : null,
         parentId: formParentEl.value || null,
         relatedIds: state.formRelatedIds.slice(),
         visibility: 'gm-only',  // new entities start hidden; one-tap Reveal in detail
