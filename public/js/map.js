@@ -6,7 +6,7 @@ import { state } from './state.js';
 import { renderList, renderDetailForSelected, isEntityPlayerVisible, registerVisibilityChangeHandler } from './codex.js';
 import { renderAdminRootEntitySelect } from './admin.js';
 import { entityMapImageDocId, getCachedImage, putCachedImage } from './images.js';
-import { attachListener, detachListener } from './listeners.js';
+import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -257,13 +257,13 @@ const db = getFirestore(firebaseApp);
 
     function attachPinsListener() {
       attachListener('pinsUnsub', function () {
-        return onSnapshot(collection(db, 'pins'), function (snapshot) {
+        return onSnapshot(collection(db, 'pins'), safeSnapshotHandler('pins', function (snapshot) {
           state.allPins = [];
           snapshot.forEach(function (docSnap) {
             state.allPins.push(Object.assign({ id: docSnap.id }, docSnap.data()));
           });
           renderPins();
-        }, function (err) {
+        }), function (err) {
           console.error('pins listener error:', err.message);
         });
       });
@@ -275,7 +275,7 @@ const db = getFirestore(firebaseApp);
     // visibility-change handler above for revalidation).
     function attachConfigListener() {
       attachListener('configUnsub', function () {
-        return onSnapshot(doc(db, 'config', 'campaign'), function (docSnap) {
+        return onSnapshot(doc(db, 'config', 'campaign'), safeSnapshotHandler('config', function (docSnap) {
           state.rootEntityId = docSnap.exists() ? (docSnap.data().rootEntityId || null) : null;
           // Bugfix (carried over): a root-pointer change must force-follow
           // whenever the user is at the top level (no nav stack) —
@@ -290,7 +290,7 @@ const db = getFirestore(firebaseApp);
           if (document.getElementById('map-panel').classList.contains('active')) {
             ensureMapTabReady();
           }
-        }, function (err) {
+        }), function (err) {
           console.error('Config listener error:', err.message);
         });
       });
@@ -408,7 +408,7 @@ const db = getFirestore(firebaseApp);
         }
       });
 
-      state.mapImageUnsub = onSnapshot(doc(db, 'images', imageDocId), function (imgSnap) {
+      state.mapImageUnsub = onSnapshot(doc(db, 'images', imageDocId), safeSnapshotHandler('mapImage', function (imgSnap) {
         if (state.loadedMapId === mapEntityId && state.leafletMap) {
           // Already rendered this map; a later snapshot for the same map
           // (e.g. after a re-upload) means the image changed under us —
@@ -440,7 +440,7 @@ const db = getFirestore(firebaseApp);
           height: imgData.height,
           contentType: imgData.contentType
         });
-      }, function (err) {
+      }), function (err) {
         placeholderEl.style.display = 'block';
         containerEl.style.display = 'none';
         placeholderEl.textContent = 'Map image failed to load: ' + err.message;
