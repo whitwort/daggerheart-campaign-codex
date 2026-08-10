@@ -14,15 +14,49 @@
     .tab-panel.active { display: block; }
     #map-tab-placeholder { color: #888; margin-top: 1rem; }
     #map-container { height: 70vh; margin-top: 1rem; background: #ddd; display: none; }
-    #map-gm-controls { display: none; gap: 0.5rem; align-items: center; margin-top: 1rem; }
-    #map-gm-controls button { padding: 0.3rem 0.7rem; cursor: pointer; }
-    #map-gm-controls button.active-mode { outline: 2px solid #4a6fdc; }
+    #map-gm-controls { display: none; margin-top: 0.75rem; }
     #map-mode-hint { font-size: 0.85rem; color: #666; }
-    #map-back-btn { display: block; margin-top: 0.75rem; padding: 0.35rem 0.8rem; cursor: pointer; }
+    #map-gm-controls button.active-mode { outline: 2px solid #4a6fdc; }
     #map-image-upload { display: none; gap: 0.5rem; align-items: center; margin-top: 0.5rem; font-size: 0.85rem; }
     #map-image-upload-status { color: #666; }
 
-    /* Generic modal (used by pin-form and the New-entity dialog) */
+    /* Breadcrumb map navigation (replaces the old "back to parent map" button) */
+    #map-breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; margin-top: 0.75rem; font-size: 0.9rem; }
+    .map-breadcrumb-link { background: none; border: none; padding: 0; cursor: pointer; color: #3451b2; text-decoration: underline dotted; font-size: inherit; }
+    .map-breadcrumb-link:hover { text-decoration: underline; }
+    .map-breadcrumb-link.current { color: #333; text-decoration: none; cursor: default; font-weight: bold; }
+    .map-breadcrumb-icon { margin-right: 0.3rem; }
+    .map-breadcrumb-sep { color: #999; }
+
+    /* Pin color legend — edit these hex values to change entry-type pin
+       colors everywhere at once (markers, circles, and the map legend). */
+    .pin-cat-character { --pin-color: #e63946; }
+    .pin-cat-faction { --pin-color: #f4a261; }
+    .pin-cat-location { --pin-color: #8a4fd6; }
+    .pin-cat-item { --pin-color: #2a9d8f; }
+    .pin-cat-world-facts { --pin-color: #457b9d; }
+    .pin-cat-organization { --pin-color: #e9c46a; }
+    .pin-cat-event { --pin-color: #d62828; }
+    .pin-cat-scene { --pin-color: #6a4c93; }
+    .pin-cat-ancestry { --pin-color: #1d7874; }
+    .pin-cat-game-mechanics { --pin-color: #606c38; }
+    .pin-cat-default { --pin-color: #555; }
+
+    .map-pin-dot {
+      width: 1rem; height: 1rem; border-radius: 50%;
+      border: 2px solid #fff; box-shadow: 0 0 2px rgba(0,0,0,0.6);
+      background: var(--pin-color, #555);
+    }
+    .map-pin-dot.preview { opacity: 0.75; outline: 2px dashed #333; }
+    .map-pin-circle { stroke: var(--pin-color, #555); fill: var(--pin-color, #555); }
+    .map-pin-legend {
+      background: #fff; padding: 0.5rem 0.6rem; border-radius: 4px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3); font-size: 0.75rem; line-height: 1.5;
+    }
+    .map-pin-legend-row { display: flex; align-items: center; gap: 0.35rem; }
+    .map-pin-legend-swatch { width: 0.7rem; height: 0.7rem; border-radius: 50%; display: inline-block; background: var(--pin-color, #555); }
+
+    /* Generic modal (used by the New-entity dialog) */
     .modal-overlay {
       display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
       align-items: center; justify-content: center; z-index: 1000;
@@ -41,30 +75,25 @@
     .modal-actions button { padding: 0.4rem 0.9rem; cursor: pointer; }
     .modal-error { color: #b00020; font-size: 0.85rem; margin-top: 0.5rem; display: none; }
 
-    #pin-form-overlay {
-      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
-      align-items: center; justify-content: center; z-index: 1000;
+    /* Pin panel: docked to the side (not a full-screen modal) so the map
+       stays visible/clickable while placing or editing a pin. */
+    #pin-panel {
+      display: none; position: fixed; top: 5rem; right: 1rem; width: 300px;
+      max-height: 80vh; overflow-y: auto; background: #fff; border-radius: 6px;
+      padding: 1rem 1.25rem; box-shadow: 0 2px 10px rgba(0,0,0,0.35); z-index: 900;
     }
-    #pin-form-overlay.open { display: flex; }
-    #pin-form {
-      background: #fff; border-radius: 4px; padding: 1.25rem 1.5rem;
-      width: 90%; max-width: 400px;
-    }
-    #pin-form h3 { margin-top: 0; }
-    #pin-form label { display: block; margin-top: 0.5rem; font-size: 0.85rem; font-weight: bold; }
-    #pin-form select, #pin-form input[type="text"], #pin-form input[type="number"] {
-      width: 100%; box-sizing: border-box; padding: 0.4rem; font-size: 0.9rem; margin-top: 0.2rem;
-    }
-    #pin-form-type-toggle, #pin-form-childmap-mode-toggle {  /* legacy, unused */
-      display: flex; gap: 1rem; margin-top: 0.5rem; font-size: 0.85rem; font-weight: normal;
-    }
-    #pin-form-type-toggle label, #pin-form-childmap-mode-toggle label {
-      display: flex; align-items: center; gap: 0.3rem; font-weight: normal; margin-top: 0;
-    }
-    #pin-form-childmap-image-hint { font-size: 0.75rem; color: #666; margin: 0.3rem 0 0 0; }
-    #pin-form-actions { margin-top: 1.25rem; display: flex; gap: 0.5rem; justify-content: flex-end; }
-    #pin-form-actions button { padding: 0.4rem 0.9rem; cursor: pointer; }
-    #pin-form-error { color: #b00020; font-size: 0.85rem; margin-top: 0.5rem; display: none; }
+    #pin-panel.open { display: block; }
+    #pin-panel h3 { margin-top: 0; }
+    #pin-panel label { display: block; margin-top: 0.75rem; font-size: 0.85rem; font-weight: bold; }
+    #pin-panel-search { width: 100%; box-sizing: border-box; padding: 0.4rem; font-size: 0.9rem; margin-top: 0.2rem; }
+    #pin-panel-entity-list { max-height: 220px; overflow-y: auto; border: 1px solid #ccc; border-radius: 4px; margin-top: 0.4rem; }
+    #pin-panel-radius-row input[type="range"] { width: 100%; margin-top: 0.3rem; }
+    #pin-panel-radius-hint { font-size: 0.75rem; color: #666; margin: 0.3rem 0 0 0; }
+    #pin-panel-move-row { margin-top: 0.75rem; }
+    #pin-panel-move-row button { padding: 0.35rem 0.8rem; cursor: pointer; }
+    #pin-panel-move-row button.active-mode { outline: 2px solid #4a6fdc; }
+    #pin-panel-move-hint { font-size: 0.75rem; color: #666; margin: 0.3rem 0 0 0; }
+    #pin-panel-error { color: #b00020; font-size: 0.85rem; margin-top: 0.5rem; display: none; }
 
     #codex-tab { display: flex; gap: 1.5rem; margin-top: 1rem; }
     #codex-list-pane { flex: 0 0 320px; }
@@ -209,18 +238,31 @@
     .lore-edit-textarea { min-height: 140px; resize: vertical; font-family: inherit; }
     .lore-edit-hint { font-size: 0.75rem; color: #666; }
 
+    /* Admin tab subsections */
+    #admin-panel section { margin-top: 1.75rem; }
+    #admin-panel section:first-child { margin-top: 1rem; }
+    #admin-panel h2 { border-bottom: 1px solid #ccc; padding-bottom: 0.3rem; font-size: 1.1rem; }
+    .admin-notification {
+      display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;
+      background: #fff8e1; border: 1px solid #f0dfa0; border-radius: 4px;
+      padding: 0.5rem 0.75rem; margin-bottom: 0.5rem;
+    }
+    #admin-db-tabs { display: flex; gap: 0.25rem; margin-top: 0.75rem; border-bottom: 1px solid #ccc; }
+    #admin-db-tabs button {
+      padding: 0.4rem 0.9rem; cursor: pointer; background: none; border: none;
+      border-bottom: 3px solid transparent; font-size: 0.9rem;
+    }
+    #admin-db-tabs button.active { border-bottom-color: #444; font-weight: bold; }
+    .admin-db-tab-panel { display: none; padding-top: 0.75rem; }
+    .admin-db-tab-panel.active { display: block; }
+
     /* Admin create-map + entity hidden badge (Phase 8) */
-    #admin-create-map { display: flex; gap: 0.4rem; }
-    #admin-create-map input { flex: 1; max-width: 320px; padding: 0.35rem; }
-    #admin-create-map button { padding: 0.35rem 0.8rem; cursor: pointer; }
-    #admin-create-map-status { font-size: 0.85rem; color: #666; }
 
     /* Entity images (Phase 8) */
     #codex-gallery { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.75rem; }
     .gallery-item { max-width: 260px; }
     .gallery-item img { width: 100%; height: auto; display: block; border: 1px solid #ddd; border-radius: 4px; }
     .gallery-item-bar { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.25rem; }
-    #pin-form-radius-hint { font-size: 0.75rem; color: #666; margin: 0.3rem 0 0 0; }
     #admin-root-entity-hint { font-size: 0.85rem; color: #666; }
 
     /* Wiki links: auto-linked entity names inside lore text */
