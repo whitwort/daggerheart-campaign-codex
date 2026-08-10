@@ -65,6 +65,7 @@
       background: #fff; border-radius: 4px; padding: 1.25rem 1.5rem;
       width: 90%; max-width: 420px; max-height: 85vh; overflow-y: auto;
     }
+    .modal-box-wide { max-width: 46rem; width: 94vw; }
     .modal-box h3 { margin-top: 0; }
     .modal-box label { display: block; margin-top: 0.75rem; font-size: 0.85rem; font-weight: bold; }
     .modal-box input[type="text"], .modal-box select, .modal-box textarea {
@@ -296,7 +297,28 @@
     /* Import conflict rows (Admin bulk import) */
     .import-conflict-row { display: flex; align-items: center; gap: 0.5rem; margin: 0.25rem 0; }
     .import-conflict-row select { min-width: 6.5rem; }
-    .import-bulk-row { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; padding: 0.4rem; background: #f5f5f5; border-radius: 4px; }
+    .import-bulk-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0; padding: 0.4rem; background: #f5f5f5; border-radius: 4px; }
+
+    /* Import conflicts grid: mobile-first (checkbox+name / lore+action
+       stack as two rows per entity by grid auto-flow with 2 columns),
+       widening to one row per entity at desktop breakpoints. */
+    .import-conflicts-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      column-gap: 0.6rem;
+      row-gap: 0.35rem;
+      align-items: center;
+      margin-top: 0.5rem;
+    }
+    .import-conflicts-grid-header {
+      font-size: 0.72rem; font-weight: bold; color: #666; text-transform: uppercase;
+      border-bottom: 1px solid #ddd; padding-bottom: 0.25rem;
+    }
+    .import-conflicts-grid select { width: 100%; box-sizing: border-box; }
+    .import-lore-count { font-size: 0.8rem; color: #666; white-space: nowrap; }
+    @media (min-width: 640px) {
+      .import-conflicts-grid { grid-template-columns: auto minmax(0, 1fr) auto 8rem; }
+    }
     #admin-import-summary { margin: 0.5rem 0; flex-wrap: wrap; }
     .import-badge { display: inline-block; padding: 0.15rem 0.55rem; border-radius: 999px; font-size: 0.8rem; }
     .import-badge-add { background: #e2f3e5; color: #2a7a3b; }
