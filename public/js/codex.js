@@ -45,6 +45,7 @@ const db = getFirestore(firebaseApp);
           });
           renderList();
           renderDetailForSelected();
+          notifyVisibilityChange();
         }, function (err) {
           listEl.innerHTML = '<li>Error loading entities: ' + err.message + '</li>';
         });
@@ -84,9 +85,12 @@ const db = getFirestore(firebaseApp);
     }
 
     // --- Visibility model ---------------------------------------------------
-    // Entities themselves carry no visibility flag. A player can see an
-    // entity iff it has at least one loreItem visible to them. Everything
-    // is client-side render logic per the locked security model.
+    // Entities carry an explicit visibility flag ('gm-only' | 'all-players')
+    // controlling whether players see the entity at all (list, pins,
+    // related chips). Within a visible entity, loreItems keep their own
+    // per-item visibility. All client-side render logic per the locked
+    // security model. Docs missing the field (pre-flag test data) are
+    // treated as gm-only.
 
     function isGmView() {
       return state.currentRole === 'gm' && !state.gmPreviewAsPlayer;
@@ -108,7 +112,8 @@ const db = getFirestore(firebaseApp);
     // Exported for map.js: pins pointing at player-invisible entities are
     // themselves hidden from players.
     function isEntityPlayerVisible(entityId) {
-      return loreItemsForEntity(entityId, false).length > 0;
+      const entity = state.allEntities.find(function (e) { return e.id === entityId; });
+      return !!entity && entity.visibility === 'all-players';
     }
 
     // --- List pane ----------------------------------------------------------
@@ -148,6 +153,12 @@ const db = getFirestore(firebaseApp);
 
         const nameDiv = document.createElement('div');
         nameDiv.textContent = entity.name;
+        if (gmView && entity.visibility !== 'all-players') {
+          const hiddenSpan = document.createElement('span');
+          hiddenSpan.className = 'entity-hidden-badge';
+          hiddenSpan.textContent = 'hidden';
+          nameDiv.appendChild(hiddenSpan);
+        }
         const catDiv = document.createElement('div');
         catDiv.className = 'entity-category';
         catDiv.textContent = entity.category || '';
@@ -185,6 +196,22 @@ const db = getFirestore(firebaseApp);
       badge.textContent = gmView ? 'GM view' : 'Player view';
       heading.appendChild(badge);
       detailEl.appendChild(heading);
+
+      if (state.currentRole === 'gm' && gmView) {
+        const entityHidden = entity.visibility !== 'all-players';
+        const revealEntityBtn = document.createElement('button');
+        revealEntityBtn.textContent = entityHidden ? 'Reveal entity' : 'Hide entity';
+        revealEntityBtn.style.marginRight = '0.5rem';
+        revealEntityBtn.addEventListener('click', function () {
+          updateDoc(doc(db, 'entities', entity.id), {
+            visibility: entityHidden ? 'all-players' : 'gm-only',
+            updatedAt: serverTimestamp()
+          }).catch(function (err) {
+            window.alert('Visibility change failed: ' + err.message);
+          });
+        });
+        detailEl.appendChild(revealEntityBtn);
+      }
 
       if (state.currentRole === 'gm') {
         const toggleBtn = document.createElement('button');
@@ -495,6 +522,7 @@ const db = getFirestore(firebaseApp);
         parentId: formParentEl.value || null,
         relatedIds: state.formRelatedIds.slice(),
         mapId: null,  // no UI yet; entity<->map association is a later increment
+        visibility: 'gm-only',  // new entities start hidden; one-tap Reveal in detail
         tags: tags,
         updatedAt: serverTimestamp()
       };
@@ -505,6 +533,9 @@ const db = getFirestore(firebaseApp);
         // Preserve existing mapId on edit (form doesn't manage it yet).
         const existing = state.allEntities.find(function (e) { return e.id === state.editingEntityId; });
         entityData.mapId = existing ? (existing.mapId || null) : null;
+        // Form doesn't manage visibility; preserved on edit, flipped only
+        // via the one-tap Reveal/Hide button.
+        entityData.visibility = (existing && existing.visibility === 'all-players') ? 'all-players' : 'gm-only';
         savePromise = updateDoc(doc(db, 'entities', state.editingEntityId), entityData);
       } else {
         entityData.createdAt = serverTimestamp();
