@@ -24,7 +24,7 @@ window.APP_CONFIG = {
   // rather than something with a physical presence in the world, so they
   // never get a map pin. Excluded from the Map tab's pin-target picker
   // and legend. Adjust freely — this is the one place that list lives.
-  metaCategories: ['World Facts', 'Game Mechanics'],
+  metaCategories: ['World Facts', 'Game Mechanics', 'Ancestry'],
 
   // Icons used for entry links across the app (Entry Browser map links,
   // Entry Card map link, map breadcrumb). One place to swap the glyphs.
