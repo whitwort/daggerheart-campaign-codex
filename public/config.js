@@ -18,7 +18,7 @@ window.APP_CONFIG = {
     codex: 'Codex'
   },
 
-  categories: ['Character', 'Faction', 'Location', 'Item', 'History', 'Organization', 'Event'],
+  categories: ['Character', 'Faction', 'Location', 'Item', 'World Facts', 'Organization', 'Event', 'Scene', 'Ancestry', 'Game Mechanics'],
 
   // Project identity comes from firebase-env.js (prod by default; the dev
   // CI job swaps in firebase-env.dev.js). Loaded by index.html before
