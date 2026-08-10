@@ -81,6 +81,69 @@ service cloud.firestore {
       allow update: if isGM();
     }
 
+    // --- Phase 8 collections ---------------------------------------------
+    // Security model (locked): write-integrity only. Reads for every
+    // collection are just isGM() || isPlayer(); GM-only vs player-visible
+    // content is a CLIENT RENDER choice, not a rules boundary. A whitelisted
+    // player with a hacked client can read gm-only lore — accepted
+    // (trust-the-table model, see phase 8 handoff).
+
+    // Entities: unified lore/location objects. Replaces `entries`.
+    // {slug, name, category, parentId, relatedIds, mapId, tags,
+    //  createdAt, updatedAt}
+    function isValidEntity() {
+      return request.resource.data.keys().hasOnly(
+          ['slug', 'name', 'category', 'parentId', 'relatedIds', 'mapId',
+           'tags', 'createdAt', 'updatedAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.slug is string
+        && request.resource.data.category is string;
+    }
+    match /entities/{entityId} {
+      allow read: if isGM() || isPlayer();
+      allow create, update: if isGM() && isValidEntity();
+      allow delete: if isGM();
+    }
+
+    // Lore items: per-entity content blocks with individual visibility.
+    // Replaces entries.content_gm/content_player. First collection with a
+    // non-GM write path (player notes) — hence the tighter shape checks.
+    // {entityId, kind, authorId, authorType, visibility, content, order,
+    //  createdAt, updatedAt}
+    function isValidLoreItem() {
+      return request.resource.data.keys().hasOnly(
+          ['entityId', 'kind', 'authorId', 'authorType', 'visibility',
+           'content', 'order', 'createdAt', 'updatedAt'])
+        && request.resource.data.entityId is string
+        && request.resource.data.kind in ['imported', 'gm-note', 'player-note']
+        && request.resource.data.visibility in ['gm-only', 'all-players', 'author-only']
+        && request.resource.data.content is string;
+    }
+    // Player-note constraint: players may only write their OWN notes, and
+    // can't disguise a note as another kind or another author. GM writes
+    // anything shape-valid.
+    function isOwnPlayerNoteWrite() {
+      return request.resource.data.kind == 'player-note'
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.authorType == 'player'
+        && request.resource.data.visibility in ['author-only', 'all-players'];
+    }
+    match /loreItems/{itemId} {
+      allow read: if isGM() || isPlayer();
+      allow create: if isValidLoreItem()
+        && (isGM() || (isPlayer() && isOwnPlayerNoteWrite()));
+      allow update: if isValidLoreItem()
+        && (isGM() || (isPlayer()
+              && resource.data.kind == 'player-note'
+              && resource.data.authorId == request.auth.uid
+              && isOwnPlayerNoteWrite()));
+      allow delete: if isGM()
+        || (isPlayer()
+              && resource.data.kind == 'player-note'
+              && resource.data.authorId == request.auth.uid);
+    }
+
     // Default deny for anything not explicitly matched above.
     match /{document=**} {
       allow read, write: if false;
