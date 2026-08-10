@@ -50,11 +50,11 @@
     #codex-filters { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
     #codex-filters select, #codex-filters input { padding: 0.35rem; font-size: 0.9rem; }
     #codex-search { flex: 1; }
-    #codex-entries { list-style: none; padding: 0; margin: 0; max-height: 70vh; overflow-y: auto; border: 1px solid #ccc; }
-    #codex-entries li { padding: 0.5rem 0.75rem; border-bottom: 1px solid #eee; cursor: pointer; }
-    #codex-entries li:hover { background: #f5f5f5; }
-    #codex-entries li.active { background: #e0e8ff; }
-    #codex-entries .entry-category { font-size: 0.75rem; color: #666; }
+    #codex-entities { list-style: none; padding: 0; margin: 0; max-height: 70vh; overflow-y: auto; border: 1px solid #ccc; }
+    #codex-entities li { padding: 0.5rem 0.75rem; border-bottom: 1px solid #eee; cursor: pointer; }
+    #codex-entities li:hover { background: #f5f5f5; }
+    #codex-entities li.active { background: #e0e8ff; }
+    #codex-entities .entity-category { font-size: 0.75rem; color: #666; }
     #codex-detail { border: 1px solid #ccc; padding: 1rem; min-height: 200px; }
     #codex-detail h2 { margin-top: 0; }
     #codex-view-badge { display: inline-block; padding: 0.15rem 0.5rem; font-size: 0.75rem; border-radius: 3px; margin-left: 0.5rem; vertical-align: middle; }
@@ -72,36 +72,68 @@
     }
     .related-chip:hover { background: #c8d4ff; }
 
-    #entry-form-related-list { list-style: none; padding: 0; margin: 0.3rem 0 0 0; }
-    #entry-form-related-list li {
+    #entity-form-related-list { list-style: none; padding: 0; margin: 0.3rem 0 0 0; }
+    #entity-form-related-list li {
       display: flex; align-items: center; justify-content: space-between;
       padding: 0.25rem 0.5rem; background: #f5f5f5; border-radius: 3px; margin-bottom: 0.25rem; font-size: 0.85rem;
     }
-    #entry-form-related-list button { padding: 0.1rem 0.5rem; cursor: pointer; font-size: 0.8rem; }
-    #entry-form-related-add { display: flex; gap: 0.4rem; margin-top: 0.3rem; }
-    #entry-form-related-add select { flex: 1; margin-top: 0; }
-    #entry-form-related-add button { padding: 0.35rem 0.7rem; cursor: pointer; }
+    #entity-form-related-list button { padding: 0.1rem 0.5rem; cursor: pointer; font-size: 0.8rem; }
+    #entity-form-related-add { display: flex; gap: 0.4rem; margin-top: 0.3rem; }
+    #entity-form-related-add select { flex: 1; margin-top: 0; }
+    #entity-form-related-add button { padding: 0.35rem 0.7rem; cursor: pointer; }
 
     #codex-new-btn { display: none; margin-bottom: 0.75rem; padding: 0.4rem 0.8rem; cursor: pointer; }
     #codex-detail-actions { display: none; gap: 0.5rem; margin-top: 1rem; }
     #codex-detail-actions button { padding: 0.3rem 0.7rem; cursor: pointer; }
 
-    #entry-form-overlay {
+    #entity-form-overlay {
       display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
       align-items: center; justify-content: center; z-index: 1000;
     }
-    #entry-form-overlay.open { display: flex; }
-    #entry-form {
+    #entity-form-overlay.open { display: flex; }
+    #entity-form {
       background: #fff; border-radius: 4px; padding: 1.25rem 1.5rem;
       width: 90%; max-width: 520px; max-height: 85vh; overflow-y: auto;
     }
-    #entry-form h3 { margin-top: 0; }
-    #entry-form label { display: block; margin-top: 0.75rem; font-size: 0.85rem; font-weight: bold; }
-    #entry-form input[type="text"], #entry-form textarea, #entry-form select {
+    #entity-form h3 { margin-top: 0; }
+    #entity-form label { display: block; margin-top: 0.75rem; font-size: 0.85rem; font-weight: bold; }
+    #entity-form input[type="text"], #entity-form textarea, #entity-form select {
       width: 100%; box-sizing: border-box; padding: 0.4rem; font-size: 0.9rem; margin-top: 0.2rem;
     }
-    #entry-form textarea { min-height: 80px; resize: vertical; }
-    #entry-form-actions { margin-top: 1.25rem; display: flex; gap: 0.5rem; justify-content: flex-end; }
-    #entry-form-actions button { padding: 0.4rem 0.9rem; cursor: pointer; }
-    #entry-form-error { color: #b00020; font-size: 0.85rem; margin-top: 0.5rem; display: none; }
+    #entity-form textarea { min-height: 80px; resize: vertical; }
+    #entity-form-actions { margin-top: 1.25rem; display: flex; gap: 0.5rem; justify-content: flex-end; }
+    #entity-form-actions button { padding: 0.4rem 0.9rem; cursor: pointer; }
+    #entity-form-error { color: #b00020; font-size: 0.85rem; margin-top: 0.5rem; display: none; }
     #build-version { margin-top: 2rem; font-size: 0.7rem; color: #bbb; }
+
+    /* Lore items (Phase 8) */
+    #codex-lore-list { margin-top: 0.75rem; }
+    .lore-item { border: 1px solid #e0e0e0; border-radius: 4px; padding: 0.6rem 0.75rem; margin-bottom: 0.6rem; }
+    .lore-item-bar { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.4rem; }
+    .lore-vis-badge { padding: 0.1rem 0.45rem; font-size: 0.7rem; border-radius: 3px; }
+    .lore-vis-badge.visible { background: #c8e6c9; }
+    .lore-vis-badge.hidden { background: #ffe0b0; }
+    .lore-item-btn { padding: 0.15rem 0.55rem; font-size: 0.75rem; cursor: pointer; }
+    .lore-item-body > :first-child { margin-top: 0; }
+    .lore-item-body > :last-child { margin-bottom: 0; }
+    .lore-empty { color: #888; }
+
+    /* Lore form overlay: reuse entity-form overlay styling */
+    #lore-form-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+      align-items: center; justify-content: center; z-index: 1000;
+    }
+    #lore-form-overlay.open { display: flex; }
+    #lore-form {
+      background: #fff; padding: 1.25rem; border-radius: 6px;
+      width: min(560px, 92vw); max-height: 85vh; overflow-y: auto;
+    }
+    #lore-form h3 { margin-top: 0; }
+    #lore-form label { display: block; margin-top: 0.75rem; font-size: 0.85rem; font-weight: bold; }
+    #lore-form textarea, #lore-form select {
+      width: 100%; box-sizing: border-box; padding: 0.4rem; margin-top: 0.25rem; font-size: 0.9rem;
+    }
+    #lore-form textarea { min-height: 160px; resize: vertical; font-family: inherit; }
+    #lore-form-actions { margin-top: 1.25rem; display: flex; gap: 0.5rem; justify-content: flex-end; }
+    #lore-form-actions button { padding: 0.4rem 0.9rem; cursor: pointer; }
+    #lore-form-error { color: #b00020; font-size: 0.85rem; margin-top: 0.5rem; display: none; }

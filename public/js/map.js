@@ -3,7 +3,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
-import { renderList, renderDetailForSelected } from './codex.js';
+import { renderList, renderDetailForSelected, isEntityPlayerVisible, registerVisibilityChangeHandler } from './codex.js';
 import { renderAdminRootMapSelect } from './admin.js';
 import { getCachedImage, putCachedImage } from './images.js';
 import { attachListener, detachListener } from './listeners.js';
@@ -40,8 +40,8 @@ const db = getFirestore(firebaseApp);
     });
 
     const pinFormOverlayEl = document.getElementById('pin-form-overlay');
-    const pinFormEntryEl = document.getElementById('pin-form-entry');
-    const pinFormEntryFieldsEl = document.getElementById('pin-form-entry-fields');
+    const pinFormEntityEl = document.getElementById('pin-form-entity');
+    const pinFormEntityFieldsEl = document.getElementById('pin-form-entity-fields');
     const pinFormChildMapFieldsEl = document.getElementById('pin-form-childmap-fields');
     const pinFormChildMapExistingFieldsEl = document.getElementById('pin-form-childmap-existing-fields');
     const pinFormChildMapNewFieldsEl = document.getElementById('pin-form-childmap-new-fields');
@@ -54,7 +54,7 @@ const db = getFirestore(firebaseApp);
 
     function getPinFormType() {
       const checked = document.querySelector('input[name="pin-form-type"]:checked');
-      return checked ? checked.value : 'entry';
+      return checked ? checked.value : 'entity';
     }
 
     function getChildMapMode() {
@@ -64,7 +64,7 @@ const db = getFirestore(firebaseApp);
 
     function updatePinFormTypeVisibility() {
       const type = getPinFormType();
-      pinFormEntryFieldsEl.style.display = (type === 'entry') ? 'block' : 'none';
+      pinFormEntityFieldsEl.style.display = (type === 'entity') ? 'block' : 'none';
       pinFormChildMapFieldsEl.style.display = (type === 'childmap') ? 'block' : 'none';
     }
 
@@ -100,20 +100,20 @@ const db = getFirestore(firebaseApp);
     function openPinForm(coords) {
       state.pendingPinCoords = coords;
 
-      document.querySelector('input[name="pin-form-type"][value="entry"]').checked = true;
+      document.querySelector('input[name="pin-form-type"][value="entity"]').checked = true;
       document.querySelector('input[name="pin-form-childmap-mode"][value="existing"]').checked = true;
       updatePinFormTypeVisibility();
       updateChildMapModeVisibility();
 
-      pinFormEntryEl.innerHTML = '';
-      state.allEntries
+      pinFormEntityEl.innerHTML = '';
+      state.allEntities
         .slice()
         .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); })
         .forEach(function (entry) {
           const opt = document.createElement('option');
           opt.value = entry.id;
           opt.textContent = entry.name;
-          pinFormEntryEl.appendChild(opt);
+          pinFormEntityEl.appendChild(opt);
         });
 
       // Candidate child maps: any map that isn't the current map itself.
@@ -165,15 +165,15 @@ const db = getFirestore(firebaseApp);
 
       const type = getPinFormType();
 
-      if (type === 'entry') {
-        const entryId = pinFormEntryEl.value;
-        if (!entryId) {
-          pinFormErrorEl.textContent = 'No entries available to link.';
+      if (type === 'entity') {
+        const entityId = pinFormEntityEl.value;
+        if (!entityId) {
+          pinFormErrorEl.textContent = 'No entities available to link.';
           pinFormErrorEl.style.display = 'block';
           return;
         }
         savePin({
-          entryId: entryId,
+          entityId: entityId,
           x: state.pendingPinCoords.x,
           y: state.pendingPinCoords.y,
           mapId: state.currentMapId
@@ -255,8 +255,8 @@ const db = getFirestore(firebaseApp);
         const targetMap = state.allMaps.find(function (m) { return m.id === pin.childMapId; });
         label = targetMap ? ('map link: ' + targetMap.name) : '(unlinked map pin)';
       } else {
-        const entry = state.allEntries.find(function (e) { return e.id === pin.entryId; });
-        label = entry ? entry.name : '(unlinked pin)';
+        const entity = state.allEntities.find(function (e) { return e.id === pin.entityId; });
+        label = entity ? entity.name : '(unlinked pin)';
       }
       const confirmed = window.confirm('Remove pin for "' + label + '"?');
       if (!confirmed) return;
@@ -266,8 +266,8 @@ const db = getFirestore(firebaseApp);
       });
     }
 
-    function switchToCodexEntry(entryId) {
-      state.selectedId = entryId;
+    function switchToCodexEntity(entityId) {
+      state.selectedId = entityId;
       renderList();
       renderDetailForSelected();
 
@@ -276,6 +276,10 @@ const db = getFirestore(firebaseApp);
       document.getElementById('tab-btn-codex').classList.add('active');
       document.getElementById('codex-panel').classList.add('active');
     }
+
+    // Re-render pins whenever lore visibility changes (GM reveal, preview
+    // toggle) so pin filtering for players tracks live.
+    registerVisibilityChangeHandler(function () { renderPins(); });
 
     function renderPins() {
       if (!state.leafletMap) return;
@@ -317,16 +321,24 @@ const db = getFirestore(firebaseApp);
           return;
         }
 
-        const entry = state.allEntries.find(function (e) { return e.id === pin.entryId; });
+        const entity = state.allEntities.find(function (e) { return e.id === pin.entityId; });
+
+        // Players don't see pins for entities with no player-visible lore —
+        // a marker whose tooltip names a secret entity is itself a spoiler.
+        // (GM preview-as-player gets the same filtering via isGmView logic
+        // living in codex.js's exported helper.)
+        const gmView = state.currentRole === 'gm' && !state.gmPreviewAsPlayer;
+        if (entity && !gmView && !isEntityPlayerVisible(entity.id)) return;
+
         const marker = L.marker([lat, pin.x]);
-        marker.bindTooltip(entry ? entry.name : '(unlinked pin)');
+        marker.bindTooltip(entity ? entity.name : '(unlinked pin)');
         marker.on('click', function () {
           if (state.mapMode === 'remove' && state.currentRole === 'gm') {
             removePin(pin);
             return;
           }
-          if (entry) {
-            switchToCodexEntry(entry.id);
+          if (entity) {
+            switchToCodexEntity(entity.id);
           }
         });
         marker.addTo(state.pinLayer);
