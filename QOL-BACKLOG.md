@@ -3,6 +3,13 @@
 Future quality-of-life improvements, not currently scheduled into a phase.
 Carry this file forward in context-handoff docs.
 
+- **Map image compression too aggressive (flagged Aug 2026, import
+  pilot).** Text on map images renders blurry at the current pipeline
+  settings (4000px max dimension, WebP q0.85, 750KB ceiling). For
+  map-role images specifically, consider: higher max dimension and/or
+  quality with the Firestore ~1MiB doc limit as the real ceiling, or
+  revisiting tiling (see Phase 7d note below) for text-heavy maps.
+
 - **Pin-safety on Location map image change — scheduled: Phase 9.** The
   old alert-on-dimension-change warning was dropped when map images moved
   to the entity form (entity-based maps rework, Aug 2026); currently a

@@ -160,3 +160,11 @@
     #entity-form-map-image-status, #entity-form-gallery-status { font-size: 0.8rem; color: #666; margin: 0.2rem 0; }
     #pin-form-radius-hint { font-size: 0.75rem; color: #666; margin: 0.3rem 0 0 0; }
     #admin-root-entity-hint { font-size: 0.85rem; color: #666; }
+
+    /* Wiki links: auto-linked entity names inside lore text */
+    .wiki-link {
+      color: #3451b2;
+      text-decoration: underline dotted;
+      cursor: pointer;
+    }
+    .wiki-link:hover { text-decoration: underline; }
