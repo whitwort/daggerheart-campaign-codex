@@ -87,27 +87,16 @@
       <button id="map-remove-pin-btn">Remove pin</button>
       <span id="map-mode-hint"></span>
     </div>
-    <div id="map-image-upload">
-      <label id="map-image-upload-label" for="map-image-upload-input">Set map image</label>
-      <input type="file" id="map-image-upload-input" accept="image/*">
-      <span id="map-image-upload-status"></span>
-    </div>
     <div id="map-container"></div>
   </div>
 
   <div id="admin-panel" class="tab-panel">
-    <h3>Root map</h3>
-    <div id="admin-root-map">
-      <select id="admin-root-map-select"><option value="">-- none --</option></select>
+    <h3>Root location</h3>
+    <p id="admin-root-entity-hint">The Map tab shows this Location entity's map image.</p>
+    <div id="admin-root-entity">
+      <select id="admin-root-entity-select"><option value="">-- none --</option></select>
     </div>
-    <p id="admin-root-map-status"></p>
-
-    <h3>Create a map</h3>
-    <div id="admin-create-map">
-      <input type="text" id="admin-create-map-name" placeholder="e.g. Genesis (world)">
-      <button id="admin-create-map-btn">Create</button>
-    </div>
-    <p id="admin-create-map-status"></p>
+    <p id="admin-root-entity-status"></p>
 
     <h3>Pending join requests</h3>
     <ul id="admin-join-requests"><li id="admin-join-requests-empty">No pending requests.</li></ul>
@@ -146,6 +135,20 @@
         <button id="entity-form-related-add-btn" type="button">Add</button>
       </div>
 
+      <div id="entity-form-map-image-section" style="display:none;">
+        <label>Map image (locations only)</label>
+        <p id="entity-form-map-image-status"></p>
+        <div id="entity-form-map-image-controls">
+          <input type="file" id="entity-form-map-image-input" accept="image/*">
+          <button id="entity-form-map-image-delete" type="button" style="display:none;">Delete map image</button>
+        </div>
+      </div>
+
+      <label>Gallery</label>
+      <ul id="entity-form-gallery-list"></ul>
+      <input type="file" id="entity-form-gallery-input" accept="image/*">
+      <span id="entity-form-gallery-status"></span>
+
       <p id="entity-form-error"></p>
 
       <div id="entity-form-actions">
@@ -181,38 +184,16 @@
     <div id="pin-form">
       <h3>Add pin</h3>
 
-      <div id="pin-form-type-toggle">
-        <label><input type="radio" name="pin-form-type" value="entity" checked> Link to entity</label>
-        <label><input type="radio" name="pin-form-type" value="childmap"> Link to child map</label>
-      </div>
+      <label for="pin-form-entity">Codex entity</label>
+      <select id="pin-form-entity"></select>
 
-      <div id="pin-form-entity-fields">
-        <label for="pin-form-entity">Codex entity</label>
-        <select id="pin-form-entity"></select>
-      </div>
-
-      <div id="pin-form-childmap-fields" style="display:none;">
-        <div id="pin-form-childmap-mode-toggle">
-          <label><input type="radio" name="pin-form-childmap-mode" value="existing" checked> Existing map</label>
-          <label><input type="radio" name="pin-form-childmap-mode" value="new"> New map</label>
-        </div>
-
-        <div id="pin-form-childmap-existing-fields">
-          <label for="pin-form-childmap-select">Child map</label>
-          <select id="pin-form-childmap-select"></select>
-        </div>
-
-        <div id="pin-form-childmap-new-fields" style="display:none;">
-          <label for="pin-form-childmap-name">New map name</label>
-          <input type="text" id="pin-form-childmap-name" placeholder="e.g. Baker (town)">
-          <p id="pin-form-childmap-image-hint">
-            The map is created with no image. After saving, navigate to
-            it and use "Set map image" (GM) to upload one.
-          </p>
-        </div>
-
+      <div id="pin-form-radius-row" style="display:none;">
         <label for="pin-form-radius">Circle radius (map units)</label>
         <input type="number" id="pin-form-radius" value="150" min="1">
+        <p id="pin-form-radius-hint">
+          This entity is a location with a map — the pin renders as a
+          circle that zooms to its map when clicked.
+        </p>
       </div>
 
       <p id="pin-form-error"></p>

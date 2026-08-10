@@ -1,5 +1,5 @@
 import {
-  getFirestore, doc, setDoc, addDoc, deleteDoc, onSnapshot, collection, serverTimestamp
+  getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
@@ -13,81 +13,49 @@ const adminAddPlayerEmailEl = document.getElementById('admin-add-player-email');
 const adminAddPlayerBtn = document.getElementById('admin-add-player-btn');
 const adminAddPlayerErrorEl = document.getElementById('admin-add-player-error');
 const adminPlayersListEl = document.getElementById('admin-players-list');
-const adminRootMapSelectEl = document.getElementById('admin-root-map-select');
-const adminRootMapStatusEl = document.getElementById('admin-root-map-status');
+const adminRootEntitySelectEl = document.getElementById('admin-root-entity-select');
+const adminRootEntityStatusEl = document.getElementById('admin-root-entity-status');
 
     // --- Admin: root map selector (Phase 7b-4). GM-only control, but
-    // reads state.allMaps/state.rootMapId which are already live for any authorized
-    // user — no separate admin-gated listener needed, just render calls
-    // from the existing maps/config listeners.
+    // Root location: which Location entity's map image is the top-level
+    // map. Reads state.allEntities/state.rootEntityId, which are already
+    // live for any authorized user — render calls come from the entities
+    // listener (codex.js) and config listener (map.js).
 
-    function renderAdminRootMapSelect() {
-      if (state.adminRootMapUpdating) return;
-      const previousValue = adminRootMapSelectEl.value;
-      adminRootMapSelectEl.innerHTML = '<option value="">-- none --</option>';
-      state.allMaps.forEach(function (m) {
-        const opt = document.createElement('option');
-        opt.value = m.id;
-        opt.textContent = m.name || m.id;
-        adminRootMapSelectEl.appendChild(opt);
-      });
-      adminRootMapSelectEl.value = state.rootMapId || '';
-      if (adminRootMapSelectEl.value !== (state.rootMapId || '')) {
-        // state.rootMapId points at a map that no longer exists in state.allMaps.
-        adminRootMapSelectEl.value = previousValue;
+    function renderAdminRootEntitySelect() {
+      if (state.adminRootSelectUpdating) return;
+      const previousValue = adminRootEntitySelectEl.value;
+      adminRootEntitySelectEl.innerHTML = '<option value="">-- none --</option>';
+      state.allEntities
+        .filter(function (e) { return e.category === 'Location'; })
+        .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); })
+        .forEach(function (e) {
+          const opt = document.createElement('option');
+          opt.value = e.id;
+          opt.textContent = e.name || e.id;
+          adminRootEntitySelectEl.appendChild(opt);
+        });
+      adminRootEntitySelectEl.value = state.rootEntityId || '';
+      if (adminRootEntitySelectEl.value !== (state.rootEntityId || '')) {
+        // state.rootEntityId points at an entity that no longer exists (or
+        // is no longer a Location).
+        adminRootEntitySelectEl.value = previousValue;
       }
     }
 
-    // --- Create map (Phase 8) ---------------------------------------------
-    // Bootstrap path for an empty database: the only other map-creation UI
-    // (the new-child-map pin form) requires an existing map to pin from,
-    // so a fresh Firestore had no way to create the first map — which also
-    // made image upload unreachable (nothing to upload to). Creates a
-    // parentless map; auto-set as root if no root is configured yet.
-    const adminCreateMapNameEl = document.getElementById('admin-create-map-name');
-    const adminCreateMapBtn = document.getElementById('admin-create-map-btn');
-    const adminCreateMapStatusEl = document.getElementById('admin-create-map-status');
-
-    adminCreateMapBtn.addEventListener('click', function () {
-      const name = adminCreateMapNameEl.value.trim();
-      if (!name) {
-        adminCreateMapStatusEl.textContent = 'Map name is required.';
-        return;
-      }
-      adminCreateMapBtn.disabled = true;
-      adminCreateMapStatusEl.textContent = 'Creating...';
-      addDoc(collection(db, 'maps'), {
-        name: name,
-        parentMapId: null
-      }).then(function (mapDocRef) {
-        adminCreateMapNameEl.value = '';
-        if (!state.rootMapId) {
-          return setDoc(doc(db, 'config', 'campaign'), { rootMapId: mapDocRef.id }, { merge: true })
-            .then(function () {
-              adminCreateMapStatusEl.textContent = 'Created and set as root map.';
-            });
-        }
-        adminCreateMapStatusEl.textContent = 'Created. (Root map unchanged.)';
-      }).catch(function (err) {
-        adminCreateMapStatusEl.textContent = 'Create failed: ' + err.message;
-      }).finally(function () {
-        adminCreateMapBtn.disabled = false;
-      });
-    });
-
-    adminRootMapSelectEl.addEventListener('change', function () {
-      const newRootMapId = adminRootMapSelectEl.value || null;
-      state.adminRootMapUpdating = true;
-      adminRootMapStatusEl.textContent = 'Saving...';
-      setDoc(doc(db, 'config', 'campaign'), { rootMapId: newRootMapId }, { merge: true })
+    adminRootEntitySelectEl.addEventListener('change', function () {
+      const newRootEntityId = adminRootEntitySelectEl.value || null;
+      state.adminRootSelectUpdating = true;
+      adminRootEntityStatusEl.textContent = 'Saving...';
+      setDoc(doc(db, 'config', 'campaign'), { rootEntityId: newRootEntityId }, { merge: true })
         .then(function () {
-          adminRootMapStatusEl.textContent = 'Saved.';
+          adminRootEntityStatusEl.textContent = 'Saved.';
         })
         .catch(function (err) {
-          adminRootMapStatusEl.textContent = 'Save failed: ' + err.message;
+          adminRootEntityStatusEl.textContent = 'Save failed: ' + err.message;
         })
         .finally(function () {
-          state.adminRootMapUpdating = false;
+          state.adminRootSelectUpdating = false;
         });
     });
 
@@ -220,4 +188,4 @@ function detachAdminListeners() {
   detachListener('playersUnsub');
 }
 
-export { attachAdminListeners, detachAdminListeners, renderAdminRootMapSelect };
+export { attachAdminListeners, detachAdminListeners, renderAdminRootEntitySelect };

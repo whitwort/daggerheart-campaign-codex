@@ -4,8 +4,8 @@ import {
 import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
 import { renderList, renderDetailForSelected, isEntityPlayerVisible, registerVisibilityChangeHandler } from './codex.js';
-import { renderAdminRootMapSelect } from './admin.js';
-import { getCachedImage, putCachedImage } from './images.js';
+import { renderAdminRootEntitySelect } from './admin.js';
+import { entityMapImageDocId, getCachedImage, putCachedImage } from './images.js';
 import { attachListener, detachListener } from './listeners.js';
 
 const db = getFirestore(firebaseApp);
@@ -16,7 +16,6 @@ const db = getFirestore(firebaseApp);
     const removePinBtn = document.getElementById('map-remove-pin-btn');
     const modeHintEl = document.getElementById('map-mode-hint');
     const mapBackBtn = document.getElementById('map-back-btn');
-    const mapImageUploadEl = document.getElementById('map-image-upload');
 
     // Image size/cache constants live in images.js (their sole consumer)
     // since the module split — see that file.
@@ -25,61 +24,44 @@ const db = getFirestore(firebaseApp);
       mapBackBtn.style.display = state.mapNavStack.length ? 'block' : 'none';
     }
 
-    function navigateToChildMap(mapId) {
-      state.mapNavStack.push(state.currentMapId);
-      state.currentMapId = mapId;
+    // "Maps" are Location entities with a map image; navigation walks
+    // entity ids. The old standalone `maps` collection is dead.
+    function navigateToMapEntity(entityId) {
+      state.mapNavStack.push(state.currentMapEntityId);
+      state.currentMapEntityId = entityId;
       updateBackButtonVisibility();
-      loadMap(state.currentMapId);
+      loadMap(state.currentMapEntityId);
     }
 
     mapBackBtn.addEventListener('click', function () {
       if (!state.mapNavStack.length) return;
-      state.currentMapId = state.mapNavStack.pop();
+      state.currentMapEntityId = state.mapNavStack.pop();
       updateBackButtonVisibility();
-      loadMap(state.currentMapId);
+      loadMap(state.currentMapEntityId);
     });
 
     const pinFormOverlayEl = document.getElementById('pin-form-overlay');
     const pinFormEntityEl = document.getElementById('pin-form-entity');
-    const pinFormEntityFieldsEl = document.getElementById('pin-form-entity-fields');
-    const pinFormChildMapFieldsEl = document.getElementById('pin-form-childmap-fields');
-    const pinFormChildMapExistingFieldsEl = document.getElementById('pin-form-childmap-existing-fields');
-    const pinFormChildMapNewFieldsEl = document.getElementById('pin-form-childmap-new-fields');
-    const pinFormChildMapSelectEl = document.getElementById('pin-form-childmap-select');
-    const pinFormChildMapNameEl = document.getElementById('pin-form-childmap-name');
+    const pinFormRadiusRowEl = document.getElementById('pin-form-radius-row');
     const pinFormRadiusEl = document.getElementById('pin-form-radius');
     const pinFormErrorEl = document.getElementById('pin-form-error');
     const pinFormSaveBtn = document.getElementById('pin-form-save');
     const pinFormCancelBtn = document.getElementById('pin-form-cancel');
 
-    function getPinFormType() {
-      const checked = document.querySelector('input[name="pin-form-type"]:checked');
-      return checked ? checked.value : 'entity';
+    // A pin always links to an entity — no pin "type". Whether it renders
+    // as a marker (plain entity) or a zoom circle (Location with a map
+    // image) is derived from the target entity at render time. The radius
+    // input only applies to the circle case.
+    function isMapEntity(entity) {
+      return !!entity && entity.category === 'Location' && !!entity.hasMapImage;
     }
 
-    function getChildMapMode() {
-      const checked = document.querySelector('input[name="pin-form-childmap-mode"]:checked');
-      return checked ? checked.value : 'existing';
+    function updatePinFormRadiusVisibility() {
+      const target = state.allEntities.find(function (e) { return e.id === pinFormEntityEl.value; });
+      pinFormRadiusRowEl.style.display = isMapEntity(target) ? 'block' : 'none';
     }
 
-    function updatePinFormTypeVisibility() {
-      const type = getPinFormType();
-      pinFormEntityFieldsEl.style.display = (type === 'entity') ? 'block' : 'none';
-      pinFormChildMapFieldsEl.style.display = (type === 'childmap') ? 'block' : 'none';
-    }
-
-    function updateChildMapModeVisibility() {
-      const mode = getChildMapMode();
-      pinFormChildMapExistingFieldsEl.style.display = (mode === 'existing') ? 'block' : 'none';
-      pinFormChildMapNewFieldsEl.style.display = (mode === 'new') ? 'block' : 'none';
-    }
-
-    Array.prototype.forEach.call(document.querySelectorAll('input[name="pin-form-type"]'), function (radio) {
-      radio.addEventListener('change', updatePinFormTypeVisibility);
-    });
-    Array.prototype.forEach.call(document.querySelectorAll('input[name="pin-form-childmap-mode"]'), function (radio) {
-      radio.addEventListener('change', updateChildMapModeVisibility);
-    });
+    pinFormEntityEl.addEventListener('change', updatePinFormRadiusVisibility);
 
     function setMapMode(mode) {
       state.mapMode = (state.mapMode === mode) ? null : mode;
@@ -100,47 +82,22 @@ const db = getFirestore(firebaseApp);
     function openPinForm(coords) {
       state.pendingPinCoords = coords;
 
-      document.querySelector('input[name="pin-form-type"][value="entity"]').checked = true;
-      document.querySelector('input[name="pin-form-childmap-mode"][value="existing"]').checked = true;
-      updatePinFormTypeVisibility();
-      updateChildMapModeVisibility();
-
       pinFormEntityEl.innerHTML = '';
       state.allEntities
         .slice()
+        // Not offering the currently-viewed location itself as a target —
+        // a self-pin would be a circle that zooms to the map it's on.
+        .filter(function (e) { return e.id !== state.currentMapEntityId; })
         .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); })
-        .forEach(function (entry) {
+        .forEach(function (entity) {
           const opt = document.createElement('option');
-          opt.value = entry.id;
-          opt.textContent = entry.name;
+          opt.value = entity.id;
+          opt.textContent = entity.name;
           pinFormEntityEl.appendChild(opt);
         });
 
-      // Candidate child maps: any map that isn't the current map itself.
-      // Not excluding deeper cycles (e.g. linking to an ancestor) here —
-      // simple guard, not exhaustive; GM is trusted not to build a loop.
-      pinFormChildMapSelectEl.innerHTML = '';
-      const candidates = state.allMaps
-        .filter(function (m) { return m.id !== state.currentMapId; })
-        .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
-      if (candidates.length === 0) {
-        const opt = document.createElement('option');
-        opt.textContent = '(no other maps yet — create one below)';
-        opt.disabled = true;
-        pinFormChildMapSelectEl.appendChild(opt);
-        document.querySelector('input[name="pin-form-childmap-mode"][value="new"]').checked = true;
-        updateChildMapModeVisibility();
-      } else {
-        candidates.forEach(function (m) {
-          const opt = document.createElement('option');
-          opt.value = m.id;
-          opt.textContent = m.name;
-          pinFormChildMapSelectEl.appendChild(opt);
-        });
-      }
-
-      pinFormChildMapNameEl.value = '';
       pinFormRadiusEl.value = '150';
+      updatePinFormRadiusVisibility();
 
       pinFormErrorEl.style.display = 'none';
       pinFormErrorEl.textContent = '';
@@ -163,77 +120,32 @@ const db = getFirestore(firebaseApp);
         return;
       }
 
-      const type = getPinFormType();
+      const entityId = pinFormEntityEl.value;
+      if (!entityId) {
+        pinFormErrorEl.textContent = 'No entities available to link.';
+        pinFormErrorEl.style.display = 'block';
+        return;
+      }
 
-      if (type === 'entity') {
-        const entityId = pinFormEntityEl.value;
-        if (!entityId) {
-          pinFormErrorEl.textContent = 'No entities available to link.';
+      const pinData = {
+        entityId: entityId,
+        x: state.pendingPinCoords.x,
+        y: state.pendingPinCoords.y,
+        mapEntityId: state.currentMapEntityId
+      };
+
+      const target = state.allEntities.find(function (e) { return e.id === entityId; });
+      if (isMapEntity(target)) {
+        const radius = Number(pinFormRadiusEl.value);
+        if (!radius || radius <= 0) {
+          pinFormErrorEl.textContent = 'Radius must be a positive number.';
           pinFormErrorEl.style.display = 'block';
           return;
         }
-        savePin({
-          entityId: entityId,
-          x: state.pendingPinCoords.x,
-          y: state.pendingPinCoords.y,
-          mapId: state.currentMapId
-        });
-        return;
+        pinData.radius = radius;
       }
 
-      // type === 'childmap'
-      const radius = Number(pinFormRadiusEl.value);
-      if (!radius || radius <= 0) {
-        pinFormErrorEl.textContent = 'Radius must be a positive number.';
-        pinFormErrorEl.style.display = 'block';
-        return;
-      }
-
-      const mode = getChildMapMode();
-      if (mode === 'existing') {
-        const childMapId = pinFormChildMapSelectEl.value;
-        if (!childMapId) {
-          pinFormErrorEl.textContent = 'No child map selected.';
-          pinFormErrorEl.style.display = 'block';
-          return;
-        }
-        savePin({
-          childMapId: childMapId,
-          radius: radius,
-          x: state.pendingPinCoords.x,
-          y: state.pendingPinCoords.y,
-          mapId: state.currentMapId
-        });
-        return;
-      }
-
-      // mode === 'new': create the map doc first, then the pin referencing it.
-      // No image field — set via "Set map image" (Phase 7b-2) after
-      // navigating to the new map.
-      const name = pinFormChildMapNameEl.value.trim();
-      if (!name) {
-        pinFormErrorEl.textContent = 'New map needs a name.';
-        pinFormErrorEl.style.display = 'block';
-        return;
-      }
-
-      pinFormSaveBtn.disabled = true;
-      addDoc(collection(db, 'maps'), {
-        name: name,
-        parentMapId: state.currentMapId
-      }).then(function (mapDocRef) {
-        return savePin({
-          childMapId: mapDocRef.id,
-          radius: radius,
-          x: state.pendingPinCoords.x,
-          y: state.pendingPinCoords.y,
-          mapId: state.currentMapId
-        });
-      }).catch(function (err) {
-        pinFormSaveBtn.disabled = false;
-        pinFormErrorEl.textContent = 'Create map failed: ' + err.message;
-        pinFormErrorEl.style.display = 'block';
-      });
+      savePin(pinData);
     });
 
     function savePin(pinData) {
@@ -250,14 +162,8 @@ const db = getFirestore(firebaseApp);
     }
 
     function removePin(pin) {
-      let label;
-      if (pin.childMapId) {
-        const targetMap = state.allMaps.find(function (m) { return m.id === pin.childMapId; });
-        label = targetMap ? ('map link: ' + targetMap.name) : '(unlinked map pin)';
-      } else {
-        const entity = state.allEntities.find(function (e) { return e.id === pin.entityId; });
-        label = entity ? entity.name : '(unlinked pin)';
-      }
+      const entity = state.allEntities.find(function (e) { return e.id === pin.entityId; });
+      const label = entity ? entity.name : '(unlinked pin)';
       const confirmed = window.confirm('Remove pin for "' + label + '"?');
       if (!confirmed) return;
 
@@ -277,9 +183,16 @@ const db = getFirestore(firebaseApp);
       document.getElementById('codex-panel').classList.add('active');
     }
 
-    // Re-render pins whenever lore visibility changes (GM reveal, preview
-    // toggle) so pin filtering for players tracks live.
-    registerVisibilityChangeHandler(function () { renderPins(); });
+    // Re-render pins whenever entity/lore visibility or entity data
+    // changes (GM reveal, preview toggle, hasMapImage flips) so pin
+    // filtering and marker-vs-circle shape track live.
+    registerVisibilityChangeHandler(function () {
+      resolveCurrentMapEntityId();
+      if (document.getElementById('map-panel').classList.contains('active')) {
+        ensureMapTabReady();
+      }
+      renderPins();
+    });
 
     function renderPins() {
       if (!state.leafletMap) return;
@@ -289,47 +202,44 @@ const db = getFirestore(firebaseApp);
       state.pinLayer.clearLayers();
 
       const pinsForCurrentMap = state.allPins.filter(function (pin) {
-        return pin.mapId ? pin.mapId === state.currentMapId : state.currentMapId === state.rootMapId;
+        return pin.mapEntityId === state.currentMapEntityId;
       });
+
+      const gmView = state.currentRole === 'gm' && !state.gmPreviewAsPlayer;
 
       pinsForCurrentMap.forEach(function (pin) {
         const lat = state.mapImgHeight - pin.y;
+        const entity = state.allEntities.find(function (e) { return e.id === pin.entityId; });
 
-        if (pin.childMapId) {
-          // Circle pin: links to a child map. Radius is in map units (this
-          // map's own pixel coordinate space), scaling visually with zoom —
-          // meant to be sized to roughly match the region it zooms into.
-          const targetMap = state.allMaps.find(function (m) { return m.id === pin.childMapId; });
+        // Players don't see pins for hidden entities — a pin whose tooltip
+        // names a secret entity is itself a spoiler.
+        if (entity && !gmView && !isEntityPlayerVisible(entity.id)) return;
+
+        if (isMapEntity(entity)) {
+          // Location with a map image: zoom circle. Radius is in map units
+          // (this map's own pixel coordinate space), scaling visually with
+          // zoom — sized to roughly match the region it zooms into.
           const circle = L.circle([lat, pin.x], {
-            radius: pin.radius || 60,
+            radius: pin.radius || 150,
             color: '#8a4fd6',
             weight: 2,
             fillColor: '#8a4fd6',
             fillOpacity: 0.2
           });
-          circle.bindTooltip(targetMap ? ('\u2192 ' + targetMap.name) : '(unlinked map pin)');
+          circle.bindTooltip('\u2192 ' + entity.name);
           circle.on('click', function () {
             if (state.mapMode === 'remove' && state.currentRole === 'gm') {
               removePin(pin);
               return;
             }
-            if (targetMap) {
-              navigateToChildMap(targetMap.id);
-            }
+            navigateToMapEntity(entity.id);
           });
           circle.addTo(state.pinLayer);
           return;
         }
 
-        const entity = state.allEntities.find(function (e) { return e.id === pin.entityId; });
-
-        // Players don't see pins for entities with no player-visible lore —
-        // a marker whose tooltip names a secret entity is itself a spoiler.
-        // (GM preview-as-player gets the same filtering via isGmView logic
-        // living in codex.js's exported helper.)
-        const gmView = state.currentRole === 'gm' && !state.gmPreviewAsPlayer;
-        if (entity && !gmView && !isEntityPlayerVisible(entity.id)) return;
-
+        // Any other entity (or a location without a map image yet): marker
+        // that jumps to the codex detail.
         const marker = L.marker([lat, pin.x]);
         marker.bindTooltip(entity ? entity.name : '(unlinked pin)');
         marker.on('click', function () {
@@ -359,27 +269,24 @@ const db = getFirestore(firebaseApp);
       });
     }
 
-    // --- Maps (Phase 6): dynamic map registry. Root is no longer a
-    // structural convention (parentMapId === null) — it's a GM-selected
-    // pointer in config/campaign.rootMapId (Phase 7b). parentMapId still
-    // means "nesting parent" only; multiple maps can have it unset
-    // without any of them being the app's root.
+    // --- Root pointer: config/campaign.rootEntityId — a GM-selected
+    // Location entity whose map image is the top-level map. Entity data
+    // itself arrives via codex.js's entities listener (which notifies the
+    // visibility-change handler above for revalidation).
     function attachConfigListener() {
       attachListener('configUnsub', function () {
         return onSnapshot(doc(db, 'config', 'campaign'), function (docSnap) {
-          state.rootMapId = docSnap.exists() ? (docSnap.data().rootMapId || null) : null;
-          // Bugfix: only fall back to state.rootMapId when state.currentMapId is
-          // unset/invalid (resolveCurrentMapId's job, for maps-collection
-          // changes). A root-pointer change itself must force-follow
-          // whenever the user is at the top level (no child-map nav
-          // stack) — otherwise switching root map->map or map->none while
-          // already viewing the root silently did nothing.
+          state.rootEntityId = docSnap.exists() ? (docSnap.data().rootEntityId || null) : null;
+          // Bugfix (carried over): a root-pointer change must force-follow
+          // whenever the user is at the top level (no nav stack) —
+          // otherwise switching the root while already viewing it
+          // silently did nothing.
           if (state.mapNavStack.length === 0) {
-            state.currentMapId = state.rootMapId;
+            state.currentMapEntityId = state.rootEntityId;
           } else {
-            resolveCurrentMapId();
+            resolveCurrentMapEntityId();
           }
-          renderAdminRootMapSelect();
+          renderAdminRootEntitySelect();
           if (document.getElementById('map-panel').classList.contains('active')) {
             ensureMapTabReady();
           }
@@ -389,40 +296,23 @@ const db = getFirestore(firebaseApp);
       });
     }
 
-    function resolveCurrentMapId() {
-      if (!state.currentMapId || !state.allMaps.find(function (m) { return m.id === state.currentMapId; })) {
-        state.currentMapId = state.rootMapId;
+    function resolveCurrentMapEntityId() {
+      if (!state.currentMapEntityId
+          || !state.allEntities.find(function (e) { return e.id === state.currentMapEntityId; })) {
+        state.currentMapEntityId = state.rootEntityId;
       }
-    }
-
-    function attachMapsListener() {
-      attachListener('mapsUnsub', function () {
-        return onSnapshot(collection(db, 'maps'), function (snapshot) {
-          state.allMaps = [];
-          snapshot.forEach(function (docSnap) {
-            state.allMaps.push(Object.assign({ id: docSnap.id }, docSnap.data()));
-          });
-          resolveCurrentMapId();
-          renderAdminRootMapSelect();
-          if (document.getElementById('map-panel').classList.contains('active')) {
-            ensureMapTabReady();
-          }
-        }, function (err) {
-          console.error('maps listener error:', err.message);
-        });
-      });
     }
 
     function ensureMapTabReady() {
-      // No early-return on falsy state.currentMapId: null is now a legitimate
-      // steady state (root explicitly set to none), not just "not loaded
-      // yet" — loadMap(null) correctly tears down any stale map and
-      // shows the right placeholder either way.
-      if (state.leafletMap && state.loadedMapId === state.currentMapId) {
+      // No early-return on falsy currentMapEntityId: null is a legitimate
+      // steady state (no root configured), not just "not loaded yet" —
+      // loadMap(null) tears down any stale map and shows the right
+      // placeholder either way.
+      if (state.leafletMap && state.loadedMapId === state.currentMapEntityId) {
         renderPins();
         return;
       }
-      loadMap(state.currentMapId);
+      loadMap(state.currentMapEntityId);
     }
 
 
@@ -461,36 +351,33 @@ const db = getFirestore(firebaseApp);
       state.loadingMapId = null;
     }
 
-    function loadMap(mapId) {
-      // Dedup: attachMapsListener and attachConfigListener can both fire
-      // ensureMapTabReady() -> loadMap(mapId) for the same map within the
-      // same tick (e.g. right after sign-in, or a maps-collection change
-      // alongside a config change). Without this guard, the second call's
-      // teardownMapRuntime() unsubscribes the first call's image listener
-      // before it ever receives its first snapshot -- nothing ever
-      // renders, and the placeholder is stuck on "Loading map image..."
-      // until something else (like a tab switch) calls loadMap() again
-      // as the sole in-flight caller.
-      if (state.loadingMapId === mapId && state.mapImageUnsub) {
+    function loadMap(mapEntityId) {
+      // Dedup: the entities-change handler and attachConfigListener can
+      // both fire ensureMapTabReady() -> loadMap() for the same entity
+      // within the same tick (e.g. right after sign-in, or an entities
+      // change alongside a config change). Without this guard, the second
+      // call's teardownMapRuntime() unsubscribes the first call's image
+      // listener before it ever receives its first snapshot -- nothing
+      // ever renders, and the placeholder is stuck on "Loading map
+      // image..." until something else calls loadMap() again as the sole
+      // in-flight caller.
+      if (state.loadingMapId === mapEntityId && state.mapImageUnsub) {
         return;
       }
 
-      const mapDoc = state.allMaps.find(function (m) { return m.id === mapId; });
+      const mapEntity = state.allEntities.find(function (e) { return e.id === mapEntityId; });
       const placeholderEl = document.getElementById('map-tab-placeholder');
       const containerEl = document.getElementById('map-container');
 
       teardownMapRuntime();
-      state.loadingMapId = mapId;
+      state.loadingMapId = mapEntityId;
 
-      state.mapImageUploadTargetMapId = mapDoc ? mapId : null;
-      mapImageUploadEl.style.display = (state.currentRole === 'gm' && mapDoc) ? 'flex' : 'none';
-
-      if (!mapDoc) {
+      if (!mapEntity) {
         placeholderEl.style.display = 'block';
         containerEl.style.display = 'none';
-        placeholderEl.textContent = state.rootMapId
+        placeholderEl.textContent = state.rootEntityId
           ? 'No map configured yet.'
-          : 'No root map selected yet.' + (state.currentRole === 'gm' ? ' Set one in the Admin tab.' : ' Ask your GM to set one up.');
+          : 'No root location selected yet.' + (state.currentRole === 'gm' ? ' Set one in the Admin tab.' : ' Ask your GM to set one up.');
         return;
       }
 
@@ -501,28 +388,28 @@ const db = getFirestore(firebaseApp);
         return;
       }
 
-      // Phase 7b-3: image lives in Firestore (images/map_{mapId}_primary),
-      // not a static Hosting path. Live-listen so a GM's upload (7b-2)
-      // updates the Map tab for everyone without a reload.
+      // Image lives in Firestore (images/entity_{id}_map). Live-listen so
+      // a GM's upload (via the entity form) updates the Map tab for
+      // everyone without a reload.
       placeholderEl.style.display = 'block';
       containerEl.style.display = 'none';
       placeholderEl.textContent = 'Loading map image...';
 
-      const imageDocId = 'map_' + mapId + '_primary';
+      const imageDocId = entityMapImageDocId(mapEntityId);
 
       // Phase 7c-1: paint instantly from IndexedDB cache (if any) while
       // the listener below does its network round-trip. state.loadedMapId
       // check guards against the live snapshot having already won the
       // race and rendered first — cache is a fallback, never an override.
       getCachedImage(imageDocId).then(function (cached) {
-        if (cached && state.mapImageUploadTargetMapId === mapId && state.loadedMapId !== mapId) {
+        if (cached && state.loadingMapId === mapEntityId && state.loadedMapId !== mapEntityId) {
           state.currentMapImageDims = { width: cached.width, height: cached.height };
-          renderMapImage(mapId, mapDoc, cached);
+          renderMapImage(mapEntityId, cached);
         }
       });
 
       state.mapImageUnsub = onSnapshot(doc(db, 'images', imageDocId), function (imgSnap) {
-        if (state.loadedMapId === mapId && state.leafletMap) {
+        if (state.loadedMapId === mapEntityId && state.leafletMap) {
           // Already rendered this map; a later snapshot for the same map
           // (e.g. after a re-upload) means the image changed under us —
           // simplest correct handling is a full reload of this map.
@@ -536,13 +423,13 @@ const db = getFirestore(firebaseApp);
           placeholderEl.style.display = 'block';
           containerEl.style.display = 'none';
           placeholderEl.textContent = state.currentRole === 'gm'
-            ? 'No image set for "' + (mapDoc.name || 'this map') + '" yet. Use "Set map image" above.'
+            ? 'No map image for "' + (mapEntity.name || 'this location') + '" yet. Add one via Edit Entity in the Codex.'
             : 'This map has no image yet — ask your GM.';
           return;
         }
         const imgData = imgSnap.data();
         state.currentMapImageDims = { width: imgData.width, height: imgData.height };
-        renderMapImage(mapId, mapDoc, imgData);
+        renderMapImage(mapEntityId, imgData);
         // Fire-and-forget cache write; source-of-truth render above never
         // waits on this.
         putCachedImage({
@@ -560,7 +447,7 @@ const db = getFirestore(firebaseApp);
       });
     }
 
-    function renderMapImage(mapId, mapDoc, imageDoc) {
+    function renderMapImage(mapEntityId, imageDoc) {
       const placeholderEl = document.getElementById('map-tab-placeholder');
       const containerEl = document.getElementById('map-container');
       try {
@@ -598,7 +485,7 @@ const db = getFirestore(firebaseApp);
             });
             L.imageOverlay(imageDoc.data, bounds).addTo(map);
             state.leafletMap = map;
-            state.loadedMapId = mapId;
+            state.loadedMapId = mapEntityId;
 
             map.on('click', function (e) {
               if (state.mapMode !== 'add' || state.currentRole !== 'gm') return;
@@ -636,12 +523,11 @@ const db = getFirestore(firebaseApp);
 
 function detachMapDataListeners() {
   detachListener('pinsUnsub');
-  detachListener('mapsUnsub');
   detachListener('configUnsub');
   teardownMapRuntime();
 }
 
 export {
-  attachPinsListener, attachMapsListener, attachConfigListener, detachMapDataListeners,
+  attachPinsListener, attachConfigListener, detachMapDataListeners,
   ensureMapTabReady, loadMap
 };
