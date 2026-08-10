@@ -224,6 +224,79 @@ const db = getFirestore(firebaseApp);
       });
     }
 
+    // --- Wiki links ----------------------------------------------------------
+    // Auto-link entity names appearing in rendered lore text: any exact
+    // entity-name match (word-boundary-ish: not embedded in a longer
+    // alphanumeric run, so "Baker" doesn't match inside "Bakerians")
+    // becomes a click-to-navigate link. Longest names win over prefixes
+    // ("Trixie's Trading Post" over "Trixie"). In player view only
+    // player-visible entities are linkable — hidden names stay plain text
+    // (linking them would leak their existence). The current entity's own
+    // name isn't linked (self-link is noise). Runs on the rendered DOM,
+    // walking text nodes and skipping real <a> links from the markdown.
+    function applyWikiLinks(rootEl, currentEntityId, gmView) {
+      const candidates = state.allEntities.filter(function (e) {
+        return e.id !== currentEntityId && e.name
+          && (gmView || isEntityPlayerVisible(e.id));
+      });
+      if (!candidates.length) return;
+      candidates.sort(function (a, b) { return b.name.length - a.name.length; });
+      const byName = {};
+      candidates.forEach(function (e) { if (!(e.name in byName)) byName[e.name] = e.id; });
+      const pattern = new RegExp(candidates.map(function (e) {
+        return e.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      }).join('|'), 'g');
+
+      function isWordChar(ch) { return /[A-Za-z0-9]/.test(ch); }
+
+      const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, {
+        acceptNode: function (node) {
+          for (let p = node.parentNode; p && p !== rootEl; p = p.parentNode) {
+            if (p.nodeName === 'A') return NodeFilter.FILTER_REJECT;
+          }
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      });
+      const textNodes = [];
+      while (walker.nextNode()) textNodes.push(walker.currentNode);
+
+      textNodes.forEach(function (node) {
+        const text = node.nodeValue;
+        pattern.lastIndex = 0;
+        let m;
+        let last = 0;
+        let frag = null;
+        while ((m = pattern.exec(text)) !== null) {
+          const before = m.index > 0 ? text.charAt(m.index - 1) : '';
+          const after = text.charAt(m.index + m[0].length);
+          if ((before && isWordChar(before)) || (after && isWordChar(after))) continue;
+          if (!frag) frag = document.createDocumentFragment();
+          if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+          const a = document.createElement('a');
+          a.href = '#';
+          a.className = 'wiki-link';
+          a.textContent = m[0];
+          a.dataset.entityId = byName[m[0]];
+          frag.appendChild(a);
+          last = m.index + m[0].length;
+        }
+        if (frag) {
+          if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+          node.parentNode.replaceChild(frag, node);
+        }
+      });
+    }
+
+    // Delegated: one handler for every wiki link in the detail pane.
+    detailEl.addEventListener('click', function (ev) {
+      const a = ev.target.closest ? ev.target.closest('a.wiki-link') : null;
+      if (!a) return;
+      ev.preventDefault();
+      state.selectedId = a.dataset.entityId;
+      renderList();
+      renderDetailForSelected();
+    });
+
     // --- Detail pane --------------------------------------------------------
 
     function renderDetailForSelected() {
@@ -353,7 +426,9 @@ const db = getFirestore(firebaseApp);
 
         const bodyDiv = document.createElement('div');
         bodyDiv.className = 'lore-item-body';
-        renderMarkdownInto(bodyDiv, item.content);
+        renderMarkdownInto(bodyDiv, item.content).then(function () {
+          applyWikiLinks(bodyDiv, entity.id, gmView);
+        });
         itemDiv.appendChild(bodyDiv);
 
         loreListDiv.appendChild(itemDiv);
