@@ -4,6 +4,7 @@ import './auth.js';
 import './admin.js';
 import './codex.js';
 import './images.js';
+import './import.js';
 
 document.getElementById('campaign-title').textContent = CONFIG.campaignName;
 document.getElementById('tab-btn-codex').textContent = CONFIG.tabs.codex;
