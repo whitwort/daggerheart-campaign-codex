@@ -21,6 +21,8 @@ export const state = {
   allLoreItems: [],
   selectedId: null,
   gmPreviewAsPlayer: false,
+  categoryCollapse: {},  // Entry Browser accordion: category -> collapsed(bool); default expanded
+  detailActiveTab: 'lore',  // Entry Card tab box: 'lore' | 'notes'; resets to 'lore' on selection change
   editingEntityId: null,
   entityFormDocId: null,     // doc id the open entity form writes to — pre-generated for New so images can attach before first save
   entityFormIsNew: false,

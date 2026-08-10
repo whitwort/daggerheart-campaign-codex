@@ -149,6 +149,14 @@ const db = getFirestore(firebaseApp);
       visibilityChangeHandlers.forEach(function (fn) { fn(); });
     }
 
+    // map.js registers its "switch to Map tab and load this Location's
+    // map" function here (same inverted-dependency pattern as above —
+    // codex.js can't import map.js without a module cycle).
+    let mapNavigationHandler = null;
+    function registerMapNavigationHandler(fn) {
+      mapNavigationHandler = fn;
+    }
+
     // --- Visibility model ---------------------------------------------------
     // Entities carry an explicit visibility flag ('gm-only' | 'all-players')
     // controlling whether players see the entity at all (list, pins,
@@ -160,6 +168,28 @@ const db = getFirestore(firebaseApp);
     function isGmView() {
       return state.currentRole === 'gm' && !state.gmPreviewAsPlayer;
     }
+
+    // --- GM toolbar (global, not per-card) -----------------------------------
+    // "Preview player view" / "Show GM content" is application-wide state,
+    // not tied to any one entity, so it lives once in the header rather
+    // than being redrawn on every Entry Card.
+    const gmToolbarEl = document.getElementById('gm-toolbar');
+    const gmPreviewToggleBtn = document.getElementById('gm-preview-toggle-btn');
+    function updateGmToolbar() {
+      if (state.currentRole !== 'gm') {
+        gmToolbarEl.style.display = 'none';
+        return;
+      }
+      gmToolbarEl.style.display = 'flex';
+      gmPreviewToggleBtn.textContent = state.gmPreviewAsPlayer ? 'Show GM content' : 'Preview player view';
+    }
+    gmPreviewToggleBtn.addEventListener('click', function () {
+      state.gmPreviewAsPlayer = !state.gmPreviewAsPlayer;
+      updateGmToolbar();
+      renderList();
+      renderDetailForSelected();
+      notifyVisibilityChange();
+    });
 
     function loreItemVisibleToPlayer(item) {
       if (item.visibility === 'all-players') return true;
@@ -196,7 +226,19 @@ const db = getFirestore(firebaseApp);
       return nameMatch || tagMatch;
     }
 
+    // Selecting a new entity always lands back on the Lore tab.
+    function selectEntity(entityId) {
+      state.selectedId = entityId;
+      state.detailActiveTab = 'lore';
+      renderList();
+      renderDetailForSelected();
+    }
+
+    // Entry Browser: accordion grouped by category (CONFIG.categories
+    // order), each group a collapsible horizontal bar. Collapse state
+    // persists per category in state.categoryCollapse (default expanded).
     function renderList() {
+      updateGmToolbar();
       const gmView = isGmView();
       const filtered = state.allEntities
         .filter(matchesFilters)
@@ -205,37 +247,82 @@ const db = getFirestore(firebaseApp);
 
       listEl.innerHTML = '';
       if (filtered.length === 0) {
-        const li = document.createElement('li');
-        li.textContent = 'No entities match.';
-        listEl.appendChild(li);
+        const emptyP = document.createElement('p');
+        emptyP.textContent = 'No entities match.';
+        emptyP.style.padding = '0.5rem 0.75rem';
+        listEl.appendChild(emptyP);
         return;
       }
 
+      const byCategory = {};
       filtered.forEach(function (entity) {
-        const li = document.createElement('li');
-        li.dataset.id = entity.id;
-        if (entity.id === state.selectedId) li.classList.add('active');
+        const cat = entity.category || '(uncategorized)';
+        if (!byCategory[cat]) byCategory[cat] = [];
+        byCategory[cat].push(entity);
+      });
 
-        const nameDiv = document.createElement('div');
-        nameDiv.textContent = entity.name;
-        if (gmView && entity.visibility !== 'all-players') {
-          const hiddenSpan = document.createElement('span');
-          hiddenSpan.className = 'entity-hidden-badge';
-          hiddenSpan.textContent = 'hidden';
-          nameDiv.appendChild(hiddenSpan);
-        }
-        const catDiv = document.createElement('div');
-        catDiv.className = 'entity-category';
-        catDiv.textContent = entity.category || '';
+      const orderedCats = CONFIG.categories.filter(function (c) { return byCategory[c]; });
+      Object.keys(byCategory).forEach(function (c) {
+        if (orderedCats.indexOf(c) === -1) orderedCats.push(c);
+      });
 
-        li.appendChild(nameDiv);
-        li.appendChild(catDiv);
-        li.addEventListener('click', function () {
-          state.selectedId = entity.id;
+      orderedCats.forEach(function (cat) {
+        const entities = byCategory[cat];
+        const collapsed = !!state.categoryCollapse[cat];
+
+        const header = document.createElement('div');
+        header.className = 'entity-group-header' + (collapsed ? ' collapsed' : '');
+        const titleSpan = document.createElement('span');
+        titleSpan.textContent = cat + ' ';
+        const countSpan = document.createElement('span');
+        countSpan.className = 'entity-group-count';
+        countSpan.textContent = '(' + entities.length + ')';
+        titleSpan.appendChild(countSpan);
+        const caretSpan = document.createElement('span');
+        caretSpan.className = 'entity-group-caret';
+        caretSpan.textContent = '\u25be';
+        header.appendChild(titleSpan);
+        header.appendChild(caretSpan);
+        header.addEventListener('click', function () {
+          state.categoryCollapse[cat] = !collapsed;
           renderList();
-          renderDetailForSelected();
         });
-        listEl.appendChild(li);
+        listEl.appendChild(header);
+
+        const ul = document.createElement('ul');
+        ul.className = 'entity-group-list' + (collapsed ? ' collapsed' : '');
+        entities.forEach(function (entity) {
+          const li = document.createElement('li');
+          li.dataset.id = entity.id;
+          if (entity.id === state.selectedId) li.classList.add('active');
+
+          const nameDiv = document.createElement('div');
+          nameDiv.textContent = entity.name;
+          li.appendChild(nameDiv);
+
+          if (gmView && entity.visibility !== 'all-players') {
+            const hiddenSpan = document.createElement('span');
+            hiddenSpan.className = 'entity-hidden-badge';
+            hiddenSpan.textContent = 'hidden';
+            li.appendChild(hiddenSpan);
+          }
+
+          if (entity.category === 'Location' && entity.hasMapImage) {
+            const mapLink = document.createElement('button');
+            mapLink.type = 'button';
+            mapLink.className = 'entity-map-link';
+            mapLink.textContent = 'map';
+            mapLink.addEventListener('click', function (ev) {
+              ev.stopPropagation();
+              if (mapNavigationHandler) mapNavigationHandler(entity.id);
+            });
+            li.appendChild(mapLink);
+          }
+
+          li.addEventListener('click', function () { selectEntity(entity.id); });
+          ul.appendChild(li);
+        });
+        listEl.appendChild(ul);
       });
     }
 
@@ -313,12 +400,114 @@ const db = getFirestore(firebaseApp);
       const a = ev.target.closest ? ev.target.closest('a.wiki-link') : null;
       if (!a) return;
       ev.preventDefault();
-      state.selectedId = a.dataset.entityId;
-      renderList();
-      renderDetailForSelected();
+      selectEntity(a.dataset.entityId);
     });
 
     // --- Detail pane --------------------------------------------------------
+
+    // Lore tab content. Player view: a plain bulleted list (no per-item
+    // controls). GM view: each item is a small card — a reveal/hide
+    // toggle switch top-right, edit/delete actions bottom-right.
+    function renderLoreTab(container, entity, gmView) {
+      const items = loreItemsForEntity(entity.id, gmView);
+
+      if (!gmView) {
+        if (items.length === 0) {
+          const emptyP = document.createElement('p');
+          emptyP.className = 'lore-empty';
+          emptyP.textContent = '(no lore for this view)';
+          container.appendChild(emptyP);
+          return;
+        }
+        const ul = document.createElement('ul');
+        ul.className = 'lore-bullet-list';
+        items.forEach(function (item) {
+          const li = document.createElement('li');
+          renderMarkdownInto(li, item.content).then(function () {
+            applyWikiLinks(li, entity.id, gmView);
+          });
+          ul.appendChild(li);
+        });
+        container.appendChild(ul);
+        return;
+      }
+
+      const loreListDiv = document.createElement('div');
+      loreListDiv.id = 'codex-lore-list';
+
+      if (items.length === 0) {
+        const emptyP = document.createElement('p');
+        emptyP.className = 'lore-empty';
+        emptyP.textContent = '(no lore for this view)';
+        loreListDiv.appendChild(emptyP);
+      }
+
+      items.forEach(function (item) {
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'lore-item';
+
+        const toggleRow = document.createElement('div');
+        toggleRow.className = 'lore-item-toggle-row';
+        const toggleLabel = document.createElement('span');
+        toggleLabel.className = 'toggle-switch-label';
+        toggleLabel.textContent = item.visibility === 'all-players' ? 'Visible to players' : 'Hidden from players';
+        toggleRow.appendChild(toggleLabel);
+        const switchLabel = document.createElement('label');
+        switchLabel.className = 'toggle-switch';
+        const switchInput = document.createElement('input');
+        switchInput.type = 'checkbox';
+        switchInput.checked = item.visibility === 'all-players';
+        switchInput.addEventListener('change', function () {
+          updateDoc(doc(db, 'loreItems', item.id), {
+            visibility: switchInput.checked ? 'all-players' : 'gm-only',
+            updatedAt: serverTimestamp()
+          }).catch(function (err) {
+            window.alert('Visibility change failed: ' + err.message);
+          });
+        });
+        const switchSlider = document.createElement('span');
+        switchSlider.className = 'toggle-slider';
+        switchLabel.appendChild(switchInput);
+        switchLabel.appendChild(switchSlider);
+        toggleRow.appendChild(switchLabel);
+        itemDiv.appendChild(toggleRow);
+
+        const bodyDiv = document.createElement('div');
+        bodyDiv.className = 'lore-item-body';
+        renderMarkdownInto(bodyDiv, item.content).then(function () {
+          applyWikiLinks(bodyDiv, entity.id, gmView);
+        });
+        itemDiv.appendChild(bodyDiv);
+
+        const actionsRow = document.createElement('div');
+        actionsRow.className = 'lore-item-actions-row';
+        const editBtn = document.createElement('button');
+        editBtn.className = 'lore-item-btn';
+        editBtn.textContent = 'Edit';
+        editBtn.addEventListener('click', function () { openLoreForm(entity.id, item); });
+        actionsRow.appendChild(editBtn);
+        const delBtn = document.createElement('button');
+        delBtn.className = 'lore-item-btn';
+        delBtn.textContent = 'Delete';
+        delBtn.addEventListener('click', function () { deleteLoreItem(item); });
+        actionsRow.appendChild(delBtn);
+        itemDiv.appendChild(actionsRow);
+
+        loreListDiv.appendChild(itemDiv);
+      });
+      container.appendChild(loreListDiv);
+
+      const loreTabActions = document.createElement('div');
+      loreTabActions.className = 'actions-row';
+      const loreTabActionsRight = document.createElement('div');
+      loreTabActionsRight.className = 'actions-row-right';
+      const addLoreBtn = document.createElement('button');
+      addLoreBtn.textContent = '+ Add lore';
+      addLoreBtn.addEventListener('click', function () { openLoreForm(entity.id, null); });
+      loreTabActionsRight.appendChild(addLoreBtn);
+      loreTabActions.appendChild(loreTabActionsRight);
+      container.appendChild(loreTabActions);
+    }
 
     function renderDetailForSelected() {
       const entity = state.allEntities.find(function (e) { return e.id === state.selectedId; });
@@ -338,17 +527,29 @@ const db = getFirestore(firebaseApp);
 
       detailEl.innerHTML = '';
 
+      // --- Heading: name (left) + GM/Player view badge (upper right) ---
+      const headingRow = document.createElement('div');
+      headingRow.id = 'codex-card-heading';
       const heading = document.createElement('h2');
       heading.textContent = entity.name;
+      headingRow.appendChild(heading);
 
       const badge = document.createElement('span');
       badge.id = 'codex-view-badge';
       badge.className = gmView ? 'gm' : 'player';
       badge.textContent = gmView ? 'GM view' : 'Player view';
-      heading.appendChild(badge);
-      detailEl.appendChild(heading);
+      headingRow.appendChild(badge);
+      detailEl.appendChild(headingRow);
 
-      // Category-specific metadata line(s).
+      // --- Entry type ---
+      const catP = document.createElement('p');
+      const catEm = document.createElement('em');
+      catEm.textContent = entity.category || '';
+      catP.appendChild(catEm);
+      detailEl.appendChild(catP);
+
+      // --- Category-specific fields (e.g. Date on Events, Ancestry on
+      // Characters) ---
       const metaBits = [];
       if (entity.ancestry) metaBits.push('Ancestry: ' + entity.ancestry);
       if (entity.aliases && entity.aliases.length) {
@@ -362,121 +563,34 @@ const db = getFirestore(firebaseApp);
         detailEl.appendChild(metaDiv);
       }
 
-      if (state.currentRole === 'gm' && gmView) {
-        const entityHidden = entity.visibility !== 'all-players';
-        const revealEntityBtn = document.createElement('button');
-        revealEntityBtn.textContent = entityHidden ? 'Reveal entity' : 'Hide entity';
-        revealEntityBtn.style.marginRight = '0.5rem';
-        revealEntityBtn.addEventListener('click', function () {
-          updateDoc(doc(db, 'entities', entity.id), {
-            visibility: entityHidden ? 'all-players' : 'gm-only',
-            updatedAt: serverTimestamp()
-          }).catch(function (err) {
-            window.alert('Visibility change failed: ' + err.message);
-          });
-        });
-        detailEl.appendChild(revealEntityBtn);
-      }
-
-      if (state.currentRole === 'gm') {
-        const toggleBtn = document.createElement('button');
-        toggleBtn.textContent = state.gmPreviewAsPlayer ? 'Show GM content' : 'Preview player view';
-        toggleBtn.addEventListener('click', function () {
-          state.gmPreviewAsPlayer = !state.gmPreviewAsPlayer;
-          renderList();
+      // --- Lore / Notes tab box ---
+      const tabsRow = document.createElement('div');
+      tabsRow.id = 'codex-detail-tabs';
+      ['lore', 'notes'].forEach(function (tabKey) {
+        const tabBtn = document.createElement('button');
+        tabBtn.type = 'button';
+        tabBtn.textContent = tabKey === 'lore' ? 'Lore' : 'Notes';
+        if (state.detailActiveTab === tabKey) tabBtn.classList.add('active');
+        tabBtn.addEventListener('click', function () {
+          state.detailActiveTab = tabKey;
           renderDetailForSelected();
-          notifyVisibilityChange();
         });
-        detailEl.appendChild(toggleBtn);
-      }
-
-      const catP = document.createElement('p');
-      const catEm = document.createElement('em');
-      catEm.textContent = entity.category || '';
-      catP.appendChild(catEm);
-      detailEl.appendChild(catP);
-
-      // --- Lore items ---
-      const items = loreItemsForEntity(entity.id, gmView);
-      const loreListDiv = document.createElement('div');
-      loreListDiv.id = 'codex-lore-list';
-
-      if (items.length === 0) {
-        const emptyP = document.createElement('p');
-        emptyP.className = 'lore-empty';
-        emptyP.textContent = '(no lore for this view)';
-        loreListDiv.appendChild(emptyP);
-      }
-
-      items.forEach(function (item) {
-        const itemDiv = document.createElement('div');
-        itemDiv.className = 'lore-item';
-
-        if (gmView) {
-          const barDiv = document.createElement('div');
-          barDiv.className = 'lore-item-bar';
-
-          const visBadge = document.createElement('span');
-          visBadge.className = 'lore-vis-badge ' +
-            (item.visibility === 'all-players' ? 'visible' : 'hidden');
-          visBadge.textContent = item.visibility;
-          barDiv.appendChild(visBadge);
-
-          // One-tap reveal/hide — the core table interaction. No form,
-          // no modal, single write. (Notifications wired in later.)
-          if (item.visibility === 'gm-only' || item.visibility === 'all-players') {
-            const revealBtn = document.createElement('button');
-            revealBtn.className = 'lore-item-btn';
-            revealBtn.textContent = item.visibility === 'gm-only' ? 'Reveal' : 'Hide';
-            revealBtn.addEventListener('click', function () {
-              const next = item.visibility === 'gm-only' ? 'all-players' : 'gm-only';
-              updateDoc(doc(db, 'loreItems', item.id), {
-                visibility: next,
-                updatedAt: serverTimestamp()
-              }).catch(function (err) {
-                window.alert('Visibility change failed: ' + err.message);
-              });
-            });
-            barDiv.appendChild(revealBtn);
-          }
-
-          const editBtn = document.createElement('button');
-          editBtn.className = 'lore-item-btn';
-          editBtn.textContent = 'Edit';
-          editBtn.addEventListener('click', function () {
-            openLoreForm(entity.id, item);
-          });
-          barDiv.appendChild(editBtn);
-
-          const delBtn = document.createElement('button');
-          delBtn.className = 'lore-item-btn';
-          delBtn.textContent = 'Delete';
-          delBtn.addEventListener('click', function () {
-            deleteLoreItem(item);
-          });
-          barDiv.appendChild(delBtn);
-
-          itemDiv.appendChild(barDiv);
-        }
-
-        const bodyDiv = document.createElement('div');
-        bodyDiv.className = 'lore-item-body';
-        renderMarkdownInto(bodyDiv, item.content).then(function () {
-          applyWikiLinks(bodyDiv, entity.id, gmView);
-        });
-        itemDiv.appendChild(bodyDiv);
-
-        loreListDiv.appendChild(itemDiv);
+        tabsRow.appendChild(tabBtn);
       });
-      detailEl.appendChild(loreListDiv);
+      detailEl.appendChild(tabsRow);
 
-      if (state.currentRole === 'gm' && gmView) {
-        const addLoreBtn = document.createElement('button');
-        addLoreBtn.textContent = '+ Add lore';
-        addLoreBtn.addEventListener('click', function () {
-          openLoreForm(entity.id, null);
-        });
-        detailEl.appendChild(addLoreBtn);
+      const tabPanel = document.createElement('div');
+      tabPanel.id = 'codex-detail-tab-panel';
+      detailEl.appendChild(tabPanel);
+
+      if (state.detailActiveTab === 'notes') {
+        // Placeholder — Notes is a future feature (player/GM session notes).
+        const notesEmptyP = document.createElement('p');
+        notesEmptyP.className = 'lore-empty';
+        notesEmptyP.textContent = 'Notes are coming in a future update.';
+        tabPanel.appendChild(notesEmptyP);
+      } else {
+        renderLoreTab(tabPanel, entity, gmView);
       }
 
       // --- Tags ---
@@ -559,11 +673,7 @@ const db = getFirestore(firebaseApp);
             chip.type = 'button';
             chip.className = 'related-chip';
             chip.textContent = target.name;
-            chip.addEventListener('click', function () {
-              state.selectedId = target.id;
-              renderList();
-              renderDetailForSelected();
-            });
+            chip.addEventListener('click', function () { selectEntity(target.id); });
             chipsDiv.appendChild(chip);
           });
           relatedDiv.appendChild(chipsDiv);
@@ -571,23 +681,40 @@ const db = getFirestore(firebaseApp);
         }
       }
 
+      // --- Entity-level GM actions: bottom-right of the Entry Card ---
       if (state.currentRole === 'gm') {
+        const cardActions = document.createElement('div');
+        cardActions.className = 'actions-row';
+        const cardActionsRight = document.createElement('div');
+        cardActionsRight.className = 'actions-row-right';
+
+        if (gmView) {
+          const entityHidden = entity.visibility !== 'all-players';
+          const revealEntityBtn = document.createElement('button');
+          revealEntityBtn.textContent = entityHidden ? 'Reveal entity' : 'Hide entity';
+          revealEntityBtn.addEventListener('click', function () {
+            updateDoc(doc(db, 'entities', entity.id), {
+              visibility: entityHidden ? 'all-players' : 'gm-only',
+              updatedAt: serverTimestamp()
+            }).catch(function (err) {
+              window.alert('Visibility change failed: ' + err.message);
+            });
+          });
+          cardActionsRight.appendChild(revealEntityBtn);
+        }
+
         const editBtn = document.createElement('button');
         editBtn.textContent = 'Edit entity';
-        editBtn.style.marginTop = '1rem';
-        editBtn.addEventListener('click', function () {
-          openEntityForm(entity);
-        });
-        detailEl.appendChild(editBtn);
+        editBtn.addEventListener('click', function () { openEntityForm(entity); });
+        cardActionsRight.appendChild(editBtn);
 
         const deleteBtn = document.createElement('button');
         deleteBtn.textContent = 'Delete entity';
-        deleteBtn.style.marginTop = '1rem';
-        deleteBtn.style.marginLeft = '0.5rem';
-        deleteBtn.addEventListener('click', function () {
-          deleteEntity(entity);
-        });
-        detailEl.appendChild(deleteBtn);
+        deleteBtn.addEventListener('click', function () { deleteEntity(entity); });
+        cardActionsRight.appendChild(deleteBtn);
+
+        cardActions.appendChild(cardActionsRight);
+        detailEl.appendChild(cardActions);
       }
     }
 
@@ -1061,5 +1188,5 @@ const db = getFirestore(firebaseApp);
 
 export {
   attachCodexListeners, detachCodexListeners, renderList, renderDetailForSelected,
-  isEntityPlayerVisible, registerVisibilityChangeHandler
+  isEntityPlayerVisible, registerVisibilityChangeHandler, registerMapNavigationHandler
 };

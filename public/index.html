@@ -44,6 +44,10 @@
     </div>
   </header>
 
+  <div id="gm-toolbar" style="display:none;">
+    <button id="gm-preview-toggle-btn" type="button"></button>
+  </div>
+
   <div id="login-gate" style="display:none;">
     <div id="login-gate-signed-out">
       <p>Sign in to access this campaign codex.</p>
@@ -65,16 +69,20 @@
   <div id="codex-panel" class="tab-panel active">
     <div id="codex-tab">
       <div id="codex-list-pane">
-        <button id="codex-new-btn">+ New entity</button>
+        <h3 class="pane-title">Entry Browser</h3>
         <div id="codex-filters">
           <select id="codex-category-filter">
             <option value="">All categories</option>
           </select>
           <input id="codex-search" type="text" placeholder="Search name/tags...">
         </div>
-        <ul id="codex-entities"></ul>
+        <div id="codex-entities"></div>
+        <div id="codex-list-actions">
+          <button id="codex-new-btn">+ New entity</button>
+        </div>
       </div>
       <div id="codex-detail-pane">
+        <h3 class="pane-title">Entry Card</h3>
         <div id="codex-detail"><p id="codex-empty">Select an entity.</p></div>
       </div>
     </div>
@@ -176,8 +184,8 @@
       <p id="entity-form-error"></p>
 
       <div id="entity-form-actions">
-        <button id="entity-form-cancel" type="button">Cancel</button>
         <button id="entity-form-save" type="button">Save</button>
+        <button id="entity-form-cancel" type="button">Cancel</button>
       </div>
     </div>
   </div>
@@ -198,8 +206,8 @@
       <p id="lore-form-error"></p>
 
       <div id="lore-form-actions">
-        <button id="lore-form-cancel" type="button">Cancel</button>
         <button id="lore-form-save" type="button">Save</button>
+        <button id="lore-form-cancel" type="button">Cancel</button>
       </div>
     </div>
   </div>
@@ -223,8 +231,8 @@
       <p id="pin-form-error"></p>
 
       <div id="pin-form-actions">
-        <button id="pin-form-cancel" type="button">Cancel</button>
         <button id="pin-form-save" type="button">Save</button>
+        <button id="pin-form-cancel" type="button">Cancel</button>
       </div>
     </div>
   </div>
