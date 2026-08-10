@@ -607,8 +607,12 @@ const db = getFirestore(firebaseApp);
       formErrorEl.textContent = '';
       formMapImageStatusEl.textContent = '';
       formGalleryStatusEl.textContent = '';
-      renderEntityFormImages();
       formOverlayEl.classList.add('open');
+      // Must run AFTER the overlay is open: renderEntityFormImages()
+      // no-ops when the form is closed, so calling it before .add('open')
+      // left the map-image section showing its stale display state from
+      // the previous form session.
+      renderEntityFormImages();
       formNameEl.focus();
     }
 
