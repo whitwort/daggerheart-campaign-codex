@@ -137,3 +137,13 @@
     #lore-form-actions { margin-top: 1.25rem; display: flex; gap: 0.5rem; justify-content: flex-end; }
     #lore-form-actions button { padding: 0.4rem 0.9rem; cursor: pointer; }
     #lore-form-error { color: #b00020; font-size: 0.85rem; margin-top: 0.5rem; display: none; }
+
+    /* Admin create-map + entity hidden badge (Phase 8) */
+    #admin-create-map { display: flex; gap: 0.4rem; }
+    #admin-create-map input { flex: 1; max-width: 320px; padding: 0.35rem; }
+    #admin-create-map button { padding: 0.35rem 0.8rem; cursor: pointer; }
+    #admin-create-map-status { font-size: 0.85rem; color: #666; }
+    .entity-hidden-badge {
+      display: inline-block; margin-left: 0.4rem; padding: 0.05rem 0.4rem;
+      font-size: 0.7rem; border-radius: 3px; background: #ffe0b0; vertical-align: middle;
+    }

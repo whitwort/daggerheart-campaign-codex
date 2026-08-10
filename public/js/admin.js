@@ -1,5 +1,5 @@
 import {
-  getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection, serverTimestamp
+  getFirestore, doc, setDoc, addDoc, deleteDoc, onSnapshot, collection, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
@@ -37,6 +37,43 @@ const adminRootMapStatusEl = document.getElementById('admin-root-map-status');
         adminRootMapSelectEl.value = previousValue;
       }
     }
+
+    // --- Create map (Phase 8) ---------------------------------------------
+    // Bootstrap path for an empty database: the only other map-creation UI
+    // (the new-child-map pin form) requires an existing map to pin from,
+    // so a fresh Firestore had no way to create the first map — which also
+    // made image upload unreachable (nothing to upload to). Creates a
+    // parentless map; auto-set as root if no root is configured yet.
+    const adminCreateMapNameEl = document.getElementById('admin-create-map-name');
+    const adminCreateMapBtn = document.getElementById('admin-create-map-btn');
+    const adminCreateMapStatusEl = document.getElementById('admin-create-map-status');
+
+    adminCreateMapBtn.addEventListener('click', function () {
+      const name = adminCreateMapNameEl.value.trim();
+      if (!name) {
+        adminCreateMapStatusEl.textContent = 'Map name is required.';
+        return;
+      }
+      adminCreateMapBtn.disabled = true;
+      adminCreateMapStatusEl.textContent = 'Creating...';
+      addDoc(collection(db, 'maps'), {
+        name: name,
+        parentMapId: null
+      }).then(function (mapDocRef) {
+        adminCreateMapNameEl.value = '';
+        if (!state.rootMapId) {
+          return setDoc(doc(db, 'config', 'campaign'), { rootMapId: mapDocRef.id }, { merge: true })
+            .then(function () {
+              adminCreateMapStatusEl.textContent = 'Created and set as root map.';
+            });
+        }
+        adminCreateMapStatusEl.textContent = 'Created. (Root map unchanged.)';
+      }).catch(function (err) {
+        adminCreateMapStatusEl.textContent = 'Create failed: ' + err.message;
+      }).finally(function () {
+        adminCreateMapBtn.disabled = false;
+      });
+    });
 
     adminRootMapSelectEl.addEventListener('change', function () {
       const newRootMapId = adminRootMapSelectEl.value || null;
