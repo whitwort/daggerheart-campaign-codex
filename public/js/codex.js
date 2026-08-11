@@ -1205,6 +1205,7 @@ function renderDetailForSelected() {
     leftCol.appendChild(heading);
 
     const catP = document.createElement('p');
+    catP.className = 'entity-type-line';
     const catEm = document.createElement('em');
     catEm.textContent = entity.category || '';
     catP.appendChild(catEm);
