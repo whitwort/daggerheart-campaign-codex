@@ -105,7 +105,7 @@ const adminRootEntityStatusEl = document.getElementById('admin-root-entity-statu
       adminPendingBadge.textContent = ' (' + state.allJoinRequests.length + ')';
       state.allJoinRequests.forEach(function (req) {
         const box = document.createElement('div');
-        box.className = 'admin-notification admin-notification-message';
+        box.className = 'admin-notification admin-notification-warning';
         const label = document.createElement('span');
         label.textContent = (req.displayName ? req.displayName + ' — ' : '') + req.email
           + ' (' + (req.provider || 'unknown') + ')';
