@@ -1019,6 +1019,8 @@ function renderLoreTab(container, entity, gmView) {
       container.appendChild(emptyP);
       return;
     }
+    const well = document.createElement('div');
+    well.className = 'lore-bullet-well';
     const ul = document.createElement('ul');
     ul.className = 'lore-bullet-list';
     items.forEach(function (item) {
@@ -1028,7 +1030,8 @@ function renderLoreTab(container, entity, gmView) {
       });
       ul.appendChild(li);
     });
-    container.appendChild(ul);
+    well.appendChild(ul);
+    container.appendChild(well);
     return;
   }
 
