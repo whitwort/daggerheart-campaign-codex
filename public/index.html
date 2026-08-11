@@ -28,6 +28,9 @@
   <script src="firebase-env.js"></script>
   <script src="config.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -61,6 +64,12 @@
 
   <div id="main-app" style="display:none;">
   <nav id="tabs">
+    <span class="nav-star" style="top:20%;left:8%;animation-duration:10s;animation-delay:0s;"></span>
+    <span class="nav-star" style="top:55%;left:22%;animation-duration:11.5s;animation-delay:-3s;"></span>
+    <span class="nav-star" style="top:30%;left:45%;animation-duration:9s;animation-delay:-6s;"></span>
+    <span class="nav-star" style="top:65%;left:63%;animation-duration:12s;animation-delay:-1.5s;"></span>
+    <span class="nav-star" style="top:25%;left:80%;animation-duration:10.5s;animation-delay:-4.5s;"></span>
+    <span class="nav-star" style="top:60%;left:93%;animation-duration:9.5s;animation-delay:-8s;"></span>
     <button id="tab-btn-codex" class="active" data-tab="codex-panel">Codex</button>
     <button id="tab-btn-map" data-tab="map-panel">Map</button>
     <button id="tab-btn-admin" data-tab="admin-panel" style="display:none;">Admin<span id="admin-pending-badge" style="display:none;"></span></button>
