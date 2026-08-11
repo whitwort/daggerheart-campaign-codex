@@ -3,44 +3,73 @@
 Future quality-of-life improvements, not currently scheduled into a phase.
 Carry this file forward in context-handoff docs.
 
-(none currently unscheduled — see Phase 10 below for the map-improvements
-batch)
+## Phase 10 (map improvements) — in progress
 
-## Deferred phases
+- **10a. Map image compression too aggressive — DONE** (`b14a299`).
+  Quality-search encode ([95,92,88,85,80,75], keep first fit under
+  750KB) replaced fixed q85. Applies to map + gallery uploads (shared
+  `processImageFile`). Confirmed sharper text on a real trade-map test
+  image (q85→379KB vs q95→700KB, same source).
+- **10a-bonus. Map legend scoped to categories present — DONE**
+  (`b414066`, empty-state fix `ff14f18`). Legend rebuilds every
+  `renderPins()` from the same filtered (gm/player-visibility) pin set,
+  hides entirely when nothing to show.
+- **10b. Pin-safety on Location map image change — still open.** Old
+  alert-on-dimension-change warning was dropped when map images moved to
+  the entity form. Changed map image can silently leave existing pins
+  (raw pixel coords in the old image's coordinate space) misaligned.
+  First pass: warn GM pin locations may be wrong. Better: guided
+  re-check/relocate UI. Not started.
+- **10c. Map tiling — explored, shelved.** Rabbit-hole scope worked out:
+  client-side pyramid generation, new `tiles` sub-schema (50-150+ docs
+  per map upload, writeBatch chunking + orphan-on-interrupt risk),
+  `L.GridLayer` subclass with tile fetch/cache, and it collides with the
+  still-open 10b pin-coordinate-space question. Multi-session feature,
+  not a session extension of 10a. Quality-search (10a) already fixed the
+  test case that prompted this; remaining fuzziness on some maps at
+  zoom is accepted as a known limitation for now. Revisit only if a
+  specific map still has a real legibility problem 10a can't reach —
+  proven in practice, not pre-built speculatively.
+- **10d. Map icon inconsistency — reported, unresolved, blocked on
+  repro.** Gregg reported the map-open icon doesn't always show for
+  Locations that do have a map. Code condition
+  (`entity.category==='Location' && entity.hasMapImage`) verified
+  identical/correct in both Entry Browser and Codex page. Likely a
+  stale `false` `hasMapImage` flag on a specific pre-existing entity;
+  re-upload/re-save should force it true. Need a specific entity name
+  from Gregg to confirm/fix.
 
-- **Phase 10 (map improvements)** — scheduled next session. Bundles:
-  - **Map image compression too aggressive (flagged Aug 2026, import
-    pilot).** Text on map images renders blurry at the current pipeline
-    settings (4000px max dimension, WebP q0.85, 750KB ceiling). For
-    map-role images specifically, consider: higher max dimension and/or
-    quality with the Firestore ~1MiB doc limit as the real ceiling, or
-    revisiting tiling (below) for text-heavy maps.
-  - **Pin-safety on Location map image change.** The old
-    alert-on-dimension-change warning was dropped when map images moved
-    to the entity form (entity-based maps rework, Aug 2026); currently a
-    changed map image silently leaves existing pins (raw pixel coords in
-    the old image's coordinate space) possibly misaligned. When a
-    Location entity's map image is uploaded/replaced AND pins exist with
-    `mapEntityId` pointing at that entity, either (first pass) warn the
-    GM that pin locations may be wrong, or (better) show a guided UI to
-    walk through checking/relocating each existing pin on that map.
-  - **Map icon inconsistency (reported, unresolved).** Gregg reported the
-    map-open icon doesn't always show for Locations that do have a map.
-    Code condition (`entity.category==='Location' && entity.hasMapImage`)
-    is identical and verified correct in both the Entry Browser and Codex
-    page. Most likely cause: a specific entity's `hasMapImage` flag is
-    stale `false` in Firestore from before the flag was reliably
-    maintained — re-uploading (or re-saving) that entity's map image
-    should force it to `true`. Need a specific entity name from Gregg to
-    confirm/fix; if it recurs on entities created after the flag became
-    reliable, that's a different, real bug worth investigating instead.
-  - **Map tiling (Phase 7d, folded in as a sub-item)** — shelved as of
-    the 7c-1 handoff. The real fix for the original load-time problem
-    turned out to be the libwebp WASM encoder (7b-2 fix): once map images
-    actually compress properly (matching the old ~175KB ImageMagick
-    result instead of an unencoded multi-MB PNG fallback), tiling's
-    complexity (image pyramid generation, `L.GridLayer` subclass,
-    per-tile Firestore docs) isn't justified. Only revisit if a specific
-    map still has real load-time/size problems after proper compression
-    — i.e. if the need is proven in practice, not pre-built
-    speculatively.
+## Dev ergonomics
+
+- **Dev-only test Player login (2FA friction fix).** Root cause:
+  private-browsing windows don't persist session cookies, so the
+  `sonora.kirintor` test account re-triggers 2FA on every refresh.
+  Fix in progress: separate non-private browser app (Firefox/Edge/etc.)
+  for the second Google account — separate cookie jar, no code change.
+  If that doesn't hold: Option B is an Email/Password provider enabled
+  **only** on `daggerheart-campaign-codex-dev` Auth (console toggle +
+  one whitelisted test user), with the sign-in button gated in code on
+  `projectId === 'daggerheart-campaign-codex-dev'` so it can't surface
+  on prod. Not started — holding on Option A's result.
+
+## Future phases (scoped, not started)
+
+- **Phase 11 — Visual styling.** Move from structural/functional CSS to
+  an intentional visual design system (color, type, spacing) that
+  communicates information (categories, roles, states) as well as
+  aesthetic. Gregg has no design background; session will include
+  establishing a Claude-assisted design workflow (prompting patterns,
+  reference/moodboard artifacts, model choice) alongside the actual
+  CSS work.
+- **Phase 12 — SRD data import.** Ingest Daggerheart SRD content into
+  the codex, reusing critical-path parsing/structuring work already
+  done in the separate `daggerheart-encounter-builder` repo rather than
+  starting from scratch.
+- **Phase 13 — Offline / degraded connectivity.** Missed opportunities
+  for offline experience and handling intermittent connectivity at the
+  table. Prod database backup/snapshot/export strategy folds in here.
+- **Phase 14 — Player-facing contribution features.** Character
+  management, in-app GM messaging at the table, codex-unlock
+  notifications, and other ways players contribute directly rather than
+  read-only.
+
