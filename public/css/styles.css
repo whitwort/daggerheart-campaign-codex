@@ -390,14 +390,14 @@ select {
 #codex-detail button {
   background: linear-gradient(to bottom, var(--void-raised), #000000);
   color: var(--parchment);
-  border: 1px solid rgba(0,0,0,0.6);
-  box-shadow: inset 0 1px 4px rgba(0,0,0,0.7), inset 0 -1px 0 rgba(255,255,255,0.06);
+  border: 1px solid rgba(217,164,65,0.35);
+  box-shadow: inset 0 1px 4px rgba(0,0,0,0.7), inset 0 -1px 0 rgba(255,255,255,0.06), 0 0 8px rgba(217,164,65,0.25);
 }
-#codex-detail button:hover { border-color: var(--fear); }
+#codex-detail button:hover { border-color: var(--fear); box-shadow: inset 0 1px 4px rgba(0,0,0,0.7), inset 0 -1px 0 rgba(255,255,255,0.06), 0 0 8px var(--fear-glow); }
 #codex-detail button:active { box-shadow: inset 0 2px 5px rgba(0,0,0,0.85); }
 #codex-detail #codex-detail-tabs button {
   background: none; border: none; box-shadow: none; border-radius: 0;
-  border-bottom: 3px solid transparent;
+  border-bottom: 3px solid transparent; color: var(--ink-soft);
 }
 #codex-detail #codex-detail-tabs button.active { border-bottom-color: var(--hope); color: var(--ink); }
 #codex-detail .entity-map-link {
