@@ -37,9 +37,7 @@
   <header>
     <h1 id="campaign-title"></h1>
     <div id="auth-area">
-      <span id="role-badge">Viewer</span>
       <span id="user-email"></span>
-      <button id="gm-preview-toggle-btn" type="button" style="display:none;"></button>
       <div id="signin-buttons">
         <button id="signin-google">Sign in with Google</button>
         <button id="signin-github">Sign in with GitHub</button>
@@ -70,6 +68,20 @@
     <button id="tab-btn-codex" class="active" data-tab="codex-panel">Codex</button>
     <button id="tab-btn-map" data-tab="map-panel">Map</button>
     <button id="tab-btn-admin" data-tab="admin-panel" style="display:none;">Admin<span id="admin-pending-badge" style="display:none;"></span></button>
+    <div id="nav-right-spacer"></div>
+    <div id="nav-view-switcher" class="nav-switcher" style="display:none;">
+      <span class="nav-switcher-label">View</span>
+      <select id="gm-view-select" class="nav-select">
+        <option value="gm">GM</option>
+        <option value="player">Player</option>
+      </select>
+    </div>
+    <div id="nav-character-switcher" class="nav-switcher" style="display:none;">
+      <span class="nav-switcher-label">Character</span>
+      <select id="player-character-select" class="nav-select">
+        <option value="">—</option>
+      </select>
+    </div>
   </nav>
 
   <div id="codex-panel" class="tab-panel active">
@@ -81,11 +93,11 @@
         </div>
         <div id="codex-entities"></div>
         <div id="codex-list-actions">
-          <button id="codex-new-btn">+ New entity</button>
+          <button id="codex-new-btn">+ New entry</button>
         </div>
       </div>
       <div id="codex-detail-pane" class="empty">
-        <div id="codex-detail"><p id="codex-empty">Select a page from your Codex&hellip;</p></div>
+        <div id="codex-detail"><p id="codex-empty">What would you like to read in your codex?</p></div>
       </div>
     </div>
   </div>
@@ -172,7 +184,7 @@
 
   <div id="entity-new-overlay" class="modal-overlay">
     <div id="entity-new-form" class="modal-box">
-      <h3>New entity</h3>
+      <h3>New entry</h3>
       <label for="entity-new-name">Name</label>
       <input type="text" id="entity-new-name">
       <label for="entity-new-category">Entry type</label>
