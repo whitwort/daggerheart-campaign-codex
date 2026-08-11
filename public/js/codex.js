@@ -37,6 +37,16 @@ function slugify(name) {
     .replace(/^-+|-+$/g, '');
 }
 
+// CSS class carrying the entry-type dot/pin color (see styles.css "Pin
+// color legend" block — single place to edit colors). Mirrors
+// categoryPinClass() in map.js; kept local since codex.js and map.js
+// don't share a small-utils module.
+function categoryPinClassLocal(category) {
+  const slug = (category || 'default').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return 'pin-cat-' + (slug || 'default');
+}
+
+
 CONFIG.categories.forEach(function (cat) {
   const filterOpt = document.createElement('option');
   filterOpt.value = cat;
@@ -270,16 +280,22 @@ function renderList() {
 
     const header = document.createElement('div');
     header.className = 'entity-group-header' + (collapsed ? ' collapsed' : '');
+    const leftWrap = document.createElement('span');
+    leftWrap.className = 'entity-group-header-left';
+    const dotSpan = document.createElement('span');
+    dotSpan.className = 'entity-group-dot ' + categoryPinClassLocal(cat);
     const titleSpan = document.createElement('span');
     titleSpan.textContent = cat + ' ';
     const countSpan = document.createElement('span');
     countSpan.className = 'entity-group-count';
     countSpan.textContent = '(' + entities.length + ')';
     titleSpan.appendChild(countSpan);
+    leftWrap.appendChild(dotSpan);
+    leftWrap.appendChild(titleSpan);
     const caretSpan = document.createElement('span');
     caretSpan.className = 'entity-group-caret';
     caretSpan.textContent = '\u25be';
-    header.appendChild(titleSpan);
+    header.appendChild(leftWrap);
     header.appendChild(caretSpan);
     header.addEventListener('click', function () {
       state.categoryCollapse[cat] = collapsed ? false : true;
@@ -1124,10 +1140,16 @@ function renderDetailForSelected() {
 
   if (!entity || (!gmView && !isEntityPlayerVisible(entity.id))) {
     detailPaneEl.classList.add('empty');
+    detailEl.classList.remove('vis-hidden', 'vis-visible');
     detailEl.innerHTML = '<p id="codex-empty">Select a page from your Codex&hellip;</p>';
     return;
   }
   detailPaneEl.classList.remove('empty');
+
+  detailEl.classList.remove('vis-hidden', 'vis-visible');
+  if (gmView) {
+    detailEl.classList.add(entity.visibility === 'all-players' ? 'vis-visible' : 'vis-hidden');
+  }
 
   const editing = gmView && state.detailEditMode && state.detailEditDraft;
   const draft = editing ? state.detailEditDraft : null;
