@@ -455,11 +455,14 @@ select {
    button rule's press/glow effects (those match on id+element, which
    otherwise outranks a bare id+class rule on :hover/:active). */
 #codex-related-chips .related-chip,
-#codex-related-chips .related-chip:hover,
 #codex-related-chips .related-chip:active,
 #codex-related-chips .related-chip:focus {
   display: inline-block; background: rgba(94,130,150,0.18); color: #3D5464; border-radius: 16px;
-  padding: 0.3125rem 0.75rem; font-size: 0.8125rem; cursor: pointer; border: none; box-shadow: none; outline: none; transition: none;
+  padding: 0.3125rem 0.75rem; font-size: 0.8125rem; cursor: pointer; border: 1px solid transparent; box-shadow: none; outline: none; transition: none;
+}
+#codex-related-chips .related-chip:hover {
+  display: inline-block; background: rgba(94,130,150,0.18); color: #3D5464; border-radius: 16px;
+  padding: 0.3125rem 0.75rem; font-size: 0.8125rem; cursor: pointer; border: 1px solid rgba(61,84,100,0.4); box-shadow: none; outline: none; transition: none;
 }
 
 /* Inline entity edit fields (replaces the old entity-form modal) */
