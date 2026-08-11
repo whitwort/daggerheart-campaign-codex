@@ -491,15 +491,24 @@ select {
 }
 .entity-edit-field input[type="text"], .entity-edit-field select, .entity-edit-field textarea {
   width: 100%; box-sizing: border-box; padding: 0.5rem 0.6rem; font-size: 0.9rem;
-  font-family: inherit; background: #fff; color: var(--ink); border: 1px solid var(--parchment-edge);
-  border-radius: 6px;
+  font-family: inherit; border-radius: 6px;
+}
+.entity-edit-field select {
+  background: #fff; color: var(--ink); border: 1px solid var(--parchment-edge);
+}
+/* Text inputs/textareas match the Search name/tags box (void bg,
+   parchment text) rather than the white select fields, per design
+   note: dark text-entry controls read as part of the app's void-toned
+   control language even sitting on the parchment card. */
+.entity-edit-field input[type="text"], .entity-edit-field textarea {
+  background: var(--void); color: var(--parchment); border: 1px solid var(--void-line);
 }
 .entity-edit-field input[type="text"]:focus, .entity-edit-field select:focus, .entity-edit-field textarea:focus {
   outline: none; border-color: var(--fear); box-shadow: 0 0 0 2px var(--fear-glow);
 }
 #codex-card-heading input[type="text"] {
-  font-size: 1.3rem; padding: 0.3rem 0.5rem; font-family: inherit; background: #fff; color: var(--ink);
-  border: 1px solid var(--parchment-edge); border-radius: 6px; width: 100%; box-sizing: border-box;
+  font-size: 1.3rem; padding: 0.3rem 0.5rem; font-family: inherit; background: var(--void); color: var(--parchment);
+  border: 1px solid var(--void-line); border-radius: 6px; width: 100%; box-sizing: border-box;
 }
 #codex-card-heading input[type="text"]:focus { outline: none; border-color: var(--fear); box-shadow: 0 0 0 2px var(--fear-glow); }
 .related-edit-list { list-style: none; padding: 0; margin: 0; }
@@ -507,19 +516,28 @@ select {
   display: flex; align-items: center; justify-content: space-between;
   padding: 0.4rem 0.6rem; background: var(--parchment-edge); border-radius: 6px; margin-bottom: 0.35rem; font-size: 0.85rem;
 }
-#codex-detail .related-edit-list button { padding: 0.1rem 0.5rem; cursor: pointer; font-size: 0.8rem; min-width: 0; text-align: left; }
-.related-edit-add { display: flex; gap: 0.4rem; margin-top: 0.4rem; }
+.related-edit-add { display: flex; gap: 0.4rem; margin-top: 0.4rem; align-items: center; }
 .related-edit-add select { flex: 1; margin-top: 0; }
-#codex-detail .related-edit-add button { padding: 0.35rem 0.7rem; cursor: pointer; min-width: 0; text-align: left; }
+
 .image-edit-status { font-size: 0.8rem; color: var(--ink-soft); margin: 0.4rem 0 0; display: block; }
 .gallery-edit-list { list-style: none; padding: 0; margin: 0 0 0.5rem; }
-.gallery-edit-list li {
-  display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.4rem;
-  background: var(--parchment-edge); border-radius: 6px; padding: 0.4rem 0.6rem;
+/* Gallery rows reuse .lore-item (parchment-edge fill + hope/fear left
+   strip, same as Lore items) with a compact horizontal layout instead
+   of .lore-item's default stacked one. */
+.gallery-edit-item { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
+.gallery-edit-item img { width: 48px; height: 48px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+.gallery-edit-item .toggle-switch { flex-shrink: 0; }
+.gallery-edit-item button { margin-left: auto; }
+.entity-edit-field input[type="file"] {
+  display: block; margin-top: 0.2rem; font-size: 0.85rem; color: var(--ink-soft);
+  background: transparent; border: none; padding: 0;
 }
-.gallery-edit-list img { width: 48px; height: 48px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
-.gallery-edit-list .lore-vis-badge { flex-shrink: 0; }
-.entity-edit-field input[type="file"] { display: block; margin-top: 0.2rem; font-size: 0.85rem; color: var(--ink-soft); }
+.entity-edit-field input[type="file"]::-webkit-file-upload-button {
+  background: #000000; color: var(--parchment); border: 3px solid var(--parchment-edge); border-radius: 8px;
+  padding: 0.5rem 1rem; font-family: inherit; font-size: 0.9rem; cursor: pointer; margin-right: 0.6rem;
+  box-shadow: inset 0 0 10px 2px rgba(0,0,0,0.9); min-width: 5.5rem; text-align: center;
+}
+.entity-edit-field input[type="file"]::-webkit-file-upload-button:hover { border-color: var(--hope); }
 .entity-edit-field > button { margin-top: 0.5rem; }
 
 #build-version { margin-top: 2rem; font-size: 0.7rem; color: var(--ink-soft); }
@@ -536,7 +554,7 @@ select {
 .lore-vis-badge { padding: 0.1rem 0.45rem; font-size: 0.7rem; border-radius: 3px; }
 .lore-vis-badge.visible { background: var(--fear); color: #fff; box-shadow: 0 0 0.4rem var(--fear-glow); }
 .lore-vis-badge.hidden { background: var(--hope); color: var(--void); box-shadow: 0 0 0.4rem var(--hope-glow); }
-.lore-item-btn { padding: 0.15rem 0.55rem; font-size: 0.75rem; cursor: pointer; }
+.lore-item-btn { cursor: pointer; }
 .lore-item-body { font-size: 0.906rem; line-height: 1.6; color: var(--ink); font-weight: 400; }
 .lore-item-body > :first-child { margin-top: 0; }
 .lore-item-body > :last-child { margin-bottom: 0; }
@@ -587,7 +605,9 @@ select {
 
 /* Entity images (Phase 8) */
 #codex-gallery { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.75rem; }
-.gallery-item { max-width: 260px; }
+.gallery-item { max-width: 260px; padding-left: 0.6rem; }
+.gallery-item.vis-hidden { border-left: 4px solid var(--hope); }
+.gallery-item.vis-visible { border-left: 4px solid var(--fear); }
 .gallery-item img { width: 100%; height: auto; display: block; border: 1px solid var(--parchment-edge); border-radius: 4px; }
 .gallery-item-bar { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.25rem; }
 #admin-root-entity-hint { font-size: 0.85rem; color: var(--ink-soft); }
