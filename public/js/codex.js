@@ -163,15 +163,15 @@ function isGmView() {
 // --- GM toolbar (global, not per-card) -----------------------------------
 // "Show player view" / "Show GM view" is application-wide state, not tied
 // to any one entity, so it lives once in the header rather than being
-// redrawn on every Entry Card.
-const gmToolbarEl = document.getElementById('gm-toolbar');
+// redrawn on every Entry Card. Lives inline in #auth-area (top-pinned row)
+// so the title can bottom-align to the nav strip below it.
 const gmPreviewToggleBtn = document.getElementById('gm-preview-toggle-btn');
 function updateGmToolbar() {
   if (state.currentRole !== 'gm') {
-    gmToolbarEl.style.display = 'none';
+    gmPreviewToggleBtn.style.display = 'none';
     return;
   }
-  gmToolbarEl.style.display = 'flex';
+  gmPreviewToggleBtn.style.display = '';
   gmPreviewToggleBtn.textContent = state.gmPreviewAsPlayer ? 'Show GM view' : 'Show player view';
 }
 gmPreviewToggleBtn.addEventListener('click', function () {
