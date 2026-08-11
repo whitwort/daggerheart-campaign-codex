@@ -514,6 +514,7 @@ function saveEntityEdit(entity) {
 
 function makeEditField(labelText, value, onInput, opts) {
   const wrap = document.createElement('div');
+  wrap.className = 'entity-edit-field';
   const label = document.createElement('label');
   label.textContent = labelText;
   wrap.appendChild(label);
@@ -528,6 +529,7 @@ function makeEditField(labelText, value, onInput, opts) {
 
 function buildParentSelect(entityId, currentParentId, onChange) {
   const wrap = document.createElement('div');
+  wrap.className = 'entity-edit-field';
   const label = document.createElement('label');
   label.textContent = 'Parent entity';
   wrap.appendChild(label);
@@ -553,6 +555,7 @@ function buildParentSelect(entityId, currentParentId, onChange) {
 
 function buildRelatedEditor(entityId, draft) {
   const wrap = document.createElement('div');
+  wrap.className = 'entity-edit-field';
   const label = document.createElement('label');
   label.textContent = 'Related entities';
   wrap.appendChild(label);
@@ -613,6 +616,7 @@ function buildRelatedEditor(entityId, draft) {
 
 function buildMapImageEditSection(entity) {
   const wrap = document.createElement('div');
+  wrap.className = 'entity-edit-field';
   const label = document.createElement('label');
   label.textContent = 'Map image';
   wrap.appendChild(label);
@@ -661,6 +665,7 @@ function buildMapImageEditSection(entity) {
 
 function buildGalleryEditSection(entity) {
   const wrap = document.createElement('div');
+  wrap.className = 'entity-edit-field';
   const label = document.createElement('label');
   label.textContent = 'Gallery';
   wrap.appendChild(label);
@@ -1171,6 +1176,7 @@ function renderDetailForSelected() {
   if (editing) {
     leftCol.appendChild(makeEditField('Name', draft.name, function (v) { draft.name = v; }));
     const catWrap = document.createElement('div');
+    catWrap.className = 'entity-edit-field';
     const catLabel = document.createElement('label');
     catLabel.textContent = 'Entry type';
     catWrap.appendChild(catLabel);
@@ -1193,6 +1199,7 @@ function renderDetailForSelected() {
       leftCol.appendChild(makeEditField('Ancestry', draft.ancestry, function (v) { draft.ancestry = v; }));
       leftCol.appendChild(makeEditField('Aliases (comma-separated)', draft.aliases, function (v) { draft.aliases = v; }));
       const ownerWrap = document.createElement('div');
+      ownerWrap.className = 'entity-edit-field';
       const ownerLabel = document.createElement('label');
       ownerLabel.textContent = 'Owned by party member';
       ownerWrap.appendChild(ownerLabel);
