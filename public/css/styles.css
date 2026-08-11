@@ -492,4 +492,5 @@ select {
 .CodeMirror { border: 1px solid var(--void-line); height: 220px; font-size: 0.85rem; }
 
 /* Category-specific metadata under the entity heading */
+.entity-type-line { font-style: italic; color: var(--ink-soft); margin: 0.25rem 0 1.125rem; }
 .entity-meta-line { color: var(--ink-soft); font-size: 0.9rem; margin: -0.25rem 0 0.75rem; }
