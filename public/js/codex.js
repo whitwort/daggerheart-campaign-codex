@@ -673,29 +673,31 @@ function buildGalleryEditSection(entity) {
   const list = document.createElement('ul');
   list.className = 'gallery-edit-list';
   galleryImagesFor(entity.id, true).forEach(function (img) {
+    const visible = img.visibility === 'all-players';
     const li = document.createElement('li');
+    li.className = 'lore-item gallery-edit-item ' + (visible ? 'vis-visible' : 'vis-hidden');
     const thumb = document.createElement('img');
     thumb.src = img.data;
     li.appendChild(thumb);
 
-    const visBadge = document.createElement('span');
-    visBadge.className = 'lore-vis-badge ' + (img.visibility === 'all-players' ? 'visible' : 'hidden');
-    visBadge.textContent = img.visibility;
-    li.appendChild(visBadge);
-
-    const revealBtn = document.createElement('button');
-    revealBtn.type = 'button';
-    revealBtn.className = 'lore-item-btn';
-    revealBtn.textContent = img.visibility === 'gm-only' ? 'Reveal' : 'Hide';
-    revealBtn.addEventListener('click', function () {
-      setGalleryImageVisibility(img.id, img.visibility === 'gm-only' ? 'all-players' : 'gm-only')
+    const switchLabel = document.createElement('label');
+    switchLabel.className = 'toggle-switch';
+    switchLabel.title = visible ? 'Visible to party' : 'Hidden from party';
+    const switchInput = document.createElement('input');
+    switchInput.type = 'checkbox';
+    switchInput.checked = visible;
+    switchInput.addEventListener('change', function () {
+      setGalleryImageVisibility(img.id, switchInput.checked ? 'all-players' : 'gm-only')
         .catch(function (err) { window.alert('Visibility change failed: ' + err.message); });
     });
-    li.appendChild(revealBtn);
+    const switchSlider = document.createElement('span');
+    switchSlider.className = 'toggle-slider';
+    switchLabel.appendChild(switchInput);
+    switchLabel.appendChild(switchSlider);
+    li.appendChild(switchLabel);
 
     const delBtn = document.createElement('button');
     delBtn.type = 'button';
-    delBtn.className = 'lore-item-btn';
     delBtn.textContent = 'Delete';
     delBtn.addEventListener('click', function () {
       if (!window.confirm('Delete this gallery image?')) return;
@@ -1324,7 +1326,7 @@ function renderDetailForSelected() {
     galleryDiv.id = 'codex-gallery';
     galleryImages.forEach(function (img) {
       const figDiv = document.createElement('div');
-      figDiv.className = 'gallery-item';
+      figDiv.className = 'gallery-item ' + (img.visibility === 'all-players' ? 'vis-visible' : 'vis-hidden');
       const imgEl = document.createElement('img');
       imgEl.src = img.data;
       imgEl.alt = entity.name;
@@ -1333,18 +1335,22 @@ function renderDetailForSelected() {
       if (gmView) {
         const barDiv = document.createElement('div');
         barDiv.className = 'gallery-item-bar';
-        const visBadge = document.createElement('span');
-        visBadge.className = 'lore-vis-badge ' + (img.visibility === 'all-players' ? 'visible' : 'hidden');
-        visBadge.textContent = img.visibility;
-        barDiv.appendChild(visBadge);
-        const revealBtn = document.createElement('button');
-        revealBtn.className = 'lore-item-btn';
-        revealBtn.textContent = img.visibility === 'gm-only' ? 'Reveal' : 'Hide';
-        revealBtn.addEventListener('click', function () {
-          setGalleryImageVisibility(img.id, img.visibility === 'gm-only' ? 'all-players' : 'gm-only')
+        const visible = img.visibility === 'all-players';
+        const switchLabel = document.createElement('label');
+        switchLabel.className = 'toggle-switch';
+        switchLabel.title = visible ? 'Visible to party' : 'Hidden from party';
+        const switchInput = document.createElement('input');
+        switchInput.type = 'checkbox';
+        switchInput.checked = visible;
+        switchInput.addEventListener('change', function () {
+          setGalleryImageVisibility(img.id, switchInput.checked ? 'all-players' : 'gm-only')
             .catch(function (err) { window.alert('Visibility change failed: ' + err.message); });
         });
-        barDiv.appendChild(revealBtn);
+        const switchSlider = document.createElement('span');
+        switchSlider.className = 'toggle-slider';
+        switchLabel.appendChild(switchInput);
+        switchLabel.appendChild(switchSlider);
+        barDiv.appendChild(switchLabel);
         figDiv.appendChild(barDiv);
       }
       galleryDiv.appendChild(figDiv);
