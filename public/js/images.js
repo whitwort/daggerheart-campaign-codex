@@ -10,7 +10,7 @@ const db = getFirestore(firebaseApp);
 // Refactor-split fix (Aug 2026): these constants live here (their sole
 // consumer) — module scope isn't shared; leaving them in map.js broke
 // every reference. The eslint no-undef CI gate now catches this class.
-const IMAGE_MAX_DIMENSION = 4000; // px, before compression
+const IMAGE_MAX_DIMENSION = 6000; // px, before compression
 const IMAGE_MAX_RAW_BYTES = 750 * 1024; // ~750KB raw ceiling (Firestore 1MiB doc cap / ~33% base64 overhead) — block, don't chunk
 // Phase 10a: quality search, highest first. Fixed quality:85 wasted headroom
 // on simple/high-contrast images (flat colors, line art, text) that
