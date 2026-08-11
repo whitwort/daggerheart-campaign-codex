@@ -160,22 +160,22 @@ function isGmView() {
   return state.currentRole === 'gm' && !state.gmPreviewAsPlayer;
 }
 
-// --- GM toolbar (global, not per-card) -----------------------------------
-// "Show player view" / "Show GM view" is application-wide state, not tied
-// to any one entity, so it lives once in the header rather than being
-// redrawn on every Entry Card. Lives inline in #auth-area (top-pinned row)
-// so the title can bottom-align to the nav strip below it.
-const gmPreviewToggleBtn = document.getElementById('gm-preview-toggle-btn');
+// --- Nav-strip role switcher (global, not per-card) -----------------------
+// GM: "View" dropdown (GM/Player) drives the existing gmPreviewAsPlayer
+// simulation. True player: "Character" dropdown is a placeholder for now
+// (values to be populated in a future phase) — shown but inert.
+const navViewSwitcherEl = document.getElementById('nav-view-switcher');
+const navCharacterSwitcherEl = document.getElementById('nav-character-switcher');
+const gmViewSelect = document.getElementById('gm-view-select');
 function updateGmToolbar() {
-  if (state.currentRole !== 'gm') {
-    gmPreviewToggleBtn.style.display = 'none';
-    return;
+  navViewSwitcherEl.style.display = (state.currentRole === 'gm') ? '' : 'none';
+  navCharacterSwitcherEl.style.display = (state.currentRole === 'player') ? '' : 'none';
+  if (state.currentRole === 'gm') {
+    gmViewSelect.value = state.gmPreviewAsPlayer ? 'player' : 'gm';
   }
-  gmPreviewToggleBtn.style.display = '';
-  gmPreviewToggleBtn.textContent = state.gmPreviewAsPlayer ? 'Show GM view' : 'Show player view';
 }
-gmPreviewToggleBtn.addEventListener('click', function () {
-  state.gmPreviewAsPlayer = !state.gmPreviewAsPlayer;
+gmViewSelect.addEventListener('change', function () {
+  state.gmPreviewAsPlayer = (gmViewSelect.value === 'player');
   updateGmToolbar();
   renderList();
   renderDetailForSelected();
@@ -1131,7 +1131,7 @@ function renderDetailForSelected() {
   if (!entity || (!gmView && !isEntityPlayerVisible(entity.id))) {
     detailPaneEl.classList.add('empty');
     detailEl.classList.remove('vis-hidden', 'vis-visible');
-    detailEl.innerHTML = '<p id="codex-empty">Select a page from your Codex&hellip;</p>';
+    detailEl.innerHTML = '<p id="codex-empty">What would you like to read in your codex?</p>';
     return;
   }
   detailPaneEl.classList.remove('empty');
