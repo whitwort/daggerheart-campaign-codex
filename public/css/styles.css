@@ -49,7 +49,7 @@ body {
 }
 
 header { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
-header h1 { margin: 0; font-size: 1.4rem; font-family: var(--font-display), sans-serif; font-weight: 400; color: var(--parchment); }
+header h1 { margin: 0; font-size: 1.75rem; font-family: var(--font-display), sans-serif; font-weight: 400; color: var(--parchment); letter-spacing: 0.02em; }
 #auth-area { margin-left: auto; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem; color: var(--parchment); }
 #role-badge { padding: 0.15rem 0.5rem; border-radius: 3px; background: var(--void-raised); border: 1px solid var(--void-line); font-family: var(--font-body), sans-serif; }
 #signin-buttons button { padding: 0.3rem 0.6rem; font-size: 0.85rem; cursor: pointer; }
@@ -113,9 +113,9 @@ nav#tabs button {
   z-index: 1;
   background: none;
   border: none;
-  padding: 0.5rem 1rem;
+  padding: 0.75rem 1.25rem;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-family: var(--font-display), sans-serif;
   font-weight: 400;
   color: var(--ink-soft);
@@ -224,23 +224,45 @@ nav#tabs button.active { border-bottom: 3px solid var(--fear); color: var(--parc
 #pin-move-indicator button { padding: 0.3rem 0.7rem; cursor: pointer; background: var(--void); color: var(--parchment); border: 1px solid var(--void-line); }
 
 #codex-tab { display: flex; gap: 1.5rem; margin-top: 1rem; }
-#codex-list-pane { flex: 0 0 320px; }
+#codex-list-pane {
+  flex: 0 0 320px; background: var(--void-raised); border: 1px solid var(--void-line);
+  border-radius: 14px; padding: 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
 #codex-detail-pane { flex: 1; min-width: 0; }
-.pane-title { margin: 0 0 0.5rem; font-size: 0.95rem; color: var(--ink-soft); font-family: var(--font-display), sans-serif; font-weight: 400; }
+.pane-title {
+  margin: 0 0 0.75rem; font-size: 0.8rem; color: var(--ink-soft); font-family: var(--font-display), sans-serif;
+  font-weight: 400; letter-spacing: 0.08em; text-transform: uppercase;
+}
 #codex-filters { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
 #codex-filters select, #codex-filters input { padding: 0.35rem; font-size: 0.9rem; }
 #codex-search { flex: 1; }
 #codex-list-actions { display: flex; justify-content: flex-end; margin-top: 0.5rem; }
 #codex-new-btn { padding: 0.4rem 0.8rem; cursor: pointer; }
 
+/* Dark-themed native form controls: override iOS Safari's light chrome
+   with a custom arrow so selects don't fall back to the system look. */
+select {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23E9DDC2'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  padding-right: 1.6rem;
+}
+.modal-box select, .entity-edit-block select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%233A2E22'/%3E%3C/svg%3E");
+}
+
 /* Table of Contents: accordion grouped by category */
-#codex-entities { max-height: 70vh; overflow-y: auto; border: 1px solid var(--void-line); background: var(--void-raised); border-radius: 4px; }
+#codex-entities { max-height: 70vh; overflow-y: auto; border: 1px solid var(--void-line); background: var(--void); border-radius: 8px; }
 .entity-group-header {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 0.5rem 0.75rem; background: var(--void-raised); cursor: pointer;
+  padding: 0.5rem 0.75rem; background: var(--void); cursor: pointer;
   font-weight: normal; font-family: var(--font-display), sans-serif; font-size: 0.9rem; border-bottom: 1px solid var(--void-line);
   color: var(--parchment);
 }
+.entity-group-header-left { display: flex; align-items: center; gap: 0.5rem; }
+.entity-group-dot { width: 0.55rem; height: 0.55rem; border-radius: 50%; flex-shrink: 0; background: var(--pin-color, #888); }
 .entity-group-header:hover { background: #222836; }
 .entity-group-header .entity-group-count { font-weight: normal; color: var(--ink-soft); font-size: 0.8rem; font-family: var(--font-body), sans-serif; }
 .entity-group-caret { transition: transform 0.15s ease; }
@@ -274,10 +296,16 @@ nav#tabs button.active { border-bottom: 3px solid var(--fear); color: var(--parc
 /* Codex page: parchment content card. Hope/Fear glow rings applied via
    .vis-hidden / .vis-visible per the duality convention (Hope = warm
    gold = hidden/GM-only, Fear = cool blue-violet = visible to players). */
-#codex-detail { border: 1px solid var(--parchment-edge); background: var(--parchment); color: var(--ink); padding: 1rem; min-height: 200px; border-radius: 4px; }
+#codex-detail {
+  border: 1px solid var(--parchment-edge); background: var(--parchment); color: var(--ink);
+  padding: 1.5rem 1.75rem; min-height: 200px; border-radius: 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+}
+#codex-detail.vis-hidden { box-shadow: 0 0 0 2px var(--hope), 0 0 1.5rem var(--hope-glow); }
+#codex-detail.vis-visible { box-shadow: 0 0 0 2px var(--fear), 0 0 1.5rem var(--fear-glow); }
 #codex-detail-pane.empty h3.pane-title { display: none; }
 #codex-detail-pane.empty #codex-detail { border: none; background: none; padding: 0; min-height: 0; }
-#codex-detail h2 { margin-top: 0; font-family: var(--font-display), sans-serif; font-weight: 400; }
+#codex-detail h2 { margin-top: 0; font-size: 1.6rem; font-family: var(--font-display), sans-serif; font-weight: 400; }
 #codex-card-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
 #codex-card-heading h2 { margin: 0; }
 #codex-card-heading input[type="text"] { font-size: 1.3rem; padding: 0.2rem 0.3rem; font-family: inherit; background: #fff; color: var(--ink); border: 1px solid var(--parchment-edge); }
