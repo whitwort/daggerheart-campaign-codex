@@ -118,6 +118,7 @@ nav#tabs button {
   z-index: 1;
   background: none;
   border: none;
+  border-radius: 0;
   padding: 0.75rem 0.25rem;
   cursor: pointer;
   font-size: 0.95rem;
@@ -308,7 +309,7 @@ select {
   box-shadow: 0 4px 20px rgba(0,0,0,0.35);
 }
 #codex-detail.vis-hidden { box-shadow: 0 0 0 2px var(--hope), 0 0 1.5rem var(--hope-glow); }
-#codex-detail.vis-visible { box-shadow: 0 0 0 2px var(--fear), 0 0 1.5rem var(--fear-glow); }
+#codex-detail.vis-visible { box-shadow: 0 0 0 2px var(--fear), 0 0 0 5px rgba(0,0,0,0.35), 0 0 1.5rem var(--fear-glow); }
 #codex-detail-pane.empty h3.pane-title { display: none; }
 #codex-detail-pane.empty #codex-detail { border: none; background: none; padding: 0; min-height: 0; }
 #codex-detail h2 { margin-top: 0; font-size: 1.6rem; font-family: var(--font-display), sans-serif; font-weight: 400; }
@@ -319,9 +320,6 @@ select {
 #codex-card-heading-right {
   display: flex; flex-direction: column; align-items: flex-end; gap: 0.3rem; flex-shrink: 0;
 }
-#codex-view-badge { display: inline-block; padding: 0.15rem 0.5rem; font-size: 0.75rem; border-radius: 3px; white-space: nowrap; }
-#codex-view-badge.gm { background: var(--hope); color: var(--void); box-shadow: 0 0 0.5rem var(--hope-glow); }
-#codex-view-badge.player { background: var(--fear); color: #fff; box-shadow: 0 0 0.5rem var(--fear-glow); }
 #codex-tags span { display: inline-block; background: var(--parchment-edge); color: var(--ink); border-radius: 3px; padding: 0.1rem 0.4rem; font-size: 0.75rem; margin-right: 0.25rem; }
 #codex-empty { color: var(--ink-soft); }
 
@@ -335,11 +333,11 @@ select {
 /* Entry Card tab box: Lore | Notes */
 #codex-detail-tabs { display: flex; gap: 0.25rem; margin-top: 0.75rem; border-bottom: 1px solid var(--parchment-edge); }
 #codex-detail-tabs button {
-  padding: 0.4rem 0.9rem; cursor: pointer; background: none; border: none;
+  padding: 0.4rem 0.9rem; cursor: pointer; background: none; border: none; border-radius: 0;
   border-bottom: 3px solid transparent; font-size: 0.9rem; color: var(--ink-soft);
   font-family: var(--font-display), sans-serif; font-weight: 400;
 }
-#codex-detail-tabs button.active { border-bottom-color: var(--fear); color: var(--ink); }
+#codex-detail-tabs button.active { border-bottom-color: var(--hope); color: var(--ink); }
 #codex-detail-tab-panel { padding-top: 0.75rem; }
 
 /* Toggle switch (entity/lore/gallery reveal-hide, always upper-right).
@@ -356,6 +354,8 @@ select {
 .toggle-switch input:checked + .toggle-slider { background: var(--fear); box-shadow: 0 0 0.4rem var(--fear-glow); }
 .toggle-switch input:checked + .toggle-slider::before { transform: translateX(1rem); }
 .toggle-switch-label { font-size: 0.7rem; color: var(--ink-soft); margin-right: 0.3rem; vertical-align: middle; }
+.toggle-switch-label.state-hidden { color: var(--hope); font-weight: 500; }
+.toggle-switch-label.state-visible { color: var(--fear); font-weight: 500; }
 .entity-visibility-toggle-row { display: flex; align-items: center; gap: 0.3rem; }
 
 /* Player-view lore list */
@@ -432,11 +432,11 @@ select {
 #admin-players-table td:last-child { text-align: right; }
 #admin-db-tabs { display: flex; gap: 0.25rem; margin-top: 0.75rem; border-bottom: 1px solid var(--void-line); }
 #admin-db-tabs button {
-  padding: 0.4rem 0.9rem; cursor: pointer; background: none; border: none;
+  padding: 0.4rem 0.9rem; cursor: pointer; background: none; border: none; border-radius: 0;
   border-bottom: 3px solid transparent; font-size: 0.9rem; color: var(--ink-soft);
   font-family: var(--font-display), sans-serif; font-weight: 400;
 }
-#admin-db-tabs button.active { border-bottom-color: var(--fear); color: var(--parchment); }
+#admin-db-tabs button.active { border-bottom-color: var(--hope); color: var(--parchment); }
 .admin-db-tab-panel { display: none; padding-top: 0.75rem; }
 .admin-db-tab-panel.active { display: block; }
 
