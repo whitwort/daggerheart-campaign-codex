@@ -1147,9 +1147,7 @@ function renderDetailForSelected() {
   detailPaneEl.classList.remove('empty');
 
   detailEl.classList.remove('vis-hidden', 'vis-visible');
-  if (gmView) {
-    detailEl.classList.add(entity.visibility === 'all-players' ? 'vis-visible' : 'vis-hidden');
-  }
+  detailEl.classList.add(entity.visibility === 'all-players' ? 'vis-visible' : 'vis-hidden');
 
   const editing = gmView && state.detailEditMode && state.detailEditDraft;
   const draft = editing ? state.detailEditDraft : null;
