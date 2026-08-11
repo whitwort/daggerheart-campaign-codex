@@ -232,6 +232,19 @@ function isCategoryCollapsed(cat) {
   return state.categoryCollapse[cat] !== false;
 }
 
+// TOC group headers show the category as a group label ("Characters (41)")
+// so plural reads more naturally than the singular per-entity type name
+// used everywhere else (entity type line, category dropdown, etc).
+// Already-plural compound categories (ending in 's') pass through unchanged.
+const CATEGORY_GROUP_LABELS = {
+  'Character': 'Characters', 'Faction': 'Factions', 'Location': 'Locations',
+  'Item': 'Items', 'World Facts': 'World Facts', 'Organization': 'Organizations',
+  'Event': 'Events', 'Scene': 'Scenes', 'Ancestry': 'Ancestries', 'Game Mechanics': 'Game Mechanics'
+};
+function categoryGroupLabel(cat) {
+  return CATEGORY_GROUP_LABELS[cat] || cat;
+}
+
 // Table of Contents: accordion grouped by category (CONFIG.categories
 // order), each group a collapsible horizontal bar, collapsed by default.
 function renderList() {
@@ -273,7 +286,7 @@ function renderList() {
     dotSpan.className = 'entity-group-dot ' + categoryPinClassLocal(cat);
     const titleSpan = document.createElement('span');
     titleSpan.className = 'entity-group-title';
-    titleSpan.textContent = cat;
+    titleSpan.textContent = categoryGroupLabel(cat);
     const countSpan = document.createElement('span');
     countSpan.className = 'entity-group-count';
     countSpan.textContent = '(' + entities.length + ')';
@@ -416,7 +429,7 @@ function buildEntityVisibilityToggle(entity) {
   const label = document.createElement('span');
   const hidden = entity.visibility !== 'all-players';
   label.className = 'toggle-switch-label ' + (hidden ? 'state-hidden' : 'state-visible');
-  label.textContent = hidden ? 'Hidden from players' : 'Visible to players';
+  label.textContent = hidden ? 'Hidden from party' : 'Visible to party';
   row.appendChild(label);
   const switchLabel = document.createElement('label');
   switchLabel.className = 'toggle-switch';
@@ -935,7 +948,7 @@ function buildLoreEditBox(entity, editState, isNew) {
   toggleLabel.className = 'toggle-switch-label';
   function updateToggleLabel() {
     const visible = editState.visibility === 'all-players';
-    toggleLabel.textContent = visible ? 'Visible to players' : 'Hidden from players';
+    toggleLabel.textContent = visible ? 'Visible to party' : 'Hidden from party';
     toggleLabel.className = 'toggle-switch-label ' + (visible ? 'state-visible' : 'state-hidden');
   }
   updateToggleLabel();
@@ -1045,7 +1058,7 @@ function renderLoreTab(container, entity, gmView) {
     const toggleLabel = document.createElement('span');
     const itemVisible = item.visibility === 'all-players';
     toggleLabel.className = 'toggle-switch-label ' + (itemVisible ? 'state-visible' : 'state-hidden');
-    toggleLabel.textContent = itemVisible ? 'Visible to players' : 'Hidden from players';
+    toggleLabel.textContent = itemVisible ? 'Visible to party' : 'Hidden from party';
     toggleRow.appendChild(toggleLabel);
     const switchLabel = document.createElement('label');
     switchLabel.className = 'toggle-switch';
@@ -1178,7 +1191,7 @@ function renderDetailForSelected() {
       leftCol.appendChild(makeEditField('Aliases (comma-separated)', draft.aliases, function (v) { draft.aliases = v; }));
       const ownerWrap = document.createElement('div');
       const ownerLabel = document.createElement('label');
-      ownerLabel.textContent = 'Owned by player';
+      ownerLabel.textContent = 'Owned by party member';
       ownerWrap.appendChild(ownerLabel);
       const ownerSelect = document.createElement('select');
       const noneOpt = document.createElement('option');

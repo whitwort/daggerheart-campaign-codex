@@ -110,7 +110,7 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
       if (role === 'gm') attachAdminListeners();
       const hasAccess = (role === 'gm' || role === 'player');
       if (hasAccess) attachDataListeners();
-      loginGateEl.style.display = hasAccess ? 'none' : 'block';
+      loginGateEl.style.display = hasAccess ? 'none' : 'flex';
       mainAppEl.style.display = hasAccess ? 'block' : 'none';
       renderList();  // player-visibility filter depends on role
       renderDetailForSelected();
