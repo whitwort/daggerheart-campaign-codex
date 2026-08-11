@@ -52,6 +52,16 @@ Carry this file forward in context-handoff docs.
   `projectId === 'daggerheart-campaign-codex-dev'` so it can't surface
   on prod. Not started — holding on Option A's result.
 
+## Phase 11 (visual styling) — polish follow-ups
+
+- **Codex TOC entry-row layout stability — good enough, not perfect.**
+  Fixed the hidden-badge-toggle vertical "jump" via a fixed
+  `min-height` on `.entity-group-list li` (see Phase 11 commits). This
+  is a reasonable approximation but not a fully-principled fix — worth
+  a closer look later if other row-content combinations (map-link icon
+  + hidden badge together, longer names wrapping, etc.) turn out to
+  still shift layout on state changes.
+
 ## Future phases (scoped, not started)
 
 - **Phase 11 — Visual styling.** Move from structural/functional CSS to
