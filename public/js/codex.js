@@ -21,7 +21,6 @@ const db = getFirestore(firebaseApp);
 // no migration. UI labels: the list pane is the "Table of Contents", the
 // detail pane is "My Knowledge" (both internal-facing terms only, the
 // underlying data model is still `entities`/`entities` collection).
-const categoryFilterEl = document.getElementById('codex-category-filter');
 const searchEl = document.getElementById('codex-search');
 const listEl = document.getElementById('codex-entities');
 const detailEl = document.getElementById('codex-detail');
@@ -46,13 +45,6 @@ function categoryPinClassLocal(category) {
   return 'pin-cat-' + (slug || 'default');
 }
 
-
-CONFIG.categories.forEach(function (cat) {
-  const filterOpt = document.createElement('option');
-  filterOpt.value = cat;
-  filterOpt.textContent = cat;
-  categoryFilterEl.appendChild(filterOpt);
-});
 
 // Listener-attachment invariant (Phase 7a): only attach once hasAccess
 // is true — Firestore permanently kills a listener on permission-denied
@@ -213,9 +205,6 @@ function isEntityPlayerVisible(entityId) {
 // --- List pane (Table of Contents) ---------------------------------------
 
 function matchesFilters(entity) {
-  const cat = categoryFilterEl.value;
-  if (cat && entity.category !== cat) return false;
-
   const q = searchEl.value.trim().toLowerCase();
   if (!q) return true;
   const nameMatch = (entity.name || '').toLowerCase().indexOf(q) !== -1;
@@ -425,8 +414,8 @@ function buildEntityVisibilityToggle(entity) {
   const row = document.createElement('div');
   row.className = 'entity-visibility-toggle-row';
   const label = document.createElement('span');
-  label.className = 'toggle-switch-label';
   const hidden = entity.visibility !== 'all-players';
+  label.className = 'toggle-switch-label ' + (hidden ? 'state-hidden' : 'state-visible');
   label.textContent = hidden ? 'Hidden from players' : 'Visible to players';
   row.appendChild(label);
   const switchLabel = document.createElement('label');
@@ -945,7 +934,9 @@ function buildLoreEditBox(entity, editState, isNew) {
   const toggleLabel = document.createElement('span');
   toggleLabel.className = 'toggle-switch-label';
   function updateToggleLabel() {
-    toggleLabel.textContent = editState.visibility === 'all-players' ? 'Visible to players' : 'Hidden from players';
+    const visible = editState.visibility === 'all-players';
+    toggleLabel.textContent = visible ? 'Visible to players' : 'Hidden from players';
+    toggleLabel.className = 'toggle-switch-label ' + (visible ? 'state-visible' : 'state-hidden');
   }
   updateToggleLabel();
   toggleRow.appendChild(toggleLabel);
@@ -1052,8 +1043,9 @@ function renderLoreTab(container, entity, gmView) {
     const toggleRow = document.createElement('div');
     toggleRow.className = 'lore-item-toggle-row';
     const toggleLabel = document.createElement('span');
-    toggleLabel.className = 'toggle-switch-label';
-    toggleLabel.textContent = item.visibility === 'all-players' ? 'Visible to players' : 'Hidden from players';
+    const itemVisible = item.visibility === 'all-players';
+    toggleLabel.className = 'toggle-switch-label ' + (itemVisible ? 'state-visible' : 'state-hidden');
+    toggleLabel.textContent = itemVisible ? 'Visible to players' : 'Hidden from players';
     toggleRow.appendChild(toggleLabel);
     const switchLabel = document.createElement('label');
     switchLabel.className = 'toggle-switch';
@@ -1234,11 +1226,6 @@ function renderDetailForSelected() {
 
   const rightCol = document.createElement('div');
   rightCol.id = 'codex-card-heading-right';
-  const badge = document.createElement('span');
-  badge.id = 'codex-view-badge';
-  badge.className = gmView ? 'gm' : 'player';
-  badge.textContent = gmView ? 'GM view' : 'Player view';
-  rightCol.appendChild(badge);
   if (state.currentRole === 'gm') {
     rightCol.appendChild(buildEntityVisibilityToggle(entity));
   }
@@ -1387,7 +1374,6 @@ function renderDetailForSelected() {
   }
 }
 
-categoryFilterEl.addEventListener('change', renderList);
 searchEl.addEventListener('input', renderList);
 
 export {
