@@ -38,10 +38,6 @@
     <h1 id="campaign-title"></h1>
     <div id="auth-area">
       <span id="user-email"></span>
-      <div id="signin-buttons">
-        <button id="signin-google">Sign in with Google</button>
-        <button id="signin-github">Sign in with GitHub</button>
-      </div>
       <button id="sign-out-btn" style="display:none;">Sign out</button>
     </div>
   </header>
@@ -49,9 +45,13 @@
   <div id="login-gate" style="display:none;">
     <div id="login-gate-signed-out">
       <p>Sign in to access this campaign codex.</p>
+      <div id="signin-buttons">
+        <button id="signin-google">Sign in with Google</button>
+        <button id="signin-github">Sign in with GitHub</button>
+      </div>
     </div>
     <div id="login-gate-unlisted" style="display:none;">
-      <p>You're signed in, but not yet on the player list for this campaign.</p>
+      <p>You're signed in, but not yet on the party list for this campaign.</p>
       <button id="request-join-btn">Request to join</button>
       <p id="request-join-status" style="display:none;">Request sent — waiting for the GM to approve.</p>
     </div>
@@ -67,13 +67,15 @@
     <span class="nav-star" style="top:60%;left:93%;animation-duration:9.5s;animation-delay:-8s;"></span>
     <button id="tab-btn-codex" class="active" data-tab="codex-panel">Codex</button>
     <button id="tab-btn-map" data-tab="map-panel">Map</button>
+    <button id="tab-btn-timeline" data-tab="timeline-panel">Timeline</button>
+    <button id="tab-btn-characters" data-tab="characters-panel">Characters</button>
     <button id="tab-btn-admin" data-tab="admin-panel" style="display:none;">Admin<span id="admin-pending-badge" style="display:none;"></span></button>
     <div id="nav-right-spacer"></div>
     <div id="nav-view-switcher" class="nav-switcher" style="display:none;">
       <span class="nav-switcher-label">View</span>
       <select id="gm-view-select" class="nav-select">
         <option value="gm">GM</option>
-        <option value="player">Player</option>
+        <option value="player">Party</option>
       </select>
     </div>
     <div id="nav-character-switcher" class="nav-switcher" style="display:none;">
@@ -115,22 +117,30 @@
     </div>
   </div>
 
+  <div id="timeline-panel" class="tab-panel">
+    <p class="lore-empty">Timeline coming soon</p>
+  </div>
+
+  <div id="characters-panel" class="tab-panel">
+    <p class="lore-empty">Characters coming soon</p>
+  </div>
+
   <div id="admin-panel" class="tab-panel">
     <section id="admin-section-players">
-      <h2>Manage Players</h2>
+      <h2>Manage Party</h2>
 
       <h3>Pending join requests</h3>
       <div id="admin-join-requests"></div>
 
-      <h3>Current players</h3>
+      <h3>Current party</h3>
       <table id="admin-players-table">
         <thead>
-          <tr><th>Player ID</th><th>Player name</th><th>Characters</th><th></th></tr>
+          <tr><th>Party ID</th><th>Party name</th><th>Characters</th><th></th></tr>
         </thead>
         <tbody id="admin-players-tbody"></tbody>
       </table>
       <div class="actions-row-right">
-        <button id="admin-new-player-btn">+ New player</button>
+        <button id="admin-new-player-btn">+ New party member</button>
       </div>
       <div id="admin-new-player-form" style="display:none;">
         <input type="email" id="admin-add-player-email" placeholder="player@example.com">

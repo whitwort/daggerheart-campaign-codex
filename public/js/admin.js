@@ -157,7 +157,7 @@ const adminRootEntityStatusEl = document.getElementById('admin-root-entity-statu
         const cell = document.createElement('td');
         cell.colSpan = 4;
         cell.className = 'lore-empty';
-        cell.textContent = 'No whitelisted players yet.';
+        cell.textContent = 'No whitelisted party members yet.';
         row.appendChild(cell);
         adminPlayersTbodyEl.appendChild(row);
         return;
@@ -219,7 +219,7 @@ const adminRootEntityStatusEl = document.getElementById('admin-root-entity-statu
           const removeBtn = document.createElement('button');
           removeBtn.textContent = 'Remove';
           removeBtn.addEventListener('click', function () {
-            const confirmed = window.confirm('Remove ' + p.id + ' from the player whitelist?');
+            const confirmed = window.confirm('Remove ' + p.id + ' from the party whitelist?');
             if (!confirmed) return;
             deleteDoc(doc(db, 'players', p.id)).catch(function (err) {
               alert('Remove failed: ' + err.message);
