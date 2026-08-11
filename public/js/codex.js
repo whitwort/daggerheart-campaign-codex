@@ -1144,7 +1144,7 @@ function renderDetailForSelected() {
   if (!entity || (!gmView && !isEntityPlayerVisible(entity.id))) {
     detailPaneEl.classList.add('empty');
     detailEl.classList.remove('vis-hidden', 'vis-visible');
-    detailEl.innerHTML = '<p id="codex-empty">What would you like to read in your codex?</p>';
+    detailEl.innerHTML = '<p id="codex-empty">What would you like to read? Make a selection from your Table of Contents.</p>';
     return;
   }
   detailPaneEl.classList.remove('empty');
@@ -1270,7 +1270,7 @@ function renderDetailForSelected() {
   ['lore', 'notes'].forEach(function (tabKey) {
     const tabBtn = document.createElement('button');
     tabBtn.type = 'button';
-    tabBtn.textContent = tabKey === 'lore' ? 'Discovered lore' : 'Our notes';
+    tabBtn.textContent = tabKey === 'lore' ? 'Lore' : 'Notes';
     if (state.detailActiveTab === tabKey) tabBtn.classList.add('active');
     tabBtn.addEventListener('click', function () {
       state.detailActiveTab = tabKey;
