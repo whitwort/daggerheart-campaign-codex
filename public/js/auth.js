@@ -33,7 +33,6 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
     // known open edge case — punted for now, revisit if it happens; the
     // whitelist is keyed by email so such a user would just resolve to
     // 'viewer' and hit the login gate.
-    const roleBadge = document.getElementById('role-badge');
     const userEmailEl = document.getElementById('user-email');
     const signInButtonsEl = document.getElementById('signin-buttons');
     const signOutBtn = document.getElementById('sign-out-btn');
@@ -105,7 +104,6 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
 
     function updateAccessUI(role) {
       state.currentRole = role;
-      roleBadge.textContent = role;
       newEntryBtn.style.display = (role === 'gm') ? 'inline-block' : 'none';
       mapGmControlsEl.style.display = (role === 'gm') ? 'flex' : 'none';
       adminTabBtn.style.display = (role === 'gm') ? 'inline-block' : 'none';
