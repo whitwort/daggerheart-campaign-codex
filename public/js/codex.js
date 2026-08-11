@@ -280,22 +280,20 @@ function renderList() {
 
     const header = document.createElement('div');
     header.className = 'entity-group-header' + (collapsed ? ' collapsed' : '');
-    const leftWrap = document.createElement('span');
-    leftWrap.className = 'entity-group-header-left';
     const dotSpan = document.createElement('span');
     dotSpan.className = 'entity-group-dot ' + categoryPinClassLocal(cat);
     const titleSpan = document.createElement('span');
-    titleSpan.textContent = cat + ' ';
+    titleSpan.className = 'entity-group-title';
+    titleSpan.textContent = cat;
     const countSpan = document.createElement('span');
     countSpan.className = 'entity-group-count';
     countSpan.textContent = '(' + entities.length + ')';
-    titleSpan.appendChild(countSpan);
-    leftWrap.appendChild(dotSpan);
-    leftWrap.appendChild(titleSpan);
     const caretSpan = document.createElement('span');
     caretSpan.className = 'entity-group-caret';
     caretSpan.textContent = '\u25be';
-    header.appendChild(leftWrap);
+    header.appendChild(dotSpan);
+    header.appendChild(titleSpan);
+    header.appendChild(countSpan);
     header.appendChild(caretSpan);
     header.addEventListener('click', function () {
       state.categoryCollapse[cat] = collapsed ? false : true;
@@ -1049,7 +1047,7 @@ function renderLoreTab(container, entity, gmView) {
     }
 
     const itemDiv = document.createElement('div');
-    itemDiv.className = 'lore-item';
+    itemDiv.className = 'lore-item ' + (item.visibility === 'all-players' ? 'vis-visible' : 'vis-hidden');
 
     const toggleRow = document.createElement('div');
     toggleRow.className = 'lore-item-toggle-row';
@@ -1355,9 +1353,6 @@ function renderDetailForSelected() {
     if (visibleRelated.length) {
       const relatedDiv = document.createElement('div');
       relatedDiv.id = 'codex-related';
-      const relHeading = document.createElement('h4');
-      relHeading.textContent = 'Related';
-      relatedDiv.appendChild(relHeading);
       const chipsDiv = document.createElement('div');
       chipsDiv.id = 'codex-related-chips';
       visibleRelated.forEach(function (target) {
