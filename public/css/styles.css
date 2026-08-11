@@ -368,39 +368,33 @@ select {
 #codex-detail-tabs button.active { border-bottom-color: var(--hope); color: var(--ink); }
 #codex-detail-tab-panel { padding-top: 0.75rem; }
 
-/* Entry Card + Lore item buttons: "fade to Void" style (current).
-   Same recessed-into-surface illusion as the rest of the app's dark
-   buttons, but with a gradient fill that deepens toward black for a
-   more pronounced 3D effect, sitting as a dark chip on the light
-   parchment surface. Scoped to #codex-detail via ID so it beats the
-   generic dark `button` rule (redundant in color but keeps the
-   selector self-contained); the exceptions below (tab buttons,
-   map-link icon, related-chip tags) are restated at higher
-   specificity so they're immune to source order.
+/* Entry Card + Lore item buttons: "torn-edge collar" style (current).
+   Confirmed direction (option B of 4 mockup candidates) — a thick
+   parchment-edge collar around a flat black interior, like paper torn
+   through to reveal the Void beneath, rather than a chip floating on
+   top of the surface (the failure mode of the other 3 candidates:
+   gradients/outer-glow read as "object sitting above the page", which
+   is the opposite of the intended "reaches down into the Void" theme).
+   Scoped to #codex-detail via ID so it beats the generic dark `button`
+   rule; the exceptions below (tab buttons, map-link icon, related-chip
+   tags) are restated at higher specificity so they're immune to
+   source order.
 
    BOOKMARK — previous "light style" (parchment-edge fill, ink-toned
    shadow, matching the warm paper surface) is tagged in git as
-   `button-style-light`. To revert: replace the #codex-detail button
-   block below with:
-     background: var(--parchment-edge);
-     color: var(--ink);
-     border: 1px solid rgba(58,46,34,0.3);
-     box-shadow: inset 0 1px 3px rgba(58,46,34,0.35), inset 0 -1px 0 rgba(255,255,255,0.35);
-   and swap the :hover/:active shadow colors back to ink-toned
-   (rgba(58,46,34,...)) instead of black. */
+   `button-style-light`. Previous "fade to Void" gradient attempt is
+   tagged `button-style-fade-to-void`. */
 #codex-detail button {
-  background: linear-gradient(to bottom, var(--void-raised), #000000);
+  background: #000000;
   color: var(--parchment);
-  border: 1px solid rgba(217,164,65,0.4);
-  box-shadow: inset 0 0 6px rgba(217,164,65,0.35), inset 0 1px 4px rgba(0,0,0,0.75), inset 0 -1px 0 rgba(255,255,255,0.06);
+  border: 3px solid var(--parchment-edge);
+  border-radius: 8px;
+  box-shadow: inset 0 0 10px 2px rgba(0,0,0,0.9);
   min-width: 5.5rem;
   text-align: center;
 }
-#codex-detail button:hover {
-  border-color: var(--hope);
-  box-shadow: inset 0 0 8px var(--hope-glow), inset 0 1px 4px rgba(0,0,0,0.75), inset 0 -1px 0 rgba(255,255,255,0.06);
-}
-#codex-detail button:active { box-shadow: inset 0 2px 5px rgba(0,0,0,0.85); }
+#codex-detail button:hover { border-color: var(--hope); }
+#codex-detail button:active { box-shadow: inset 0 0 14px 3px rgba(0,0,0,0.95); }
 #codex-detail #codex-detail-tabs button {
   background: none; border: none; box-shadow: none; border-radius: 0;
   border-bottom: 3px solid transparent; color: var(--ink-soft);
