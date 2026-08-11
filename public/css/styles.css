@@ -367,21 +367,34 @@ select {
 #codex-detail-tabs button.active { border-bottom-color: var(--hope); color: var(--ink); }
 #codex-detail-tab-panel { padding-top: 0.75rem; }
 
-/* Parchment-context buttons: Entry Card + Lore item buttons sit on warm
-   parchment surfaces, not the app's dark void shell — same recessed-
-   into-surface illusion, rebuilt in ink/parchment tones instead of
-   black/void tones. Scoped to #codex-detail via ID so it beats the
-   generic dark `button` rule; the two exceptions below (tab buttons,
-   map-link icon) are restated at higher specificity so they're immune
-   to source order. */
+/* Entry Card + Lore item buttons: "fade to Void" style (current).
+   Same recessed-into-surface illusion as the rest of the app's dark
+   buttons, but with a gradient fill that deepens toward black for a
+   more pronounced 3D effect, sitting as a dark chip on the light
+   parchment surface. Scoped to #codex-detail via ID so it beats the
+   generic dark `button` rule (redundant in color but keeps the
+   selector self-contained); the exceptions below (tab buttons,
+   map-link icon, related-chip tags) are restated at higher
+   specificity so they're immune to source order.
+
+   BOOKMARK — previous "light style" (parchment-edge fill, ink-toned
+   shadow, matching the warm paper surface) is tagged in git as
+   `button-style-light`. To revert: replace the #codex-detail button
+   block below with:
+     background: var(--parchment-edge);
+     color: var(--ink);
+     border: 1px solid rgba(58,46,34,0.3);
+     box-shadow: inset 0 1px 3px rgba(58,46,34,0.35), inset 0 -1px 0 rgba(255,255,255,0.35);
+   and swap the :hover/:active shadow colors back to ink-toned
+   (rgba(58,46,34,...)) instead of black. */
 #codex-detail button {
-  background: var(--parchment-edge);
-  color: var(--ink);
-  border: 1px solid rgba(58,46,34,0.3);
-  box-shadow: inset 0 1px 3px rgba(58,46,34,0.35), inset 0 -1px 0 rgba(255,255,255,0.35);
+  background: linear-gradient(to bottom, var(--void-raised), #000000);
+  color: var(--parchment);
+  border: 1px solid rgba(0,0,0,0.6);
+  box-shadow: inset 0 1px 4px rgba(0,0,0,0.7), inset 0 -1px 0 rgba(255,255,255,0.06);
 }
 #codex-detail button:hover { border-color: var(--fear); }
-#codex-detail button:active { box-shadow: inset 0 2px 4px rgba(58,46,34,0.5); }
+#codex-detail button:active { box-shadow: inset 0 2px 5px rgba(0,0,0,0.85); }
 #codex-detail #codex-detail-tabs button {
   background: none; border: none; box-shadow: none; border-radius: 0;
   border-bottom: 3px solid transparent;
@@ -391,6 +404,7 @@ select {
   background: none; border: none; box-shadow: none; color: var(--fear);
   font-size: 1rem; line-height: 1; text-decoration: none; cursor: pointer; padding: 0;
 }
+
 
 /* Toggle switch (entity/lore/gallery reveal-hide, always upper-right).
    Off (hidden/GM-only) = Hope gold; on (visible to players) = Fear blue. */
@@ -418,11 +432,14 @@ select {
 
 #codex-related { margin-top: 1rem; }
 #codex-related-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-.related-chip {
+/* Specificity note: #codex-related-chips prefix (not just .related-chip)
+   keeps this beating the blanket #codex-detail button rule regardless
+   of source order — chips are tags/links, not buttons. */
+#codex-related-chips .related-chip {
   display: inline-block; background: rgba(94,130,150,0.18); color: #3D5464; border-radius: 16px;
   padding: 0.3125rem 0.75rem; font-size: 0.8125rem; cursor: pointer; border: none; box-shadow: none;
 }
-.related-chip:hover { background: rgba(94,130,150,0.32); }
+#codex-related-chips .related-chip:hover { background: rgba(94,130,150,0.32); }
 
 /* Inline entity edit fields (replaces the old entity-form modal) */
 .entity-edit-block { margin-top: 0.5rem; }
