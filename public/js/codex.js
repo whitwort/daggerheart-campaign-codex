@@ -9,7 +9,7 @@ import { renderMarkdownInto } from './markdown.js';
 import { renderAdminRootEntitySelect, renderAdminPlayersList } from './admin.js';
 import {
   uploadEntityMapImage, deleteEntityMapImage,
-  uploadEntityGalleryImage, deleteEntityGalleryImage, setGalleryImageVisibility
+  uploadEntityGalleryImage, deleteEntityGalleryImage, setGalleryImageVisibility, setEntityPortrait
 } from './images.js';
 
 const db = getFirestore(firebaseApp);
@@ -135,6 +135,119 @@ function galleryImagesFor(entityId, gmView) {
       return ta - tb;
     });
 }
+
+// Entity card gallery hero header. Locked design from
+// portrait-picker-dialog-mockup-v6 (see codex-handoff_6.md): card-level
+// diagonal mask on a wrapper div (not the <img>), manual cover-fit +
+// px transform (object-fit/object-position can't give arbitrary pan
+// range for aspect-mismatched sources), stepped zoom, two-axis edge
+// fade on the image itself. Scoped to #codex-detail only for now.
+const PORTRAIT_ZOOM_STEP_FACTOR = 0.12; // ~12% per step, per mockup
+const PORTRAIT_MAX_ZOOM_STEPS = 8;
+const PORTRAIT_MIN_OVERLAP_FRAC = 0.28; // mid-point of mockup's tunable 22-35% range
+
+// Returns the entity's current portrait image doc (isPortrait flag), or
+// falls back to the first gallery image in sort order if none is flagged
+// yet (covers pre-portrait-feature galleries without a separate migration
+// step). Respects gmView the same way galleryImagesFor does, so a
+// gm-only portrait never shows to players.
+function portraitImageFor(entity, gmView) {
+  const images = galleryImagesFor(entity.id, gmView);
+  if (!images.length) return null;
+  return images.find(function (img) { return img.isPortrait; }) || images[0];
+}
+
+function portraitCoverScale(cw, ch, iw, ih) {
+  return Math.max(cw / iw, ch / ih);
+}
+
+function portraitCurrentScale(img, cw, ch) {
+  const base = portraitCoverScale(cw, ch, img.width, img.height);
+  const step = typeof img.portraitZoomStep === 'number' ? img.portraitZoomStep : 0;
+  return base * (1 + step * PORTRAIT_ZOOM_STEP_FACTOR);
+}
+
+// ox/oy here are the *scaled* px offsets being tested (not yet clamped or
+// converted to/from the stored fractions).
+function portraitClampOffset(img, cw, ch, ox, oy) {
+  const scale = portraitCurrentScale(img, cw, ch);
+  const scaledW = img.width * scale, scaledH = img.height * scale;
+  const minOverlapX = cw * PORTRAIT_MIN_OVERLAP_FRAC;
+  const minOverlapY = ch * PORTRAIT_MIN_OVERLAP_FRAC;
+  const minX = Math.min(0, cw - scaledW) - (cw - minOverlapX);
+  const maxX = 0 + (cw - minOverlapX);
+  const minY = Math.min(0, ch - scaledH) - (ch - minOverlapY);
+  const maxY = 0 + (ch - minOverlapY);
+  return { x: Math.max(minX, Math.min(maxX, ox)), y: Math.max(minY, Math.min(maxY, oy)) };
+}
+
+// Stored offsets are fractions of the *scaled* image size at the current
+// zoom step, so the crop reproduces the same relative framing regardless
+// of the rendering container's actual pixel size (card vs. dialog
+// preview, different screen widths, etc).
+function portraitOffsetFracToPx(img, cw, ch) {
+  const scale = portraitCurrentScale(img, cw, ch);
+  const scaledW = img.width * scale, scaledH = img.height * scale;
+  const fx = typeof img.portraitOffsetXFrac === 'number' ? img.portraitOffsetXFrac : 0;
+  const fy = typeof img.portraitOffsetYFrac === 'number' ? img.portraitOffsetYFrac : 0;
+  return portraitClampOffset(img, cw, ch, fx * scaledW, fy * scaledH);
+}
+
+function portraitOffsetPxToFrac(img, cw, ch, px, py) {
+  const scale = portraitCurrentScale(img, cw, ch);
+  const scaledW = img.width * scale, scaledH = img.height * scale;
+  return { xFrac: scaledW ? px / scaledW : 0, yFrac: scaledH ? py / scaledH : 0 };
+}
+
+// Rectangular, independently-adjustable per-axis edge fade — one-sided
+// (left/bottom only), matching the direction of the diagonal card-level
+// mask (opaque top-right, fading to bottom-left).
+function portraitApplyEdgeFade(imgEl, img) {
+  const hPct = typeof img.portraitFadeH === 'number' ? img.portraitFadeH : 12;
+  const vPct = typeof img.portraitFadeV === 'number' ? img.portraitFadeV : 12;
+  const hGrad = 'linear-gradient(to right, transparent 0%, black ' + hPct + '%, black 100%)';
+  const vGrad = 'linear-gradient(to bottom, black 0%, black ' + (100 - vPct) + '%, transparent 100%)';
+  imgEl.style.webkitMaskImage = hGrad + ', ' + vGrad;
+  imgEl.style.maskImage = hGrad + ', ' + vGrad;
+  imgEl.style.webkitMaskComposite = 'source-in';
+  imgEl.style.maskComposite = 'intersect';
+}
+
+// Renders img (a portrait-flagged image doc, using its saved crop state)
+// into imgEl sized to containerEl's current dimensions.
+function portraitRenderInto(imgEl, containerEl, img) {
+  const cw = containerEl.clientWidth, ch = containerEl.clientHeight;
+  if (!img.width || !img.height || !cw || !ch) return;
+  const scale = portraitCurrentScale(img, cw, ch);
+  const clamped = portraitOffsetFracToPx(img, cw, ch);
+  imgEl.style.width = (img.width * scale) + 'px';
+  imgEl.style.height = (img.height * scale) + 'px';
+  imgEl.style.transform = 'translate(' + clamped.x + 'px, ' + clamped.y + 'px)';
+  portraitApplyEdgeFade(imgEl, img);
+}
+
+// Builds the #codex-card-hero wrapper (card-level 45deg mask + hero img)
+// to prepend to #codex-detail. Card-level mask, per the locked design, is
+// CSS-only (styles.css) on .codex-card-hero — this only sizes/positions
+// the <img> inside it.
+let cardHeroState = null; // { imgEl, containerEl, portrait } | null
+function buildCardHero(entity, portrait) {
+  const heroWrap = document.createElement('div');
+  heroWrap.className = 'codex-card-hero';
+  const imgEl = document.createElement('img');
+  imgEl.className = 'codex-hero-img';
+  imgEl.src = portrait.data;
+  imgEl.alt = '';
+  heroWrap.appendChild(imgEl);
+  cardHeroState = { imgEl: imgEl, containerEl: heroWrap, portrait: portrait };
+  requestAnimationFrame(function () { portraitRenderInto(imgEl, heroWrap, portrait); });
+  return heroWrap;
+}
+window.addEventListener('resize', function () {
+  if (cardHeroState && cardHeroState.containerEl.isConnected) {
+    portraitRenderInto(cardHeroState.imgEl, cardHeroState.containerEl, cardHeroState.portrait);
+  }
+});
 
 // Modules whose rendering depends on lore visibility (map.js: pin
 // filtering) register here — codex.js can't import map.js back without a
@@ -1092,6 +1205,171 @@ function renderLoreTab(container, entity, gmView) {
   }
 }
 
+// --- Set portrait dialog -----------------------------------------------
+// Locked design (portrait-picker-dialog-mockup-v6): live preview at real
+// card proportions, drag directly on the preview to reposition (pointer
+// events, not a crop-box widget), stepped +/- zoom (min = exact
+// cover-fit), independently-adjustable horizontal/vertical edge fade.
+// Save/Cancel bottom-right (GM-only action — see QOL-BACKLOG button
+// convention note).
+function openSetPortraitDialog(entity, img) {
+  // Working copy so Cancel discards changes; defaults cover an image
+  // that's never been the portrait before (no saved crop fields yet).
+  const workingImg = {
+    width: img.width, height: img.height,
+    portraitZoomStep: typeof img.portraitZoomStep === 'number' ? img.portraitZoomStep : 0,
+    portraitOffsetXFrac: typeof img.portraitOffsetXFrac === 'number' ? img.portraitOffsetXFrac : 0,
+    portraitOffsetYFrac: typeof img.portraitOffsetYFrac === 'number' ? img.portraitOffsetYFrac : 0,
+    portraitFadeH: typeof img.portraitFadeH === 'number' ? img.portraitFadeH : 12,
+    portraitFadeV: typeof img.portraitFadeV === 'number' ? img.portraitFadeV : 12
+  };
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay open portrait-dialog-overlay';
+  const box = document.createElement('div');
+  box.className = 'modal-box portrait-dialog-box';
+
+  const h3 = document.createElement('h3');
+  h3.textContent = 'Set portrait \u2014 ' + entity.name;
+  box.appendChild(h3);
+  const sub = document.createElement('p');
+  sub.className = 'image-edit-status';
+  sub.textContent = 'Drag to reposition. Use +/\u2212 to zoom.';
+  box.appendChild(sub);
+
+  const frame = document.createElement('div');
+  frame.className = 'portrait-preview-frame';
+  const imgEl = document.createElement('img');
+  imgEl.className = 'codex-hero-img';
+  imgEl.src = img.data;
+  imgEl.alt = '';
+  frame.appendChild(imgEl);
+  const nameLabel = document.createElement('div');
+  nameLabel.className = 'portrait-preview-label';
+  nameLabel.textContent = entity.name;
+  frame.appendChild(nameLabel);
+  box.appendChild(frame);
+
+  function render() { portraitRenderInto(imgEl, frame, workingImg); }
+
+  const zoomRow = document.createElement('div');
+  zoomRow.className = 'portrait-zoom-row';
+  const zoomOut = document.createElement('button');
+  zoomOut.type = 'button';
+  zoomOut.textContent = '\u2212';
+  const zoomLabel = document.createElement('span');
+  zoomLabel.className = 'portrait-zoom-label';
+  const zoomIn = document.createElement('button');
+  zoomIn.type = 'button';
+  zoomIn.textContent = '+';
+  function updateZoomLabel() {
+    zoomLabel.textContent = Math.round((1 + workingImg.portraitZoomStep * PORTRAIT_ZOOM_STEP_FACTOR) * 100) + '%';
+  }
+  function adjustZoom(dir) {
+    workingImg.portraitZoomStep = Math.max(0, Math.min(PORTRAIT_MAX_ZOOM_STEPS, workingImg.portraitZoomStep + dir));
+    // Re-clamp the offset at the new scale so it doesn't jump out of range.
+    const cw = frame.clientWidth, ch = frame.clientHeight;
+    const clamped = portraitOffsetFracToPx(workingImg, cw, ch);
+    const frac = portraitOffsetPxToFrac(workingImg, cw, ch, clamped.x, clamped.y);
+    workingImg.portraitOffsetXFrac = frac.xFrac;
+    workingImg.portraitOffsetYFrac = frac.yFrac;
+    updateZoomLabel();
+    render();
+  }
+  zoomOut.addEventListener('click', function () { adjustZoom(-1); });
+  zoomIn.addEventListener('click', function () { adjustZoom(1); });
+  zoomRow.appendChild(zoomOut);
+  zoomRow.appendChild(zoomLabel);
+  zoomRow.appendChild(zoomIn);
+  box.appendChild(zoomRow);
+
+  function makeFadeSlider(labelText, key) {
+    const row = document.createElement('label');
+    row.className = 'portrait-fade-row';
+    const span = document.createElement('span');
+    span.textContent = labelText;
+    row.appendChild(span);
+    const input = document.createElement('input');
+    input.type = 'range';
+    input.min = '0';
+    input.max = '45';
+    input.value = String(workingImg[key]);
+    const valSpan = document.createElement('span');
+    valSpan.className = 'portrait-fade-value';
+    valSpan.textContent = workingImg[key] + '%';
+    input.addEventListener('input', function () {
+      workingImg[key] = parseInt(input.value, 10);
+      valSpan.textContent = workingImg[key] + '%';
+      render();
+    });
+    row.appendChild(input);
+    row.appendChild(valSpan);
+    return row;
+  }
+  const fadeWrap = document.createElement('div');
+  fadeWrap.className = 'portrait-fade-sliders';
+  fadeWrap.appendChild(makeFadeSlider('Horizontal fade', 'portraitFadeH'));
+  fadeWrap.appendChild(makeFadeSlider('Vertical fade', 'portraitFadeV'));
+  box.appendChild(fadeWrap);
+
+  // Drag-to-reposition directly on the preview.
+  let dragState = null;
+  frame.addEventListener('pointerdown', function (ev) {
+    frame.setPointerCapture(ev.pointerId);
+    frame.classList.add('dragging');
+    const cw = frame.clientWidth, ch = frame.clientHeight;
+    const startPx = portraitOffsetFracToPx(workingImg, cw, ch);
+    dragState = { startX: ev.clientX, startY: ev.clientY, origX: startPx.x, origY: startPx.y };
+  });
+  frame.addEventListener('pointermove', function (ev) {
+    if (!dragState) return;
+    const cw = frame.clientWidth, ch = frame.clientHeight;
+    const dx = ev.clientX - dragState.startX, dy = ev.clientY - dragState.startY;
+    const clamped = portraitClampOffset(workingImg, cw, ch, dragState.origX + dx, dragState.origY + dy);
+    const frac = portraitOffsetPxToFrac(workingImg, cw, ch, clamped.x, clamped.y);
+    workingImg.portraitOffsetXFrac = frac.xFrac;
+    workingImg.portraitOffsetYFrac = frac.yFrac;
+    render();
+  });
+  function endDrag() { dragState = null; frame.classList.remove('dragging'); }
+  frame.addEventListener('pointerup', endDrag);
+  frame.addEventListener('pointercancel', endDrag);
+
+  function close() { overlay.remove(); }
+
+  const actions = document.createElement('div');
+  actions.className = 'modal-actions';
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.textContent = 'Save';
+  saveBtn.addEventListener('click', function () {
+    saveBtn.disabled = true;
+    setEntityPortrait(entity.id, img.id, {
+      portraitZoomStep: workingImg.portraitZoomStep,
+      portraitOffsetXFrac: workingImg.portraitOffsetXFrac,
+      portraitOffsetYFrac: workingImg.portraitOffsetYFrac,
+      portraitFadeH: workingImg.portraitFadeH,
+      portraitFadeV: workingImg.portraitFadeV
+    }).then(close).catch(function (err) {
+      window.alert('Set portrait failed: ' + err.message);
+      saveBtn.disabled = false;
+    });
+  });
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', close);
+  // .modal-actions is already flex-end (bottom-right); Save-then-Cancel
+  // order matches the rest of the app's modals (openGalleryUploadModal).
+  actions.appendChild(saveBtn);
+  actions.appendChild(cancelBtn);
+  box.appendChild(actions);
+
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  requestAnimationFrame(function () { updateZoomLabel(); render(); });
+}
+
 // --- Gallery tab -----------------------------------------------------------
 // Unlike Lore items, gallery images have no separate edit-mode UI on the
 // Entry Card itself — all image management (visibility, delete, add) lives
@@ -1208,11 +1486,12 @@ function openGalleryUploadModal(entity) {
 
 function renderGalleryTab(container, entity, gmView) {
   const galleryImages = galleryImagesFor(entity.id, gmView);
+  const currentPortrait = portraitImageFor(entity, gmView);
 
   if (gmView && galleryImages.length) {
     const hint = document.createElement('p');
     hint.className = 'image-edit-status';
-    hint.textContent = 'Drag images to reorder them. The first gallery image will be used for character previews.';
+    hint.textContent = 'Drag images to reorder them. The portrait-marked image is used for the entry card\u2019s hero header.';
     container.appendChild(hint);
   }
 
@@ -1220,6 +1499,7 @@ function renderGalleryTab(container, entity, gmView) {
     const galleryDiv = document.createElement('div');
     galleryDiv.id = 'codex-gallery';
     galleryImages.forEach(function (img) {
+      const isCurrentPortrait = !!currentPortrait && img.id === currentPortrait.id;
       const figDiv = document.createElement('div');
       figDiv.className = 'gallery-item ' + (img.visibility === 'all-players' ? 'vis-visible' : 'vis-hidden');
       figDiv.dataset.imageId = img.id;
@@ -1228,6 +1508,18 @@ function renderGalleryTab(container, entity, gmView) {
       imgEl.alt = entity.name;
       imgEl.addEventListener('click', function () { openImageLightbox(img.data, entity.name); });
       figDiv.appendChild(imgEl);
+
+      // Explicitly requested exception to the "only add icons when asked"
+      // rule — small partially-transparent indicator over whichever
+      // thumbnail is currently the portrait. Don't extrapolate from this
+      // to add icons elsewhere.
+      if (isCurrentPortrait) {
+        const indicator = document.createElement('span');
+        indicator.className = 'gallery-portrait-indicator';
+        indicator.title = 'Current portrait';
+        indicator.textContent = '\u2605';
+        figDiv.appendChild(indicator);
+      }
 
       if (gmView) {
         const barDiv = document.createElement('div');
@@ -1251,6 +1543,13 @@ function renderGalleryTab(container, entity, gmView) {
         switchLabel.appendChild(switchInput);
         switchLabel.appendChild(switchSlider);
         barDiv.appendChild(switchLabel);
+
+        const portraitBtn = document.createElement('button');
+        portraitBtn.type = 'button';
+        portraitBtn.textContent = isCurrentPortrait ? 'Current portrait' : 'Set portrait';
+        portraitBtn.disabled = isCurrentPortrait;
+        portraitBtn.addEventListener('click', function () { openSetPortraitDialog(entity, img); });
+        barDiv.appendChild(portraitBtn);
 
         const delBtn = document.createElement('button');
         delBtn.type = 'button';
@@ -1323,6 +1622,19 @@ function renderDetailForSelected() {
   const draft = editing ? state.detailEditDraft : null;
 
   detailEl.innerHTML = '';
+
+  // Gallery hero header — view mode only (skipped while editing, to avoid
+  // any layering/interaction conflict with the edit fields).
+  const portrait = !editing ? portraitImageFor(entity, gmView) : null;
+  detailEl.classList.toggle('has-hero', !!portrait);
+  if (portrait) {
+    detailEl.appendChild(buildCardHero(entity, portrait));
+  } else {
+    cardHeroState = null;
+  }
+  const contentWrap = document.createElement('div');
+  contentWrap.className = 'codex-card-content';
+  detailEl.appendChild(contentWrap);
 
   // --- Heading: name + entry type + category-specific fields (left);
   // GM/Player badge, visibility toggle, map link (upper-right stack) ---
@@ -1439,13 +1751,13 @@ function renderDetailForSelected() {
     rightCol.appendChild(mapLink);
   }
   headingRow.appendChild(rightCol);
-  detailEl.appendChild(headingRow);
+  contentWrap.appendChild(headingRow);
 
   if (editing) {
     const editBlock = document.createElement('div');
     editBlock.className = 'entity-edit-block';
     renderEntityEditBlock(editBlock, entity, draft);
-    detailEl.appendChild(editBlock);
+    contentWrap.appendChild(editBlock);
   }
 
   // --- Lore / Gallery / Notes tab box (view mode only — hidden while
@@ -1465,11 +1777,11 @@ function renderDetailForSelected() {
       });
       tabsRow.appendChild(tabBtn);
     });
-    detailEl.appendChild(tabsRow);
+    contentWrap.appendChild(tabsRow);
 
     const tabPanel = document.createElement('div');
     tabPanel.id = 'codex-detail-tab-panel';
-    detailEl.appendChild(tabPanel);
+    contentWrap.appendChild(tabPanel);
 
     if (state.detailActiveTab === 'notes') {
       const notesEmptyP = document.createElement('p');
@@ -1508,7 +1820,7 @@ function renderDetailForSelected() {
         chipsDiv.appendChild(chip);
       });
       relatedDiv.appendChild(chipsDiv);
-      detailEl.appendChild(relatedDiv);
+      contentWrap.appendChild(relatedDiv);
     }
   }
 
@@ -1527,7 +1839,7 @@ function renderDetailForSelected() {
     deleteBtn.addEventListener('click', function () { deleteEntity(entity); });
     right.appendChild(deleteBtn);
     cardActions.appendChild(right);
-    detailEl.appendChild(cardActions);
+    contentWrap.appendChild(cardActions);
   }
 }
 
