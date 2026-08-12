@@ -497,13 +497,11 @@ select {
 .entity-edit-field input[type="text"]:focus, .entity-edit-field select:focus, .entity-edit-field textarea:focus {
   outline: none; border-color: var(--fear); box-shadow: 0 0 0 2px var(--fear-glow);
 }
-/* Name field only — reads as the card's title while editing, not just
-   another field, so it keeps a larger size than everything else.
-   Previously scoped to any input[type=text] under #codex-card-heading,
-   which unintentionally also caught Ancestry/Aliases (also descendants
-   of that heading row) and made them oversized too. */
+/* Name field previously had a larger heading-style font; per feedback
+   it should just match every other field now. Kept as its own class
+   (rather than deleting it) in case a distinct treatment is wanted
+   again later. */
 .entity-name-field input[type="text"] {
-  font-size: 1.3rem; padding: 0.3rem 0.5rem;
 }
 .related-edit-list { list-style: none; padding: 0; margin: 0; }
 .related-edit-list li {
@@ -591,11 +589,11 @@ select {
 
 /* Entity images (Phase 8) */
 #codex-gallery { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.75rem; }
-.gallery-item { max-width: 260px; padding-left: 0.6rem; }
+.gallery-item { max-width: 300px; padding-left: 0.6rem; }
 .gallery-item.vis-hidden { border-left: 4px solid var(--hope); }
 .gallery-item.vis-visible { border-left: 4px solid var(--fear); }
 .gallery-item img { width: 100%; height: auto; display: block; border: 1px solid var(--parchment-edge); border-radius: 4px; cursor: pointer; }
-.gallery-item-bar { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.25rem; }
+.gallery-item-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.25rem; }
 .gallery-item-bar button { margin-left: auto; }
 
 /* Gallery image lightbox: full-screen, transparent darkened backdrop,

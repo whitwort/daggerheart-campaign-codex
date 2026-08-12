@@ -227,7 +227,6 @@ function selectEntity(entityId) {
   state.detailEditMode = false;
   state.detailEditDraft = null;
   state.loreEdit = null;
-  state.galleryUpload = null;
   renderList();
   renderDetailForSelected();
 }
@@ -1135,21 +1134,28 @@ function persistGalleryOrder(entityId, orderedIds) {
   });
 }
 
-function buildGalleryUploadForm(entity) {
-  const wrap = document.createElement('div');
-  wrap.className = 'entity-edit-field';
+function openGalleryUploadModal(entity) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay open';
+  const box = document.createElement('div');
+  box.className = 'modal-box';
+
+  const h3 = document.createElement('h3');
+  h3.textContent = 'New gallery image';
+  box.appendChild(h3);
+
   const label = document.createElement('label');
-  label.textContent = 'New image';
-  wrap.appendChild(label);
+  label.textContent = 'Image file';
+  box.appendChild(label);
 
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
-  wrap.appendChild(input);
+  box.appendChild(input);
 
-  const statusEl = document.createElement('span');
+  const statusEl = document.createElement('p');
   statusEl.className = 'image-edit-status';
-  wrap.appendChild(statusEl);
+  box.appendChild(statusEl);
 
   let selectedFile = null;
   input.addEventListener('change', function () {
@@ -1157,43 +1163,47 @@ function buildGalleryUploadForm(entity) {
     statusEl.textContent = selectedFile ? selectedFile.name : '';
   });
 
+  function close() { overlay.remove(); }
+
   const actions = document.createElement('div');
-  actions.className = 'actions-row';
-  const right = document.createElement('div');
-  right.className = 'actions-row-right';
+  actions.className = 'modal-actions';
   const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
   saveBtn.textContent = 'Save';
   saveBtn.addEventListener('click', function () {
-    if (!selectedFile) { window.alert('Choose an image first.'); return; }
+    if (!selectedFile) { statusEl.textContent = 'Choose an image first.'; return; }
     saveBtn.disabled = true;
     input.disabled = true;
     uploadEntityGalleryImage(entity.id, selectedFile, {
       onStatus: function (text) { statusEl.textContent = text; }
-    }).then(function () {
-      state.galleryUpload = null;
-      renderDetailForSelected();
-    }).catch(function (err) {
+    }).then(close).catch(function (err) {
       statusEl.textContent = err.message;
       saveBtn.disabled = false;
       input.disabled = false;
     });
   });
-  right.appendChild(saveBtn);
+  actions.appendChild(saveBtn);
   const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
   cancelBtn.textContent = 'Cancel';
-  cancelBtn.addEventListener('click', function () {
-    state.galleryUpload = null;
-    renderDetailForSelected();
-  });
-  right.appendChild(cancelBtn);
-  actions.appendChild(right);
-  wrap.appendChild(actions);
-  return wrap;
+  cancelBtn.addEventListener('click', close);
+  actions.appendChild(cancelBtn);
+  box.appendChild(actions);
+
+  overlay.appendChild(box);
+  overlay.addEventListener('click', function (ev) { if (ev.target === overlay) close(); });
+  document.body.appendChild(overlay);
 }
 
 function renderGalleryTab(container, entity, gmView) {
   const galleryImages = galleryImagesFor(entity.id, gmView);
-  const addingImage = gmView && state.galleryUpload && state.galleryUpload.entityId === entity.id;
+
+  if (gmView && galleryImages.length) {
+    const hint = document.createElement('p');
+    hint.className = 'image-edit-status';
+    hint.textContent = 'Drag images to reorder them. The first gallery image will be used for character previews.';
+    container.appendChild(hint);
+  }
 
   if (galleryImages.length) {
     const galleryDiv = document.createElement('div');
@@ -1230,7 +1240,6 @@ function renderGalleryTab(container, entity, gmView) {
         switchLabel.appendChild(switchInput);
         switchLabel.appendChild(switchSlider);
         barDiv.appendChild(switchLabel);
-        figDiv.appendChild(barDiv);
 
         const delBtn = document.createElement('button');
         delBtn.type = 'button';
@@ -1239,7 +1248,8 @@ function renderGalleryTab(container, entity, gmView) {
           if (!window.confirm('Delete this gallery image?')) return;
           deleteEntityGalleryImage(img.id).catch(function (err) { window.alert('Delete failed: ' + err.message); });
         });
-        figDiv.appendChild(delBtn);
+        barDiv.appendChild(delBtn);
+        figDiv.appendChild(barDiv);
       }
       galleryDiv.appendChild(figDiv);
     });
@@ -1258,26 +1268,21 @@ function renderGalleryTab(container, entity, gmView) {
         });
       }).catch(function () { /* drag-reorder unavailable; toggle/delete still work */ });
     }
-  } else if (!addingImage) {
+  } else {
     const emptyP = document.createElement('p');
     emptyP.className = 'lore-empty';
     emptyP.textContent = '(no gallery images)';
     container.appendChild(emptyP);
   }
 
-  if (addingImage) {
-    container.appendChild(buildGalleryUploadForm(entity));
-  } else if (gmView) {
+  if (gmView) {
     const actions = document.createElement('div');
     actions.className = 'actions-row';
     const right = document.createElement('div');
     right.className = 'actions-row-right';
     const newImageBtn = document.createElement('button');
     newImageBtn.textContent = '+ New image';
-    newImageBtn.addEventListener('click', function () {
-      state.galleryUpload = { entityId: entity.id };
-      renderDetailForSelected();
-    });
+    newImageBtn.addEventListener('click', function () { openGalleryUploadModal(entity); });
     right.appendChild(newImageBtn);
     actions.appendChild(right);
     container.appendChild(actions);
