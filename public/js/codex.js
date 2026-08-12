@@ -144,7 +144,6 @@ function galleryImagesFor(entityId, gmView) {
 // fade on the image itself. Scoped to #codex-detail only for now.
 const PORTRAIT_ZOOM_STEP_FACTOR = 0.12; // ~12% per step, per mockup
 const PORTRAIT_MAX_ZOOM_STEPS = 8;
-const PORTRAIT_MIN_OVERLAP_FRAC = 0.28; // mid-point of mockup's tunable 22-35% range
 // Aspect ratio of the card's hero band. The crop math (offsets stored as
 // fractions of the scaled image) reproduces the same framing regardless
 // of container size, but the band itself needs a fixed aspect so it
@@ -183,16 +182,21 @@ function portraitCurrentScale(img, cw, ch) {
 
 // ox/oy here are the *scaled* px offsets being tested (not yet clamped or
 // converted to/from the stored fractions).
+// Strict full-coverage clamp (edge-fade bug resolution, approach B): the
+// image can never expose a container edge. Cover-fit base scale
+// guarantees scaledW >= cw and scaledH >= ch, so the valid offset range
+// is [cw - scaledW, 0] / [ch - scaledH, 0]. This replaced the earlier
+// relaxed min-overlap clamp (which allowed under-coverage by design) —
+// the "hard line" bug that burned an entire session of mask debugging
+// was actually the raw edge of a legally under-covering saved crop, not
+// a mask problem at all. Saved under-covering crops self-heal: render
+// always passes stored offsets through this clamp.
 function portraitClampOffset(img, cw, ch, ox, oy) {
   const scale = portraitCurrentScale(img, cw, ch);
   const scaledW = img.width * scale, scaledH = img.height * scale;
-  const minOverlapX = cw * PORTRAIT_MIN_OVERLAP_FRAC;
-  const minOverlapY = ch * PORTRAIT_MIN_OVERLAP_FRAC;
-  const minX = Math.min(0, cw - scaledW) - (cw - minOverlapX);
-  const maxX = 0 + (cw - minOverlapX);
-  const minY = Math.min(0, ch - scaledH) - (ch - minOverlapY);
-  const maxY = 0 + (ch - minOverlapY);
-  return { x: Math.max(minX, Math.min(maxX, ox)), y: Math.max(minY, Math.min(maxY, oy)) };
+  const minX = Math.min(0, cw - scaledW);
+  const minY = Math.min(0, ch - scaledH);
+  return { x: Math.max(minX, Math.min(0, ox)), y: Math.max(minY, Math.min(0, oy)) };
 }
 
 // Stored offsets are fractions of the *scaled* image size at the current
@@ -1327,10 +1331,10 @@ function openSetPortraitDialog(entity, images) {
       const m = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(imgEl.style.transform) || [];
       const tx = parseFloat(m[1]) || 0, ty = parseFloat(m[2]) || 0;
       // Does the image's actual rendered+positioned box cover the
-      // container on each edge? If not, the "hard line" could be the
-      // image's own real edge (raw card background showing through,
-      // by design — the drag clamp allows under-coverage), not a mask
-      // problem at all.
+      // container on each edge? This readout is what root-caused the
+      // "hard line" bug (it was the image's own real left edge — the
+      // old relaxed clamp allowed under-coverage; clamp is now strict
+      // full-coverage). Kept until Gregg confirms fixed on-device.
       const coverTop = ty <= 0, coverLeft = tx <= 0;
       const coverRight = tx + iw >= cw, coverBottom = ty + ih >= ch;
       debugEl.textContent = 'container: ' + cw + 'x' + ch + 'px\n'
