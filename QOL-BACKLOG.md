@@ -3,6 +3,33 @@
 Future quality-of-life improvements, not currently scheduled into a phase.
 Carry this file forward in context-handoff docs.
 
+## ⚠️ Standing design principle — read before touching any button/select CSS
+
+**Every clickable control (button, select) must render at the same
+height everywhere it appears, and every button within a given view
+must share the same width.** This has been corrected piecemeal across
+many Phase 11 sessions (gallery Delete, lore Edit/Delete, admin
+buttons/dropdowns, map pin buttons, related-entities Add/Remove...) —
+each fix caught one more button that had drifted, rather than the
+actual root cause. Root cause, fixed for real in one place: the base
+`button` rule didn't declare `font-size`, so any button sitting in a
+context with a different ambient font-size (e.g. inside `.lore-item-body`
+at 0.906rem) rendered at a different computed height even with
+identical padding/line-height. The base `button` rule now sets
+`font-size: 0.9rem` explicitly, and `select` mirrors it. **Any new
+button-style rule added anywhere in this app must not set its own
+font-size unless there's a specific, deliberate reason (e.g. the
+landing-page sign-in CTA, or flat tab-style buttons like
+#codex-detail-tabs/#admin-db-tabs/nav#tabs, which are a fundamentally
+different visual treatment, not action buttons) — inherit the base
+0.9rem instead.** For width: use `min-width` (never a fixed `width`)
+scoped to the container that groups the buttons that should match
+(e.g. `#codex-detail button { min-width: 5.5rem; }`,
+`#map-gm-controls button { min-width: 7rem; }`) — check for one of
+these container-scoped rules before adding a new button anywhere, and
+add the new button to the existing scope rather than inventing a new
+one if it's visually grouped with buttons already covered.
+
 ## Phase 10 (map improvements) — in progress
 
 - **10a. Map image compression too aggressive — DONE** (`b14a299`).
