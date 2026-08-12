@@ -144,13 +144,19 @@ function galleryImagesFor(entityId, gmView) {
 // fade on the image itself. Scoped to #codex-detail only for now.
 const PORTRAIT_ZOOM_STEP_FACTOR = 0.12; // ~12% per step, per mockup
 const PORTRAIT_MAX_ZOOM_STEPS = 8;
-const PORTRAIT_MIN_ZOOM_STEPS = -8; // zoom-out below cover-fit, floored at contain-fit
+const PORTRAIT_MIN_ZOOM_STEPS = -8;
+const PORTRAIT_MIN_ZOOM_MULT = 0.2; // floor for the zoom multiplier at deep negative steps
 const PORTRAIT_MIN_OVERLAP_FRAC = 0.28; // mid-point of mockup's tunable 22-35% range
-// Aspect ratio of the card's hero band. The crop math (offsets stored as
-// fractions of the scaled image) reproduces the same framing regardless
-// of container size, but the band itself needs a fixed aspect so it
-// doesn't reflow oddly at different card widths.
-const PORTRAIT_PREVIEW_ASPECT = '2.2 / 1';
+// GROWING BAND MODEL (replaced the fixed 2.2:1 aspect band): the hero
+// band's height follows the image — its bottom edge IS the image's
+// bottom edge (the band's min-height is set from y+scaledH each
+// render; the in-flow heading still provides a floor). The image is an
+// object floating on the card: at V-fade 0 the whole image is visible
+// down to its real bottom edge, with no window clipping it mid-image.
+// Scale derives from the band WIDTH only (base = bandWidth/imgWidth,
+// i.e. 100% zoom = image width fills the card), so there is no circular
+// dependency between band height and image size. Vertical drag crops
+// the image's TOP only (y <= 0); the bottom is always fully shown.
 
 // While the Set portrait dialog's edit stage is open, the card should
 // show the in-progress (unsaved) crop rather than the committed one —
@@ -172,39 +178,31 @@ function portraitImageFor(entity, gmView) {
   return images.find(function (img) { return img.isPortrait; }) || images[0];
 }
 
-function portraitCoverScale(cw, ch, iw, ih) {
-  return Math.max(cw / iw, ch / ih);
-}
-
-function portraitCurrentScale(img, cw, ch) {
-  const base = portraitCoverScale(cw, ch, img.width, img.height);
+// Scale from band width only — see GROWING BAND MODEL note above.
+function portraitCurrentScale(img, cw) {
+  const base = cw / img.width;
   const step = typeof img.portraitZoomStep === 'number' ? img.portraitZoomStep : 0;
-  // Negative steps zoom OUT below cover-fit (so the whole image can sit
-  // inside the band with its real edges visible), floored at contain-fit
-  // so it can never shrink smaller than "entire image visible".
-  const contain = Math.min(cw / img.width, ch / img.height);
-  return Math.max(contain, base * (1 + step * PORTRAIT_ZOOM_STEP_FACTOR));
+  return base * Math.max(PORTRAIT_MIN_ZOOM_MULT, 1 + step * PORTRAIT_ZOOM_STEP_FACTOR);
 }
 
 // ox/oy here are the *scaled* px offsets being tested (not yet clamped or
 // converted to/from the stored fractions).
-// Relaxed clamp per the ORIGINAL locked spec: the image is an object
-// floating on the card — under-coverage is allowed on every side (card
-// background shows through; fades soften the image's own edges). Only
-// requirement: at least MIN_OVERLAP of the container stays covered so
-// the image can't be dragged fully out of view. (A strict full-coverage
-// clamp was briefly shipped by mistake — it broke drag-to-focus and
-// contradicted the image-as-object design.)
+// X: relaxed clamp per the original spec — under-coverage allowed on
+//    either side (card background shows through; the H fade softens the
+//    image's own left edge), with a MIN_OVERLAP floor so the image can't
+//    be dragged fully out of view horizontally.
+// Y: the band grows to the image's bottom edge, so y > 0 would just be
+//    a pointless gap above the image — clamp to y <= 0 (drag up crops
+//    the top), keeping at least MIN_OVERLAP of the image's own height
+//    visible.
 function portraitClampOffset(img, cw, ch, ox, oy) {
-  const scale = portraitCurrentScale(img, cw, ch);
+  const scale = portraitCurrentScale(img, cw);
   const scaledW = img.width * scale, scaledH = img.height * scale;
   const minOverlapX = cw * PORTRAIT_MIN_OVERLAP_FRAC;
-  const minOverlapY = ch * PORTRAIT_MIN_OVERLAP_FRAC;
   const minX = Math.min(0, cw - scaledW) - (cw - minOverlapX);
   const maxX = 0 + (cw - minOverlapX);
-  const minY = Math.min(0, ch - scaledH) - (ch - minOverlapY);
-  const maxY = 0 + (ch - minOverlapY);
-  return { x: Math.max(minX, Math.min(maxX, ox)), y: Math.max(minY, Math.min(maxY, oy)) };
+  const minY = -scaledH * (1 - PORTRAIT_MIN_OVERLAP_FRAC);
+  return { x: Math.max(minX, Math.min(maxX, ox)), y: Math.max(minY, Math.min(0, oy)) };
 }
 
 // Stored offsets are fractions of the *scaled* image size at the current
@@ -212,7 +210,7 @@ function portraitClampOffset(img, cw, ch, ox, oy) {
 // of the rendering container's actual pixel size (card vs. dialog
 // preview, different screen widths, etc).
 function portraitOffsetFracToPx(img, cw, ch) {
-  const scale = portraitCurrentScale(img, cw, ch);
+  const scale = portraitCurrentScale(img, cw);
   const scaledW = img.width * scale, scaledH = img.height * scale;
   const fx = typeof img.portraitOffsetXFrac === 'number' ? img.portraitOffsetXFrac : 0;
   const fy = typeof img.portraitOffsetYFrac === 'number' ? img.portraitOffsetYFrac : 0;
@@ -220,7 +218,7 @@ function portraitOffsetFracToPx(img, cw, ch) {
 }
 
 function portraitOffsetPxToFrac(img, cw, ch, px, py) {
-  const scale = portraitCurrentScale(img, cw, ch);
+  const scale = portraitCurrentScale(img, cw);
   const scaledW = img.width * scale, scaledH = img.height * scale;
   return { xFrac: scaledW ? px / scaledW : 0, yFrac: scaledH ? py / scaledH : 0 };
 }
@@ -275,14 +273,22 @@ function portraitApplyEdgeFade(hWrapEl, vWrapEl, img, geom) {
 // fade applied to hWrapEl/vWrapEl (see portraitApplyEdgeFade — the fade
 // needs the computed geometry, so it's applied here, after layout math).
 function portraitRenderInto(imgEl, hWrapEl, vWrapEl, containerEl, img) {
-  const cw = containerEl.clientWidth, ch = containerEl.clientHeight;
-  if (!img.width || !img.height || !cw || !ch) return;
-  const scale = portraitCurrentScale(img, cw, ch);
-  const clamped = portraitOffsetFracToPx(img, cw, ch);
+  const cw = containerEl.clientWidth;
+  if (!img.width || !img.height || !cw) return;
+  const scale = portraitCurrentScale(img, cw);
+  const clamped = portraitOffsetFracToPx(img, cw, 0);
   const iw = img.width * scale, ih = img.height * scale;
   imgEl.style.width = iw + 'px';
   imgEl.style.height = ih + 'px';
   imgEl.style.transform = 'translate(' + clamped.x + 'px, ' + clamped.y + 'px)';
+  // Growing band: the band's bottom edge is the image's bottom edge
+  // (y <= 0, so visible image height is y+ih). min-height, not height,
+  // so the in-flow heading can still stretch the band if it's taller.
+  const band = containerEl.parentElement;
+  if (band && band.classList.contains('codex-card-hero-band')) {
+    band.style.minHeight = Math.max(0, clamped.y + ih) + 'px';
+  }
+  const ch = containerEl.clientHeight;
   portraitApplyEdgeFade(hWrapEl, vWrapEl, img, { cw: cw, ch: ch, x: clamped.x, y: clamped.y, iw: iw, ih: ih });
 }
 
@@ -1799,23 +1805,18 @@ function renderDetailForSelected() {
   detailEl.innerHTML = '';
 
   // Gallery hero header — view mode only (skipped while editing, to avoid
-  // any layering/interaction conflict with the edit fields). Confined to
-  // a fixed-aspect band (PORTRAIT_PREVIEW_ASPECT, shared with the dialog
-  // preview) behind the heading only — NOT the whole card. The crop math
-  // (offsets as fractions of the scaled image) only reproduces the same
-  // framing when the render container's aspect ratio matches what was
-  // shown while cropping; stretching the hero across the full card
-  // (heading + tabs + gallery + everything below, which can be several
-  // times taller than the dialog's compact preview) was the bug that
-  // made zoom/position look "way off" between the dialog and the real
-  // card — fixed by giving both the same aspect ratio instead.
+  // any layering/interaction conflict with the edit fields). GROWING
+  // BAND MODEL: the band's height follows the image's visible extent
+  // (min-height set by portraitRenderInto = image's bottom edge), with
+  // the in-flow heading as a floor. Scale derives from band width only,
+  // so the framing reproduces at any card width with no dependence on a
+  // fixed aspect ratio.
   const portrait = !editing ? portraitImageFor(entity, gmView) : null;
   detailEl.classList.toggle('has-hero', !!portrait);
   let headingTarget;
   if (portrait) {
     const band = document.createElement('div');
     band.className = 'codex-card-hero-band';
-    band.style.aspectRatio = PORTRAIT_PREVIEW_ASPECT;
     band.appendChild(buildCardHero(entity, portrait));
     const headingInner = document.createElement('div');
     headingInner.className = 'codex-card-heading-inner';
