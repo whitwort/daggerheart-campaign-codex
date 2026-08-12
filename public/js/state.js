@@ -28,7 +28,6 @@ export const state = {
   detailEditMode: false,   // true = the open Entry Card is showing inline edit fields for the entity itself
   detailEditDraft: null,   // { name, category, ancestry, aliases, date, parentId, tags, relatedIds } — in-progress entity edit; re-populates edit inputs across re-renders so unrelated snapshot updates don't clobber typing
   loreEdit: null,          // { entityId, id: existingLoreId|null, content, visibility } — in-progress lore item edit/create; id===null means a brand-new (unsaved) item
-  galleryUpload: null,     // { entityId } — Gallery tab's "+ New image" form is open for this entity
   leafletMap: null,
   loadedMapId: null,
   mapImgHeight: 0,
