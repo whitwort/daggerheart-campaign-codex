@@ -213,30 +213,32 @@ function portraitOffsetPxToFrac(img, cw, ch, px, py) {
   return { xFrac: scaledW ? px / scaledW : 0, yFrac: scaledH ? py / scaledH : 0 };
 }
 
-// Diagonal fade at a fixed 45deg — matching the outer card-level mask's
-// angle exactly and unconditionally, not rotating with the H:V ratio
-// (the earlier vector-sum approach coupled the two: a nonzero H kept
-// pulling the direction away from vertical, so raising V alone barely
-// moved anything — the reported "vertical fade does nothing" bug).
-// magnitude uses max(H,V), not their sum or hypot, so either slider
-// alone reliably drives the full effect regardless of the other's value.
+// Elliptical fade anchored at the bottom-left corner (transparent at the
+// corner itself, fully opaque past the ellipse's edge) — NOT a linear
+// diagonal gradient. Three rounds of linear-gradient math (L-shaped
+// intersect, vector-sum angle, fixed-45deg-with-scaled-reach) all had
+// bugs rooted in the same thing: a linear gradient's percentage stops
+// are measured along the diagonal's *projected length*, and that
+// projection is badly distorted by this band's wide (2.2:1) aspect
+// ratio — the bottom-right corner sits at ~69% along a 45deg diagonal,
+// so any reach calibrated to look right elsewhere left it stuck
+// mid-fade, clipped hard by overflow:hidden before ever reaching true
+// 0% opacity. That's the mid-frame hard line reported.
 //
-// The 0.65/1.9 multipliers are calibrated against the outer mask's own
-// fixed, already-correct stops (transparent to 30%, black by 85%): at
-// max slider value (45), this reaches the same ~30%/85% window. That
-// matters because on this band's wide (2.2/1) aspect ratio, the
-// bottom-right corner projects to ~69% along a 45deg gradient line —
-// noticeably further than a naive scaling reaches — so a weaker
-// endPct left that corner permanently past the "black 100%" point,
-// i.e. hard-edged, at any slider setting.
+// An ellipse centered at the corner has none of that: rx/ry are plain
+// percentages of width/height (no diagonal projection), it's exactly
+// 0% opacity at the corner by construction regardless of aspect ratio,
+// and H/V map directly to "how far this axis reaches" with no coupling
+// between them. The outer fixed 45deg card-level mask (unconditional,
+// CSS-only, not slider-driven) still supplies the overall diagonal
+// orientation — this only softens the edges within it.
 function portraitApplyEdgeFade(fadeWrapEl, img) {
   const hPct = typeof img.portraitFadeH === 'number' ? img.portraitFadeH : 12;
   const vPct = typeof img.portraitFadeV === 'number' ? img.portraitFadeV : 12;
-  const magnitude = Math.max(hPct, vPct);
-  const startPct = magnitude * 0.65;
-  const endPct = Math.min(100, magnitude * 1.9);
-  const grad = 'linear-gradient(45deg, transparent 0%, transparent '
-    + startPct + '%, black ' + endPct + '%, black 100%)';
+  const rx = Math.max(0.1, (hPct / 45) * 90);
+  const ry = Math.max(0.1, (vPct / 45) * 90);
+  const grad = 'radial-gradient(ellipse ' + rx + '% ' + ry
+    + '% at left bottom, transparent 0%, transparent 15%, black 75%, black 100%)';
   fadeWrapEl.style.webkitMaskImage = grad;
   fadeWrapEl.style.maskImage = grad;
   fadeWrapEl.style.webkitMaskComposite = '';
