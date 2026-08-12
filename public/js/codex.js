@@ -213,44 +213,51 @@ function portraitOffsetPxToFrac(img, cw, ch, px, py) {
   return { xFrac: scaledW ? px / scaledW : 0, yFrac: scaledH ? py / scaledH : 0 };
 }
 
-// Elliptical fade anchored at the bottom-left corner (transparent at the
-// corner itself, fully opaque past the ellipse's edge) — NOT a linear
-// diagonal gradient. Three rounds of linear-gradient math (L-shaped
-// intersect, vector-sum angle, fixed-45deg-with-scaled-reach) all had
-// bugs rooted in the same thing: a linear gradient's percentage stops
-// are measured along the diagonal's *projected length*, and that
-// projection is badly distorted by this band's wide (2.2:1) aspect
-// ratio — the bottom-right corner sits at ~69% along a 45deg diagonal,
-// so any reach calibrated to look right elsewhere left it stuck
-// mid-fade, clipped hard by overflow:hidden before ever reaching true
-// 0% opacity.
+// Two independently-masked nested wrappers — NOT a corner-anchored
+// ellipse, and NOT two gradients combined via mask-composite on one
+// element. Both of those were wrong for a different reason each:
 //
-// An ellipse centered at the corner has none of that: rx/ry map to
-// "how far this axis reaches" independently, with no diagonal
-// projection and no coupling between H and V. Sized in px (not %) —
-// percentage explicit-size radial-gradients are spec-valid, but px is
-// the most universally-supported form with no parsing ambiguity, and
-// I can't render-verify in this environment right now, so removing
-// that as a variable. The outer fixed 45deg card-level mask
-// (unconditional, CSS-only) still supplies the overall diagonal
-// orientation — this only softens the edges within it.
-function portraitApplyEdgeFade(fadeWrapEl, img, cw, ch) {
+// - The ellipse (previous attempt) put both H and V into a single
+//   radial distance from one corner — but a point sitting ON the
+//   bottom edge has zero vertical offset from that corner, so V never
+//   affects the bottom edge at all, no matter its value. That's
+//   exactly the reported "V does nothing" bug — confirmed by
+//   inspecting the actual computed mask-image: rx/ry were exactly the
+//   values intended, so the gradient was applying correctly; the
+//   *shape* was wrong for what independent H/V edge control needs.
+// - mask-composite: intersect (an even earlier attempt, before this
+//   session) combined two gradients on the SAME element — the
+//   handoff notes for this project explicitly flagged
+//   mask-composite's iOS Safari support as unverified, and iOS Safari
+//   is the primary target here, so that's the likely cause of the
+//   original L-shaped/stepped-corner complaint that started all of
+//   this.
+//
+// This avoids both: hWrap gets ONE single mask-image (a plain
+// horizontal gradient, fades the left edge only, per the originally
+// locked spec), containing vWrap with its OWN single mask-image (a
+// plain vertical gradient, fades the bottom edge only). CSS masks on
+// nested elements multiply naturally — no composite property
+// involved anywhere, so no cross-browser risk. H and V now can't
+// possibly interfere with each other: each is a single independent
+// gradient on its own element.
+function portraitApplyEdgeFade(hWrapEl, vWrapEl, img) {
   const hPct = typeof img.portraitFadeH === 'number' ? img.portraitFadeH : 12;
   const vPct = typeof img.portraitFadeV === 'number' ? img.portraitFadeV : 12;
-  const rx = Math.max(1, (hPct / 45) * 0.9 * cw);
-  const ry = Math.max(1, (vPct / 45) * 0.9 * ch);
-  const grad = 'radial-gradient(ellipse ' + rx + 'px ' + ry
-    + 'px at left bottom, transparent 0%, transparent 15%, black 75%, black 100%)';
-  fadeWrapEl.style.webkitMaskImage = grad;
-  fadeWrapEl.style.maskImage = grad;
-  fadeWrapEl.style.webkitMaskComposite = '';
-  fadeWrapEl.style.maskComposite = '';
+  const hEndPct = Math.max(1, (hPct / 45) * 100);
+  const vEndPct = Math.max(1, (vPct / 45) * 100);
+  const hGrad = 'linear-gradient(to right, transparent 0%, black ' + hEndPct + '%)';
+  const vGrad = 'linear-gradient(to top, transparent 0%, black ' + vEndPct + '%)';
+  hWrapEl.style.webkitMaskImage = hGrad;
+  hWrapEl.style.maskImage = hGrad;
+  vWrapEl.style.webkitMaskImage = vGrad;
+  vWrapEl.style.maskImage = vGrad;
 }
 
 // Renders img (a portrait-flagged image doc, using its saved crop state)
 // into imgEl, sized to containerEl's current dimensions, with the edge
-// fade applied to fadeWrapEl (see portraitApplyEdgeFade).
-function portraitRenderInto(imgEl, fadeWrapEl, containerEl, img) {
+// fade applied to hWrapEl/vWrapEl (see portraitApplyEdgeFade).
+function portraitRenderInto(imgEl, hWrapEl, vWrapEl, containerEl, img) {
   const cw = containerEl.clientWidth, ch = containerEl.clientHeight;
   if (!img.width || !img.height || !cw || !ch) return;
   const scale = portraitCurrentScale(img, cw, ch);
@@ -258,32 +265,35 @@ function portraitRenderInto(imgEl, fadeWrapEl, containerEl, img) {
   imgEl.style.width = (img.width * scale) + 'px';
   imgEl.style.height = (img.height * scale) + 'px';
   imgEl.style.transform = 'translate(' + clamped.x + 'px, ' + clamped.y + 'px)';
-  portraitApplyEdgeFade(fadeWrapEl, img, cw, ch);
+  portraitApplyEdgeFade(hWrapEl, vWrapEl, img);
 }
 
 // Builds the #codex-card-hero wrapper (card-level 45deg mask + hero img)
 // to prepend to #codex-detail. Card-level mask, per the locked design, is
 // CSS-only (styles.css) on .codex-card-hero — this only sizes/positions
 // the <img> inside it.
-let cardHeroState = null; // { imgEl, fadeWrapEl, containerEl, portrait } | null
+let cardHeroState = null; // { imgEl, hWrapEl, vWrapEl, containerEl, portrait } | null
 function buildCardHero(entity, portrait) {
   const heroWrap = document.createElement('div');
   heroWrap.className = 'codex-card-hero';
-  const fadeWrap = document.createElement('div');
-  fadeWrap.className = 'codex-hero-fade';
+  const hWrap = document.createElement('div');
+  hWrap.className = 'codex-hero-fade';
+  const vWrap = document.createElement('div');
+  vWrap.className = 'codex-hero-fade';
   const imgEl = document.createElement('img');
   imgEl.className = 'codex-hero-img';
   imgEl.src = portrait.data;
   imgEl.alt = '';
-  fadeWrap.appendChild(imgEl);
-  heroWrap.appendChild(fadeWrap);
-  cardHeroState = { imgEl: imgEl, fadeWrapEl: fadeWrap, containerEl: heroWrap, portrait: portrait };
-  requestAnimationFrame(function () { portraitRenderInto(imgEl, fadeWrap, heroWrap, portrait); });
+  vWrap.appendChild(imgEl);
+  hWrap.appendChild(vWrap);
+  heroWrap.appendChild(hWrap);
+  cardHeroState = { imgEl: imgEl, hWrapEl: hWrap, vWrapEl: vWrap, containerEl: heroWrap, portrait: portrait };
+  requestAnimationFrame(function () { portraitRenderInto(imgEl, hWrap, vWrap, heroWrap, portrait); });
   return heroWrap;
 }
 window.addEventListener('resize', function () {
   if (cardHeroState && cardHeroState.containerEl.isConnected) {
-    portraitRenderInto(cardHeroState.imgEl, cardHeroState.fadeWrapEl, cardHeroState.containerEl, cardHeroState.portrait);
+    portraitRenderInto(cardHeroState.imgEl, cardHeroState.hWrapEl, cardHeroState.vWrapEl, cardHeroState.containerEl, cardHeroState.portrait);
   }
 });
 
@@ -1294,15 +1304,17 @@ function openSetPortraitDialog(entity, images) {
 
   let debugEl = null;
   function renderCardPreview() {
-    if (cardHeroState) portraitRenderInto(cardHeroState.imgEl, cardHeroState.fadeWrapEl, cardHeroState.containerEl, workingImg);
+    if (cardHeroState) portraitRenderInto(cardHeroState.imgEl, cardHeroState.hWrapEl, cardHeroState.vWrapEl, cardHeroState.containerEl, workingImg);
     if (debugEl && cardHeroState) {
-      const cs = window.getComputedStyle(cardHeroState.fadeWrapEl);
-      const applied = cs.maskImage && cs.maskImage !== 'none' ? cs.maskImage
-        : (cs.webkitMaskImage || 'none');
+      const hCs = window.getComputedStyle(cardHeroState.hWrapEl);
+      const vCs = window.getComputedStyle(cardHeroState.vWrapEl);
+      const hApplied = hCs.maskImage && hCs.maskImage !== 'none' ? hCs.maskImage : (hCs.webkitMaskImage || 'none');
+      const vApplied = vCs.maskImage && vCs.maskImage !== 'none' ? vCs.maskImage : (vCs.webkitMaskImage || 'none');
       const cw = cardHeroState.containerEl.clientWidth, ch = cardHeroState.containerEl.clientHeight;
       debugEl.textContent = 'container: ' + cw + 'x' + ch + 'px\n'
         + 'H:' + workingImg.portraitFadeH + '% V:' + workingImg.portraitFadeV + '%\n'
-        + 'computed mask-image:\n' + applied;
+        + 'H mask:\n' + hApplied + '\n'
+        + 'V mask:\n' + vApplied;
     }
   }
 
