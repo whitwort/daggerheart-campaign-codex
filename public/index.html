@@ -25,12 +25,6 @@
       __showDebugBanner('Unhandled rejection: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
     });
   </script>
-  <script>
-    // Stamped by CI at deploy time (same commit hash CI writes to the
-    // _meta/version Firestore doc — see version.js). Left as the literal
-    // placeholder on unstamped/local builds, which disables version checks.
-    window.BUILD_HASH = '__BUILD_HASH__';
-  </script>
   <script src="firebase-env.js"></script>
   <script src="config.js"></script>
   <script>
@@ -270,14 +264,6 @@
     <div class="modal-actions">
       <button id="pin-panel-save" type="button">Save</button>
       <button id="pin-panel-cancel" type="button">Cancel</button>
-    </div>
-  </div>
-
-  <div id="update-banner" style="display:none;">
-    <span>A new version of the Codex is available.</span>
-    <div class="update-banner-actions">
-      <button id="update-banner-reload" type="button">Reload to update</button>
-      <button id="update-banner-dismiss" type="button">Dismiss</button>
     </div>
   </div>
 
