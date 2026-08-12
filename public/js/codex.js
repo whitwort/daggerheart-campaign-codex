@@ -1382,10 +1382,12 @@ function renderDetailForSelected() {
     const catEm = document.createElement('em');
     catEm.textContent = entity.category || '';
     catP.appendChild(catEm);
+    if (entity.ancestry) {
+      catP.appendChild(document.createTextNode(' \u2014 ' + entity.ancestry));
+    }
     leftCol.appendChild(catP);
 
     const metaBits = [];
-    if (entity.ancestry) metaBits.push('Ancestry: ' + entity.ancestry);
     if (entity.aliases && entity.aliases.length) metaBits.push('Also known as: ' + entity.aliases.join(', '));
     if (entity.date) metaBits.push('Date: ' + entity.date);
     if (entity.ownerId && gmView) metaBits.push('Owned by: ' + entity.ownerId);
@@ -1395,12 +1397,23 @@ function renderDetailForSelected() {
       metaDiv.textContent = metaBits.join(' \u00b7 ');
       leftCol.appendChild(metaDiv);
     }
+
+    if (entity.tags && entity.tags.length) {
+      const tagsDiv = document.createElement('div');
+      tagsDiv.id = 'codex-tags';
+      entity.tags.forEach(function (t) {
+        const span = document.createElement('span');
+        span.textContent = t;
+        tagsDiv.appendChild(span);
+      });
+      leftCol.appendChild(tagsDiv);
+    }
   }
   headingRow.appendChild(leftCol);
 
   const rightCol = document.createElement('div');
   rightCol.id = 'codex-card-heading-right';
-  if (state.currentRole === 'gm') {
+  if (gmView) {
     rightCol.appendChild(buildEntityVisibilityToggle(entity));
   }
   if (entity.category === 'Location' && entity.hasMapImage) {
@@ -1461,18 +1474,6 @@ function renderDetailForSelected() {
 
   if (editing) return; // tags/gallery/related/delete are edited inline above; card ends here
 
-  // --- Tags ---
-  if (entity.tags && entity.tags.length) {
-    const tagsDiv = document.createElement('div');
-    tagsDiv.id = 'codex-tags';
-    entity.tags.forEach(function (t) {
-      const span = document.createElement('span');
-      span.textContent = t;
-      tagsDiv.appendChild(span);
-    });
-    detailEl.appendChild(tagsDiv);
-  }
-
   // --- Related entities ---
   // Player view only links to targets that are themselves player-visible;
   // dangling IDs (deleted target) silently skipped.
@@ -1501,7 +1502,7 @@ function renderDetailForSelected() {
   }
 
   // --- Entity-level GM actions: bottom-right of the Entry Card ---
-  if (state.currentRole === 'gm') {
+  if (gmView) {
     const cardActions = document.createElement('div');
     cardActions.className = 'actions-row';
     const right = document.createElement('div');
