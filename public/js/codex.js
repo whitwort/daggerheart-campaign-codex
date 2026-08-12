@@ -1317,33 +1317,8 @@ function openSetPortraitDialog(entity, images) {
   let cardDragCleanup = null;
   let workingImg = null;
 
-  let debugEl = null;
   function renderCardPreview() {
     if (cardHeroState) portraitRenderInto(cardHeroState.imgEl, cardHeroState.hWrapEl, cardHeroState.vWrapEl, cardHeroState.containerEl, workingImg);
-    if (debugEl && cardHeroState) {
-      const hCs = window.getComputedStyle(cardHeroState.hWrapEl);
-      const vCs = window.getComputedStyle(cardHeroState.vWrapEl);
-      const hApplied = hCs.maskImage && hCs.maskImage !== 'none' ? hCs.maskImage : (hCs.webkitMaskImage || 'none');
-      const vApplied = vCs.maskImage && vCs.maskImage !== 'none' ? vCs.maskImage : (vCs.webkitMaskImage || 'none');
-      const cw = cardHeroState.containerEl.clientWidth, ch = cardHeroState.containerEl.clientHeight;
-      const imgEl = cardHeroState.imgEl;
-      const iw = parseFloat(imgEl.style.width), ih = parseFloat(imgEl.style.height);
-      const m = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(imgEl.style.transform) || [];
-      const tx = parseFloat(m[1]) || 0, ty = parseFloat(m[2]) || 0;
-      // Does the image's actual rendered+positioned box cover the
-      // container on each edge? This readout is what root-caused the
-      // "hard line" bug (it was the image's own real left edge — the
-      // old relaxed clamp allowed under-coverage; clamp is now strict
-      // full-coverage). Kept until Gregg confirms fixed on-device.
-      const coverTop = ty <= 0, coverLeft = tx <= 0;
-      const coverRight = tx + iw >= cw, coverBottom = ty + ih >= ch;
-      debugEl.textContent = 'container: ' + cw + 'x' + ch + 'px\n'
-        + 'image box: ' + Math.round(iw) + 'x' + Math.round(ih) + 'px at (' + Math.round(tx) + ',' + Math.round(ty) + ')\n'
-        + 'covers top:' + coverTop + ' bottom:' + coverBottom + ' left:' + coverLeft + ' right:' + coverRight + '\n'
-        + 'H:' + workingImg.portraitFadeH + '% V:' + workingImg.portraitFadeV + '%\n'
-        + 'H mask:\n' + hApplied + '\n'
-        + 'V mask:\n' + vApplied;
-    }
   }
 
   function attachCardDrag() {
@@ -1514,16 +1489,6 @@ function openSetPortraitDialog(entity, images) {
       formatValue: function (v) { return v + '%'; }
     }));
     body.appendChild(controlsWrap);
-
-    // TEMP debug aid (iOS Safari has no devtools to check this directly)
-    // — reports the browser's actual computed mask-image on the fade
-    // wrapper, live as sliders/drag move. Remove once the fade math is
-    // confirmed working. 'none' here means the gradient string was
-    // rejected outright (syntax issue); the actual gradient string
-    // means it's parsing fine and any remaining problem is geometry.
-    debugEl = document.createElement('pre');
-    debugEl.className = 'portrait-debug-readout';
-    body.appendChild(debugEl);
 
     const actions = document.createElement('div');
     actions.className = 'modal-actions';
