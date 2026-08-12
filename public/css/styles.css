@@ -282,6 +282,18 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
   align-items: center; gap: 0.6rem;
 }
 #pin-move-indicator.open { display: flex; }
+
+/* "Reload to update" banner (version.js). Hidden by default; version.js
+   toggles inline display. Bottom-docked so it never covers the nav. */
+#update-banner {
+  display: none; position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%);
+  z-index: 950; max-width: calc(100vw - 2rem);
+  background: var(--void-raised); color: var(--parchment);
+  border: 1px solid var(--void-line); border-radius: 10px;
+  padding: 0.75rem 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  flex-direction: column; gap: 0.6rem; align-items: center; font-size: 0.9rem;
+}
+#update-banner-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
 #pin-move-indicator button { padding: 0.3rem 0.7rem; cursor: pointer; background: var(--void); color: var(--parchment); border: 1px solid var(--void-line); }
 
 #codex-tab { display: flex; align-items: flex-start; gap: 1.5rem; margin-top: 1rem; }
@@ -771,3 +783,17 @@ button:disabled:hover { border-color: var(--void-line); }
   font-size: 0.65rem; line-height: 1.4; color: rgba(233,221,194,0.55);
   white-space: pre-wrap; word-break: break-word; font-family: monospace;
 }
+
+/* --- Update banner (version.js deploy detection, prod path) ----------- */
+/* Fixed bottom strip; never shown in dev (dev auto-reloads instead,
+   except as a loop-guard fallback). Buttons use the standing standard
+   width — no exception needed. */
+#update-banner {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 950;
+  background: var(--parchment); color: var(--ink);
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.5);
+  padding: 0.6rem 1rem; font-size: 0.9rem;
+  display: flex; align-items: center; justify-content: center;
+  gap: 1rem; flex-wrap: wrap;
+}
+.update-banner-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
