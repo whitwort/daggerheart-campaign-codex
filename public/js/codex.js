@@ -204,28 +204,34 @@ function portraitOffsetPxToFrac(img, cw, ch, px, py) {
   return { xFrac: scaledW ? px / scaledW : 0, yFrac: scaledH ? py / scaledH : 0 };
 }
 
-// Rectangular, independently-adjustable per-axis edge fade — one-sided
-// (left/bottom only), matching the direction of the diagonal card-level
-// mask (opaque top-right, fading to bottom-left).
+// Single diagonal fade, angle driven by the H/V sliders — not two
+// independent axis-aligned gradients (that was the old approach, and it
+// combined into an L-shaped cutoff by design: intersecting "opaque
+// right" with "opaque top" leaves BOTH the left strip and the bottom
+// strip transparent independently, which reads as a stepped corner, not
+// a diagonal line).
 //
-// Applied to fadeWrapEl, a wrapper sized to the *visible container* — not
-// to the <img> itself. A linear-gradient's percentage stops resolve
-// against the masked element's own box; the image's box is its full
-// scaled size, which is mostly off-screen at higher zoom/pan, so masking
-// the image directly put the fade's transition zone off-screen too
-// (visible edge = hard clip, slider barely mattered). Masking a
-// container-sized wrapper instead keeps 0%-100% mapped to what's
-// actually shown, regardless of image zoom/pan — same fix already used
-// for the diagonal card-level mask.
+// Each slider is treated as a CSS gradient-direction weight (CSS angle
+// convention: 0deg=up, 90deg=right, clockwise). H fully dominant ->
+// "to right" (90deg); V fully dominant -> "to top" (0deg); the two
+// combine as a vector sum (hPct*right + vPct*up), so equal H/V always
+// gives exactly 45deg — the same angle as the fixed outer card mask —
+// regardless of the container's aspect ratio, and either slider alone
+// smoothly rotates the line while it stays one straight diagonal edge.
+// Magnitude (hypot of the two) sets how far the transition reaches.
 function portraitApplyEdgeFade(fadeWrapEl, img) {
   const hPct = typeof img.portraitFadeH === 'number' ? img.portraitFadeH : 12;
   const vPct = typeof img.portraitFadeV === 'number' ? img.portraitFadeV : 12;
-  const hGrad = 'linear-gradient(to right, transparent 0%, black ' + hPct + '%, black 100%)';
-  const vGrad = 'linear-gradient(to bottom, black 0%, black ' + (100 - vPct) + '%, transparent 100%)';
-  fadeWrapEl.style.webkitMaskImage = hGrad + ', ' + vGrad;
-  fadeWrapEl.style.maskImage = hGrad + ', ' + vGrad;
-  fadeWrapEl.style.webkitMaskComposite = 'source-in';
-  fadeWrapEl.style.maskComposite = 'intersect';
+  const angle = (hPct === 0 && vPct === 0) ? 45 : Math.atan2(hPct, vPct) * 180 / Math.PI;
+  const magnitude = Math.hypot(hPct, vPct);
+  const startPct = magnitude * 0.6;
+  const endPct = Math.min(100, magnitude * 1.4);
+  const grad = 'linear-gradient(' + angle + 'deg, transparent 0%, transparent '
+    + startPct + '%, black ' + endPct + '%, black 100%)';
+  fadeWrapEl.style.webkitMaskImage = grad;
+  fadeWrapEl.style.maskImage = grad;
+  fadeWrapEl.style.webkitMaskComposite = '';
+  fadeWrapEl.style.maskComposite = '';
 }
 
 // Renders img (a portrait-flagged image doc, using its saved crop state)
