@@ -213,29 +213,29 @@ function portraitOffsetPxToFrac(img, cw, ch, px, py) {
   return { xFrac: scaledW ? px / scaledW : 0, yFrac: scaledH ? py / scaledH : 0 };
 }
 
-// Single diagonal fade, angle driven by the H/V sliders — not two
-// independent axis-aligned gradients (that was the old approach, and it
-// combined into an L-shaped cutoff by design: intersecting "opaque
-// right" with "opaque top" leaves BOTH the left strip and the bottom
-// strip transparent independently, which reads as a stepped corner, not
-// a diagonal line).
+// Diagonal fade at a fixed 45deg — matching the outer card-level mask's
+// angle exactly and unconditionally, not rotating with the H:V ratio
+// (the earlier vector-sum approach coupled the two: a nonzero H kept
+// pulling the direction away from vertical, so raising V alone barely
+// moved anything — the reported "vertical fade does nothing" bug).
+// magnitude uses max(H,V), not their sum or hypot, so either slider
+// alone reliably drives the full effect regardless of the other's value.
 //
-// Each slider is treated as a CSS gradient-direction weight (CSS angle
-// convention: 0deg=up, 90deg=right, clockwise). H fully dominant ->
-// "to right" (90deg); V fully dominant -> "to top" (0deg); the two
-// combine as a vector sum (hPct*right + vPct*up), so equal H/V always
-// gives exactly 45deg — the same angle as the fixed outer card mask —
-// regardless of the container's aspect ratio, and either slider alone
-// smoothly rotates the line while it stays one straight diagonal edge.
-// Magnitude (hypot of the two) sets how far the transition reaches.
+// The 0.65/1.9 multipliers are calibrated against the outer mask's own
+// fixed, already-correct stops (transparent to 30%, black by 85%): at
+// max slider value (45), this reaches the same ~30%/85% window. That
+// matters because on this band's wide (2.2/1) aspect ratio, the
+// bottom-right corner projects to ~69% along a 45deg gradient line —
+// noticeably further than a naive scaling reaches — so a weaker
+// endPct left that corner permanently past the "black 100%" point,
+// i.e. hard-edged, at any slider setting.
 function portraitApplyEdgeFade(fadeWrapEl, img) {
   const hPct = typeof img.portraitFadeH === 'number' ? img.portraitFadeH : 12;
   const vPct = typeof img.portraitFadeV === 'number' ? img.portraitFadeV : 12;
-  const angle = (hPct === 0 && vPct === 0) ? 45 : Math.atan2(hPct, vPct) * 180 / Math.PI;
-  const magnitude = Math.hypot(hPct, vPct);
-  const startPct = magnitude * 0.6;
-  const endPct = Math.min(100, magnitude * 1.4);
-  const grad = 'linear-gradient(' + angle + 'deg, transparent 0%, transparent '
+  const magnitude = Math.max(hPct, vPct);
+  const startPct = magnitude * 0.65;
+  const endPct = Math.min(100, magnitude * 1.9);
+  const grad = 'linear-gradient(45deg, transparent 0%, transparent '
     + startPct + '%, black ' + endPct + '%, black 100%)';
   fadeWrapEl.style.webkitMaskImage = grad;
   fadeWrapEl.style.maskImage = grad;
@@ -1424,24 +1424,27 @@ function openSetPortraitDialog(entity, images) {
     function makeFadeSlider(labelText, key) {
       const row = document.createElement('label');
       row.className = 'portrait-fade-row';
+      const topLine = document.createElement('div');
+      topLine.className = 'portrait-fade-top';
       const span = document.createElement('span');
       span.textContent = labelText;
-      row.appendChild(span);
+      const valSpan = document.createElement('span');
+      valSpan.className = 'portrait-fade-value';
+      valSpan.textContent = workingImg[key] + '%';
+      topLine.appendChild(span);
+      topLine.appendChild(valSpan);
+      row.appendChild(topLine);
       const input = document.createElement('input');
       input.type = 'range';
       input.min = '0';
       input.max = '45';
       input.value = String(workingImg[key]);
-      const valSpan = document.createElement('span');
-      valSpan.className = 'portrait-fade-value';
-      valSpan.textContent = workingImg[key] + '%';
       input.addEventListener('input', function () {
         workingImg[key] = parseInt(input.value, 10);
         valSpan.textContent = workingImg[key] + '%';
         renderCardPreview();
       });
       row.appendChild(input);
-      row.appendChild(valSpan);
       return row;
     }
     const fadeWrap = document.createElement('div');
