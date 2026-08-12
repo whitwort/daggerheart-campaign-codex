@@ -722,7 +722,7 @@ button:disabled:hover { border-color: var(--void-line); }
    controls; the live preview + drag-to-reposition happen on the card
    itself via portraitPreviewOverride, not in a box inside the panel. */
 .portrait-picker-panel {
-  position: fixed; top: 6rem; right: 2rem; width: 15rem; z-index: 500;
+  position: fixed; top: 6rem; right: 2rem; width: 20rem; z-index: 500;
   background: rgba(26,31,40,0.94); border: 1px solid var(--void-line);
   border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,0.55);
 }
@@ -738,6 +738,10 @@ button:disabled:hover { border-color: var(--void-line); }
    button, let alone two side by side. */
 .portrait-picker-body button { width: auto; min-width: 0; text-align: center; padding: 0.4rem 0.9rem; }
 .portrait-picker-body .modal-actions { margin-top: 0.9rem; }
+/* .image-edit-status defaults to --ink-soft (dark brown, for the light
+   parchment card) — unreadable on this dark panel; override to a muted
+   light tone. */
+.portrait-picker-body .image-edit-status { color: rgba(233,221,194,0.65); }
 
 .portrait-thumb-row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .portrait-thumb {
@@ -764,8 +768,9 @@ button:disabled:hover { border-color: var(--void-line); }
   width: 2.2rem; min-width: 0; height: 2.2rem; border-radius: 50%; padding: 0; text-align: center;
   font-size: 1.1rem; line-height: 1;
 }
-.portrait-zoom-label { font-size: 0.85rem; color: var(--ink-soft); min-width: 3.4rem; text-align: center; }
-.portrait-fade-sliders { margin-top: 0.9rem; display: flex; flex-direction: column; gap: 0.5rem; }
-.portrait-fade-row { display: grid; grid-template-columns: 6.5rem 1fr 2.6rem; align-items: center; gap: 0.5rem; font-size: 0.78rem; }
+.portrait-zoom-label { font-size: 0.85rem; color: rgba(233,221,194,0.65); min-width: 3.4rem; text-align: center; }
+.portrait-fade-sliders { margin-top: 0.9rem; display: flex; flex-direction: column; gap: 0.7rem; }
+.portrait-fade-row { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.8rem; }
+.portrait-fade-top { display: flex; justify-content: space-between; }
 .portrait-fade-row input[type="range"] { width: 100%; accent-color: var(--hope); }
-.portrait-fade-value { text-align: right; }
+.portrait-fade-value { text-align: right; color: rgba(233,221,194,0.65); }
