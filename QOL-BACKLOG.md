@@ -22,6 +22,8 @@ height, with NO per-context exceptions, except:**
    as a link: `.related-chip`, `.entity-map-link`,
    `.map-breadcrumb-link`, `.collapse-toggle`.
 4. Small icon-only circular buttons — `.image-lightbox-close`.
+5. Buttons inside a small floating panel too narrow for the fixed
+   13rem width — `.portrait-picker-body button` (Set portrait picker).
 
 This was corrected piecemeal across many earlier Phase 11 sessions
 (gallery Delete, lore Edit/Delete, admin buttons/dropdowns, map pin
