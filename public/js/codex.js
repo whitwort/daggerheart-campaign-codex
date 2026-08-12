@@ -1515,7 +1515,7 @@ function renderDetailForSelected() {
   // --- Entity-level GM actions: bottom-right of the Entry Card ---
   if (gmView) {
     const cardActions = document.createElement('div');
-    cardActions.className = 'actions-row';
+    cardActions.className = 'actions-row codex-card-bottom-actions';
     const right = document.createElement('div');
     right.className = 'actions-row-right';
     const editBtn = document.createElement('button');
