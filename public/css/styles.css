@@ -696,6 +696,7 @@ button:disabled:hover { border-color: var(--void-line); }
   position: relative; overflow: hidden;
   margin: -1.5rem -1.75rem 1rem; /* bleed to #codex-detail's own edges */
   border-radius: 14px 14px 0 0;
+  outline: 1px solid red; outline-offset: -1px; /* TEMP DEBUG: visualize band box vs hard line — remove */
 }
 .codex-card-hero {
   position: absolute; inset: 0; overflow: hidden; z-index: 0;
