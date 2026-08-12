@@ -5,9 +5,6 @@ import './admin.js';
 import './codex.js';
 import './images.js';
 import { ensureImportEditorReady } from './import.js';
-import { initUpdateBanner } from './version.js';
-
-initUpdateBanner();
 
 document.getElementById('campaign-title').textContent = CONFIG.campaignName;
 document.getElementById('tab-btn-codex').textContent = CONFIG.tabs.codex;
