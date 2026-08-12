@@ -145,11 +145,17 @@ function galleryImagesFor(entityId, gmView) {
 const PORTRAIT_ZOOM_STEP_FACTOR = 0.12; // ~12% per step, per mockup
 const PORTRAIT_MAX_ZOOM_STEPS = 8;
 const PORTRAIT_MIN_OVERLAP_FRAC = 0.28; // mid-point of mockup's tunable 22-35% range
-// Must match the aspect-ratio in styles.css for .codex-card-hero-band AND
-// .portrait-preview-frame — the crop math (offsets stored as fractions of
-// the scaled image) only reproduces the same framing when both render
-// containers share this aspect ratio. Keep the three in sync.
+// Aspect ratio of the card's hero band. The crop math (offsets stored as
+// fractions of the scaled image) reproduces the same framing regardless
+// of container size, but the band itself needs a fixed aspect so it
+// doesn't reflow oddly at different card widths.
 const PORTRAIT_PREVIEW_ASPECT = '2.2 / 1';
+
+// While the Set portrait dialog's edit stage is open, the card should
+// show the in-progress (unsaved) crop rather than the committed one —
+// this lets the drag/zoom/fade controls preview live on the actual card,
+// per the locked redesign. Cleared on Save/Cancel.
+let portraitPreviewOverride = null; // { entityId, img } | null
 
 // Returns the entity's current portrait image doc (isPortrait flag), or
 // falls back to the first gallery image in sort order if none is flagged
@@ -157,6 +163,9 @@ const PORTRAIT_PREVIEW_ASPECT = '2.2 / 1';
 // step). Respects gmView the same way galleryImagesFor does, so a
 // gm-only portrait never shows to players.
 function portraitImageFor(entity, gmView) {
+  if (portraitPreviewOverride && portraitPreviewOverride.entityId === entity.id) {
+    return portraitPreviewOverride.img;
+  }
   const images = galleryImagesFor(entity.id, gmView);
   if (!images.length) return null;
   return images.find(function (img) { return img.isPortrait; }) || images[0];
@@ -1231,227 +1240,247 @@ function renderLoreTab(container, entity, gmView) {
 }
 
 // --- Set portrait dialog -----------------------------------------------
-// Locked design (portrait-picker-dialog-mockup-v6): live preview at real
-// card proportions, drag directly on the preview to reposition (pointer
-// events, not a crop-box widget), stepped +/- zoom (min = exact
-// cover-fit), independently-adjustable horizontal/vertical edge fade.
-// Save/Cancel bottom-right (GM-only action — see QOL-BACKLOG button
-// convention note). One dialog per gallery (opened from the gallery's
-// own "Set portrait" action, not per-thumbnail) — a thumbnail strip
-// picks which image to crop.
-function openSetPortraitDialog(entity, images, currentPortrait) {
-  // Per-image working copies, so switching the thumbnail selection
-  // during this dialog session doesn't lose in-progress edits; Cancel
-  // discards all of it regardless (nothing is written until Save).
-  const workingByImage = {};
-  function workingFor(img) {
-    if (!workingByImage[img.id]) {
-      workingByImage[img.id] = {
-        width: img.width, height: img.height,
-        portraitZoomStep: typeof img.portraitZoomStep === 'number' ? img.portraitZoomStep : 0,
-        portraitOffsetXFrac: typeof img.portraitOffsetXFrac === 'number' ? img.portraitOffsetXFrac : 0,
-        portraitOffsetYFrac: typeof img.portraitOffsetYFrac === 'number' ? img.portraitOffsetYFrac : 0,
-        portraitFadeH: typeof img.portraitFadeH === 'number' ? img.portraitFadeH : 12,
-        portraitFadeV: typeof img.portraitFadeV === 'number' ? img.portraitFadeV : 12
-      };
+// Redesigned UX (locked): a small drag-to-move, semi-transparent floating
+// panel rather than a full-screen modal, so the actual entry card stays
+// visible and interactive underneath.
+//   Stage A ("Select a gallery image"): click a gallery thumbnail.
+//   Stage B: panel shows Zoom + H/V fade sliders + Save/Cancel; the live
+//   preview and drag-to-reposition happen directly on the entry card
+//   itself (via portraitPreviewOverride), not in a box inside the panel.
+// Cancel (either stage) and Esc close without saving.
+function openSetPortraitDialog(entity, images) {
+  const panel = document.createElement('div');
+  panel.className = 'portrait-picker-panel';
+  const header = document.createElement('div');
+  header.className = 'portrait-picker-header';
+  header.textContent = 'Select a gallery image';
+  panel.appendChild(header);
+  const body = document.createElement('div');
+  body.className = 'portrait-picker-body';
+  panel.appendChild(body);
+  document.body.appendChild(panel);
+
+  // Drag-to-move the panel itself, via the header.
+  let panelDrag = null;
+  header.addEventListener('pointerdown', function (ev) {
+    const rect = panel.getBoundingClientRect();
+    panel.style.left = rect.left + 'px';
+    panel.style.top = rect.top + 'px';
+    panel.style.right = 'auto';
+    header.setPointerCapture(ev.pointerId);
+    panelDrag = { startX: ev.clientX, startY: ev.clientY, origLeft: rect.left, origTop: rect.top };
+  });
+  header.addEventListener('pointermove', function (ev) {
+    if (!panelDrag) return;
+    panel.style.left = (panelDrag.origLeft + (ev.clientX - panelDrag.startX)) + 'px';
+    panel.style.top = (panelDrag.origTop + (ev.clientY - panelDrag.startY)) + 'px';
+  });
+  function endPanelDrag() { panelDrag = null; }
+  header.addEventListener('pointerup', endPanelDrag);
+  header.addEventListener('pointercancel', endPanelDrag);
+
+  // Card drag handlers (Stage B only) — attached to the live card's hero
+  // wrapper, not a preview box. Cleared on close/stage change.
+  let cardDragCleanup = null;
+  let workingImg = null;
+
+  function renderCardPreview() {
+    if (cardHeroState) portraitRenderInto(cardHeroState.imgEl, cardHeroState.fadeWrapEl, cardHeroState.containerEl, workingImg);
+  }
+
+  function attachCardDrag() {
+    if (!cardHeroState) return;
+    const heroEl = cardHeroState.containerEl;
+    let dragState = null;
+    function onDown(ev) {
+      heroEl.setPointerCapture(ev.pointerId);
+      heroEl.classList.add('dragging');
+      const cw = heroEl.clientWidth, ch = heroEl.clientHeight;
+      const startPx = portraitOffsetFracToPx(workingImg, cw, ch);
+      dragState = { startX: ev.clientX, startY: ev.clientY, origX: startPx.x, origY: startPx.y };
     }
-    return workingByImage[img.id];
-  }
-
-  let selectedImg = currentPortrait || images[0];
-  let workingImg = workingFor(selectedImg);
-
-  const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay open portrait-dialog-overlay';
-  const box = document.createElement('div');
-  box.className = 'modal-box portrait-dialog-box';
-
-  const h3 = document.createElement('h3');
-  h3.textContent = 'Set portrait \u2014 ' + entity.name;
-  box.appendChild(h3);
-  const sub = document.createElement('p');
-  sub.className = 'image-edit-status';
-  sub.textContent = 'Drag to reposition. Use +/\u2212 to zoom.';
-  box.appendChild(sub);
-
-  let thumbRow = null;
-  if (images.length > 1) {
-    thumbRow = document.createElement('div');
-    thumbRow.className = 'portrait-thumb-row';
-    box.appendChild(thumbRow);
-  }
-
-  const frame = document.createElement('div');
-  frame.className = 'portrait-preview-frame';
-  frame.style.aspectRatio = PORTRAIT_PREVIEW_ASPECT;
-  const heroFadeWrap = document.createElement('div');
-  heroFadeWrap.className = 'codex-hero-fade';
-  const imgEl = document.createElement('img');
-  imgEl.className = 'codex-hero-img';
-  imgEl.alt = '';
-  heroFadeWrap.appendChild(imgEl);
-  frame.appendChild(heroFadeWrap);
-  const nameLabel = document.createElement('div');
-  nameLabel.className = 'portrait-preview-label';
-  nameLabel.textContent = entity.name;
-  frame.appendChild(nameLabel);
-  box.appendChild(frame);
-
-  function render() { portraitRenderInto(imgEl, heroFadeWrap, frame, workingImg); }
-
-  const zoomRow = document.createElement('div');
-  zoomRow.className = 'portrait-zoom-row';
-  const zoomOut = document.createElement('button');
-  zoomOut.type = 'button';
-  zoomOut.textContent = '\u2212';
-  const zoomLabel = document.createElement('span');
-  zoomLabel.className = 'portrait-zoom-label';
-  const zoomIn = document.createElement('button');
-  zoomIn.type = 'button';
-  zoomIn.textContent = '+';
-  function updateZoomLabel() {
-    zoomLabel.textContent = Math.round((1 + workingImg.portraitZoomStep * PORTRAIT_ZOOM_STEP_FACTOR) * 100) + '%';
-  }
-  function adjustZoom(dir) {
-    workingImg.portraitZoomStep = Math.max(0, Math.min(PORTRAIT_MAX_ZOOM_STEPS, workingImg.portraitZoomStep + dir));
-    // Re-clamp the offset at the new scale so it doesn't jump out of range.
-    const cw = frame.clientWidth, ch = frame.clientHeight;
-    const clamped = portraitOffsetFracToPx(workingImg, cw, ch);
-    const frac = portraitOffsetPxToFrac(workingImg, cw, ch, clamped.x, clamped.y);
-    workingImg.portraitOffsetXFrac = frac.xFrac;
-    workingImg.portraitOffsetYFrac = frac.yFrac;
-    updateZoomLabel();
-    render();
-  }
-  zoomOut.addEventListener('click', function () { adjustZoom(-1); });
-  zoomIn.addEventListener('click', function () { adjustZoom(1); });
-  zoomRow.appendChild(zoomOut);
-  zoomRow.appendChild(zoomLabel);
-  zoomRow.appendChild(zoomIn);
-  box.appendChild(zoomRow);
-
-  let fadeHInput, fadeHVal, fadeVInput, fadeVVal;
-  function makeFadeSlider(labelText, key) {
-    const row = document.createElement('label');
-    row.className = 'portrait-fade-row';
-    const span = document.createElement('span');
-    span.textContent = labelText;
-    row.appendChild(span);
-    const input = document.createElement('input');
-    input.type = 'range';
-    input.min = '0';
-    input.max = '45';
-    input.value = String(workingImg[key]);
-    const valSpan = document.createElement('span');
-    valSpan.className = 'portrait-fade-value';
-    valSpan.textContent = workingImg[key] + '%';
-    input.addEventListener('input', function () {
-      workingImg[key] = parseInt(input.value, 10);
-      valSpan.textContent = workingImg[key] + '%';
-      render();
-    });
-    row.appendChild(input);
-    row.appendChild(valSpan);
-    if (key === 'portraitFadeH') { fadeHInput = input; fadeHVal = valSpan; } else { fadeVInput = input; fadeVVal = valSpan; }
-    return row;
-  }
-  const fadeWrap = document.createElement('div');
-  fadeWrap.className = 'portrait-fade-sliders';
-  fadeWrap.appendChild(makeFadeSlider('Horizontal fade', 'portraitFadeH'));
-  fadeWrap.appendChild(makeFadeSlider('Vertical fade', 'portraitFadeV'));
-  box.appendChild(fadeWrap);
-
-  // Re-point the preview + controls at a different gallery image without
-  // rebuilding the dialog.
-  function selectImage(img) {
-    selectedImg = img;
-    workingImg = workingFor(img);
-    imgEl.src = img.data;
-    if (thumbRow) {
-      Array.prototype.forEach.call(thumbRow.children, function (el) {
-        el.classList.toggle('selected', el.dataset.imageId === img.id);
-      });
+    function onMove(ev) {
+      if (!dragState) return;
+      const cw = heroEl.clientWidth, ch = heroEl.clientHeight;
+      const dx = ev.clientX - dragState.startX, dy = ev.clientY - dragState.startY;
+      const clamped = portraitClampOffset(workingImg, cw, ch, dragState.origX + dx, dragState.origY + dy);
+      const frac = portraitOffsetPxToFrac(workingImg, cw, ch, clamped.x, clamped.y);
+      workingImg.portraitOffsetXFrac = frac.xFrac;
+      workingImg.portraitOffsetYFrac = frac.yFrac;
+      renderCardPreview();
     }
-    fadeHInput.value = String(workingImg.portraitFadeH);
-    fadeHVal.textContent = workingImg.portraitFadeH + '%';
-    fadeVInput.value = String(workingImg.portraitFadeV);
-    fadeVVal.textContent = workingImg.portraitFadeV + '%';
-    updateZoomLabel();
-    render();
+    function onUp() { dragState = null; heroEl.classList.remove('dragging'); }
+    heroEl.classList.add('portrait-card-editable');
+    detailEl.classList.add('portrait-editing');
+    heroEl.addEventListener('pointerdown', onDown);
+    heroEl.addEventListener('pointermove', onMove);
+    heroEl.addEventListener('pointerup', onUp);
+    heroEl.addEventListener('pointercancel', onUp);
+    cardDragCleanup = function () {
+      heroEl.classList.remove('portrait-card-editable', 'dragging');
+      detailEl.classList.remove('portrait-editing');
+      heroEl.removeEventListener('pointerdown', onDown);
+      heroEl.removeEventListener('pointermove', onMove);
+      heroEl.removeEventListener('pointerup', onUp);
+      heroEl.removeEventListener('pointercancel', onUp);
+    };
   }
 
-  if (thumbRow) {
+  function onKeydown(ev) { if (ev.key === 'Escape') close(); }
+  document.addEventListener('keydown', onKeydown);
+
+  function close() {
+    if (cardDragCleanup) { cardDragCleanup(); cardDragCleanup = null; }
+    portraitPreviewOverride = null;
+    document.removeEventListener('keydown', onKeydown);
+    panel.remove();
+    renderDetailForSelected(); // restore the card to committed state
+  }
+
+  function buildStageA() {
+    header.textContent = 'Select a gallery image';
+    body.innerHTML = '';
+    const grid = document.createElement('div');
+    grid.className = 'portrait-thumb-row';
     images.forEach(function (img) {
       const thumb = document.createElement('button');
       thumb.type = 'button';
-      thumb.className = 'portrait-thumb' + (img.id === selectedImg.id ? ' selected' : '');
-      thumb.dataset.imageId = img.id;
+      thumb.className = 'portrait-thumb';
       const thumbImg = document.createElement('img');
       thumbImg.src = img.data;
       thumbImg.alt = '';
       thumb.appendChild(thumbImg);
-      thumb.addEventListener('click', function () { selectImage(img); });
-      thumbRow.appendChild(thumb);
+      thumb.addEventListener('click', function () { enterStageB(img); });
+      grid.appendChild(thumb);
     });
+    body.appendChild(grid);
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', close);
+    actions.appendChild(cancelBtn);
+    body.appendChild(actions);
   }
 
-  // Drag-to-reposition directly on the preview.
-  let dragState = null;
-  frame.addEventListener('pointerdown', function (ev) {
-    frame.setPointerCapture(ev.pointerId);
-    frame.classList.add('dragging');
-    const cw = frame.clientWidth, ch = frame.clientHeight;
-    const startPx = portraitOffsetFracToPx(workingImg, cw, ch);
-    dragState = { startX: ev.clientX, startY: ev.clientY, origX: startPx.x, origY: startPx.y };
-  });
-  frame.addEventListener('pointermove', function (ev) {
-    if (!dragState) return;
-    const cw = frame.clientWidth, ch = frame.clientHeight;
-    const dx = ev.clientX - dragState.startX, dy = ev.clientY - dragState.startY;
-    const clamped = portraitClampOffset(workingImg, cw, ch, dragState.origX + dx, dragState.origY + dy);
-    const frac = portraitOffsetPxToFrac(workingImg, cw, ch, clamped.x, clamped.y);
-    workingImg.portraitOffsetXFrac = frac.xFrac;
-    workingImg.portraitOffsetYFrac = frac.yFrac;
-    render();
-  });
-  function endDrag() { dragState = null; frame.classList.remove('dragging'); }
-  frame.addEventListener('pointerup', endDrag);
-  frame.addEventListener('pointercancel', endDrag);
+  function enterStageB(img) {
+    workingImg = {
+      id: img.id, data: img.data, width: img.width, height: img.height,
+      isPortrait: true,
+      portraitZoomStep: typeof img.portraitZoomStep === 'number' ? img.portraitZoomStep : 0,
+      portraitOffsetXFrac: typeof img.portraitOffsetXFrac === 'number' ? img.portraitOffsetXFrac : 0,
+      portraitOffsetYFrac: typeof img.portraitOffsetYFrac === 'number' ? img.portraitOffsetYFrac : 0,
+      portraitFadeH: typeof img.portraitFadeH === 'number' ? img.portraitFadeH : 12,
+      portraitFadeV: typeof img.portraitFadeV === 'number' ? img.portraitFadeV : 12
+    };
+    portraitPreviewOverride = { entityId: entity.id, img: workingImg };
+    renderDetailForSelected(); // rebuilds the card's hero from the override
+    attachCardDrag();
+    buildStageB();
+  }
 
-  function close() { overlay.remove(); }
+  function buildStageB() {
+    header.textContent = 'Set portrait \u2014 ' + entity.name;
+    body.innerHTML = '';
 
-  const actions = document.createElement('div');
-  actions.className = 'modal-actions';
-  const saveBtn = document.createElement('button');
-  saveBtn.type = 'button';
-  saveBtn.textContent = 'Save';
-  saveBtn.addEventListener('click', function () {
-    saveBtn.disabled = true;
-    setEntityPortrait(entity.id, selectedImg.id, {
-      portraitZoomStep: workingImg.portraitZoomStep,
-      portraitOffsetXFrac: workingImg.portraitOffsetXFrac,
-      portraitOffsetYFrac: workingImg.portraitOffsetYFrac,
-      portraitFadeH: workingImg.portraitFadeH,
-      portraitFadeV: workingImg.portraitFadeV
-    }).then(close).catch(function (err) {
-      window.alert('Set portrait failed: ' + err.message);
-      saveBtn.disabled = false;
+    const instructions = document.createElement('p');
+    instructions.className = 'image-edit-status';
+    instructions.textContent = 'Drag the image on the card to change focus.';
+    body.appendChild(instructions);
+
+    const zoomRow = document.createElement('div');
+    zoomRow.className = 'portrait-zoom-row';
+    const zoomOut = document.createElement('button');
+    zoomOut.type = 'button';
+    zoomOut.textContent = '\u2212';
+    const zoomLabel = document.createElement('span');
+    zoomLabel.className = 'portrait-zoom-label';
+    const zoomIn = document.createElement('button');
+    zoomIn.type = 'button';
+    zoomIn.textContent = '+';
+    function updateZoomLabel() {
+      zoomLabel.textContent = Math.round((1 + workingImg.portraitZoomStep * PORTRAIT_ZOOM_STEP_FACTOR) * 100) + '%';
+    }
+    function adjustZoom(dir) {
+      workingImg.portraitZoomStep = Math.max(0, Math.min(PORTRAIT_MAX_ZOOM_STEPS, workingImg.portraitZoomStep + dir));
+      if (cardHeroState) {
+        const cw = cardHeroState.containerEl.clientWidth, ch = cardHeroState.containerEl.clientHeight;
+        const clamped = portraitOffsetFracToPx(workingImg, cw, ch);
+        const frac = portraitOffsetPxToFrac(workingImg, cw, ch, clamped.x, clamped.y);
+        workingImg.portraitOffsetXFrac = frac.xFrac;
+        workingImg.portraitOffsetYFrac = frac.yFrac;
+      }
+      updateZoomLabel();
+      renderCardPreview();
+    }
+    zoomOut.addEventListener('click', function () { adjustZoom(-1); });
+    zoomIn.addEventListener('click', function () { adjustZoom(1); });
+    zoomRow.appendChild(zoomOut);
+    zoomRow.appendChild(zoomLabel);
+    zoomRow.appendChild(zoomIn);
+    body.appendChild(zoomRow);
+
+    function makeFadeSlider(labelText, key) {
+      const row = document.createElement('label');
+      row.className = 'portrait-fade-row';
+      const span = document.createElement('span');
+      span.textContent = labelText;
+      row.appendChild(span);
+      const input = document.createElement('input');
+      input.type = 'range';
+      input.min = '0';
+      input.max = '45';
+      input.value = String(workingImg[key]);
+      const valSpan = document.createElement('span');
+      valSpan.className = 'portrait-fade-value';
+      valSpan.textContent = workingImg[key] + '%';
+      input.addEventListener('input', function () {
+        workingImg[key] = parseInt(input.value, 10);
+        valSpan.textContent = workingImg[key] + '%';
+        renderCardPreview();
+      });
+      row.appendChild(input);
+      row.appendChild(valSpan);
+      return row;
+    }
+    const fadeWrap = document.createElement('div');
+    fadeWrap.className = 'portrait-fade-sliders';
+    fadeWrap.appendChild(makeFadeSlider('Horizontal fade', 'portraitFadeH'));
+    fadeWrap.appendChild(makeFadeSlider('Vertical fade', 'portraitFadeV'));
+    body.appendChild(fadeWrap);
+
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.textContent = 'Save';
+    saveBtn.addEventListener('click', function () {
+      saveBtn.disabled = true;
+      setEntityPortrait(entity.id, workingImg.id, {
+        portraitZoomStep: workingImg.portraitZoomStep,
+        portraitOffsetXFrac: workingImg.portraitOffsetXFrac,
+        portraitOffsetYFrac: workingImg.portraitOffsetYFrac,
+        portraitFadeH: workingImg.portraitFadeH,
+        portraitFadeV: workingImg.portraitFadeV
+      }).then(close).catch(function (err) {
+        window.alert('Set portrait failed: ' + err.message);
+        saveBtn.disabled = false;
+      });
     });
-  });
-  const cancelBtn = document.createElement('button');
-  cancelBtn.type = 'button';
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.addEventListener('click', close);
-  // .modal-actions is already flex-end (bottom-right); Save-then-Cancel
-  // order matches the rest of the app's modals (openGalleryUploadModal).
-  actions.appendChild(saveBtn);
-  actions.appendChild(cancelBtn);
-  box.appendChild(actions);
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', close);
+    actions.appendChild(saveBtn);
+    actions.appendChild(cancelBtn);
+    body.appendChild(actions);
 
-  overlay.appendChild(box);
-  document.body.appendChild(overlay);
-  imgEl.src = selectedImg.data;
-  requestAnimationFrame(function () { updateZoomLabel(); render(); });
+    updateZoomLabel();
+    renderCardPreview();
+  }
+
+  buildStageA();
 }
 
 // --- Gallery tab -----------------------------------------------------------
@@ -1684,7 +1713,7 @@ function renderGalleryTab(container, entity, gmView) {
       const portraitBtn = document.createElement('button');
       portraitBtn.type = 'button';
       portraitBtn.textContent = 'Set portrait';
-      portraitBtn.addEventListener('click', function () { openSetPortraitDialog(entity, galleryImages, currentPortrait); });
+      portraitBtn.addEventListener('click', function () { openSetPortraitDialog(entity, galleryImages); });
       right.appendChild(portraitBtn);
     }
     actions.appendChild(right);
