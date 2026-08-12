@@ -489,11 +489,11 @@ function renderPins() {
     if (entity) categoriesPresent.add(entity.category);
 
     function handleClick() {
-      if (state.mapMode === 'remove' && state.currentRole === 'gm') {
+      if (state.mapMode === 'remove' && gmView) {
         removePin(pin);
         return false;
       }
-      if (state.mapMode === 'edit' && state.currentRole === 'gm') {
+      if (state.mapMode === 'edit' && gmView) {
         openPinPanel(pin, null);
         return false;
       }
