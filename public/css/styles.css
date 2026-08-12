@@ -295,7 +295,7 @@ select {
   background-position: right 0.6rem center;
   padding-right: 1.6rem;
 }
-.modal-box select, .entity-edit-field select {
+.modal-box select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%233A2E22'/%3E%3C/svg%3E");
 }
 
@@ -354,7 +354,6 @@ select {
 #codex-detail h2 { margin-top: 0; font-size: 1.6rem; font-family: var(--font-display), sans-serif; font-weight: 400; }
 #codex-card-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
 #codex-card-heading h2 { margin: 0; }
-#codex-card-heading input[type="text"] { font-size: 1.3rem; padding: 0.2rem 0.3rem; font-family: inherit; background: #fff; color: var(--ink); border: 1px solid var(--parchment-edge); }
 #codex-card-heading-left { flex: 1; min-width: 0; }
 #codex-card-heading-right {
   display: flex; flex-direction: column; align-items: flex-end; gap: 0.3rem; flex-shrink: 0;
@@ -492,23 +491,15 @@ select {
 .entity-edit-field input[type="text"], .entity-edit-field select, .entity-edit-field textarea {
   width: 100%; box-sizing: border-box; padding: 0.5rem 0.6rem; font-size: 0.9rem;
   font-family: inherit; border-radius: 6px;
+  background: var(--void); color: var(--parchment); border: 3px solid var(--parchment-edge);
 }
-.entity-edit-field select {
-  background: #fff; color: var(--ink); border: 1px solid var(--parchment-edge);
-}
-/* Text inputs/textareas match the Search name/tags box (void bg,
-   parchment text) rather than the white select fields, per design
-   note: dark text-entry controls read as part of the app's void-toned
-   control language even sitting on the parchment card. */
-.entity-edit-field input[type="text"], .entity-edit-field textarea {
-  background: var(--void); color: var(--parchment); border: 1px solid var(--void-line);
-}
+.entity-edit-field select { padding-right: 1.6rem; }
 .entity-edit-field input[type="text"]:focus, .entity-edit-field select:focus, .entity-edit-field textarea:focus {
   outline: none; border-color: var(--fear); box-shadow: 0 0 0 2px var(--fear-glow);
 }
 #codex-card-heading input[type="text"] {
   font-size: 1.3rem; padding: 0.3rem 0.5rem; font-family: inherit; background: var(--void); color: var(--parchment);
-  border: 1px solid var(--void-line); border-radius: 6px; width: 100%; box-sizing: border-box;
+  border: 3px solid var(--parchment-edge); border-radius: 6px; width: 100%; box-sizing: border-box;
 }
 #codex-card-heading input[type="text"]:focus { outline: none; border-color: var(--fear); box-shadow: 0 0 0 2px var(--fear-glow); }
 .related-edit-list { list-style: none; padding: 0; margin: 0; }

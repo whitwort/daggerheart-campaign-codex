@@ -276,9 +276,14 @@ function renderList() {
     if (orderedCats.indexOf(c) === -1) orderedCats.push(c);
   });
 
+  // While a search query is active, force every category with a match
+  // open — overrides the user's stored collapse preference for the
+  // duration of the search only; clearing the box restores it.
+  const searchActive = searchEl.value.trim().length > 0;
+
   orderedCats.forEach(function (cat) {
     const entities = byCategory[cat];
-    const collapsed = isCategoryCollapsed(cat);
+    const collapsed = searchActive ? false : isCategoryCollapsed(cat);
 
     const header = document.createElement('div');
     header.className = 'entity-group-header' + (collapsed ? ' collapsed' : '');
@@ -680,9 +685,13 @@ function buildGalleryEditSection(entity) {
     thumb.src = img.data;
     li.appendChild(thumb);
 
+    const toggleLabel = document.createElement('span');
+    toggleLabel.className = 'toggle-switch-label ' + (visible ? 'state-visible' : 'state-hidden');
+    toggleLabel.textContent = visible ? 'Visible to party' : 'Hidden from party';
+    li.appendChild(toggleLabel);
+
     const switchLabel = document.createElement('label');
     switchLabel.className = 'toggle-switch';
-    switchLabel.title = visible ? 'Visible to party' : 'Hidden from party';
     const switchInput = document.createElement('input');
     switchInput.type = 'checkbox';
     switchInput.checked = visible;
@@ -1276,13 +1285,14 @@ function renderDetailForSelected() {
     detailEl.appendChild(editBlock);
   }
 
-  // --- Lore / Notes tab box ---
+  // --- Lore / Gallery / Notes tab box ---
   const tabsRow = document.createElement('div');
   tabsRow.id = 'codex-detail-tabs';
-  ['lore', 'notes'].forEach(function (tabKey) {
+  [['lore', 'Lore'], ['gallery', 'Gallery'], ['notes', 'Notes']].forEach(function (pair) {
+    const tabKey = pair[0];
     const tabBtn = document.createElement('button');
     tabBtn.type = 'button';
-    tabBtn.textContent = tabKey === 'lore' ? 'Lore' : 'Notes';
+    tabBtn.textContent = pair[1];
     if (state.detailActiveTab === tabKey) tabBtn.classList.add('active');
     tabBtn.addEventListener('click', function () {
       state.detailActiveTab = tabKey;
@@ -1301,6 +1311,8 @@ function renderDetailForSelected() {
     notesEmptyP.className = 'lore-empty';
     notesEmptyP.textContent = 'Notes are coming in a future update.';
     tabPanel.appendChild(notesEmptyP);
+  } else if (state.detailActiveTab === 'gallery') {
+    renderGalleryTab(tabPanel, entity, gmView);
   } else {
     renderLoreTab(tabPanel, entity, gmView);
   }
@@ -1319,44 +1331,54 @@ function renderDetailForSelected() {
     detailEl.appendChild(tagsDiv);
   }
 
-  // --- Gallery ---
+// --- Gallery tab ---
+function renderGalleryTab(container, entity, gmView) {
   const galleryImages = galleryImagesFor(entity.id, gmView);
-  if (galleryImages.length) {
-    const galleryDiv = document.createElement('div');
-    galleryDiv.id = 'codex-gallery';
-    galleryImages.forEach(function (img) {
-      const figDiv = document.createElement('div');
-      figDiv.className = 'gallery-item ' + (img.visibility === 'all-players' ? 'vis-visible' : 'vis-hidden');
-      const imgEl = document.createElement('img');
-      imgEl.src = img.data;
-      imgEl.alt = entity.name;
-      figDiv.appendChild(imgEl);
-
-      if (gmView) {
-        const barDiv = document.createElement('div');
-        barDiv.className = 'gallery-item-bar';
-        const visible = img.visibility === 'all-players';
-        const switchLabel = document.createElement('label');
-        switchLabel.className = 'toggle-switch';
-        switchLabel.title = visible ? 'Visible to party' : 'Hidden from party';
-        const switchInput = document.createElement('input');
-        switchInput.type = 'checkbox';
-        switchInput.checked = visible;
-        switchInput.addEventListener('change', function () {
-          setGalleryImageVisibility(img.id, switchInput.checked ? 'all-players' : 'gm-only')
-            .catch(function (err) { window.alert('Visibility change failed: ' + err.message); });
-        });
-        const switchSlider = document.createElement('span');
-        switchSlider.className = 'toggle-slider';
-        switchLabel.appendChild(switchInput);
-        switchLabel.appendChild(switchSlider);
-        barDiv.appendChild(switchLabel);
-        figDiv.appendChild(barDiv);
-      }
-      galleryDiv.appendChild(figDiv);
-    });
-    detailEl.appendChild(galleryDiv);
+  if (!galleryImages.length) {
+    const emptyP = document.createElement('p');
+    emptyP.className = 'lore-empty';
+    emptyP.textContent = '(no gallery images)';
+    container.appendChild(emptyP);
+    return;
   }
+  const galleryDiv = document.createElement('div');
+  galleryDiv.id = 'codex-gallery';
+  galleryImages.forEach(function (img) {
+    const figDiv = document.createElement('div');
+    figDiv.className = 'gallery-item ' + (img.visibility === 'all-players' ? 'vis-visible' : 'vis-hidden');
+    const imgEl = document.createElement('img');
+    imgEl.src = img.data;
+    imgEl.alt = entity.name;
+    figDiv.appendChild(imgEl);
+
+    if (gmView) {
+      const barDiv = document.createElement('div');
+      barDiv.className = 'gallery-item-bar';
+      const visible = img.visibility === 'all-players';
+      const toggleLabel = document.createElement('span');
+      toggleLabel.className = 'toggle-switch-label ' + (visible ? 'state-visible' : 'state-hidden');
+      toggleLabel.textContent = visible ? 'Visible to party' : 'Hidden from party';
+      barDiv.appendChild(toggleLabel);
+      const switchLabel = document.createElement('label');
+      switchLabel.className = 'toggle-switch';
+      const switchInput = document.createElement('input');
+      switchInput.type = 'checkbox';
+      switchInput.checked = visible;
+      switchInput.addEventListener('change', function () {
+        setGalleryImageVisibility(img.id, switchInput.checked ? 'all-players' : 'gm-only')
+          .catch(function (err) { window.alert('Visibility change failed: ' + err.message); });
+      });
+      const switchSlider = document.createElement('span');
+      switchSlider.className = 'toggle-slider';
+      switchLabel.appendChild(switchInput);
+      switchLabel.appendChild(switchSlider);
+      barDiv.appendChild(switchLabel);
+      figDiv.appendChild(barDiv);
+    }
+    galleryDiv.appendChild(figDiv);
+  });
+  container.appendChild(galleryDiv);
+}
 
   // --- Related entities ---
   // Player view only links to targets that are themselves player-visible;
