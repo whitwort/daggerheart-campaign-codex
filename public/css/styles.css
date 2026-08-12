@@ -576,8 +576,8 @@ select {
 
 /* Admin tab: card grid matching the reference mockup (codex-full-shell-mockup_3.html) */
 #admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-top: 1rem; max-width: 68rem; }
-#admin-section-database { grid-column: 1 / -1; }
-@media (max-width: 700px) { #admin-grid { grid-template-columns: 1fr; } #admin-section-database { grid-column: auto; } }
+#admin-section-database, #admin-section-players { grid-column: 1 / -1; }
+@media (max-width: 700px) { #admin-grid { grid-template-columns: 1fr; } #admin-section-database, #admin-section-players { grid-column: auto; } }
 .admin-card {
   background: var(--void-raised); border: 1px solid var(--void-line); border-radius: 10px; padding: 1.25rem;
   margin-top: 0; min-width: 0;
