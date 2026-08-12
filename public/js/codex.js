@@ -220,16 +220,27 @@ function matchesFilters(entity) {
 }
 
 // Selecting a new entity always lands back on the Lore tab, out of edit
-// mode, with no in-progress lore edit carried over.
-function selectEntity(entityId) {
+// mode, with no in-progress lore edit carried over. clearSearch is opt-in:
+// true for navigation that jumps AWAY from the currently selected entity
+// (wiki link, related-entry chip) where a stale search query would hide
+// the destination from the Entry Browser; false for clicking the entity
+// directly in the (possibly search-filtered) Entry Browser list itself,
+// where clearing the box the user just used to find it would be jarring.
+function selectEntity(entityId, clearSearch) {
   state.selectedId = entityId;
   state.detailActiveTab = 'lore';
   state.detailEditMode = false;
   state.detailEditDraft = null;
   state.loreEdit = null;
+  if (clearSearch) searchEl.value = '';
   renderList();
   renderDetailForSelected();
 }
+
+// Exported for map.js's switchToCodexEntity (a separate pin-click entity
+// switch, not routed through selectEntity above) so a pin click also
+// clears a stale search query.
+function clearCodexSearchInput() { searchEl.value = ''; }
 
 function isCategoryCollapsed(cat) {
   // Default COLLAPSED — only an explicit `false` (the user expanded it)
@@ -428,7 +439,7 @@ detailEl.addEventListener('click', function (ev) {
   const a = ev.target.closest ? ev.target.closest('a.wiki-link') : null;
   if (!a) return;
   ev.preventDefault();
-  selectEntity(a.dataset.entityId);
+  selectEntity(a.dataset.entityId, true);
 });
 
 // --- Entity-level GM visibility toggle (always upper-right, live-writes
@@ -1493,7 +1504,7 @@ function renderDetailForSelected() {
         chip.type = 'button';
         chip.className = 'related-chip';
         chip.textContent = target.name;
-        chip.addEventListener('click', function () { selectEntity(target.id); });
+        chip.addEventListener('click', function () { selectEntity(target.id, true); });
         chipsDiv.appendChild(chip);
       });
       relatedDiv.appendChild(chipsDiv);
@@ -1524,5 +1535,6 @@ searchEl.addEventListener('input', renderList);
 
 export {
   attachCodexListeners, detachCodexListeners, renderList, renderDetailForSelected,
-  isEntityPlayerVisible, registerVisibilityChangeHandler, registerMapNavigationHandler
+  isEntityPlayerVisible, registerVisibilityChangeHandler, registerMapNavigationHandler,
+  clearCodexSearchInput
 };

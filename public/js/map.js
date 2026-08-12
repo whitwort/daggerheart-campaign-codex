@@ -5,7 +5,7 @@ import { firebaseApp, CONFIG } from './firebase.js';
 import { state } from './state.js';
 import {
   renderList, renderDetailForSelected, isEntityPlayerVisible,
-  registerVisibilityChangeHandler, registerMapNavigationHandler
+  registerVisibilityChangeHandler, registerMapNavigationHandler, clearCodexSearchInput
 } from './codex.js';
 import { renderAdminRootEntitySelect } from './admin.js';
 import { entityMapImageDocId, getCachedImage, putCachedImage } from './images.js';
@@ -73,6 +73,7 @@ registerMapNavigationHandler(navigateToMapForEntity);
 
 function switchToCodexEntity(entityId) {
   state.selectedId = entityId;
+  clearCodexSearchInput();
   renderList();
   renderDetailForSelected();
 
