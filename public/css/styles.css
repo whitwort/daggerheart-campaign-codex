@@ -696,7 +696,6 @@ button:disabled:hover { border-color: var(--void-line); }
   position: relative; overflow: hidden;
   margin: -1.5rem -1.75rem 1rem; /* bleed to #codex-detail's own edges */
   border-radius: 14px 14px 0 0;
-  outline: 1px solid red; outline-offset: -1px; /* TEMP DEBUG: visualize band box vs hard line — remove */
 }
 .codex-card-hero {
   position: absolute; inset: 0; overflow: hidden; z-index: 0;
@@ -779,9 +778,4 @@ button:disabled:hover { border-color: var(--void-line); }
 .portrait-fade-top { display: flex; justify-content: space-between; }
 .portrait-fade-row input[type="range"] { width: 100%; accent-color: var(--hope); }
 .portrait-fade-value { text-align: right; color: rgba(233,221,194,0.65); }
-.portrait-debug-readout {
-  margin: 0.7rem 0 0; padding: 0.5rem; background: rgba(0,0,0,0.35); border-radius: 6px;
-  font-size: 0.65rem; line-height: 1.4; color: rgba(233,221,194,0.55);
-  white-space: pre-wrap; word-break: break-word; font-family: monospace;
-}
 
