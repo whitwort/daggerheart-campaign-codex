@@ -145,6 +145,11 @@ function galleryImagesFor(entityId, gmView) {
 const PORTRAIT_ZOOM_STEP_FACTOR = 0.12; // ~12% per step, per mockup
 const PORTRAIT_MAX_ZOOM_STEPS = 8;
 const PORTRAIT_MIN_OVERLAP_FRAC = 0.28; // mid-point of mockup's tunable 22-35% range
+// Must match the aspect-ratio in styles.css for .codex-card-hero-band AND
+// .portrait-preview-frame — the crop math (offsets stored as fractions of
+// the scaled image) only reproduces the same framing when both render
+// containers share this aspect ratio. Keep the three in sync.
+const PORTRAIT_PREVIEW_ASPECT = '2.2 / 1';
 
 // Returns the entity's current portrait image doc (isPortrait flag), or
 // falls back to the first gallery image in sort order if none is flagged
@@ -1258,6 +1263,7 @@ function openSetPortraitDialog(entity, images, currentPortrait) {
 
   const frame = document.createElement('div');
   frame.className = 'portrait-preview-frame';
+  frame.style.aspectRatio = PORTRAIT_PREVIEW_ASPECT;
   const imgEl = document.createElement('img');
   imgEl.className = 'codex-hero-img';
   imgEl.alt = '';
@@ -1688,17 +1694,36 @@ function renderDetailForSelected() {
   detailEl.innerHTML = '';
 
   // Gallery hero header — view mode only (skipped while editing, to avoid
-  // any layering/interaction conflict with the edit fields).
+  // any layering/interaction conflict with the edit fields). Confined to
+  // a fixed-aspect band (PORTRAIT_PREVIEW_ASPECT, shared with the dialog
+  // preview) behind the heading only — NOT the whole card. The crop math
+  // (offsets as fractions of the scaled image) only reproduces the same
+  // framing when the render container's aspect ratio matches what was
+  // shown while cropping; stretching the hero across the full card
+  // (heading + tabs + gallery + everything below, which can be several
+  // times taller than the dialog's compact preview) was the bug that
+  // made zoom/position look "way off" between the dialog and the real
+  // card — fixed by giving both the same aspect ratio instead.
   const portrait = !editing ? portraitImageFor(entity, gmView) : null;
   detailEl.classList.toggle('has-hero', !!portrait);
+  let headingTarget;
   if (portrait) {
-    detailEl.appendChild(buildCardHero(entity, portrait));
+    const band = document.createElement('div');
+    band.className = 'codex-card-hero-band';
+    band.style.aspectRatio = PORTRAIT_PREVIEW_ASPECT;
+    band.appendChild(buildCardHero(entity, portrait));
+    const headingInner = document.createElement('div');
+    headingInner.className = 'codex-card-heading-inner';
+    band.appendChild(headingInner);
+    detailEl.appendChild(band);
+    headingTarget = headingInner;
   } else {
     cardHeroState = null;
   }
   const contentWrap = document.createElement('div');
   contentWrap.className = 'codex-card-content';
   detailEl.appendChild(contentWrap);
+  if (!headingTarget) headingTarget = contentWrap;
 
   // --- Heading: name + entry type + category-specific fields (left);
   // GM/Player badge, visibility toggle, map link (upper-right stack) ---
@@ -1815,7 +1840,7 @@ function renderDetailForSelected() {
     rightCol.appendChild(mapLink);
   }
   headingRow.appendChild(rightCol);
-  contentWrap.appendChild(headingRow);
+  headingTarget.appendChild(headingRow);
 
   if (editing) {
     const editBlock = document.createElement('div');
