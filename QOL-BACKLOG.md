@@ -35,20 +35,40 @@ pass:
   computed height even with identical padding/line-height. Base
   `button` rule now sets `font-size: 0.9rem` explicitly; `select`
   mirrors it.
-- **Width**: the base `button` rule now sets `min-width: 6rem;
-  text-align: center;` directly — a single global value, not scoped
-  per-container. Every previous container-scoped min-width
-  (`#codex-detail button`, `#map-gm-controls button`, the file-upload
-  pseudo-button) was removed/aligned to inherit this one value instead
-  of maintaining its own.
+- **Width**: the base `button` rule sets `width: 13rem; min-width:
+  13rem; text-align: center;` — a **fixed** width, not just a floor.
+  An earlier pass used `min-width: 6rem` alone and still produced
+  visibly mismatched buttons ('+ New image' vs 'Edit'/'Delete' right
+  below it) — `min-width` only guarantees a button is *at least* that
+  wide, so any label needing more room than the floor (e.g. '+ New
+  party member', the longest label in the app) still made that one
+  button wider than its neighbors. `width` (with `min-width` matching,
+  so a longer-than-13rem label — none currently exist — would still
+  grow rather than clip) is the only way to get true uniform width
+  regardless of label length. 13rem was sized to comfortably fit '+
+  New party member' with margin to spare; shorter labels (Save,
+  Cancel, Edit) are now visibly padded out to match, which is the
+  necessary trade-off of literal uniform width across very differently
+  ­sized labels — flag if this trade-off (space efficiency) should be
+  revisited in favor of per-group JS-measured equal-width instead.
+  Every previous container-scoped min-width (`#codex-detail button`,
+  `#map-gm-controls button`, the file-upload pseudo-button) was
+  removed/aligned to inherit this one value instead of maintaining its
+  own.
 
 **Any new button added anywhere in the app automatically gets correct
-width/height for free — do nothing.** Only add a `min-width: 0;
-text-align: left;` (and usually `box-shadow: none; background: none;
-border: none;`) override if the new button belongs to one of the 4
-exception categories above. If a 5th exception category becomes
-necessary, add it to this list explicitly rather than leaving it
-implicit in scattered CSS.
+width/height for free — do nothing.** Only add `width: auto; min-width:
+0; text-align: left;` (and usually `box-shadow: none; background:
+none; border: none;`) if the new button belongs to one of the 4
+exception categories above — **both properties are required**; an
+earlier attempt at this list reset only `min-width: 0` on the
+exceptions and missed that the base rule's fixed `width: 13rem` still
+applied via cascade fallthrough (a selector that doesn't declare
+`width` doesn't block a less-specific rule that does), so every
+'excepted' flat/tab/link button was still forced to 13rem until this
+was caught and fixed. If a 5th exception category becomes necessary,
+add it to this list explicitly rather than leaving it implicit in
+scattered CSS.
 
 ## Phase 10 (map improvements) — in progress
 
