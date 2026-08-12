@@ -26,6 +26,12 @@ jobs:
       - name: Stamp build label
         run: sed -i "s/__BUILD_LABEL__/build $(git rev-parse --short HEAD) (dev)/" public/index.html
 
+      - name: Stamp build hash
+        run: sed -i "s/__BUILD_HASH__/$(git rev-parse --short HEAD)/" public/index.html
+
+      - name: Stamp build hash
+        run: sed -i "s/__BUILD_HASH__/$(git rev-parse --short HEAD)/" public/index.html
+
       - name: Point build at the dev Firebase project
         run: cp public/firebase-env.dev.js public/firebase-env.js
 
@@ -36,6 +42,32 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-key.json
         run: firebase deploy --only hosting,firestore:rules,firestore:indexes --project daggerheart-campaign-codex-dev --non-interactive
+
+      - name: Record deployed version in Firestore (dev)
+        run: |
+          gcloud auth activate-service-account --key-file=/tmp/firebase-key.json
+          TOKEN=$(gcloud auth print-access-token)
+          HASH=$(git rev-parse --short HEAD)
+          NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          curl -sS --fail-with-body -X PATCH \
+            "https://firestore.googleapis.com/v1/projects/daggerheart-campaign-codex-dev/databases/(default)/documents/_meta/version" \
+            -H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json" \
+            -d "{\"fields\":{\"hash\":{\"stringValue\":\"${HASH}\"},\"deployedAt\":{\"timestampValue\":\"${NOW}\"}}}"
+
+      - name: Publish deploy version doc
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-key.json
+        run: |
+          npm install --no-save firebase-admin@12
+          HASH=$(git rev-parse --short HEAD) node -e "
+            const admin = require('firebase-admin');
+            admin.initializeApp({ projectId: 'daggerheart-campaign-codex-dev' });
+            admin.firestore().doc('_meta/version').set({
+              hash: process.env.HASH,
+              deployedAt: admin.firestore.FieldValue.serverTimestamp()
+            }).then(() => { console.log('version doc written:', process.env.HASH); process.exit(0); })
+             .catch(err => { console.error(err); process.exit(1); });
+          "
 
   deploy-hosting-prod:
     if: github.event_name == 'release'
@@ -60,6 +92,8 @@ jobs:
           HASH=$(git rev-parse --short HEAD)
           LABEL="version ${RELEASE_NAME} (${HASH} prod)"
           sed -i "s#__BUILD_LABEL__#${LABEL}#" public/index.html
+          sed -i "s/__BUILD_HASH__/${HASH}/" public/index.html
+          sed -i "s/__BUILD_HASH__/${HASH}/" public/index.html
 
       - name: Write service account key
         run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}' > /tmp/firebase-key.json
@@ -68,3 +102,29 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-key.json
         run: firebase deploy --only hosting,firestore:rules,firestore:indexes --project daggerheart-campaign-codex --non-interactive
+
+      - name: Record deployed version in Firestore (prod)
+        run: |
+          gcloud auth activate-service-account --key-file=/tmp/firebase-key.json
+          TOKEN=$(gcloud auth print-access-token)
+          HASH=$(git rev-parse --short HEAD)
+          NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          curl -sS --fail-with-body -X PATCH \
+            "https://firestore.googleapis.com/v1/projects/daggerheart-campaign-codex/databases/(default)/documents/_meta/version" \
+            -H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json" \
+            -d "{\"fields\":{\"hash\":{\"stringValue\":\"${HASH}\"},\"deployedAt\":{\"timestampValue\":\"${NOW}\"}}}"
+
+      - name: Publish deploy version doc
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-key.json
+        run: |
+          npm install --no-save firebase-admin@12
+          HASH=$(git rev-parse --short HEAD) node -e "
+            const admin = require('firebase-admin');
+            admin.initializeApp({ projectId: 'daggerheart-campaign-codex' });
+            admin.firestore().doc('_meta/version').set({
+              hash: process.env.HASH,
+              deployedAt: admin.firestore.FieldValue.serverTimestamp()
+            }).then(() => { console.log('version doc written:', process.env.HASH); process.exit(0); })
+             .catch(err => { console.error(err); process.exit(1); });
+          "

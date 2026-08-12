@@ -15,6 +15,7 @@ export const state = {
   adminRootSelectUpdating: false,  // guards select re-render fighting the user's own in-flight change
   joinRequestsUnsub: null,
   playersUnsub: null,
+  versionUnsub: null,  // _meta/version deploy-detection listener (version.js)
   allJoinRequests: [],
   allPlayers: [],
   adminPlayerEditId: null,
