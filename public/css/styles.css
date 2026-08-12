@@ -601,6 +601,7 @@ select {
 .admin-notification-warning { border-color: var(--notice); box-shadow: 0 0 0.4rem var(--notice-glow); }
 .admin-notification-error   { border-color: var(--notice); box-shadow: 0 0 0.6rem var(--notice-glow); }
 #admin-players-table { width: 100%; border-collapse: collapse; margin-bottom: 0.5rem; color: var(--parchment); }
+.table-scroll { overflow-x: auto; max-width: 100%; }
 #admin-players-table th, #admin-players-table td { text-align: left; padding: 0.35rem 0.5rem; border-bottom: 1px solid var(--void-line); }
 #admin-players-table td:last-child { text-align: right; }
 #admin-db-tabs { display: flex; gap: 0.25rem; margin-top: 0.75rem; border-bottom: 1px solid rgba(0,0,0,0.6); }
