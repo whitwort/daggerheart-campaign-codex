@@ -170,11 +170,29 @@ const IMAGE_CACHE_STORE = 'images';
     // Gallery images: 0+ per entity, auto-ID docs (content entities, not
     // structural singletons), each with its own gm-only/all-players
     // visibility like loreItems. New uploads start hidden.
+    // Default portrait crop state, applied when a gallery's first image is
+    // auto-promoted to portrait (see below) and as the dialog's starting
+    // point for any image that has none saved yet. Matches
+    // portrait-picker-dialog-mockup-v6.
+    const DEFAULT_PORTRAIT_CROP = {
+      portraitZoomStep: 0,
+      portraitOffsetXFrac: 0,
+      portraitOffsetYFrac: 0,
+      portraitFadeH: 12,
+      portraitFadeV: 12
+    };
+
     function uploadEntityGalleryImage(entityId, file, opts) {
       const onStatus = opts && opts.onStatus;
       return processImageFile(file, onStatus).then(function (processed) {
         if (onStatus) onStatus('Uploading...');
-        return addDoc(collection(db, 'images'), {
+        // Auto-migrate/default: if this entity's gallery is currently empty,
+        // this image becomes the portrait automatically (default crop),
+        // no explicit "Set portrait" click needed for the common case.
+        const hasExistingGalleryImage = state.currentEntityImages.some(function (img) {
+          return img.ownerId === entityId && img.role === 'gallery';
+        });
+        const doc_ = Object.assign({
           ownerType: 'entity',
           ownerId: entityId,
           role: 'gallery',
@@ -184,8 +202,10 @@ const IMAGE_CACHE_STORE = 'images';
           width: processed.width,
           height: processed.height,
           sizeBytes: processed.sizeBytes,
-          uploadedAt: serverTimestamp()
-        }).then(function (ref) { return ref.id; });
+          uploadedAt: serverTimestamp(),
+          isPortrait: !hasExistingGalleryImage
+        }, !hasExistingGalleryImage ? DEFAULT_PORTRAIT_CROP : {});
+        return addDoc(collection(db, 'images'), doc_).then(function (ref) { return ref.id; });
       });
     }
 
@@ -195,6 +215,19 @@ const IMAGE_CACHE_STORE = 'images';
 
     function setGalleryImageVisibility(imageDocId, visibility) {
       return updateDoc(doc(db, 'images', imageDocId), { visibility: visibility });
+    }
+
+    // Sets imageDocId as entityId's portrait (clearing isPortrait on any
+    // previous one) and saves its crop state in the same batch.
+    function setEntityPortrait(entityId, imageDocId, cropState) {
+      const batch = writeBatch(db);
+      state.currentEntityImages.forEach(function (img) {
+        if (img.ownerId === entityId && img.role === 'gallery' && img.isPortrait && img.id !== imageDocId) {
+          batch.update(doc(db, 'images', img.id), { isPortrait: false });
+        }
+      });
+      batch.update(doc(db, 'images', imageDocId), Object.assign({ isPortrait: true }, cropState));
+      return batch.commit();
     }
 
 
@@ -249,6 +282,6 @@ const IMAGE_CACHE_STORE = 'images';
 export {
   entityMapImageDocId,
   uploadEntityMapImage, deleteEntityMapImage,
-  uploadEntityGalleryImage, deleteEntityGalleryImage, setGalleryImageVisibility,
+  uploadEntityGalleryImage, deleteEntityGalleryImage, setGalleryImageVisibility, setEntityPortrait,
   getCachedImage, putCachedImage
 };
