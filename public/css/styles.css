@@ -494,15 +494,17 @@ select {
   background: var(--void); color: var(--parchment); border: 3px solid var(--parchment-edge);
 }
 .entity-edit-field select { padding-right: 1.6rem; }
-.entity-edit-field input[type="text"], .entity-edit-field textarea { font-size: 0.8rem; }
 .entity-edit-field input[type="text"]:focus, .entity-edit-field select:focus, .entity-edit-field textarea:focus {
   outline: none; border-color: var(--fear); box-shadow: 0 0 0 2px var(--fear-glow);
 }
-#codex-card-heading input[type="text"] {
-  font-size: 1.3rem; padding: 0.3rem 0.5rem; font-family: inherit; background: var(--void); color: var(--parchment);
-  border: 3px solid var(--parchment-edge); border-radius: 6px; width: 100%; box-sizing: border-box;
+/* Name field only — reads as the card's title while editing, not just
+   another field, so it keeps a larger size than everything else.
+   Previously scoped to any input[type=text] under #codex-card-heading,
+   which unintentionally also caught Ancestry/Aliases (also descendants
+   of that heading row) and made them oversized too. */
+.entity-name-field input[type="text"] {
+  font-size: 1.3rem; padding: 0.3rem 0.5rem;
 }
-#codex-card-heading input[type="text"]:focus { outline: none; border-color: var(--fear); box-shadow: 0 0 0 2px var(--fear-glow); }
 .related-edit-list { list-style: none; padding: 0; margin: 0; }
 .related-edit-list li {
   display: flex; align-items: center; justify-content: space-between;
@@ -512,14 +514,6 @@ select {
 .related-edit-add select { flex: 1; margin-top: 0; }
 
 .image-edit-status { font-size: 0.8rem; color: var(--ink-soft); margin: 0.4rem 0 0; display: block; }
-.gallery-edit-list { list-style: none; padding: 0; margin: 0 0 0.5rem; }
-/* Gallery rows reuse .lore-item (parchment-edge fill + hope/fear left
-   strip, same as Lore items) with a compact horizontal layout instead
-   of .lore-item's default stacked one. */
-.gallery-edit-item { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
-.gallery-edit-item img { width: 48px; height: 48px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
-.gallery-edit-item .toggle-switch { flex-shrink: 0; }
-.gallery-edit-item button { margin-left: auto; }
 .entity-edit-field input[type="file"] {
   display: block; margin-top: 0.2rem; font-size: 0.85rem; color: var(--ink-soft);
   background: transparent; border: none; padding: 0;
@@ -600,8 +594,21 @@ select {
 .gallery-item { max-width: 260px; padding-left: 0.6rem; }
 .gallery-item.vis-hidden { border-left: 4px solid var(--hope); }
 .gallery-item.vis-visible { border-left: 4px solid var(--fear); }
-.gallery-item img { width: 100%; height: auto; display: block; border: 1px solid var(--parchment-edge); border-radius: 4px; }
+.gallery-item img { width: 100%; height: auto; display: block; border: 1px solid var(--parchment-edge); border-radius: 4px; cursor: pointer; }
 .gallery-item-bar { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.25rem; }
+.gallery-item-bar button { margin-left: auto; }
+
+/* Gallery image lightbox: full-screen, transparent darkened backdrop,
+   image letterboxed via object-fit rather than cropped. */
+.image-lightbox-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 2000;
+  display: flex; align-items: center; justify-content: center;
+}
+.image-lightbox-overlay img { max-width: 92vw; max-height: 92vh; object-fit: contain; }
+.image-lightbox-close {
+  position: absolute; top: 1rem; right: 1rem; width: 2.5rem; height: 2.5rem;
+  border-radius: 50%; font-size: 1.1rem; line-height: 1; padding: 0; min-width: 0;
+}
 #admin-root-entity-hint { font-size: 0.85rem; color: var(--ink-soft); }
 
 /* Wiki links: auto-linked entity names inside lore text */
