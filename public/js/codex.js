@@ -1211,18 +1211,30 @@ function renderLoreTab(container, entity, gmView) {
 // events, not a crop-box widget), stepped +/- zoom (min = exact
 // cover-fit), independently-adjustable horizontal/vertical edge fade.
 // Save/Cancel bottom-right (GM-only action — see QOL-BACKLOG button
-// convention note).
-function openSetPortraitDialog(entity, img) {
-  // Working copy so Cancel discards changes; defaults cover an image
-  // that's never been the portrait before (no saved crop fields yet).
-  const workingImg = {
-    width: img.width, height: img.height,
-    portraitZoomStep: typeof img.portraitZoomStep === 'number' ? img.portraitZoomStep : 0,
-    portraitOffsetXFrac: typeof img.portraitOffsetXFrac === 'number' ? img.portraitOffsetXFrac : 0,
-    portraitOffsetYFrac: typeof img.portraitOffsetYFrac === 'number' ? img.portraitOffsetYFrac : 0,
-    portraitFadeH: typeof img.portraitFadeH === 'number' ? img.portraitFadeH : 12,
-    portraitFadeV: typeof img.portraitFadeV === 'number' ? img.portraitFadeV : 12
-  };
+// convention note). One dialog per gallery (opened from the gallery's
+// own "Set portrait" action, not per-thumbnail) — a thumbnail strip
+// picks which image to crop.
+function openSetPortraitDialog(entity, images, currentPortrait) {
+  // Per-image working copies, so switching the thumbnail selection
+  // during this dialog session doesn't lose in-progress edits; Cancel
+  // discards all of it regardless (nothing is written until Save).
+  const workingByImage = {};
+  function workingFor(img) {
+    if (!workingByImage[img.id]) {
+      workingByImage[img.id] = {
+        width: img.width, height: img.height,
+        portraitZoomStep: typeof img.portraitZoomStep === 'number' ? img.portraitZoomStep : 0,
+        portraitOffsetXFrac: typeof img.portraitOffsetXFrac === 'number' ? img.portraitOffsetXFrac : 0,
+        portraitOffsetYFrac: typeof img.portraitOffsetYFrac === 'number' ? img.portraitOffsetYFrac : 0,
+        portraitFadeH: typeof img.portraitFadeH === 'number' ? img.portraitFadeH : 12,
+        portraitFadeV: typeof img.portraitFadeV === 'number' ? img.portraitFadeV : 12
+      };
+    }
+    return workingByImage[img.id];
+  }
+
+  let selectedImg = currentPortrait || images[0];
+  let workingImg = workingFor(selectedImg);
 
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay open portrait-dialog-overlay';
@@ -1237,11 +1249,17 @@ function openSetPortraitDialog(entity, img) {
   sub.textContent = 'Drag to reposition. Use +/\u2212 to zoom.';
   box.appendChild(sub);
 
+  let thumbRow = null;
+  if (images.length > 1) {
+    thumbRow = document.createElement('div');
+    thumbRow.className = 'portrait-thumb-row';
+    box.appendChild(thumbRow);
+  }
+
   const frame = document.createElement('div');
   frame.className = 'portrait-preview-frame';
   const imgEl = document.createElement('img');
   imgEl.className = 'codex-hero-img';
-  imgEl.src = img.data;
   imgEl.alt = '';
   frame.appendChild(imgEl);
   const nameLabel = document.createElement('div');
@@ -1283,6 +1301,7 @@ function openSetPortraitDialog(entity, img) {
   zoomRow.appendChild(zoomIn);
   box.appendChild(zoomRow);
 
+  let fadeHInput, fadeHVal, fadeVInput, fadeVVal;
   function makeFadeSlider(labelText, key) {
     const row = document.createElement('label');
     row.className = 'portrait-fade-row';
@@ -1304,6 +1323,7 @@ function openSetPortraitDialog(entity, img) {
     });
     row.appendChild(input);
     row.appendChild(valSpan);
+    if (key === 'portraitFadeH') { fadeHInput = input; fadeHVal = valSpan; } else { fadeVInput = input; fadeVVal = valSpan; }
     return row;
   }
   const fadeWrap = document.createElement('div');
@@ -1311,6 +1331,40 @@ function openSetPortraitDialog(entity, img) {
   fadeWrap.appendChild(makeFadeSlider('Horizontal fade', 'portraitFadeH'));
   fadeWrap.appendChild(makeFadeSlider('Vertical fade', 'portraitFadeV'));
   box.appendChild(fadeWrap);
+
+  // Re-point the preview + controls at a different gallery image without
+  // rebuilding the dialog.
+  function selectImage(img) {
+    selectedImg = img;
+    workingImg = workingFor(img);
+    imgEl.src = img.data;
+    if (thumbRow) {
+      Array.prototype.forEach.call(thumbRow.children, function (el) {
+        el.classList.toggle('selected', el.dataset.imageId === img.id);
+      });
+    }
+    fadeHInput.value = String(workingImg.portraitFadeH);
+    fadeHVal.textContent = workingImg.portraitFadeH + '%';
+    fadeVInput.value = String(workingImg.portraitFadeV);
+    fadeVVal.textContent = workingImg.portraitFadeV + '%';
+    updateZoomLabel();
+    render();
+  }
+
+  if (thumbRow) {
+    images.forEach(function (img) {
+      const thumb = document.createElement('button');
+      thumb.type = 'button';
+      thumb.className = 'portrait-thumb' + (img.id === selectedImg.id ? ' selected' : '');
+      thumb.dataset.imageId = img.id;
+      const thumbImg = document.createElement('img');
+      thumbImg.src = img.data;
+      thumbImg.alt = '';
+      thumb.appendChild(thumbImg);
+      thumb.addEventListener('click', function () { selectImage(img); });
+      thumbRow.appendChild(thumb);
+    });
+  }
 
   // Drag-to-reposition directly on the preview.
   let dragState = null;
@@ -1344,7 +1398,7 @@ function openSetPortraitDialog(entity, img) {
   saveBtn.textContent = 'Save';
   saveBtn.addEventListener('click', function () {
     saveBtn.disabled = true;
-    setEntityPortrait(entity.id, img.id, {
+    setEntityPortrait(entity.id, selectedImg.id, {
       portraitZoomStep: workingImg.portraitZoomStep,
       portraitOffsetXFrac: workingImg.portraitOffsetXFrac,
       portraitOffsetYFrac: workingImg.portraitOffsetYFrac,
@@ -1367,6 +1421,7 @@ function openSetPortraitDialog(entity, img) {
 
   overlay.appendChild(box);
   document.body.appendChild(overlay);
+  imgEl.src = selectedImg.data;
   requestAnimationFrame(function () { updateZoomLabel(); render(); });
 }
 
@@ -1489,10 +1544,13 @@ function renderGalleryTab(container, entity, gmView) {
   const currentPortrait = portraitImageFor(entity, gmView);
 
   if (gmView && galleryImages.length) {
+    const hintBox = document.createElement('div');
+    hintBox.className = 'gallery-hint-box';
     const hint = document.createElement('p');
     hint.className = 'image-edit-status';
     hint.textContent = 'Drag images to reorder them. The portrait-marked image is used for the entry card\u2019s hero header.';
-    container.appendChild(hint);
+    hintBox.appendChild(hint);
+    container.appendChild(hintBox);
   }
 
   if (galleryImages.length) {
@@ -1503,23 +1561,29 @@ function renderGalleryTab(container, entity, gmView) {
       const figDiv = document.createElement('div');
       figDiv.className = 'gallery-item ' + (img.visibility === 'all-players' ? 'vis-visible' : 'vis-hidden');
       figDiv.dataset.imageId = img.id;
+
+      const imgWrap = document.createElement('div');
+      imgWrap.className = 'gallery-item-image-wrap';
       const imgEl = document.createElement('img');
       imgEl.src = img.data;
       imgEl.alt = entity.name;
       imgEl.addEventListener('click', function () { openImageLightbox(img.data, entity.name); });
-      figDiv.appendChild(imgEl);
+      imgWrap.appendChild(imgEl);
 
       // Explicitly requested exception to the "only add icons when asked"
       // rule — small partially-transparent indicator over whichever
       // thumbnail is currently the portrait. Don't extrapolate from this
-      // to add icons elsewhere.
+      // to add icons elsewhere. Aligned to the image's own top-right
+      // corner (imgWrap, not figDiv, so it isn't thrown off by figDiv's
+      // padding).
       if (isCurrentPortrait) {
         const indicator = document.createElement('span');
         indicator.className = 'gallery-portrait-indicator';
         indicator.title = 'Current portrait';
         indicator.textContent = '\u2605';
-        figDiv.appendChild(indicator);
+        imgWrap.appendChild(indicator);
       }
+      figDiv.appendChild(imgWrap);
 
       if (gmView) {
         const barDiv = document.createElement('div');
@@ -1543,13 +1607,6 @@ function renderGalleryTab(container, entity, gmView) {
         switchLabel.appendChild(switchInput);
         switchLabel.appendChild(switchSlider);
         barDiv.appendChild(switchLabel);
-
-        const portraitBtn = document.createElement('button');
-        portraitBtn.type = 'button';
-        portraitBtn.textContent = isCurrentPortrait ? 'Current portrait' : 'Set portrait';
-        portraitBtn.disabled = isCurrentPortrait;
-        portraitBtn.addEventListener('click', function () { openSetPortraitDialog(entity, img); });
-        barDiv.appendChild(portraitBtn);
 
         const delBtn = document.createElement('button');
         delBtn.type = 'button';
@@ -1594,6 +1651,13 @@ function renderGalleryTab(container, entity, gmView) {
     newImageBtn.textContent = '+ New image';
     newImageBtn.addEventListener('click', function () { openGalleryUploadModal(entity); });
     right.appendChild(newImageBtn);
+    if (galleryImages.length) {
+      const portraitBtn = document.createElement('button');
+      portraitBtn.type = 'button';
+      portraitBtn.textContent = 'Set portrait';
+      portraitBtn.addEventListener('click', function () { openSetPortraitDialog(entity, galleryImages, currentPortrait); });
+      right.appendChild(portraitBtn);
+    }
     actions.appendChild(right);
     container.appendChild(actions);
   }
