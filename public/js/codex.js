@@ -281,12 +281,12 @@ function portraitRenderInto(imgEl, hWrapEl, vWrapEl, containerEl, img) {
   imgEl.style.width = iw + 'px';
   imgEl.style.height = ih + 'px';
   imgEl.style.transform = 'translate(' + clamped.x + 'px, ' + clamped.y + 'px)';
-  // Growing band: the band's bottom edge is the image's bottom edge
-  // (y <= 0, so visible image height is y+ih). min-height, not height,
-  // so the in-flow heading can still stretch the band if it's taller.
+  // Background layer: the band's bottom edge is the image's bottom edge
+  // (y <= 0, so visible image height is y+ih). Absolute layer — height
+  // is explicit, nothing in flow depends on it.
   const band = containerEl.parentElement;
   if (band && band.classList.contains('codex-card-hero-band')) {
-    band.style.minHeight = Math.max(0, clamped.y + ih) + 'px';
+    band.style.height = Math.max(0, clamped.y + ih) + 'px';
   }
   const ch = containerEl.clientHeight;
   portraitApplyEdgeFade(hWrapEl, vWrapEl, img, { cw: cw, ch: ch, x: clamped.x, y: clamped.y, iw: iw, ih: ih });
@@ -1804,32 +1804,28 @@ function renderDetailForSelected() {
 
   detailEl.innerHTML = '';
 
-  // Gallery hero header — view mode only (skipped while editing, to avoid
-  // any layering/interaction conflict with the edit fields). GROWING
-  // BAND MODEL: the band's height follows the image's visible extent
-  // (min-height set by portraitRenderInto = image's bottom edge), with
-  // the in-flow heading as a floor. Scale derives from band width only,
-  // so the framing reproduces at any card width with no dependence on a
-  // fixed aspect ratio.
+  // Gallery hero — view mode only (skipped while editing, to avoid any
+  // layering/interaction conflict with the edit fields). BACKGROUND
+  // LAYER MODEL: the hero is an absolutely-positioned layer behind the
+  // card content (z-index 0 vs content's 1), taking NO layout space —
+  // UI element placement is identical with or without a portrait, at
+  // any portrait size. Its height is set by portraitRenderInto to the
+  // image's visible extent; the heading and everything else stay in the
+  // normal content flow, rendered over the image.
   const portrait = !editing ? portraitImageFor(entity, gmView) : null;
   detailEl.classList.toggle('has-hero', !!portrait);
-  let headingTarget;
   if (portrait) {
     const band = document.createElement('div');
     band.className = 'codex-card-hero-band';
     band.appendChild(buildCardHero(entity, portrait));
-    const headingInner = document.createElement('div');
-    headingInner.className = 'codex-card-heading-inner';
-    band.appendChild(headingInner);
     detailEl.appendChild(band);
-    headingTarget = headingInner;
   } else {
     cardHeroState = null;
   }
   const contentWrap = document.createElement('div');
   contentWrap.className = 'codex-card-content';
   detailEl.appendChild(contentWrap);
-  if (!headingTarget) headingTarget = contentWrap;
+  const headingTarget = contentWrap;
 
   // --- Heading: name + entry type + category-specific fields (left);
   // GM/Player badge, visibility toggle, map link (upper-right stack) ---
