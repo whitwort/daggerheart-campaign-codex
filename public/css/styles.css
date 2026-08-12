@@ -784,16 +784,3 @@ button:disabled:hover { border-color: var(--void-line); }
   white-space: pre-wrap; word-break: break-word; font-family: monospace;
 }
 
-/* --- Update banner (version.js deploy detection, prod path) ----------- */
-/* Fixed bottom strip; never shown in dev (dev auto-reloads instead,
-   except as a loop-guard fallback). Buttons use the standing standard
-   width — no exception needed. */
-#update-banner {
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 950;
-  background: var(--parchment); color: var(--ink);
-  box-shadow: 0 -2px 10px rgba(0,0,0,0.5);
-  padding: 0.6rem 1rem; font-size: 0.9rem;
-  display: flex; align-items: center; justify-content: center;
-  gap: 1rem; flex-wrap: wrap;
-}
-.update-banner-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
