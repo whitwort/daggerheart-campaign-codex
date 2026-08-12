@@ -63,14 +63,18 @@ header h1 { margin: 0; font-size: 2rem; line-height: 1; font-family: var(--font-
   padding: 1rem 2.5rem; font-size: 1.15rem; cursor: pointer; min-width: 20rem;
   font-family: var(--font-display), sans-serif; font-weight: 600;
 }
-#gm-preview-toggle-btn { padding: 0.3rem 0.7rem; cursor: pointer; font-size: 0.85rem; }
 
 /* Buttons, inputs, selects: shared base look on the dark shell */
 /* STANDING RULE (see QOL-BACKLOG.md): every button in this app is the
-   same width/height by default via this rule. Only 4 exception
-   categories exist (sign-in CTA, flat tabs, text-link-style buttons,
-   icon-only circular buttons) — see QOL-BACKLOG.md for the exact
-   list. Do not add a 5th ad hoc exception without updating that list. */
+   same FIXED width/height by default via this rule (width, not just
+   min-width — min-width alone doesn't equalize buttons with very
+   different label lengths). Only 4 exception categories exist
+   (sign-in CTA, flat tabs, text-link-style buttons, icon-only
+   circular buttons) — see QOL-BACKLOG.md for the exact list. Any
+   exception MUST reset both `width: auto;` and `min-width: 0;` —
+   resetting only min-width leaves the fixed width still applying via
+   cascade fallthrough. Do not add a 5th ad hoc exception without
+   updating that list. */
 button {
   font-family: var(--font-body), sans-serif;
   background: var(--void);
@@ -82,7 +86,8 @@ button {
   padding: 0.5rem 1rem;
   font-size: 0.9rem;
   line-height: 1.2;
-  min-width: 6rem;
+  width: 13rem;
+  min-width: 13rem;
   text-align: center;
 }
 button:hover { border-color: var(--fear); }
@@ -145,6 +150,7 @@ nav#tabs button {
   border: none;
   border-radius: 0;
   box-shadow: none;
+  width: auto;
   min-width: 0;
   text-align: left;
   padding: 0.75rem 0.25rem;
@@ -188,7 +194,7 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 
 /* Breadcrumb map navigation (replaces the old "back to parent map" button) */
 #map-breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; margin-top: 0.75rem; font-size: 0.9rem; }
-.map-breadcrumb-link { background: none; border: none; padding: 0; cursor: pointer; color: var(--fear); text-decoration: underline dotted; font-size: inherit; min-width: 0; text-align: left; box-shadow: none; }
+.map-breadcrumb-link { background: none; border: none; padding: 0; cursor: pointer; color: var(--fear); text-decoration: underline dotted; font-size: inherit; width: auto; min-width: 0; text-align: left; box-shadow: none; }
 .map-breadcrumb-link:hover { text-decoration: underline; }
 .map-breadcrumb-link.current { color: var(--parchment); text-decoration: none; cursor: default; font-weight: bold; }
 .map-breadcrumb-icon { margin-right: 0.3rem; }
@@ -374,6 +380,7 @@ select {
 /* Generic action-row placement: gm buttons bottom-right of the
    element they affect; player/gm (shared) buttons/text bottom-left. */
 .actions-row { display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; gap: 0.5rem; }
+.codex-card-bottom-actions { border-top: 1px solid var(--parchment-edge); padding-top: 0.75rem; }
 .actions-row-left, .actions-row-right { display: flex; align-items: center; gap: 0.5rem; }
 .actions-row-right { margin-left: auto; justify-content: flex-end; }
 .actions-row button { padding: 0.3rem 0.7rem; cursor: pointer; }
@@ -416,13 +423,13 @@ select {
 #codex-detail #codex-detail-tabs button {
   background: none; border: none; box-shadow: none; border-radius: 0;
   border-bottom: 3px solid transparent; color: var(--ink-soft);
-  min-width: 0; text-align: left;
+  width: auto; min-width: 0; text-align: left;
 }
 #codex-detail #codex-detail-tabs button.active { border-bottom-color: var(--hope); color: var(--ink); }
 #codex-detail .entity-map-link {
   background: none; border: none; box-shadow: none; color: var(--fear);
   font-size: 1rem; line-height: 1; text-decoration: none; cursor: pointer; padding: 0;
-  min-width: 0; text-align: left;
+  width: auto; min-width: 0; text-align: left;
 }
 
 
@@ -474,12 +481,12 @@ select {
 #codex-related-chips .related-chip:focus {
   display: inline-block; background: rgba(94,130,150,0.18); color: #3D5464; border-radius: 16px;
   padding: 0.3125rem 0.75rem; font-size: 0.8125rem; cursor: pointer; border: 1px solid transparent; box-shadow: none; outline: none; transition: none;
-  min-width: 0; text-align: left;
+  width: auto; min-width: 0; text-align: left;
 }
 #codex-related-chips .related-chip:hover {
   display: inline-block; background: rgba(94,130,150,0.18); color: #3D5464; border-radius: 16px;
   padding: 0.3125rem 0.75rem; font-size: 0.8125rem; cursor: pointer; border: 1px solid rgba(61,84,100,0.4); box-shadow: none; outline: none; transition: none;
-  min-width: 0; text-align: left;
+  width: auto; min-width: 0; text-align: left;
 }
 
 /* Inline entity edit fields (replaces the old entity-form modal) */
@@ -527,7 +534,7 @@ select {
 .entity-edit-field input[type="file"]::-webkit-file-upload-button {
   background: #000000; color: var(--parchment); border: 3px solid var(--parchment-edge); border-radius: 8px;
   padding: 0.5rem 1rem; font-family: inherit; font-size: 0.9rem; cursor: pointer; margin-right: 0.6rem;
-  box-shadow: inset 0 0 10px 2px rgba(0,0,0,0.9); min-width: 6rem; text-align: center;
+  box-shadow: inset 0 0 10px 2px rgba(0,0,0,0.9); width: 13rem; min-width: 13rem; text-align: center;
 }
 .entity-edit-field input[type="file"]::-webkit-file-upload-button:hover { border-color: var(--hope); }
 .entity-edit-field > button { margin-top: 0.5rem; }
@@ -588,9 +595,8 @@ select {
   padding: 0.4rem 0.9rem; cursor: pointer; background: none; border: none; border-radius: 0; box-shadow: none;
   border-bottom: 3px solid transparent; font-size: 0.9rem; color: var(--ink-soft);
   font-family: var(--font-display), sans-serif; font-weight: 400;
-  min-width: 0; text-align: left;
-}
-#admin-db-tabs button.active { border-bottom-color: var(--hope); color: var(--parchment); }
+  width: auto; min-width: 0; text-align: left;
+}#admin-db-tabs button.active { border-bottom-color: var(--hope); color: var(--parchment); }
 .admin-db-tab-panel { display: none; padding-top: 0.75rem; }
 .admin-db-tab-panel.active { display: block; }
 
@@ -656,7 +662,7 @@ select {
 .import-badge-add { background: var(--fear); color: #fff; }
 .import-badge-conflict { background: var(--hope); color: var(--void); }
 .import-badge-error { background: var(--notice); color: #fff; }
-.collapse-toggle { background: none; border: none; cursor: pointer; padding: 0.2rem 0; font-size: 0.85rem; color: var(--ink-soft); box-shadow: none; min-width: 0; text-align: left; }
+.collapse-toggle { background: none; border: none; cursor: pointer; padding: 0.2rem 0; font-size: 0.85rem; color: var(--ink-soft); box-shadow: none; width: auto; min-width: 0; text-align: left; }
 #admin-import-json { margin-top: 0.5rem; }
 .CodeMirror { border: 1px solid var(--void-line); height: 220px; font-size: 0.85rem; }
 
