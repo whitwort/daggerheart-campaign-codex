@@ -288,14 +288,25 @@ function buildCardHero(entity, portrait) {
   hWrap.appendChild(vWrap);
   heroWrap.appendChild(hWrap);
   cardHeroState = { imgEl: imgEl, hWrapEl: hWrap, vWrapEl: vWrap, containerEl: heroWrap, portrait: portrait };
+  portraitObserveContainer(heroWrap);
   requestAnimationFrame(function () { portraitRenderInto(imgEl, hWrap, vWrap, heroWrap, portrait); });
   return heroWrap;
 }
-window.addEventListener('resize', function () {
-  if (cardHeroState && cardHeroState.containerEl.isConnected) {
-    portraitRenderInto(cardHeroState.imgEl, cardHeroState.hWrapEl, cardHeroState.vWrapEl, cardHeroState.containerEl, cardHeroState.portrait);
+let portraitResizeObserver = null;
+let portraitObservedEl = null;
+function portraitObserveContainer(el) {
+  if (portraitObservedEl === el) return;
+  if (!portraitResizeObserver) {
+    portraitResizeObserver = new ResizeObserver(function () {
+      if (cardHeroState && cardHeroState.containerEl.isConnected) {
+        portraitRenderInto(cardHeroState.imgEl, cardHeroState.hWrapEl, cardHeroState.vWrapEl, cardHeroState.containerEl, cardHeroState.portrait);
+      }
+    });
   }
-});
+  if (portraitObservedEl) portraitResizeObserver.unobserve(portraitObservedEl);
+  portraitResizeObserver.observe(el);
+  portraitObservedEl = el;
+}
 
 // Modules whose rendering depends on lore visibility (map.js: pin
 // filtering) register here — codex.js can't import map.js back without a
