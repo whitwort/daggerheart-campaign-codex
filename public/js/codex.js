@@ -1399,21 +1399,41 @@ function openSetPortraitDialog(entity, images) {
     instructions.textContent = 'Drag the image on the card to change focus.';
     body.appendChild(instructions);
 
-    const zoomRow = document.createElement('div');
-    zoomRow.className = 'portrait-zoom-row';
-    const zoomOut = document.createElement('button');
-    zoomOut.type = 'button';
-    zoomOut.textContent = '\u2212';
-    const zoomLabel = document.createElement('span');
-    zoomLabel.className = 'portrait-zoom-label';
-    const zoomIn = document.createElement('button');
-    zoomIn.type = 'button';
-    zoomIn.textContent = '+';
-    function updateZoomLabel() {
-      zoomLabel.textContent = Math.round((1 + workingImg.portraitZoomStep * PORTRAIT_ZOOM_STEP_FACTOR) * 100) + '%';
+    function makeControlSlider(opts) {
+      // opts: { labelText, min, max, step, getValue, setValue, formatValue }
+      const row = document.createElement('label');
+      row.className = 'portrait-fade-row';
+      const topLine = document.createElement('div');
+      topLine.className = 'portrait-fade-top';
+      const span = document.createElement('span');
+      span.textContent = opts.labelText;
+      const valSpan = document.createElement('span');
+      valSpan.className = 'portrait-fade-value';
+      valSpan.textContent = opts.formatValue(opts.getValue());
+      topLine.appendChild(span);
+      topLine.appendChild(valSpan);
+      row.appendChild(topLine);
+      const input = document.createElement('input');
+      input.type = 'range';
+      input.min = String(opts.min);
+      input.max = String(opts.max);
+      input.step = String(opts.step);
+      input.value = String(opts.getValue());
+      input.addEventListener('input', function () {
+        opts.setValue(parseInt(input.value, 10));
+        valSpan.textContent = opts.formatValue(opts.getValue());
+        renderCardPreview();
+      });
+      row.appendChild(input);
+      return row;
     }
-    function adjustZoom(dir) {
-      workingImg.portraitZoomStep = Math.max(0, Math.min(PORTRAIT_MAX_ZOOM_STEPS, workingImg.portraitZoomStep + dir));
+
+    function formatZoomPct() {
+      return Math.round((1 + workingImg.portraitZoomStep * PORTRAIT_ZOOM_STEP_FACTOR) * 100) + '%';
+    }
+    function setZoomStep(step) {
+      workingImg.portraitZoomStep = Math.max(0, Math.min(PORTRAIT_MAX_ZOOM_STEPS, step));
+      // Re-clamp the offset at the new scale so it doesn't jump out of range.
       if (cardHeroState) {
         const cw = cardHeroState.containerEl.clientWidth, ch = cardHeroState.containerEl.clientHeight;
         const clamped = portraitOffsetFracToPx(workingImg, cw, ch);
@@ -1421,47 +1441,29 @@ function openSetPortraitDialog(entity, images) {
         workingImg.portraitOffsetXFrac = frac.xFrac;
         workingImg.portraitOffsetYFrac = frac.yFrac;
       }
-      updateZoomLabel();
-      renderCardPreview();
     }
-    zoomOut.addEventListener('click', function () { adjustZoom(-1); });
-    zoomIn.addEventListener('click', function () { adjustZoom(1); });
-    zoomRow.appendChild(zoomOut);
-    zoomRow.appendChild(zoomLabel);
-    zoomRow.appendChild(zoomIn);
-    body.appendChild(zoomRow);
 
-    function makeFadeSlider(labelText, key) {
-      const row = document.createElement('label');
-      row.className = 'portrait-fade-row';
-      const topLine = document.createElement('div');
-      topLine.className = 'portrait-fade-top';
-      const span = document.createElement('span');
-      span.textContent = labelText;
-      const valSpan = document.createElement('span');
-      valSpan.className = 'portrait-fade-value';
-      valSpan.textContent = workingImg[key] + '%';
-      topLine.appendChild(span);
-      topLine.appendChild(valSpan);
-      row.appendChild(topLine);
-      const input = document.createElement('input');
-      input.type = 'range';
-      input.min = '0';
-      input.max = '45';
-      input.value = String(workingImg[key]);
-      input.addEventListener('input', function () {
-        workingImg[key] = parseInt(input.value, 10);
-        valSpan.textContent = workingImg[key] + '%';
-        renderCardPreview();
-      });
-      row.appendChild(input);
-      return row;
-    }
-    const fadeWrap = document.createElement('div');
-    fadeWrap.className = 'portrait-fade-sliders';
-    fadeWrap.appendChild(makeFadeSlider('Horizontal fade', 'portraitFadeH'));
-    fadeWrap.appendChild(makeFadeSlider('Vertical fade', 'portraitFadeV'));
-    body.appendChild(fadeWrap);
+    const controlsWrap = document.createElement('div');
+    controlsWrap.className = 'portrait-fade-sliders';
+    controlsWrap.appendChild(makeControlSlider({
+      labelText: 'Zoom', min: 0, max: PORTRAIT_MAX_ZOOM_STEPS, step: 1,
+      getValue: function () { return workingImg.portraitZoomStep; },
+      setValue: setZoomStep,
+      formatValue: formatZoomPct
+    }));
+    controlsWrap.appendChild(makeControlSlider({
+      labelText: 'Horizontal fade', min: 0, max: 45, step: 1,
+      getValue: function () { return workingImg.portraitFadeH; },
+      setValue: function (v) { workingImg.portraitFadeH = v; },
+      formatValue: function (v) { return v + '%'; }
+    }));
+    controlsWrap.appendChild(makeControlSlider({
+      labelText: 'Vertical fade', min: 0, max: 45, step: 1,
+      getValue: function () { return workingImg.portraitFadeV; },
+      setValue: function (v) { workingImg.portraitFadeV = v; },
+      formatValue: function (v) { return v + '%'; }
+    }));
+    body.appendChild(controlsWrap);
 
     const actions = document.createElement('div');
     actions.className = 'modal-actions';
@@ -1489,7 +1491,6 @@ function openSetPortraitDialog(entity, images) {
     actions.appendChild(cancelBtn);
     body.appendChild(actions);
 
-    updateZoomLabel();
     renderCardPreview();
   }
 
