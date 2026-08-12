@@ -580,7 +580,7 @@ select {
 @media (max-width: 700px) { #admin-grid { grid-template-columns: 1fr; } #admin-section-database { grid-column: auto; } }
 .admin-card {
   background: var(--void-raised); border: 1px solid var(--void-line); border-radius: 10px; padding: 1.25rem;
-  margin-top: 0;
+  margin-top: 0; min-width: 0;
 }
 .admin-card h2 {
   border-bottom: none; padding-bottom: 0; margin: 0 0 0.4rem;
