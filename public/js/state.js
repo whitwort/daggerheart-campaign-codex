@@ -28,6 +28,7 @@ export const state = {
   detailEditMode: false,   // true = the open Entry Card is showing inline edit fields for the entity itself
   detailEditDraft: null,   // { name, category, ancestry, aliases, date, parentId, tags, relatedIds } — in-progress entity edit; re-populates edit inputs across re-renders so unrelated snapshot updates don't clobber typing
   loreEdit: null,          // { entityId, id: existingLoreId|null, content, visibility } — in-progress lore item edit/create; id===null means a brand-new (unsaved) item
+  galleryUpload: null,     // { entityId } — Gallery tab's "+ New image" form is open for this entity
   leafletMap: null,
   loadedMapId: null,
   mapImgHeight: 0,
@@ -39,6 +40,7 @@ export const state = {
   pinDraft: null,  // { id: existingPinId|null, entityId, x, y, radius, moveMode } — open pin panel's in-progress state
   pinPickerCollapse: {},  // pin panel's entity picker accordion collapse state (category -> collapsed bool), mirrors categoryCollapse
   webpEncoderModulePromise: null,
+  sortableModulePromise: null, // lazy-loaded SortableJS for Gallery tab drag-reorder (iOS touch support; native HTML5 DnD doesn't work there)
   mapImageUnsub: null,  // detach/reattach per map load (Phase 7b-3)
   currentMapImageDims: null,  // {width,height} of currently-loaded map's image, for replace-dimension-change warning
   loadingMapId: null,  // guards against two near-simultaneous loadMap(mapId) calls (e.g. the entities-change handler and attachConfigListener both firing) racing to tear down each other's in-flight image listener before it ever gets its first snapshot

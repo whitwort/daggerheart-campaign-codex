@@ -125,6 +125,11 @@ function galleryImagesFor(entityId, gmView) {
         && (gmView || img.visibility === 'all-players');
     })
     .sort(function (a, b) {
+      const oa = typeof a.sortOrder === 'number' ? a.sortOrder : null;
+      const ob = typeof b.sortOrder === 'number' ? b.sortOrder : null;
+      if (oa !== null && ob !== null) return oa - ob;
+      if (oa !== null) return -1;
+      if (ob !== null) return 1;
       const ta = (a.uploadedAt && a.uploadedAt.toMillis) ? a.uploadedAt.toMillis() : 0;
       const tb = (b.uploadedAt && b.uploadedAt.toMillis) ? b.uploadedAt.toMillis() : 0;
       return ta - tb;
@@ -222,6 +227,7 @@ function selectEntity(entityId) {
   state.detailEditMode = false;
   state.detailEditDraft = null;
   state.loreEdit = null;
+  state.galleryUpload = null;
   renderList();
   renderDetailForSelected();
 }
@@ -562,7 +568,7 @@ function buildRelatedEditor(entityId, draft) {
   const wrap = document.createElement('div');
   wrap.className = 'entity-edit-field';
   const label = document.createElement('label');
-  label.textContent = 'Related entities';
+  label.textContent = 'Related entries';
   wrap.appendChild(label);
 
   const list = document.createElement('ul');
@@ -668,81 +674,6 @@ function buildMapImageEditSection(entity) {
   return wrap;
 }
 
-function buildGalleryEditSection(entity) {
-  const wrap = document.createElement('div');
-  wrap.className = 'entity-edit-field';
-  const label = document.createElement('label');
-  label.textContent = 'Gallery';
-  wrap.appendChild(label);
-
-  const list = document.createElement('ul');
-  list.className = 'gallery-edit-list';
-  galleryImagesFor(entity.id, true).forEach(function (img) {
-    const visible = img.visibility === 'all-players';
-    const li = document.createElement('li');
-    li.className = 'lore-item gallery-edit-item ' + (visible ? 'vis-visible' : 'vis-hidden');
-    const thumb = document.createElement('img');
-    thumb.src = img.data;
-    li.appendChild(thumb);
-
-    const toggleLabel = document.createElement('span');
-    toggleLabel.className = 'toggle-switch-label ' + (visible ? 'state-visible' : 'state-hidden');
-    toggleLabel.textContent = visible ? 'Visible to party' : 'Hidden from party';
-    li.appendChild(toggleLabel);
-
-    const switchLabel = document.createElement('label');
-    switchLabel.className = 'toggle-switch';
-    const switchInput = document.createElement('input');
-    switchInput.type = 'checkbox';
-    switchInput.checked = visible;
-    switchInput.addEventListener('change', function () {
-      setGalleryImageVisibility(img.id, switchInput.checked ? 'all-players' : 'gm-only')
-        .catch(function (err) { window.alert('Visibility change failed: ' + err.message); });
-    });
-    const switchSlider = document.createElement('span');
-    switchSlider.className = 'toggle-slider';
-    switchLabel.appendChild(switchInput);
-    switchLabel.appendChild(switchSlider);
-    li.appendChild(switchLabel);
-
-    const delBtn = document.createElement('button');
-    delBtn.type = 'button';
-    delBtn.textContent = 'Delete';
-    delBtn.addEventListener('click', function () {
-      if (!window.confirm('Delete this gallery image?')) return;
-      deleteEntityGalleryImage(img.id).catch(function (err) { window.alert('Delete failed: ' + err.message); });
-    });
-    li.appendChild(delBtn);
-
-    list.appendChild(li);
-  });
-  wrap.appendChild(list);
-
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = 'image/*';
-  const statusEl = document.createElement('span');
-  statusEl.className = 'image-edit-status';
-  input.addEventListener('change', function () {
-    const file = input.files[0];
-    if (!file) return;
-    input.disabled = true;
-    uploadEntityGalleryImage(entity.id, file, {
-      onStatus: function (text) { statusEl.textContent = text; }
-    }).then(function () {
-      statusEl.textContent = '';
-    }).catch(function (err) {
-      statusEl.textContent = err.message;
-    }).finally(function () {
-      input.disabled = false;
-      input.value = '';
-    });
-  });
-  wrap.appendChild(input);
-  wrap.appendChild(statusEl);
-  return wrap;
-}
-
 function renderEntityEditBlock(container, entity, draft) {
   container.appendChild(buildParentSelect(entity.id, draft.parentId, function (v) { draft.parentId = v; }));
   container.appendChild(makeEditField('Tags (comma-separated)', draft.tags, function (v) { draft.tags = v; }));
@@ -750,7 +681,6 @@ function renderEntityEditBlock(container, entity, draft) {
   if (draft.category === 'Location') {
     container.appendChild(buildMapImageEditSection(entity));
   }
-  container.appendChild(buildGalleryEditSection(entity));
 
   const actions = document.createElement('div');
   actions.className = 'actions-row';
@@ -1152,6 +1082,208 @@ function renderLoreTab(container, entity, gmView) {
   }
 }
 
+// --- Gallery tab -----------------------------------------------------------
+// Unlike Lore items, gallery images have no separate edit-mode UI on the
+// Entry Card itself — all image management (visibility, delete, add) lives
+// here in the Gallery tab, GM view only.
+
+function openImageLightbox(src, alt) {
+  const overlay = document.createElement('div');
+  overlay.className = 'image-lightbox-overlay';
+  const img = document.createElement('img');
+  img.src = src;
+  img.alt = alt || '';
+  overlay.appendChild(img);
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.className = 'image-lightbox-close';
+  closeBtn.setAttribute('aria-label', 'Close');
+  closeBtn.textContent = '\u2715';
+  overlay.appendChild(closeBtn);
+
+  function close() {
+    overlay.remove();
+    document.removeEventListener('keydown', onKey);
+  }
+  function onKey(ev) { if (ev.key === 'Escape') close(); }
+  overlay.addEventListener('click', function (ev) { if (ev.target === overlay) close(); });
+  closeBtn.addEventListener('click', close);
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(overlay);
+}
+
+// Lazy-loads SortableJS (same lazy-CDN pattern as marked/DOMPurify/
+// CodeMirror elsewhere in this app) rather than native HTML5 drag-and-drop,
+// which iOS Safari does not support for touch — SortableJS has real touch
+// support, which matters since this app is primarily used from iOS.
+function loadSortable() {
+  if (!state.sortableModulePromise) {
+    state.sortableModulePromise = import('https://esm.sh/sortablejs@1.15.2')
+      .then(function (mod) { return mod.default || mod; });
+  }
+  return state.sortableModulePromise;
+}
+
+function persistGalleryOrder(entityId, orderedIds) {
+  const batch = writeBatch(db);
+  orderedIds.forEach(function (id, idx) {
+    batch.update(doc(db, 'images', id), { sortOrder: idx });
+  });
+  batch.commit().catch(function (err) {
+    window.alert('Reorder failed: ' + err.message);
+    renderDetailForSelected();
+  });
+}
+
+function buildGalleryUploadForm(entity) {
+  const wrap = document.createElement('div');
+  wrap.className = 'entity-edit-field';
+  const label = document.createElement('label');
+  label.textContent = 'New image';
+  wrap.appendChild(label);
+
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  wrap.appendChild(input);
+
+  const statusEl = document.createElement('span');
+  statusEl.className = 'image-edit-status';
+  wrap.appendChild(statusEl);
+
+  let selectedFile = null;
+  input.addEventListener('change', function () {
+    selectedFile = input.files[0] || null;
+    statusEl.textContent = selectedFile ? selectedFile.name : '';
+  });
+
+  const actions = document.createElement('div');
+  actions.className = 'actions-row';
+  const right = document.createElement('div');
+  right.className = 'actions-row-right';
+  const saveBtn = document.createElement('button');
+  saveBtn.textContent = 'Save';
+  saveBtn.addEventListener('click', function () {
+    if (!selectedFile) { window.alert('Choose an image first.'); return; }
+    saveBtn.disabled = true;
+    input.disabled = true;
+    uploadEntityGalleryImage(entity.id, selectedFile, {
+      onStatus: function (text) { statusEl.textContent = text; }
+    }).then(function () {
+      state.galleryUpload = null;
+      renderDetailForSelected();
+    }).catch(function (err) {
+      statusEl.textContent = err.message;
+      saveBtn.disabled = false;
+      input.disabled = false;
+    });
+  });
+  right.appendChild(saveBtn);
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', function () {
+    state.galleryUpload = null;
+    renderDetailForSelected();
+  });
+  right.appendChild(cancelBtn);
+  actions.appendChild(right);
+  wrap.appendChild(actions);
+  return wrap;
+}
+
+function renderGalleryTab(container, entity, gmView) {
+  const galleryImages = galleryImagesFor(entity.id, gmView);
+  const addingImage = gmView && state.galleryUpload && state.galleryUpload.entityId === entity.id;
+
+  if (galleryImages.length) {
+    const galleryDiv = document.createElement('div');
+    galleryDiv.id = 'codex-gallery';
+    galleryImages.forEach(function (img) {
+      const figDiv = document.createElement('div');
+      figDiv.className = 'gallery-item ' + (img.visibility === 'all-players' ? 'vis-visible' : 'vis-hidden');
+      figDiv.dataset.imageId = img.id;
+      const imgEl = document.createElement('img');
+      imgEl.src = img.data;
+      imgEl.alt = entity.name;
+      imgEl.addEventListener('click', function () { openImageLightbox(img.data, entity.name); });
+      figDiv.appendChild(imgEl);
+
+      if (gmView) {
+        const barDiv = document.createElement('div');
+        barDiv.className = 'gallery-item-bar';
+        const visible = img.visibility === 'all-players';
+        const toggleLabel = document.createElement('span');
+        toggleLabel.className = 'toggle-switch-label ' + (visible ? 'state-visible' : 'state-hidden');
+        toggleLabel.textContent = visible ? 'Visible to party' : 'Hidden from party';
+        barDiv.appendChild(toggleLabel);
+        const switchLabel = document.createElement('label');
+        switchLabel.className = 'toggle-switch';
+        const switchInput = document.createElement('input');
+        switchInput.type = 'checkbox';
+        switchInput.checked = visible;
+        switchInput.addEventListener('change', function () {
+          setGalleryImageVisibility(img.id, switchInput.checked ? 'all-players' : 'gm-only')
+            .catch(function (err) { window.alert('Visibility change failed: ' + err.message); });
+        });
+        const switchSlider = document.createElement('span');
+        switchSlider.className = 'toggle-slider';
+        switchLabel.appendChild(switchInput);
+        switchLabel.appendChild(switchSlider);
+        barDiv.appendChild(switchLabel);
+        figDiv.appendChild(barDiv);
+
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.textContent = 'Delete';
+        delBtn.addEventListener('click', function () {
+          if (!window.confirm('Delete this gallery image?')) return;
+          deleteEntityGalleryImage(img.id).catch(function (err) { window.alert('Delete failed: ' + err.message); });
+        });
+        figDiv.appendChild(delBtn);
+      }
+      galleryDiv.appendChild(figDiv);
+    });
+    container.appendChild(galleryDiv);
+
+    if (gmView && galleryImages.length > 1) {
+      loadSortable().then(function (Sortable) {
+        // eslint-disable-next-line no-new
+        new Sortable(galleryDiv, {
+          animation: 150,
+          onEnd: function () {
+            const orderedIds = Array.prototype.slice.call(galleryDiv.children)
+              .map(function (el) { return el.dataset.imageId; });
+            persistGalleryOrder(entity.id, orderedIds);
+          }
+        });
+      }).catch(function () { /* drag-reorder unavailable; toggle/delete still work */ });
+    }
+  } else if (!addingImage) {
+    const emptyP = document.createElement('p');
+    emptyP.className = 'lore-empty';
+    emptyP.textContent = '(no gallery images)';
+    container.appendChild(emptyP);
+  }
+
+  if (addingImage) {
+    container.appendChild(buildGalleryUploadForm(entity));
+  } else if (gmView) {
+    const actions = document.createElement('div');
+    actions.className = 'actions-row';
+    const right = document.createElement('div');
+    right.className = 'actions-row-right';
+    const newImageBtn = document.createElement('button');
+    newImageBtn.textContent = '+ New image';
+    newImageBtn.addEventListener('click', function () {
+      state.galleryUpload = { entityId: entity.id };
+      renderDetailForSelected();
+    });
+    right.appendChild(newImageBtn);
+    actions.appendChild(right);
+    container.appendChild(actions);
+  }
+}
+
 // --- My Knowledge (detail pane) -------------------------------------------
 
 function renderDetailForSelected() {
@@ -1185,7 +1317,9 @@ function renderDetailForSelected() {
   leftCol.id = 'codex-card-heading-left';
 
   if (editing) {
-    leftCol.appendChild(makeEditField('Name', draft.name, function (v) { draft.name = v; }));
+    const nameField = makeEditField('Name', draft.name, function (v) { draft.name = v; });
+    nameField.classList.add('entity-name-field');
+    leftCol.appendChild(nameField);
     const catWrap = document.createElement('div');
     catWrap.className = 'entity-edit-field';
     const catLabel = document.createElement('label');
@@ -1285,39 +1419,42 @@ function renderDetailForSelected() {
     detailEl.appendChild(editBlock);
   }
 
-  // --- Lore / Gallery / Notes tab box ---
-  const tabsRow = document.createElement('div');
-  tabsRow.id = 'codex-detail-tabs';
-  [['lore', 'Lore'], ['gallery', 'Gallery'], ['notes', 'Notes']].forEach(function (pair) {
-    const tabKey = pair[0];
-    const tabBtn = document.createElement('button');
-    tabBtn.type = 'button';
-    tabBtn.textContent = pair[1];
-    if (state.detailActiveTab === tabKey) tabBtn.classList.add('active');
-    tabBtn.addEventListener('click', function () {
-      state.detailActiveTab = tabKey;
-      renderDetailForSelected();
+  // --- Lore / Gallery / Notes tab box (view mode only — hidden while
+  // editing; tags/related/delete are edited inline above instead) ---
+  if (!editing) {
+    const tabsRow = document.createElement('div');
+    tabsRow.id = 'codex-detail-tabs';
+    [['lore', 'Lore'], ['gallery', 'Gallery'], ['notes', 'Notes']].forEach(function (pair) {
+      const tabKey = pair[0];
+      const tabBtn = document.createElement('button');
+      tabBtn.type = 'button';
+      tabBtn.textContent = pair[1];
+      if (state.detailActiveTab === tabKey) tabBtn.classList.add('active');
+      tabBtn.addEventListener('click', function () {
+        state.detailActiveTab = tabKey;
+        renderDetailForSelected();
+      });
+      tabsRow.appendChild(tabBtn);
     });
-    tabsRow.appendChild(tabBtn);
-  });
-  detailEl.appendChild(tabsRow);
+    detailEl.appendChild(tabsRow);
 
-  const tabPanel = document.createElement('div');
-  tabPanel.id = 'codex-detail-tab-panel';
-  detailEl.appendChild(tabPanel);
+    const tabPanel = document.createElement('div');
+    tabPanel.id = 'codex-detail-tab-panel';
+    detailEl.appendChild(tabPanel);
 
-  if (state.detailActiveTab === 'notes') {
-    const notesEmptyP = document.createElement('p');
-    notesEmptyP.className = 'lore-empty';
-    notesEmptyP.textContent = 'Notes are coming in a future update.';
-    tabPanel.appendChild(notesEmptyP);
-  } else if (state.detailActiveTab === 'gallery') {
-    renderGalleryTab(tabPanel, entity, gmView);
-  } else {
-    renderLoreTab(tabPanel, entity, gmView);
+    if (state.detailActiveTab === 'notes') {
+      const notesEmptyP = document.createElement('p');
+      notesEmptyP.className = 'lore-empty';
+      notesEmptyP.textContent = 'Notes are coming in a future update.';
+      tabPanel.appendChild(notesEmptyP);
+    } else if (state.detailActiveTab === 'gallery') {
+      renderGalleryTab(tabPanel, entity, gmView);
+    } else {
+      renderLoreTab(tabPanel, entity, gmView);
+    }
   }
 
-  if (editing) return; // tags/gallery/related/delete are edited inline above; card ends at the tab box
+  if (editing) return; // tags/gallery/related/delete are edited inline above; card ends here
 
   // --- Tags ---
   if (entity.tags && entity.tags.length) {
@@ -1330,55 +1467,6 @@ function renderDetailForSelected() {
     });
     detailEl.appendChild(tagsDiv);
   }
-
-// --- Gallery tab ---
-function renderGalleryTab(container, entity, gmView) {
-  const galleryImages = galleryImagesFor(entity.id, gmView);
-  if (!galleryImages.length) {
-    const emptyP = document.createElement('p');
-    emptyP.className = 'lore-empty';
-    emptyP.textContent = '(no gallery images)';
-    container.appendChild(emptyP);
-    return;
-  }
-  const galleryDiv = document.createElement('div');
-  galleryDiv.id = 'codex-gallery';
-  galleryImages.forEach(function (img) {
-    const figDiv = document.createElement('div');
-    figDiv.className = 'gallery-item ' + (img.visibility === 'all-players' ? 'vis-visible' : 'vis-hidden');
-    const imgEl = document.createElement('img');
-    imgEl.src = img.data;
-    imgEl.alt = entity.name;
-    figDiv.appendChild(imgEl);
-
-    if (gmView) {
-      const barDiv = document.createElement('div');
-      barDiv.className = 'gallery-item-bar';
-      const visible = img.visibility === 'all-players';
-      const toggleLabel = document.createElement('span');
-      toggleLabel.className = 'toggle-switch-label ' + (visible ? 'state-visible' : 'state-hidden');
-      toggleLabel.textContent = visible ? 'Visible to party' : 'Hidden from party';
-      barDiv.appendChild(toggleLabel);
-      const switchLabel = document.createElement('label');
-      switchLabel.className = 'toggle-switch';
-      const switchInput = document.createElement('input');
-      switchInput.type = 'checkbox';
-      switchInput.checked = visible;
-      switchInput.addEventListener('change', function () {
-        setGalleryImageVisibility(img.id, switchInput.checked ? 'all-players' : 'gm-only')
-          .catch(function (err) { window.alert('Visibility change failed: ' + err.message); });
-      });
-      const switchSlider = document.createElement('span');
-      switchSlider.className = 'toggle-slider';
-      switchLabel.appendChild(switchInput);
-      switchLabel.appendChild(switchSlider);
-      barDiv.appendChild(switchLabel);
-      figDiv.appendChild(barDiv);
-    }
-    galleryDiv.appendChild(figDiv);
-  });
-  container.appendChild(galleryDiv);
-}
 
   // --- Related entities ---
   // Player view only links to targets that are themselves player-visible;
