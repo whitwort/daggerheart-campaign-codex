@@ -223,22 +223,24 @@ function portraitOffsetPxToFrac(img, cw, ch, px, py) {
 // ratio — the bottom-right corner sits at ~69% along a 45deg diagonal,
 // so any reach calibrated to look right elsewhere left it stuck
 // mid-fade, clipped hard by overflow:hidden before ever reaching true
-// 0% opacity. That's the mid-frame hard line reported.
+// 0% opacity.
 //
-// An ellipse centered at the corner has none of that: rx/ry are plain
-// percentages of width/height (no diagonal projection), it's exactly
-// 0% opacity at the corner by construction regardless of aspect ratio,
-// and H/V map directly to "how far this axis reaches" with no coupling
-// between them. The outer fixed 45deg card-level mask (unconditional,
-// CSS-only, not slider-driven) still supplies the overall diagonal
+// An ellipse centered at the corner has none of that: rx/ry map to
+// "how far this axis reaches" independently, with no diagonal
+// projection and no coupling between H and V. Sized in px (not %) —
+// percentage explicit-size radial-gradients are spec-valid, but px is
+// the most universally-supported form with no parsing ambiguity, and
+// I can't render-verify in this environment right now, so removing
+// that as a variable. The outer fixed 45deg card-level mask
+// (unconditional, CSS-only) still supplies the overall diagonal
 // orientation — this only softens the edges within it.
-function portraitApplyEdgeFade(fadeWrapEl, img) {
+function portraitApplyEdgeFade(fadeWrapEl, img, cw, ch) {
   const hPct = typeof img.portraitFadeH === 'number' ? img.portraitFadeH : 12;
   const vPct = typeof img.portraitFadeV === 'number' ? img.portraitFadeV : 12;
-  const rx = Math.max(0.1, (hPct / 45) * 90);
-  const ry = Math.max(0.1, (vPct / 45) * 90);
-  const grad = 'radial-gradient(ellipse ' + rx + '% ' + ry
-    + '% at left bottom, transparent 0%, transparent 15%, black 75%, black 100%)';
+  const rx = Math.max(1, (hPct / 45) * 0.9 * cw);
+  const ry = Math.max(1, (vPct / 45) * 0.9 * ch);
+  const grad = 'radial-gradient(ellipse ' + rx + 'px ' + ry
+    + 'px at left bottom, transparent 0%, transparent 15%, black 75%, black 100%)';
   fadeWrapEl.style.webkitMaskImage = grad;
   fadeWrapEl.style.maskImage = grad;
   fadeWrapEl.style.webkitMaskComposite = '';
@@ -256,7 +258,7 @@ function portraitRenderInto(imgEl, fadeWrapEl, containerEl, img) {
   imgEl.style.width = (img.width * scale) + 'px';
   imgEl.style.height = (img.height * scale) + 'px';
   imgEl.style.transform = 'translate(' + clamped.x + 'px, ' + clamped.y + 'px)';
-  portraitApplyEdgeFade(fadeWrapEl, img);
+  portraitApplyEdgeFade(fadeWrapEl, img, cw, ch);
 }
 
 // Builds the #codex-card-hero wrapper (card-level 45deg mask + hero img)
@@ -365,7 +367,10 @@ function matchesFilters(entity) {
   const tagMatch = (entity.tags || []).some(function (t) {
     return t.toLowerCase().indexOf(q) !== -1;
   });
-  return nameMatch || tagMatch;
+  const aliasMatch = (entity.aliases || []).some(function (a) {
+    return a.toLowerCase().indexOf(q) !== -1;
+  });
+  return nameMatch || tagMatch || aliasMatch;
 }
 
 // Selecting a new entity always lands back on the Lore tab, out of edit
@@ -1251,6 +1256,7 @@ function renderLoreTab(container, entity, gmView) {
 //   itself (via portraitPreviewOverride), not in a box inside the panel.
 // Cancel (either stage) and Esc close without saving.
 function openSetPortraitDialog(entity, images) {
+  const previousTab = state.detailActiveTab;
   const panel = document.createElement('div');
   panel.className = 'portrait-picker-panel';
   const header = document.createElement('div');
@@ -1336,6 +1342,7 @@ function openSetPortraitDialog(entity, images) {
     portraitPreviewOverride = null;
     document.removeEventListener('keydown', onKeydown);
     panel.remove();
+    state.detailActiveTab = previousTab;
     renderDetailForSelected(); // restore the card to committed state
   }
 
@@ -1377,6 +1384,7 @@ function openSetPortraitDialog(entity, images) {
       portraitFadeV: typeof img.portraitFadeV === 'number' ? img.portraitFadeV : 12
     };
     portraitPreviewOverride = { entityId: entity.id, img: workingImg };
+    state.detailActiveTab = 'lore';
     renderDetailForSelected(); // rebuilds the card's hero from the override
     attachCardDrag();
     buildStageB();
