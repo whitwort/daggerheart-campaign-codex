@@ -5,30 +5,50 @@ Carry this file forward in context-handoff docs.
 
 ## ⚠️ Standing design principle — read before touching any button/select CSS
 
-**Every clickable control (button, select) must render at the same
-height everywhere it appears, and every button within a given view
-must share the same width.** This has been corrected piecemeal across
-many Phase 11 sessions (gallery Delete, lore Edit/Delete, admin
-buttons/dropdowns, map pin buttons, related-entities Add/Remove...) —
-each fix caught one more button that had drifted, rather than the
-actual root cause. Root cause, fixed for real in one place: the base
-`button` rule didn't declare `font-size`, so any button sitting in a
-context with a different ambient font-size (e.g. inside `.lore-item-body`
-at 0.906rem) rendered at a different computed height even with
-identical padding/line-height. The base `button` rule now sets
-`font-size: 0.9rem` explicitly, and `select` mirrors it. **Any new
-button-style rule added anywhere in this app must not set its own
-font-size unless there's a specific, deliberate reason (e.g. the
-landing-page sign-in CTA, or flat tab-style buttons like
-#codex-detail-tabs/#admin-db-tabs/nav#tabs, which are a fundamentally
-different visual treatment, not action buttons) — inherit the base
-0.9rem instead.** For width: use `min-width` (never a fixed `width`)
-scoped to the container that groups the buttons that should match
-(e.g. `#codex-detail button { min-width: 5.5rem; }`,
-`#map-gm-controls button { min-width: 7rem; }`) — check for one of
-these container-scoped rules before adding a new button anywhere, and
-add the new button to the existing scope rather than inventing a new
-one if it's visually grouped with buttons already covered.
+**Gregg has asked for this note to be emphasized: he wants to only
+have to specify exceptions going forward, not repeatedly ask for
+button consistency. Treat the rule below as binding for all future
+work, not just Phase 11.**
+
+**Every button in this app must be the same width and the same
+height, with NO per-context exceptions, except:**
+1. The landing-page Sign in with Google / Sign in with GitHub buttons
+   (`#signin-buttons button`) — deliberately larger, primary CTA.
+2. Flat tab-style buttons that are visually tabs, not action buttons —
+   no border, no background, no box-shadow: main nav (`nav#tabs
+   button`), Entry Card tabs (`#codex-detail-tabs button`), Admin DB
+   tabs (`#admin-db-tabs button`).
+3. Inline text-link-style buttons — no border, no background, styled
+   as a link: `.related-chip`, `.entity-map-link`,
+   `.map-breadcrumb-link`, `.collapse-toggle`.
+4. Small icon-only circular buttons — `.image-lightbox-close`.
+
+This was corrected piecemeal across many earlier Phase 11 sessions
+(gallery Delete, lore Edit/Delete, admin buttons/dropdowns, map pin
+buttons, related-entities Add/Remove...) — each fix caught one more
+button that had drifted, none of them addressed the root cause. Fixed
+for real, in exactly two places, as of the button-width-consistency
+pass:
+- **Height**: the base `button` rule didn't declare `font-size`, so a
+  button sitting in a context with a different ambient font-size (e.g.
+  inside `.lore-item-body` at 0.906rem) rendered at a different
+  computed height even with identical padding/line-height. Base
+  `button` rule now sets `font-size: 0.9rem` explicitly; `select`
+  mirrors it.
+- **Width**: the base `button` rule now sets `min-width: 6rem;
+  text-align: center;` directly — a single global value, not scoped
+  per-container. Every previous container-scoped min-width
+  (`#codex-detail button`, `#map-gm-controls button`, the file-upload
+  pseudo-button) was removed/aligned to inherit this one value instead
+  of maintaining its own.
+
+**Any new button added anywhere in the app automatically gets correct
+width/height for free — do nothing.** Only add a `min-width: 0;
+text-align: left;` (and usually `box-shadow: none; background: none;
+border: none;`) override if the new button belongs to one of the 4
+exception categories above. If a 5th exception category becomes
+necessary, add it to this list explicitly rather than leaving it
+implicit in scattered CSS.
 
 ## Phase 10 (map improvements) — in progress
 

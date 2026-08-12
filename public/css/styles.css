@@ -66,6 +66,11 @@ header h1 { margin: 0; font-size: 2rem; line-height: 1; font-family: var(--font-
 #gm-preview-toggle-btn { padding: 0.3rem 0.7rem; cursor: pointer; font-size: 0.85rem; }
 
 /* Buttons, inputs, selects: shared base look on the dark shell */
+/* STANDING RULE (see QOL-BACKLOG.md): every button in this app is the
+   same width/height by default via this rule. Only 4 exception
+   categories exist (sign-in CTA, flat tabs, text-link-style buttons,
+   icon-only circular buttons) — see QOL-BACKLOG.md for the exact
+   list. Do not add a 5th ad hoc exception without updating that list. */
 button {
   font-family: var(--font-body), sans-serif;
   background: var(--void);
@@ -77,6 +82,8 @@ button {
   padding: 0.5rem 1rem;
   font-size: 0.9rem;
   line-height: 1.2;
+  min-width: 6rem;
+  text-align: center;
 }
 button:hover { border-color: var(--fear); }
 button:active { box-shadow: inset 0 2px 5px rgba(0,0,0,0.65); }
@@ -138,6 +145,8 @@ nav#tabs button {
   border: none;
   border-radius: 0;
   box-shadow: none;
+  min-width: 0;
+  text-align: left;
   padding: 0.75rem 0.25rem;
   cursor: pointer;
   font-size: 0.95rem;
@@ -172,7 +181,6 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 #map-tab-placeholder { color: var(--ink-soft); margin-top: 0; }
 #map-container { height: 70vh; margin-top: 1rem; background: var(--void); border-radius: 8px; display: none; }
 #map-gm-controls { display: none; margin-top: 0.75rem; }
-#map-gm-controls button { min-width: 7rem; text-align: center; }
 #map-mode-hint { font-size: 0.85rem; color: var(--ink-soft); }
 #map-gm-controls button.active-mode { outline: 2px solid var(--fear); }
 #map-image-upload { display: none; gap: 0.5rem; align-items: center; margin-top: 0.5rem; font-size: 0.85rem; }
@@ -180,7 +188,7 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 
 /* Breadcrumb map navigation (replaces the old "back to parent map" button) */
 #map-breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; margin-top: 0.75rem; font-size: 0.9rem; }
-.map-breadcrumb-link { background: none; border: none; padding: 0; cursor: pointer; color: var(--fear); text-decoration: underline dotted; font-size: inherit; }
+.map-breadcrumb-link { background: none; border: none; padding: 0; cursor: pointer; color: var(--fear); text-decoration: underline dotted; font-size: inherit; min-width: 0; text-align: left; box-shadow: none; }
 .map-breadcrumb-link:hover { text-decoration: underline; }
 .map-breadcrumb-link.current { color: var(--parchment); text-decoration: none; cursor: default; font-weight: bold; }
 .map-breadcrumb-icon { margin-right: 0.3rem; }
@@ -402,8 +410,6 @@ select {
   border: 3px solid var(--parchment-edge);
   border-radius: 8px;
   box-shadow: inset 0 0 10px 2px rgba(0,0,0,0.9);
-  min-width: 5.5rem;
-  text-align: center;
 }
 #codex-detail button:hover { border-color: var(--hope); }
 #codex-detail button:active { box-shadow: inset 0 0 14px 3px rgba(0,0,0,0.95); }
@@ -521,7 +527,7 @@ select {
 .entity-edit-field input[type="file"]::-webkit-file-upload-button {
   background: #000000; color: var(--parchment); border: 3px solid var(--parchment-edge); border-radius: 8px;
   padding: 0.5rem 1rem; font-family: inherit; font-size: 0.9rem; cursor: pointer; margin-right: 0.6rem;
-  box-shadow: inset 0 0 10px 2px rgba(0,0,0,0.9); min-width: 5.5rem; text-align: center;
+  box-shadow: inset 0 0 10px 2px rgba(0,0,0,0.9); min-width: 6rem; text-align: center;
 }
 .entity-edit-field input[type="file"]::-webkit-file-upload-button:hover { border-color: var(--hope); }
 .entity-edit-field > button { margin-top: 0.5rem; }
@@ -582,6 +588,7 @@ select {
   padding: 0.4rem 0.9rem; cursor: pointer; background: none; border: none; border-radius: 0; box-shadow: none;
   border-bottom: 3px solid transparent; font-size: 0.9rem; color: var(--ink-soft);
   font-family: var(--font-display), sans-serif; font-weight: 400;
+  min-width: 0; text-align: left;
 }
 #admin-db-tabs button.active { border-bottom-color: var(--hope); color: var(--parchment); }
 .admin-db-tab-panel { display: none; padding-top: 0.75rem; }
@@ -649,7 +656,7 @@ select {
 .import-badge-add { background: var(--fear); color: #fff; }
 .import-badge-conflict { background: var(--hope); color: var(--void); }
 .import-badge-error { background: var(--notice); color: #fff; }
-.collapse-toggle { background: none; border: none; cursor: pointer; padding: 0.2rem 0; font-size: 0.85rem; color: var(--ink-soft); box-shadow: none; }
+.collapse-toggle { background: none; border: none; cursor: pointer; padding: 0.2rem 0; font-size: 0.85rem; color: var(--ink-soft); box-shadow: none; min-width: 0; text-align: left; }
 #admin-import-json { margin-top: 0.5rem; }
 .CodeMirror { border: 1px solid var(--void-line); height: 220px; font-size: 0.85rem; }
 
