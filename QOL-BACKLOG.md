@@ -24,6 +24,10 @@ height, with NO per-context exceptions, except:**
 4. Small icon-only circular buttons — `.image-lightbox-close`.
 5. Buttons inside a small floating panel too narrow for the fixed
    13rem width — `.portrait-picker-body button` (Set portrait picker).
+6. Buttons inside a narrow table cell too narrow for the fixed 13rem
+   width — `#admin-players-table button` (Edit/Remove/Save/Cancel in
+   the Manage Party row-actions column; two 13rem buttons overflowed
+   the card edge).
 
 This was corrected piecemeal across many earlier Phase 11 sessions
 (gallery Delete, lore Edit/Delete, admin buttons/dropdowns, map pin
