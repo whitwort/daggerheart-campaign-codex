@@ -128,16 +128,22 @@ scattered CSS.
   a closer look later if other row-content combinations (map-link icon
   + hidden badge together, longer names wrapping, etc.) turn out to
   still shift layout on state changes.
+- **Character-select dropdown JS error — reported, never repro'd.**
+  Gregg reported clicking the (currently placeholder-only) 'Character'
+  dropdown (true-player nav slot, mirrors GM's 'View' dropdown) threw a
+  JS error. No listener is attached to it and no ID collisions were
+  found via static review. The surrounding code (nav switcher, tab
+  system, gallery) has been substantially rewritten since this was
+  reported — may already be moot, but was never confirmed fixed. Get
+  the actual error text/stack if it still reproduces.
+- **GM-mode 'tab item area' yellow line — best-effort guess, needs
+  confirmation.** Interpreted as the Admin DB (Import/Export) sub-tabs'
+  bottom border, aligned to match the main nav strip's line color. Low
+  confidence this was the intended region — screenshot needed if it's
+  still wrong.
 
 ## Future phases (scoped, not started)
 
-- **Phase 11 — Visual styling.** Move from structural/functional CSS to
-  an intentional visual design system (color, type, spacing) that
-  communicates information (categories, roles, states) as well as
-  aesthetic. Gregg has no design background; session will include
-  establishing a Claude-assisted design workflow (prompting patterns,
-  reference/moodboard artifacts, model choice) alongside the actual
-  CSS work.
 - **Phase 12 — SRD data import.** Ingest Daggerheart SRD content into
   the codex, reusing critical-path parsing/structuring work already
   done in the separate `daggerheart-encounter-builder` repo rather than
