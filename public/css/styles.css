@@ -494,6 +494,7 @@ select {
   background: var(--void); color: var(--parchment); border: 3px solid var(--parchment-edge);
 }
 .entity-edit-field select { padding-right: 1.6rem; }
+.entity-edit-field input[type="text"], .entity-edit-field textarea { font-size: 0.8rem; }
 .entity-edit-field input[type="text"]:focus, .entity-edit-field select:focus, .entity-edit-field textarea:focus {
   outline: none; border-color: var(--fear); box-shadow: 0 0 0 2px var(--fear-glow);
 }
