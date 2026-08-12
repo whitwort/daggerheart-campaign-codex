@@ -144,6 +144,8 @@ function galleryImagesFor(entityId, gmView) {
 // fade on the image itself. Scoped to #codex-detail only for now.
 const PORTRAIT_ZOOM_STEP_FACTOR = 0.12; // ~12% per step, per mockup
 const PORTRAIT_MAX_ZOOM_STEPS = 8;
+const PORTRAIT_MIN_ZOOM_STEPS = -8; // zoom-out below cover-fit, floored at contain-fit
+const PORTRAIT_MIN_OVERLAP_FRAC = 0.28; // mid-point of mockup's tunable 22-35% range
 // Aspect ratio of the card's hero band. The crop math (offsets stored as
 // fractions of the scaled image) reproduces the same framing regardless
 // of container size, but the band itself needs a fixed aspect so it
@@ -177,26 +179,32 @@ function portraitCoverScale(cw, ch, iw, ih) {
 function portraitCurrentScale(img, cw, ch) {
   const base = portraitCoverScale(cw, ch, img.width, img.height);
   const step = typeof img.portraitZoomStep === 'number' ? img.portraitZoomStep : 0;
-  return base * (1 + step * PORTRAIT_ZOOM_STEP_FACTOR);
+  // Negative steps zoom OUT below cover-fit (so the whole image can sit
+  // inside the band with its real edges visible), floored at contain-fit
+  // so it can never shrink smaller than "entire image visible".
+  const contain = Math.min(cw / img.width, ch / img.height);
+  return Math.max(contain, base * (1 + step * PORTRAIT_ZOOM_STEP_FACTOR));
 }
 
 // ox/oy here are the *scaled* px offsets being tested (not yet clamped or
 // converted to/from the stored fractions).
-// Strict full-coverage clamp (edge-fade bug resolution, approach B): the
-// image can never expose a container edge. Cover-fit base scale
-// guarantees scaledW >= cw and scaledH >= ch, so the valid offset range
-// is [cw - scaledW, 0] / [ch - scaledH, 0]. This replaced the earlier
-// relaxed min-overlap clamp (which allowed under-coverage by design) —
-// the "hard line" bug that burned an entire session of mask debugging
-// was actually the raw edge of a legally under-covering saved crop, not
-// a mask problem at all. Saved under-covering crops self-heal: render
-// always passes stored offsets through this clamp.
+// Relaxed clamp per the ORIGINAL locked spec: the image is an object
+// floating on the card — under-coverage is allowed on every side (card
+// background shows through; fades soften the image's own edges). Only
+// requirement: at least MIN_OVERLAP of the container stays covered so
+// the image can't be dragged fully out of view. (A strict full-coverage
+// clamp was briefly shipped by mistake — it broke drag-to-focus and
+// contradicted the image-as-object design.)
 function portraitClampOffset(img, cw, ch, ox, oy) {
   const scale = portraitCurrentScale(img, cw, ch);
   const scaledW = img.width * scale, scaledH = img.height * scale;
-  const minX = Math.min(0, cw - scaledW);
-  const minY = Math.min(0, ch - scaledH);
-  return { x: Math.max(minX, Math.min(0, ox)), y: Math.max(minY, Math.min(0, oy)) };
+  const minOverlapX = cw * PORTRAIT_MIN_OVERLAP_FRAC;
+  const minOverlapY = ch * PORTRAIT_MIN_OVERLAP_FRAC;
+  const minX = Math.min(0, cw - scaledW) - (cw - minOverlapX);
+  const maxX = 0 + (cw - minOverlapX);
+  const minY = Math.min(0, ch - scaledH) - (ch - minOverlapY);
+  const maxY = 0 + (ch - minOverlapY);
+  return { x: Math.max(minX, Math.min(maxX, ox)), y: Math.max(minY, Math.min(maxY, oy)) };
 }
 
 // Stored offsets are fractions of the *scaled* image size at the current
@@ -217,59 +225,65 @@ function portraitOffsetPxToFrac(img, cw, ch, px, py) {
   return { xFrac: scaledW ? px / scaledW : 0, yFrac: scaledH ? py / scaledH : 0 };
 }
 
-// Two independently-masked nested wrappers — NOT a corner-anchored
-// ellipse, and NOT two gradients combined via mask-composite on one
-// element. Both of those were wrong for a different reason each:
+// Two independently-masked nested wrappers (nested single-mask elements
+// multiply naturally; no mask-composite anywhere — iOS Safari support
+// for it is unverified).
 //
-// - The ellipse (previous attempt) put both H and V into a single
-//   radial distance from one corner — but a point sitting ON the
-//   bottom edge has zero vertical offset from that corner, so V never
-//   affects the bottom edge at all, no matter its value. That's
-//   exactly the reported "V does nothing" bug — confirmed by
-//   inspecting the actual computed mask-image: rx/ry were exactly the
-//   values intended, so the gradient was applying correctly; the
-//   *shape* was wrong for what independent H/V edge control needs.
-// - mask-composite: intersect (an even earlier attempt, before this
-//   session) combined two gradients on the SAME element — the
-//   handoff notes for this project explicitly flagged
-//   mask-composite's iOS Safari support as unverified, and iOS Safari
-//   is the primary target here, so that's the likely cause of the
-//   original L-shaped/stepped-corner complaint that started all of
-//   this.
-//
-// This avoids both: hWrap gets ONE single mask-image (a plain
-// horizontal gradient, fades the left edge only, per the originally
-// locked spec), containing vWrap with its OWN single mask-image (a
-// plain vertical gradient, fades the bottom edge only). CSS masks on
-// nested elements multiply naturally — no composite property
-// involved anywhere, so no cross-browser risk. H and V now can't
-// possibly interfere with each other: each is a single independent
-// gradient on its own element.
-function portraitApplyEdgeFade(hWrapEl, vWrapEl, img) {
+// ANCHORING (the fix for the long-running "hard line" bug): gradients
+// are anchored in px to the IMAGE'S OWN visible edges, not the
+// container's. The image is an object floating on the card — it may
+// legally under-cover the band (relaxed clamp, original spec), so a
+// container-anchored gradient can reach full opacity before the image
+// actually ends, leaving the raw element edge exposed as a hard line.
+// Anchored to the edge itself, the fade always begins exactly where the
+// image ends, at any drag position or zoom:
+// - H fades the image's left edge: transparent at the edge's x, opaque
+//   over a run of (pct/45 · container width).
+// - V fades the image's bottom edge the same way.
+// - At 0% the mask is removed entirely: the hard line IS the image's
+//   real edge, which is the intended meaning of "no fade".
+// - An edge that sits outside the view (image continues past the band)
+//   anchors at the container edge (max(0, …)), which degenerates to the
+//   old container-anchored behavior for covering crops.
+function portraitApplyEdgeFade(hWrapEl, vWrapEl, img, geom) {
   const hPct = typeof img.portraitFadeH === 'number' ? img.portraitFadeH : 12;
   const vPct = typeof img.portraitFadeV === 'number' ? img.portraitFadeV : 12;
-  const hEndPct = Math.max(1, (hPct / 45) * 100);
-  const vEndPct = Math.max(1, (vPct / 45) * 100);
-  const hGrad = 'linear-gradient(to right, transparent 0%, black ' + hEndPct + '%)';
-  const vGrad = 'linear-gradient(to top, transparent 0%, black ' + vEndPct + '%)';
-  hWrapEl.style.webkitMaskImage = hGrad;
-  hWrapEl.style.maskImage = hGrad;
-  vWrapEl.style.webkitMaskImage = vGrad;
-  vWrapEl.style.maskImage = vGrad;
+  if (hPct <= 0) {
+    hWrapEl.style.webkitMaskImage = '';
+    hWrapEl.style.maskImage = '';
+  } else {
+    const leftEdge = Math.max(0, geom.x);
+    const hRun = (hPct / 45) * geom.cw;
+    const hGrad = 'linear-gradient(to right, transparent ' + leftEdge.toFixed(1) + 'px, black ' + (leftEdge + hRun).toFixed(1) + 'px)';
+    hWrapEl.style.webkitMaskImage = hGrad;
+    hWrapEl.style.maskImage = hGrad;
+  }
+  if (vPct <= 0) {
+    vWrapEl.style.webkitMaskImage = '';
+    vWrapEl.style.maskImage = '';
+  } else {
+    const bottomGap = Math.max(0, geom.ch - (geom.y + geom.ih));
+    const vRun = (vPct / 45) * geom.ch;
+    const vGrad = 'linear-gradient(to top, transparent ' + bottomGap.toFixed(1) + 'px, black ' + (bottomGap + vRun).toFixed(1) + 'px)';
+    vWrapEl.style.webkitMaskImage = vGrad;
+    vWrapEl.style.maskImage = vGrad;
+  }
 }
 
 // Renders img (a portrait-flagged image doc, using its saved crop state)
 // into imgEl, sized to containerEl's current dimensions, with the edge
-// fade applied to hWrapEl/vWrapEl (see portraitApplyEdgeFade).
+// fade applied to hWrapEl/vWrapEl (see portraitApplyEdgeFade — the fade
+// needs the computed geometry, so it's applied here, after layout math).
 function portraitRenderInto(imgEl, hWrapEl, vWrapEl, containerEl, img) {
   const cw = containerEl.clientWidth, ch = containerEl.clientHeight;
   if (!img.width || !img.height || !cw || !ch) return;
   const scale = portraitCurrentScale(img, cw, ch);
   const clamped = portraitOffsetFracToPx(img, cw, ch);
-  imgEl.style.width = (img.width * scale) + 'px';
-  imgEl.style.height = (img.height * scale) + 'px';
+  const iw = img.width * scale, ih = img.height * scale;
+  imgEl.style.width = iw + 'px';
+  imgEl.style.height = ih + 'px';
   imgEl.style.transform = 'translate(' + clamped.x + 'px, ' + clamped.y + 'px)';
-  portraitApplyEdgeFade(hWrapEl, vWrapEl, img);
+  portraitApplyEdgeFade(hWrapEl, vWrapEl, img, { cw: cw, ch: ch, x: clamped.x, y: clamped.y, iw: iw, ih: ih });
 }
 
 // Builds the #codex-card-hero wrapper (card-level 45deg mask + hero img)
@@ -1457,7 +1471,7 @@ function openSetPortraitDialog(entity, images) {
       return Math.round((1 + workingImg.portraitZoomStep * PORTRAIT_ZOOM_STEP_FACTOR) * 100) + '%';
     }
     function setZoomStep(step) {
-      workingImg.portraitZoomStep = Math.max(0, Math.min(PORTRAIT_MAX_ZOOM_STEPS, step));
+      workingImg.portraitZoomStep = Math.max(PORTRAIT_MIN_ZOOM_STEPS, Math.min(PORTRAIT_MAX_ZOOM_STEPS, step));
       // Re-clamp the offset at the new scale so it doesn't jump out of range.
       if (cardHeroState) {
         const cw = cardHeroState.containerEl.clientWidth, ch = cardHeroState.containerEl.clientHeight;
@@ -1471,7 +1485,7 @@ function openSetPortraitDialog(entity, images) {
     const controlsWrap = document.createElement('div');
     controlsWrap.className = 'portrait-fade-sliders';
     controlsWrap.appendChild(makeControlSlider({
-      labelText: 'Zoom', min: 0, max: PORTRAIT_MAX_ZOOM_STEPS, step: 1,
+      labelText: 'Zoom', min: PORTRAIT_MIN_ZOOM_STEPS, max: PORTRAIT_MAX_ZOOM_STEPS, step: 1,
       getValue: function () { return workingImg.portraitZoomStep; },
       setValue: setZoomStep,
       formatValue: formatZoomPct
