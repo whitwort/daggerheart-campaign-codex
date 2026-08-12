@@ -1311,7 +1311,20 @@ function openSetPortraitDialog(entity, images) {
       const hApplied = hCs.maskImage && hCs.maskImage !== 'none' ? hCs.maskImage : (hCs.webkitMaskImage || 'none');
       const vApplied = vCs.maskImage && vCs.maskImage !== 'none' ? vCs.maskImage : (vCs.webkitMaskImage || 'none');
       const cw = cardHeroState.containerEl.clientWidth, ch = cardHeroState.containerEl.clientHeight;
+      const imgEl = cardHeroState.imgEl;
+      const iw = parseFloat(imgEl.style.width), ih = parseFloat(imgEl.style.height);
+      const m = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(imgEl.style.transform) || [];
+      const tx = parseFloat(m[1]) || 0, ty = parseFloat(m[2]) || 0;
+      // Does the image's actual rendered+positioned box cover the
+      // container on each edge? If not, the "hard line" could be the
+      // image's own real edge (raw card background showing through,
+      // by design — the drag clamp allows under-coverage), not a mask
+      // problem at all.
+      const coverTop = ty <= 0, coverLeft = tx <= 0;
+      const coverRight = tx + iw >= cw, coverBottom = ty + ih >= ch;
       debugEl.textContent = 'container: ' + cw + 'x' + ch + 'px\n'
+        + 'image box: ' + Math.round(iw) + 'x' + Math.round(ih) + 'px at (' + Math.round(tx) + ',' + Math.round(ty) + ')\n'
+        + 'covers top:' + coverTop + ' bottom:' + coverBottom + ' left:' + coverLeft + ' right:' + coverRight + '\n'
         + 'H:' + workingImg.portraitFadeH + '% V:' + workingImg.portraitFadeV + '%\n'
         + 'H mask:\n' + hApplied + '\n'
         + 'V mask:\n' + vApplied;
