@@ -25,8 +25,20 @@
       __showDebugBanner('Unhandled rejection: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
     });
   </script>
+  <script>
+    // Stamped by CI at deploy time (same commit hash CI writes to the
+    // _meta/version Firestore doc — see version.js). Left as the literal
+    // placeholder on unstamped/local builds, which disables version checks.
+    window.BUILD_HASH = '__BUILD_HASH__';
+  </script>
   <script src="firebase-env.js"></script>
   <script src="config.js"></script>
+  <script>
+    // Machine-readable build hash for deploy detection (version.js).
+    // Stamped by CI; the literal placeholder disables version checking
+    // for unstamped local builds.
+    window.BUILD_HASH = '__BUILD_HASH__';
+  </script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -261,9 +273,25 @@
     </div>
   </div>
 
+  <div id="update-banner" style="display:none;">
+    <span>A new version of the Codex is available.</span>
+    <div class="update-banner-actions">
+      <button id="update-banner-reload" type="button">Reload to update</button>
+      <button id="update-banner-dismiss" type="button">Dismiss</button>
+    </div>
+  </div>
+
   <div id="pin-move-indicator">
     <span>Drag the pin to reposition it, then release.</span>
     <button id="pin-move-done-btn" type="button">Done</button>
+  </div>
+
+  <div id="update-banner">
+    <span>A newer version of the Codex has been deployed.</span>
+    <div id="update-banner-actions">
+      <button id="update-banner-reload" type="button">Reload now</button>
+      <button id="update-banner-dismiss" type="button">Dismiss</button>
+    </div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

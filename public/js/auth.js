@@ -11,6 +11,7 @@ import { attachListener, detachListener, safeSnapshotHandler } from './listeners
 import { attachCodexListeners, detachCodexListeners, renderList, renderDetailForSelected } from './codex.js';
 import { attachPinsListener, attachConfigListener, detachMapDataListeners } from './map.js';
 import { attachAdminListeners, detachAdminListeners } from './admin.js';
+import { attachVersionListener, detachVersionListener, initUpdateBanner } from './version.js';
 
 export const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
@@ -132,16 +133,21 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
       // picks up the new doc and updates the button/status itself.
     });
 
+    initUpdateBanner();
 
     onAuthStateChanged(auth, function (user) {
       state.currentUser = user;
       detachLiveRoleListeners();
       detachDataListeners();
+      detachVersionListener();
 
       if (user) {
         signInButtonsEl.style.display = 'none';
         signOutBtn.style.display = 'inline';
         userEmailEl.textContent = user.email || '(no email shared)';
+        // _meta/version read only needs request.auth != null (see rules) —
+        // attach for ANY signed-in user, including not-yet-whitelisted.
+        attachVersionListener();
       } else {
         signInButtonsEl.style.display = 'flex';
         signOutBtn.style.display = 'none';
