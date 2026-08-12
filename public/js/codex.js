@@ -1292,8 +1292,18 @@ function openSetPortraitDialog(entity, images) {
   let cardDragCleanup = null;
   let workingImg = null;
 
+  let debugEl = null;
   function renderCardPreview() {
     if (cardHeroState) portraitRenderInto(cardHeroState.imgEl, cardHeroState.fadeWrapEl, cardHeroState.containerEl, workingImg);
+    if (debugEl && cardHeroState) {
+      const cs = window.getComputedStyle(cardHeroState.fadeWrapEl);
+      const applied = cs.maskImage && cs.maskImage !== 'none' ? cs.maskImage
+        : (cs.webkitMaskImage || 'none');
+      const cw = cardHeroState.containerEl.clientWidth, ch = cardHeroState.containerEl.clientHeight;
+      debugEl.textContent = 'container: ' + cw + 'x' + ch + 'px\n'
+        + 'H:' + workingImg.portraitFadeH + '% V:' + workingImg.portraitFadeV + '%\n'
+        + 'computed mask-image:\n' + applied;
+    }
   }
 
   function attachCardDrag() {
@@ -1464,6 +1474,16 @@ function openSetPortraitDialog(entity, images) {
       formatValue: function (v) { return v + '%'; }
     }));
     body.appendChild(controlsWrap);
+
+    // TEMP debug aid (iOS Safari has no devtools to check this directly)
+    // — reports the browser's actual computed mask-image on the fade
+    // wrapper, live as sliders/drag move. Remove once the fade math is
+    // confirmed working. 'none' here means the gradient string was
+    // rejected outright (syntax issue); the actual gradient string
+    // means it's parsing fine and any remaining problem is geometry.
+    debugEl = document.createElement('pre');
+    debugEl.className = 'portrait-debug-readout';
+    body.appendChild(debugEl);
 
     const actions = document.createElement('div');
     actions.className = 'modal-actions';
