@@ -207,20 +207,31 @@ function portraitOffsetPxToFrac(img, cw, ch, px, py) {
 // Rectangular, independently-adjustable per-axis edge fade — one-sided
 // (left/bottom only), matching the direction of the diagonal card-level
 // mask (opaque top-right, fading to bottom-left).
-function portraitApplyEdgeFade(imgEl, img) {
+//
+// Applied to fadeWrapEl, a wrapper sized to the *visible container* — not
+// to the <img> itself. A linear-gradient's percentage stops resolve
+// against the masked element's own box; the image's box is its full
+// scaled size, which is mostly off-screen at higher zoom/pan, so masking
+// the image directly put the fade's transition zone off-screen too
+// (visible edge = hard clip, slider barely mattered). Masking a
+// container-sized wrapper instead keeps 0%-100% mapped to what's
+// actually shown, regardless of image zoom/pan — same fix already used
+// for the diagonal card-level mask.
+function portraitApplyEdgeFade(fadeWrapEl, img) {
   const hPct = typeof img.portraitFadeH === 'number' ? img.portraitFadeH : 12;
   const vPct = typeof img.portraitFadeV === 'number' ? img.portraitFadeV : 12;
   const hGrad = 'linear-gradient(to right, transparent 0%, black ' + hPct + '%, black 100%)';
   const vGrad = 'linear-gradient(to bottom, black 0%, black ' + (100 - vPct) + '%, transparent 100%)';
-  imgEl.style.webkitMaskImage = hGrad + ', ' + vGrad;
-  imgEl.style.maskImage = hGrad + ', ' + vGrad;
-  imgEl.style.webkitMaskComposite = 'source-in';
-  imgEl.style.maskComposite = 'intersect';
+  fadeWrapEl.style.webkitMaskImage = hGrad + ', ' + vGrad;
+  fadeWrapEl.style.maskImage = hGrad + ', ' + vGrad;
+  fadeWrapEl.style.webkitMaskComposite = 'source-in';
+  fadeWrapEl.style.maskComposite = 'intersect';
 }
 
 // Renders img (a portrait-flagged image doc, using its saved crop state)
-// into imgEl sized to containerEl's current dimensions.
-function portraitRenderInto(imgEl, containerEl, img) {
+// into imgEl, sized to containerEl's current dimensions, with the edge
+// fade applied to fadeWrapEl (see portraitApplyEdgeFade).
+function portraitRenderInto(imgEl, fadeWrapEl, containerEl, img) {
   const cw = containerEl.clientWidth, ch = containerEl.clientHeight;
   if (!img.width || !img.height || !cw || !ch) return;
   const scale = portraitCurrentScale(img, cw, ch);
@@ -228,29 +239,32 @@ function portraitRenderInto(imgEl, containerEl, img) {
   imgEl.style.width = (img.width * scale) + 'px';
   imgEl.style.height = (img.height * scale) + 'px';
   imgEl.style.transform = 'translate(' + clamped.x + 'px, ' + clamped.y + 'px)';
-  portraitApplyEdgeFade(imgEl, img);
+  portraitApplyEdgeFade(fadeWrapEl, img);
 }
 
 // Builds the #codex-card-hero wrapper (card-level 45deg mask + hero img)
 // to prepend to #codex-detail. Card-level mask, per the locked design, is
 // CSS-only (styles.css) on .codex-card-hero — this only sizes/positions
 // the <img> inside it.
-let cardHeroState = null; // { imgEl, containerEl, portrait } | null
+let cardHeroState = null; // { imgEl, fadeWrapEl, containerEl, portrait } | null
 function buildCardHero(entity, portrait) {
   const heroWrap = document.createElement('div');
   heroWrap.className = 'codex-card-hero';
+  const fadeWrap = document.createElement('div');
+  fadeWrap.className = 'codex-hero-fade';
   const imgEl = document.createElement('img');
   imgEl.className = 'codex-hero-img';
   imgEl.src = portrait.data;
   imgEl.alt = '';
-  heroWrap.appendChild(imgEl);
-  cardHeroState = { imgEl: imgEl, containerEl: heroWrap, portrait: portrait };
-  requestAnimationFrame(function () { portraitRenderInto(imgEl, heroWrap, portrait); });
+  fadeWrap.appendChild(imgEl);
+  heroWrap.appendChild(fadeWrap);
+  cardHeroState = { imgEl: imgEl, fadeWrapEl: fadeWrap, containerEl: heroWrap, portrait: portrait };
+  requestAnimationFrame(function () { portraitRenderInto(imgEl, fadeWrap, heroWrap, portrait); });
   return heroWrap;
 }
 window.addEventListener('resize', function () {
   if (cardHeroState && cardHeroState.containerEl.isConnected) {
-    portraitRenderInto(cardHeroState.imgEl, cardHeroState.containerEl, cardHeroState.portrait);
+    portraitRenderInto(cardHeroState.imgEl, cardHeroState.fadeWrapEl, cardHeroState.containerEl, cardHeroState.portrait);
   }
 });
 
@@ -1264,17 +1278,20 @@ function openSetPortraitDialog(entity, images, currentPortrait) {
   const frame = document.createElement('div');
   frame.className = 'portrait-preview-frame';
   frame.style.aspectRatio = PORTRAIT_PREVIEW_ASPECT;
+  const heroFadeWrap = document.createElement('div');
+  heroFadeWrap.className = 'codex-hero-fade';
   const imgEl = document.createElement('img');
   imgEl.className = 'codex-hero-img';
   imgEl.alt = '';
-  frame.appendChild(imgEl);
+  heroFadeWrap.appendChild(imgEl);
+  frame.appendChild(heroFadeWrap);
   const nameLabel = document.createElement('div');
   nameLabel.className = 'portrait-preview-label';
   nameLabel.textContent = entity.name;
   frame.appendChild(nameLabel);
   box.appendChild(frame);
 
-  function render() { portraitRenderInto(imgEl, frame, workingImg); }
+  function render() { portraitRenderInto(imgEl, heroFadeWrap, frame, workingImg); }
 
   const zoomRow = document.createElement('div');
   zoomRow.className = 'portrait-zoom-row';
