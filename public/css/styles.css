@@ -371,6 +371,7 @@ select {
    .vis-hidden / .vis-visible per the duality convention (Hope = warm
    gold = hidden/GM-only, Fear = cool blue-violet = visible to players). */
 #codex-detail {
+  position: relative; /* containing block for the .codex-card-hero-band background layer */
   border: 1px solid var(--parchment-edge); background: var(--parchment); color: var(--ink);
   padding: 1.5rem 1.75rem; min-height: 200px; border-radius: 14px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.35);
@@ -692,10 +693,16 @@ button:disabled:hover { border-color: var(--void-line); }
    PORTRAIT_PREVIEW_ASPECT — shared with the dialog's preview frame so
    the crop reproduces the same framing; see codex.js) with the heading
    overlaid on it, NOT stretched across the whole card. */
+/* Decorative background LAYER, not an in-flow band: absolutely
+   positioned behind the card content so UI element placement is
+   IDENTICAL with or without a portrait, at any portrait size. Height is
+   set by portraitRenderInto to the image's visible extent. pointer-
+   events off so it never intercepts toggles/links; re-enabled on the
+   inner hero during Stage B card-drag (child pointer-events:auto works
+   under a pointer-events:none parent). */
 .codex-card-hero-band {
-  position: relative; overflow: hidden;
-  margin: -1.5rem -1.75rem 1rem; /* bleed to #codex-detail's own edges */
-  border-radius: 14px 14px 0 0;
+  position: absolute; top: 0; left: 0; right: 0; overflow: hidden;
+  border-radius: 14px 14px 0 0; z-index: 0; pointer-events: none;
 }
 .codex-card-hero {
   position: absolute; inset: 0; overflow: hidden; z-index: 0;
@@ -707,10 +714,6 @@ button:disabled:hover { border-color: var(--void-line); }
    see portraitApplyEdgeFade for why), so its own gradient stops always
    resolve against what's actually shown. */
 .codex-hero-fade { position: absolute; inset: 0; overflow: hidden; }
-.codex-card-heading-inner {
-  position: relative; z-index: 1; height: 100%; box-sizing: border-box;
-  padding: 1.5rem 1.75rem; display: flex; flex-direction: column; justify-content: flex-start;
-}
 .codex-card-content { position: relative; z-index: 1; }
 
 /* Gallery grid portrait indicator — explicitly requested exception to the
@@ -768,10 +771,12 @@ button:disabled:hover { border-color: var(--void-line); }
    during editing so the whole band is draggable, not just its empty
    space. */
 .codex-card-hero.portrait-card-editable {
-  cursor: grab; touch-action: none; user-select: none;
+  cursor: grab; touch-action: none; user-select: none; pointer-events: auto;
 }
 .codex-card-hero.portrait-card-editable.dragging { cursor: grabbing; }
-#codex-detail.portrait-editing .codex-card-heading-inner { pointer-events: none; }
+/* Card content sits over the hero layer; during Stage B card-drag it
+   must not intercept pointer events meant for the image. */
+#codex-detail.portrait-editing .codex-card-content { pointer-events: none; }
 
 .portrait-fade-sliders { margin-top: 0.9rem; display: flex; flex-direction: column; gap: 0.9rem; }
 .portrait-fade-row { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.8rem; }
