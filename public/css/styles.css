@@ -691,6 +691,10 @@ button:disabled:hover { border-color: var(--void-line); }
   mask-image: linear-gradient(45deg, transparent 0%, transparent 30%, rgba(0,0,0,0.55) 58%, black 85%);
 }
 .codex-hero-img { position: absolute; top: 0; left: 0; display: block; pointer-events: none; -webkit-user-drag: none; }
+/* Edge-fade mask target — sized to the visible container (not the image,
+   see portraitApplyEdgeFade for why), so its own gradient stops always
+   resolve against what's actually shown. */
+.codex-hero-fade { position: absolute; inset: 0; overflow: hidden; }
 .codex-card-heading-inner {
   position: relative; z-index: 1; height: 100%; box-sizing: border-box;
   padding: 1.5rem 1.75rem; display: flex; flex-direction: column; justify-content: flex-end;
