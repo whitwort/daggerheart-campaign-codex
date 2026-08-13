@@ -430,7 +430,7 @@ function exitMoveMode() {
   pinPanelEl.classList.remove('move-mode');
   pinMoveIndicatorEl.classList.remove('open');
   pinPanelMoveBtn.classList.remove('active-mode');
-  pinPanelMoveBtn.textContent = 'Move pin position';
+  pinPanelMoveBtn.textContent = 'Move pin';
   pinPanelMoveHintEl.style.display = 'none';
   updatePinPreview();
   renderPins();
@@ -441,19 +441,12 @@ function openPinPanel(existingPin, coords) {
     ? { id: existingPin.id, entityId: existingPin.entityId, x: existingPin.x, y: existingPin.y, radius: existingPin.radius || 150, moveMode: false }
     : { id: null, entityId: null, x: coords.x, y: coords.y, radius: 150, moveMode: false };
 
-  // Default to the first available entity so the preview has something
-  // to show immediately (New pin only — Edit already has one).
-  if (!state.pinDraft.entityId) {
-    const first = state.allEntities.find(function (e) { return e.id !== state.currentMapEntityId && !isMetaCategory(e.category); });
-    if (first) state.pinDraft.entityId = first.id;
-  }
-
   pinPanelTitleEl.textContent = existingPin ? 'Edit pin' : 'New pin';
   pinPanelSearchEl.value = '';
   pinPanelEl.classList.remove('move-mode');
   pinMoveIndicatorEl.classList.remove('open');
   pinPanelMoveBtn.classList.remove('active-mode');
-  pinPanelMoveBtn.textContent = 'Move pin position';
+  pinPanelMoveBtn.textContent = 'Move pin';
   pinPanelMoveHintEl.style.display = 'none';
   pinPanelErrorEl.style.display = 'none';
   pinPanelErrorEl.textContent = '';
@@ -581,21 +574,30 @@ function renderPins() {
       const circle = L.circle([lat, pin.x], {
         radius: pin.radius || 150,
         className: 'map-pin-circle ' + categoryPinClass(entity.category),
-        weight: 2, fillOpacity: 0.2
+        weight: 2, fillOpacity: 0.2,
+        // While the pin panel is open (add/edit/move), every OTHER pin
+        // goes fully non-interactive — no hover preview, no click —
+        // so nothing but the one being placed/edited responds while
+        // it's in progress.
+        interactive: !state.pinDraft
       });
-      bindPinPreviewPopup(circle, entity, gmView, handleClick, function () { navigateToMapForEntity(entity.id); });
+      if (!state.pinDraft) {
+        bindPinPreviewPopup(circle, entity, gmView, handleClick, function () { navigateToMapForEntity(entity.id); });
+      }
       circle.addTo(state.pinLayer);
       return;
     }
 
     // Any other entity (or a location without a map image yet): a small
     // colored marker (color = entry type) that jumps to the codex detail.
-    const marker = L.marker([lat, pin.x], { icon: pinDivIcon(entity ? entity.category : null) });
-    if (entity) {
-      bindPinPreviewPopup(marker, entity, gmView, handleClick, function () { switchToCodexEntity(entity.id); });
-    } else {
-      marker.bindTooltip('(unlinked pin)');
-      marker.on('click', function () { handleClick(); });
+    const marker = L.marker([lat, pin.x], { icon: pinDivIcon(entity ? entity.category : null), interactive: !state.pinDraft });
+    if (!state.pinDraft) {
+      if (entity) {
+        bindPinPreviewPopup(marker, entity, gmView, handleClick, function () { switchToCodexEntity(entity.id); });
+      } else {
+        marker.bindTooltip('(unlinked pin)');
+        marker.on('click', function () { handleClick(); });
+      }
     }
     marker.addTo(state.pinLayer);
   });
