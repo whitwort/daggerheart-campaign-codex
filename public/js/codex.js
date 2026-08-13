@@ -1808,6 +1808,78 @@ function renderGalleryTab(container, entity, gmView) {
 
 // --- My Knowledge (detail pane) -------------------------------------------
 
+// Pared-down, view-only Codex entry card for map pin preview
+// popups (hover on mouse, tap on touch — see map.js). Same header
+// region as the full card (name, entry type/ancestry, meta line,
+// tags) but with NO interactive controls (no visibility toggle, no
+// map link, no tab menu) — just the first lore item if there is one,
+// view-only, with a "…" hint if there are more not being shown.
+function buildEntityPreviewCard(entity, gmView) {
+  const card = document.createElement('div');
+  card.className = 'entity-preview-card';
+
+  const heading = document.createElement('h3');
+  heading.textContent = entity.name;
+  card.appendChild(heading);
+
+  const catP = document.createElement('p');
+  catP.className = 'entity-type-line';
+  const catEm = document.createElement('em');
+  catEm.textContent = entity.category || '';
+  catP.appendChild(catEm);
+  if (entity.ancestry) {
+    catP.appendChild(document.createTextNode(' \u2014 ' + entity.ancestry));
+  }
+  card.appendChild(catP);
+
+  const metaBits = [];
+  if (entity.aliases && entity.aliases.length) metaBits.push('Also known as: ' + entity.aliases.join(', '));
+  if (entity.date) metaBits.push('Date: ' + entity.date);
+  if (entity.ownerId && gmView) metaBits.push('Owned by: ' + entity.ownerId);
+  if (metaBits.length) {
+    const metaDiv = document.createElement('div');
+    metaDiv.className = 'entity-meta-line';
+    metaDiv.textContent = metaBits.join(' \u00b7 ');
+    card.appendChild(metaDiv);
+  }
+
+  if (entity.tags && entity.tags.length) {
+    // Class, not #codex-tags id — this card can coexist in the DOM
+    // with the real Codex tab's own #codex-detail (different active
+    // tab-panel), and ids must stay unique document-wide.
+    const tagsDiv = document.createElement('div');
+    tagsDiv.className = 'entity-preview-tags';
+    entity.tags.forEach(function (t) {
+      const span = document.createElement('span');
+      span.textContent = t;
+      tagsDiv.appendChild(span);
+    });
+    card.appendChild(tagsDiv);
+  }
+
+  const items = loreItemsForEntity(entity.id, gmView);
+  if (items.length) {
+    const first = items[0];
+    const itemDiv = document.createElement('div');
+    itemDiv.className = 'lore-item ' + (first.visibility === 'all-players' ? 'vis-visible' : 'vis-hidden');
+    const bodyDiv = document.createElement('div');
+    bodyDiv.className = 'lore-item-body';
+    renderMarkdownInto(bodyDiv, first.content).then(function () {
+      applyWikiLinks(bodyDiv, entity.id, gmView);
+    });
+    itemDiv.appendChild(bodyDiv);
+    card.appendChild(itemDiv);
+    if (items.length > 1) {
+      const moreP = document.createElement('p');
+      moreP.className = 'entity-preview-more';
+      moreP.textContent = '\u2026';
+      card.appendChild(moreP);
+    }
+  }
+
+  return card;
+}
+
 function renderDetailForSelected() {
   const entity = state.allEntities.find(function (e) { return e.id === state.selectedId; });
   const gmView = isGmView();
@@ -2067,5 +2139,5 @@ searchEl.addEventListener('input', renderList);
 export {
   attachCodexListeners, detachCodexListeners, renderList, renderDetailForSelected,
   isEntityPlayerVisible, registerVisibilityChangeHandler, registerMapNavigationHandler,
-  clearCodexSearchInput
+  clearCodexSearchInput, buildEntityPreviewCard
 };

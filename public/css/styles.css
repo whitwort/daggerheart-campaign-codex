@@ -225,6 +225,23 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 .map-pin-marker.preview { opacity: 0.8; }
 .map-pin-marker.preview .map-pin-marker-body { stroke: #333; stroke-dasharray: 3 2; }
 .map-pin-circle { stroke: var(--pin-color, #888); fill: var(--pin-color, #888); }
+
+/* Map pin preview popup: reskin Leaflet's popup chrome to the
+   campaign parchment theme, then style the pared-down entry card
+   inside it (see buildEntityPreviewCard in codex.js). No per-item
+   toggle/Edit/Delete controls — view-only, same "…" convention as
+   the rest of the app for "more not shown". */
+.leaflet-popup-content-wrapper { background: var(--parchment); color: var(--ink); border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.35); }
+.leaflet-popup-tip { background: var(--parchment); }
+.leaflet-popup-content { margin: 0.85rem 1rem; }
+.entity-preview-card h3 { margin: 0; font-size: 1.15rem; font-family: var(--font-display), sans-serif; font-weight: 400; }
+.entity-preview-card .entity-type-line { margin: 0.2rem 0 0.6rem; font-size: 0.85rem; }
+.entity-preview-card .entity-meta-line { font-size: 0.8rem; margin: -0.1rem 0 0.6rem; }
+.entity-preview-tags { margin: 0 0 0.6rem; }
+.entity-preview-tags span { display: inline-block; background: var(--parchment-edge); color: var(--ink); border-radius: 3px; padding: 0.1rem 0.4rem; font-size: 0.7rem; margin-right: 0.25rem; }
+.entity-preview-card .lore-item { margin-bottom: 0; }
+.entity-preview-card .lore-item-body { font-size: 0.85rem; }
+.entity-preview-more { text-align: center; color: var(--ink-soft); margin: 0.3rem 0 0; letter-spacing: 0.15em; }
 .map-pin-legend {
   background: var(--void-raised); color: var(--parchment); padding: 0.5rem 0.6rem; border-radius: 4px;
   border: 1px solid var(--void-line);
