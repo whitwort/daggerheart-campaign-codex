@@ -197,7 +197,27 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
   border-radius: 14px; padding: 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.3); margin-top: 1rem;
 }
 #map-tab-placeholder { color: var(--ink-soft); margin-top: 0; }
-#map-container { height: 70vh; margin-top: 1rem; background: var(--void); border-radius: 8px; display: none; }
+/* Map container sizing is PURE CSS, deliberately: the old JS
+   (sizeMapContainerToFit) measured clientWidth on a 150ms debounce
+   after resize events and wrote the result as sticky inline width —
+   on iPadOS Stage Manager that measurement often landed mid-settle,
+   pinning a transient (too-wide) width, overhanging the page, and
+   tripping iOS shrink-to-fit page scaling (same disease the nav's
+   old --viewport-w JS had; same cure). CSS min()/aspect-ratio
+   re-resolve at layout time and can never capture a stale
+   measurement. --map-w/--map-h are the image's natural pixel size,
+   set once per map load in renderMapImage (constants, not
+   measurements). Width binds on wide wells, the 80svh height cap
+   binds on tall/narrow ones — same fit rule the JS implemented.
+   svh (not vh): stable under iOS toolbar collapse. */
+#map-container {
+  width: min(100%, calc(80svh * var(--map-w, 4) / var(--map-h, 3)));
+  aspect-ratio: var(--map-w, 4) / var(--map-h, 3);
+  margin: 1rem auto 0;
+  background: var(--void);
+  border-radius: 8px;
+  display: none;
+}
 #map-gm-controls { display: none; margin-top: 0.75rem; }
 #map-mode-hint { font-size: 0.85rem; color: var(--ink-soft); }
 #map-gm-controls button.active-mode { outline: 2px solid var(--fear); }
