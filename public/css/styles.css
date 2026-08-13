@@ -242,23 +242,21 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 .leaflet-popup-content-wrapper { background: var(--parchment); color: var(--ink); border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.35); }
 .leaflet-popup-tip { background: var(--parchment); }
 .leaflet-popup-content { margin: 0.85rem 1rem; max-height: 50vh; overflow-y: auto; }
-/* Leaflet clips anything extending past the map container by default
-   (its own base CSS sets overflow:hidden on .leaflet-container) — a
-   popup taller than the visible map gets its top cut off. Letting it
-   overflow instead means the popup floats freely above the map well
-   rather than fighting autoPan for space inside it (see
-   bindPinPreviewPopup in map.js for the autoPan side of this fix).
-   Must be a single `overflow: visible`, not split into
-   overflow-x/overflow-y — per spec, when one axis is hidden and the
-   other visible (or left as its default, which IS visible), browsers
-   silently recompute the "visible" axis to auto instead (mixing
-   hidden+visible isn't allowed). This bit twice: once here directly,
-   once one level up on #map-well via the same mechanism. The actual
-   nav-bar-width issue this was chasing wasn't a horizontal-overflow
-   problem at all — see the nav#tabs full-bleed comment above — so no
-   overflow-x guard belongs anywhere in this chain; every
-   attempt at one just reintroduced this popup-clipping bug. */
-#map-container.leaflet-container { overflow: visible; }
+/* The leaflet container stays CLIPPED (Leaflet's own default,
+   overflow: hidden) — do NOT reintroduce `overflow: visible` here.
+   It was tried as a popup-clipping fix and turned out to be the root
+   of two separate page-level bugs: (1) any state where the image
+   renders larger than the fitted container (zoom-in, resize races)
+   painted the map across the whole page; (2) overlay panes/markers
+   hugging the image's right edge overhung the page's right side,
+   and iOS Safari responds to ANY horizontal content overflow with
+   shrink-to-fit — it rescales the entire page below 1 (observed
+   scale 0.96), which is what made the nav bar appear to stop short
+   of the window edge on the Map tab only. Tall popups are handled
+   inside the clipped container instead: a popupopen handler in
+   map.js caps each popup's content height to the space between its
+   pin and the container top (autoPan stays off — autoPan under
+   hover-opened popups caused a pan/close/reopen flicker loop). */
 .entity-preview-card h3 { margin: 0; font-size: 1.15rem; font-family: var(--font-display), sans-serif; font-weight: 400; }
 .entity-preview-card .entity-type-line { margin: 0.2rem 0 0.6rem; font-size: 0.85rem; }
 .entity-preview-card .entity-meta-line { font-size: 0.8rem; margin: -0.1rem 0 0.6rem; }
