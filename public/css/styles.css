@@ -471,7 +471,7 @@ select {
 .toggle-switch-label { font-size: 0.7rem; color: var(--ink-soft); margin-right: 0.3rem; vertical-align: middle; }
 .toggle-switch-label.state-hidden { color: var(--hope); font-weight: 500; }
 .toggle-switch-label.state-visible { color: var(--fear); font-weight: 500; }
-.entity-visibility-toggle-row { display: flex; align-items: center; gap: 0.3rem; background: var(--parchment); border-radius: 8px; padding: 0.4rem 0.6rem; }
+.entity-visibility-toggle-row { display: flex; align-items: center; gap: 0.3rem; background: rgba(233,221,194,0.55); border-radius: 8px; padding: 0.4rem 0.6rem; }
 
 /* Player-view lore list */
 /* Player-view Lore tab: wraps the bullet list in a well styled like a
@@ -581,7 +581,7 @@ select {
    match; width sized to fit the longest label, "+ New image". Future
    Notes-tab "+ New Note" button (QOL-BACKLOG) should reuse this
    class. */
-.lore-item-btn, .action-btn-compact { width: 8.5rem; min-width: 8.5rem; cursor: pointer; }
+.lore-item-btn, .action-btn-compact { width: 9rem; min-width: 9rem; padding: 0.35rem 0.9rem; cursor: pointer; }
 .lore-item-body { font-size: 0.906rem; line-height: 1.6; color: var(--ink); font-weight: 400; }
 .lore-item-body > :first-child { margin-top: 0; }
 .lore-item-body > :last-child { margin-bottom: 0; }
@@ -633,7 +633,7 @@ select {
 
 /* Entity images (Phase 8) */
 #codex-gallery { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.75rem; }
-.gallery-item { max-width: 300px; background: var(--parchment-edge); padding: 0.75rem 0.9rem; border-radius: 8px; }
+.gallery-item { max-width: 300px; background: var(--parchment-edge); padding: 0.75rem 0.9rem; border-radius: 8px; min-width: 0; }
 .gallery-item.vis-hidden { box-shadow: inset 3px 0 0 var(--hope); }
 .gallery-item.vis-visible { box-shadow: inset 3px 0 0 var(--fear); }
 .gallery-item img { width: 100%; height: auto; display: block; border-radius: 4px; cursor: pointer; }
