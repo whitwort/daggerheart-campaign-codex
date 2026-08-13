@@ -2149,5 +2149,5 @@ searchEl.addEventListener('input', renderList);
 export {
   attachCodexListeners, detachCodexListeners, renderList, renderDetailForSelected,
   isEntityPlayerVisible, registerVisibilityChangeHandler, registerMapNavigationHandler,
-  clearCodexSearchInput, buildEntityPreviewCard
+  clearCodexSearchInput, buildEntityPreviewCard, categoryGroupLabel
 };
