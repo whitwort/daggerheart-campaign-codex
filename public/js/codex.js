@@ -1324,6 +1324,11 @@ function renderLoreTab(container, entity, gmView) {
 //   itself (via portraitPreviewOverride), not in a box inside the panel.
 // Cancel (either stage) and Esc close without saving.
 function openSetPortraitDialog(entity, images) {
+  // Guard against a second panel: no early-return here previously, so
+  // a repeat click (or a click landing while a re-render is briefly
+  // mid-flight) could append a duplicate panel on top of an already-
+  // open one instead of doing nothing.
+  if (document.querySelector('.portrait-picker-panel')) return;
   const previousTab = state.detailActiveTab;
   const panel = document.createElement('div');
   panel.className = 'portrait-picker-panel';
