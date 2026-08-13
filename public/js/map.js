@@ -61,7 +61,24 @@ function bindPinPreviewPopup(layer, entity, gmView, handleClick, navigateFn) {
   });
   layer.bindPopup(function () { return buildEntityPreviewCard(entity, gmView); },
     { className: 'entity-preview-popup', maxWidth: 280, autoPan: false });
-  layer.on('mouseover', function () { layer.openPopup(); });
+  // Real mouse hover only. Leaflet's own abstracted 'mouseover' event
+  // can also fire from the browser's synthetic touch-to-mouse
+  // translation (used so :hover CSS still works after a tap) — when
+  // it does, it opens the popup a beat before the click handler above
+  // runs, making that tap look like a second tap and skip straight to
+  // navigate. That's timing-dependent per tap, which is why it hit
+  // some pins and not others rather than every pin uniformly. Native
+  // pointerenter + an explicit pointerType check can't be spoofed by
+  // that translation — touch always reports pointerType 'touch', a
+  // real mouse always reports 'mouse'. getElement() only returns a
+  // node once the layer is actually on the map, hence the 'add' hook.
+  layer.on('add', function () {
+    const el = layer.getElement && layer.getElement();
+    if (!el) return;
+    el.addEventListener('pointerenter', function (e) {
+      if (e.pointerType === 'mouse') layer.openPopup();
+    });
+  });
 }
 
 // CSS class carrying the entry-type color (see styles.css "Pin color
