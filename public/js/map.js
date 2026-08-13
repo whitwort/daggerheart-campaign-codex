@@ -258,6 +258,32 @@ const pinPanelCancelBtn = document.getElementById('pin-panel-cancel');
 const pinMoveIndicatorEl = document.getElementById('pin-move-indicator');
 const pinMoveDoneBtn = document.getElementById('pin-move-done-btn');
 
+// Drag-to-move the panel itself, via the header — same pattern as
+// .portrait-picker-header in codex.js. #pin-panel is a static,
+// always-in-DOM element (not recreated per open like the portrait
+// picker), so this is wired once here rather than inside
+// openPinPanel; openPinPanel resets the inline position back to the
+// CSS-default docked spot on every open (see below), so a drag in an
+// earlier session doesn't linger into the next one.
+const pinPanelHeaderEl = document.getElementById('pin-panel-header');
+let pinPanelDrag = null;
+pinPanelHeaderEl.addEventListener('pointerdown', function (ev) {
+  const rect = pinPanelEl.getBoundingClientRect();
+  pinPanelEl.style.left = rect.left + 'px';
+  pinPanelEl.style.top = rect.top + 'px';
+  pinPanelEl.style.right = 'auto';
+  pinPanelHeaderEl.setPointerCapture(ev.pointerId);
+  pinPanelDrag = { startX: ev.clientX, startY: ev.clientY, origLeft: rect.left, origTop: rect.top };
+});
+pinPanelHeaderEl.addEventListener('pointermove', function (ev) {
+  if (!pinPanelDrag) return;
+  pinPanelEl.style.left = (pinPanelDrag.origLeft + (ev.clientX - pinPanelDrag.startX)) + 'px';
+  pinPanelEl.style.top = (pinPanelDrag.origTop + (ev.clientY - pinPanelDrag.startY)) + 'px';
+});
+function endPinPanelDrag() { pinPanelDrag = null; }
+pinPanelHeaderEl.addEventListener('pointerup', endPinPanelDrag);
+pinPanelHeaderEl.addEventListener('pointercancel', endPinPanelDrag);
+
 // Preview layer: shows the pin being placed/edited directly on the map
 // while the panel is open — a draggable marker (position handle) plus,
 // for circle-type targets, a non-interactive circle synced to it.
@@ -442,6 +468,9 @@ function openPinPanel(existingPin, coords) {
     : { id: null, entityId: null, x: coords.x, y: coords.y, radius: 150, moveMode: false };
 
   pinPanelTitleEl.textContent = existingPin ? 'Edit pin' : 'New pin';
+  pinPanelEl.style.left = '';
+  pinPanelEl.style.top = '';
+  pinPanelEl.style.right = '';
   pinPanelSearchEl.value = '';
   pinPanelEl.classList.remove('move-mode');
   pinMoveIndicatorEl.classList.remove('open');

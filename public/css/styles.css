@@ -301,25 +301,38 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 #map-new-pin-btn, #map-edit-pin-btn, #map-remove-pin-btn { width: 8rem; min-width: 8rem; }
 
 /* Pin panel: docked to the side (not a full-screen modal) so the map
-   stays visible/clickable while placing or editing a pin. */
+   stays visible/clickable while placing or editing a pin. Same
+   look/interaction pattern as the portrait picker panel (dark
+   semi-transparent well, draggable header) — see
+   .portrait-picker-panel/.portrait-picker-header for the touchstone. */
 #pin-panel {
   display: none; position: fixed; top: 5rem; right: 1rem; width: 300px;
-  max-height: 80vh; overflow-y: auto; background: var(--parchment); color: var(--ink); border-radius: 6px;
-  padding: 1rem 1.25rem; box-shadow: 0 2px 10px rgba(0,0,0,0.5); z-index: 900;
+  max-height: 80vh; overflow-y: auto; background: rgba(26,31,40,0.94); color: var(--parchment);
+  border: 1px solid var(--void-line); border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.55); z-index: 900;
 }
 #pin-panel.open { display: block; }
 #pin-panel.open.move-mode { display: none; }
-#pin-panel h3 { margin-top: 0; font-family: var(--font-display), sans-serif; font-weight: 400; }
-#pin-panel label { display: block; margin-top: 0.75rem; font-size: 0.85rem; font-weight: bold; }
+#pin-panel-header {
+  cursor: grab; padding: 0.6rem 0.8rem; user-select: none; -webkit-user-select: none;
+  touch-action: none; -webkit-touch-callout: none;
+  border-bottom: 1px solid var(--void-line);
+}
+#pin-panel-header:active { cursor: grabbing; }
+#pin-panel-header h3 { margin: 0; font-family: var(--font-display), sans-serif; font-weight: 400; font-size: 0.95rem; }
+#pin-panel-body { padding: 0.8rem; }
+#pin-panel-body label { display: block; margin-top: 0.75rem; font-size: 0.85rem; font-weight: bold; }
 #pin-panel-search { width: 100%; box-sizing: border-box; padding: 0.4rem; font-size: 0.9rem; margin-top: 0.2rem; font-family: inherit; background: #fff; color: var(--ink); border: 1px solid var(--parchment-edge); }
-#pin-panel-entity-list { max-height: 220px; overflow-y: auto; border: 1px solid var(--parchment-edge); border-radius: 4px; margin-top: 0.4rem; }
+#pin-panel-entity-list { max-height: 220px; overflow-y: auto; border: 1px solid var(--void-line); border-radius: 4px; margin-top: 0.4rem; }
 #pin-panel-radius-row input[type="range"] { width: 100%; margin-top: 0.3rem; }
-#pin-panel-radius-hint { font-size: 0.75rem; color: var(--ink-soft); margin: 0.3rem 0 0 0; }
-#pin-panel-move-hint { font-size: 0.75rem; color: var(--ink-soft); margin: 0.5rem 0 0 0; text-align: center; }
-/* Save / Move pin / Cancel: standard button width/height (no
-   exception — this panel is wide enough), stacked vertically in that
-   order rather than the usual horizontal modal-actions row. */
-#pin-panel-actions { flex-direction: column; align-items: stretch; }
+#pin-panel-radius-hint { font-size: 0.75rem; color: rgba(233,221,194,0.65); margin: 0.3rem 0 0 0; }
+#pin-panel-move-hint { font-size: 0.75rem; color: rgba(233,221,194,0.65); margin: 0.5rem 0 0 0; text-align: right; }
+/* Save / Move pin / Cancel: exception to the global button-width rule
+   (see QOL-BACKLOG.md standing rule) — sized to match EACH OTHER
+   (fit "Move pin", the longest label) rather than the app-wide
+   12rem, and grouped bottom-right via the default .modal-actions
+   (flex, justify-content:flex-end), not stacked. */
+#pin-panel-actions button { width: 7rem; min-width: 7rem; padding: 0.4rem 0.7rem; }
 #pin-panel-actions #pin-panel-move-btn.active-mode { outline: 2px solid var(--fear); }
 #pin-panel-error { color: var(--notice); font-size: 0.85rem; margin-top: 0.5rem; display: none; }
 
