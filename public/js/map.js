@@ -924,6 +924,12 @@ function sizeMapContainerToFit() {
   containerEl.style.width = targetWidth + 'px';
   containerEl.style.height = targetHeight + 'px';
   containerEl.style.margin = '1rem auto 0';
+  // Map height changes can toggle the page scrollbar independent of any
+  // tab click (e.g. navigating between maps via a circle pin while
+  // already on the Map tab) — keep nav#tabs' --viewport-w in sync here
+  // too. One-shot, not observed/reactive — see main.js for why that
+  // matters (a ResizeObserver here caused a real runaway growth loop).
+  document.documentElement.style.setProperty('--viewport-w', document.documentElement.clientWidth + 'px');
   if (state.leafletMap && state.mapBounds) {
     // Container's pixel size just changed but its aspect always matches
     // the image's (see above), so re-fitting always fills it edge to
