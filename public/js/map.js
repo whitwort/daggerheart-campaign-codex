@@ -79,7 +79,13 @@ function pinDivIcon(category, extraClass) {
     className: 'map-pin-marker ' + categoryPinClass(category) + (extraClass ? ' ' + extraClass : ''),
     html: svg,
     iconSize: [26, 36],
-    iconAnchor: [13, 36]
+    iconAnchor: [13, 36],
+    // Popups anchor at iconAnchor by default (the pin's bottom tip),
+    // so the popup box — taller than the 36px icon — renders directly
+    // on top of the whole teardrop, making it unclickable for the
+    // second tap that navigates. Shifting the anchor up near the top
+    // of the icon leaves the pin visible/clickable below the popup.
+    popupAnchor: [0, -30]
   });
 }
 
@@ -183,6 +189,24 @@ function setMapMode(mode) {
 newPinBtn.addEventListener('click', function () { setMapMode('add'); });
 editPinBtn.addEventListener('click', function () { setMapMode('edit'); });
 removePinBtn.addEventListener('click', function () { setMapMode('remove'); });
+
+// Delegated: wiki-links inside pin preview popups (buildEntityPreviewCard
+// content, see codex.js) — the popup DOM lives under #map-container, not
+// #codex-detail, so the delegated wiki-link handler scoped to detailEl in
+// codex.js never sees these clicks. Same map-vs-codex-entry split as
+// breadcrumb links above.
+document.getElementById('map-container').addEventListener('click', function (ev) {
+  const a = ev.target.closest ? ev.target.closest('a.wiki-link') : null;
+  if (!a) return;
+  ev.preventDefault();
+  const entityId = a.dataset.entityId;
+  const entity = state.allEntities.find(function (e) { return e.id === entityId; });
+  if (isMapEntity(entity)) {
+    navigateToMapForEntity(entityId);
+  } else {
+    switchToCodexEntity(entityId);
+  }
+});
 
 function removePin(pin) {
   const entity = state.allEntities.find(function (e) { return e.id === pin.entityId; });
