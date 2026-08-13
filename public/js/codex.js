@@ -1280,6 +1280,7 @@ function renderLoreTab(container, entity, gmView) {
     const right = document.createElement('div');
     right.className = 'actions-row-right';
     const newLoreBtn = document.createElement('button');
+    newLoreBtn.className = 'action-btn-compact';
     newLoreBtn.textContent = '+ New lore';
     newLoreBtn.addEventListener('click', function () {
       state.loreEdit = { entityId: entity.id, id: null, content: '', visibility: 'gm-only' };
@@ -1765,6 +1766,7 @@ function renderGalleryTab(container, entity, gmView) {
     const right = document.createElement('div');
     right.className = 'actions-row-right';
     const newImageBtn = document.createElement('button');
+    newImageBtn.className = 'action-btn-compact';
     newImageBtn.textContent = '+ New image';
     newImageBtn.addEventListener('click', function () { openGalleryUploadModal(entity); });
     right.appendChild(newImageBtn);
@@ -2022,10 +2024,12 @@ function renderDetailForSelected() {
     const right = document.createElement('div');
     right.className = 'actions-row-right';
     const editBtn = document.createElement('button');
+    editBtn.className = 'action-btn-compact';
     editBtn.textContent = 'Edit';
     editBtn.addEventListener('click', function () { enterEntityEditMode(entity); });
     right.appendChild(editBtn);
     const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'action-btn-compact';
     deleteBtn.textContent = 'Delete';
     deleteBtn.addEventListener('click', function () { deleteEntity(entity); });
     right.appendChild(deleteBtn);
