@@ -5,7 +5,8 @@ import { firebaseApp, CONFIG } from './firebase.js';
 import { state } from './state.js';
 import {
   renderList, renderDetailForSelected, isEntityPlayerVisible,
-  registerVisibilityChangeHandler, registerMapNavigationHandler, clearCodexSearchInput
+  registerVisibilityChangeHandler, registerMapNavigationHandler, clearCodexSearchInput,
+  buildEntityPreviewCard
 } from './codex.js';
 import { renderAdminRootEntitySelect } from './admin.js';
 import { entityMapImageDocId, getCachedImage, putCachedImage } from './images.js';
@@ -30,6 +31,23 @@ const breadcrumbEl = document.getElementById('map-breadcrumb');
 // after pins already point at it still upgrades to a circle.
 function isMapEntity(entity) {
   return !!entity && entity.category === 'Location' && !!entity.hasMapImage;
+}
+
+// "Preview" pin interaction (see phase notes): a pared-down view-only
+// Codex entry card, opened on hover for mouse and on tap for touch.
+// "Navigate" (click-through to the full entry) is not wired up yet —
+// click still jumps straight there unchanged, same as before this
+// pass; that's the next piece of work.
+// Standards note: no touch/mouse device-sniffing — `(hover: hover)`
+// is the standards-based capability check, and Leaflet already
+// normalizes mouse/touch into one 'click'/'mouseover' event model so
+// no separate touch handling is needed here at all.
+function bindPinPreviewPopup(layer, entity, gmView) {
+  layer.bindPopup(function () { return buildEntityPreviewCard(entity, gmView); },
+    { className: 'entity-preview-popup', maxWidth: 280 });
+  if (window.matchMedia && window.matchMedia('(hover: hover)').matches) {
+    layer.on('mouseover', function () { layer.openPopup(); });
+  }
 }
 
 // CSS class carrying the entry-type color (see styles.css "Pin color
@@ -510,7 +528,7 @@ function renderPins() {
         className: 'map-pin-circle ' + categoryPinClass(entity.category),
         weight: 2, fillOpacity: 0.2
       });
-      circle.bindTooltip('\u2192 ' + entity.name);
+      bindPinPreviewPopup(circle, entity, gmView);
       circle.on('click', function () {
         if (!handleClick()) return;
         navigateToMapForEntity(entity.id);
@@ -522,7 +540,11 @@ function renderPins() {
     // Any other entity (or a location without a map image yet): a small
     // colored marker (color = entry type) that jumps to the codex detail.
     const marker = L.marker([lat, pin.x], { icon: pinDivIcon(entity ? entity.category : null) });
-    marker.bindTooltip(entity ? entity.name : '(unlinked pin)');
+    if (entity) {
+      bindPinPreviewPopup(marker, entity, gmView);
+    } else {
+      marker.bindTooltip('(unlinked pin)');
+    }
     marker.on('click', function () {
       if (!handleClick()) return;
       if (entity) switchToCodexEntity(entity.id);
