@@ -401,9 +401,9 @@ select {
 
 /* Generic action-row placement: gm buttons bottom-right of the
    element they affect; player/gm (shared) buttons/text bottom-left. */
-.actions-row { display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; gap: 0.5rem; }
+.actions-row { display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; gap: 0.5rem; flex-wrap: wrap; }
 .codex-card-bottom-actions { border-top: 1px solid var(--parchment-edge); padding-top: 0.75rem; }
-.actions-row-left, .actions-row-right { display: flex; align-items: center; gap: 0.5rem; }
+.actions-row-left, .actions-row-right { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .actions-row-right { margin-left: auto; justify-content: flex-end; }
 .actions-row button { padding: 0.3rem 0.7rem; cursor: pointer; }
 
