@@ -471,7 +471,7 @@ select {
 .toggle-switch-label { font-size: 0.7rem; color: var(--ink-soft); margin-right: 0.3rem; vertical-align: middle; }
 .toggle-switch-label.state-hidden { color: var(--hope); font-weight: 500; }
 .toggle-switch-label.state-visible { color: var(--fear); font-weight: 500; }
-.entity-visibility-toggle-row { display: flex; align-items: center; gap: 0.3rem; background: rgba(233,221,194,0.55); border-radius: 8px; padding: 0.4rem 0.6rem; }
+.entity-visibility-toggle-row { display: flex; align-items: center; gap: 0.3rem; background: rgba(233,221,194,0.75); border-radius: 8px; padding: 0.4rem 0.6rem; }
 
 #codex-related { margin-top: 1rem; }
 #codex-related-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
