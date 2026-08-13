@@ -10,34 +10,13 @@ document.getElementById('campaign-title').textContent = CONFIG.campaignName;
 document.getElementById('tab-btn-codex').textContent = CONFIG.tabs.codex;
 document.getElementById('tab-btn-map').textContent = CONFIG.tabs.map;
 
-// nav#tabs full-bleeds via a --viewport-w custom property instead of the
-// literal 100vw unit: 100vw always includes the scrollbar gutter, but the
-// actually-visible width (clientWidth) doesn't — whenever a page-level
-// vertical scrollbar is present the two diverge and the full-bleed math
-// falls short of the real edge. Some tabs' content (e.g. Map, with tall
-// images/popups) toggles that scrollbar on and off more than others,
-// which is why this was Map-tab-specific and width-dependent rather than
-// a constant offset. Measuring the real value directly sidesteps the
-// mismatch instead of guessing at a correction.
-function updateViewportWidthVar() {
-  document.documentElement.style.setProperty('--viewport-w', document.documentElement.clientWidth + 'px');
-}
-updateViewportWidthVar();
-let viewportWResizeTimer = null;
-window.addEventListener('resize', function () {
-  clearTimeout(viewportWResizeTimer);
-  viewportWResizeTimer = setTimeout(updateViewportWidthVar, 150);
-});
-// Window resize alone doesn't catch the scrollbar toggling on/off from a
-// content-height change (e.g. switching to the Map tab) with no actual
-// window resize. A ResizeObserver on body was tried here to catch that
-// case too, but body's own size can change AS A RESULT of nav's width
-// changing (nav is part of body's layout) — that's a real feedback loop,
-// not just a theoretical one: it manifested as the map growing without
-// bound after a few resizes until it covered the whole page. Explicit
-// one-shot calls at the actual known trigger points (tab switches, map
-// load — see the tab click handler below and renderMapImage in map.js)
-// avoid that risk entirely; nothing here reacts to its own side effects.
+// nav#tabs' full-bleed is pure CSS (percentage of body's content box,
+// see styles.css) — no JS-measured viewport width. A measured snapshot
+// (--viewport-w, tried previously) goes stale whenever a content-height
+// change toggles the page scrollbar with no resize/tab event to
+// re-measure, and the reactive fix (ResizeObserver on body) fed back on
+// its own side effects. Percentages re-resolve at layout time, so the
+// entire staleness class is gone.
 
     // --- Map tab -------------------------------------------------------
     document.querySelectorAll('nav#tabs button').forEach(function (btn) {
@@ -53,7 +32,6 @@ window.addEventListener('resize', function () {
         if (btn.dataset.tab === 'admin-panel') {
           ensureImportEditorReady();
         }
-        setTimeout(updateViewportWidthVar, 0);
       });
     });
 
