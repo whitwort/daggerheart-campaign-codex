@@ -38,12 +38,18 @@ height, with NO per-context exceptions, except:**
    button (see below).
 9. `#sign-out-btn` and `#codex-new-btn` — single buttons, no group to
    match, `width: auto; min-width: 0;`.
+10. Pin panel Save / Move pin / Cancel — `#pin-panel-actions button`,
+    all three matching, sized to fit the longest label ("Move pin"),
+    not the app-wide 12rem — grouped bottom-right rather than
+    stacked, matching the portrait-picker panel's button treatment.
 
 Base width lowered from 13rem to 12rem as of the "+ New party member"
 → "+ New member" rename (that label no longer defines the floor).
-"Move pin position" (18 chars) and "Delete map image" (17 chars) are
-now the longest surviving default-width labels — 12rem was sized to
-still fit them without wrapping. Flag if those two should also get
+"Delete map image" (17 chars) is now the longest surviving
+default-width label ("Move pin position" was the other one, but it's
+since moved into exception 10 above, renamed to "Move pin", and no
+longer uses the default width at all) — 12rem was sized to still fit
+ them without wrapping. Flag if those two should also get
 their own narrower exception or shortened text.
 
 ## Future: Notes tab "+ New Note" button
