@@ -115,9 +115,9 @@ nav#tabs {
   position: relative;
   left: 50%;
   right: 50%;
-  margin-left: -50vw;
-  margin-right: -50vw;
-  width: 100vw;
+  margin-left: calc(-1 * var(--viewport-w, 100vw) / 2);
+  margin-right: calc(-1 * var(--viewport-w, 100vw) / 2);
+  width: var(--viewport-w, 100vw);
   box-sizing: border-box;
   display: flex;
   align-items: center;
