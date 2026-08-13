@@ -1728,6 +1728,7 @@ function renderGalleryTab(container, entity, gmView) {
 
         const delBtn = document.createElement('button');
         delBtn.type = 'button';
+        delBtn.className = 'action-btn-compact';
         delBtn.textContent = 'Delete';
         delBtn.addEventListener('click', function () {
           if (!window.confirm('Delete this gallery image?')) return;
@@ -1773,6 +1774,7 @@ function renderGalleryTab(container, entity, gmView) {
     if (galleryImages.length) {
       const portraitBtn = document.createElement('button');
       portraitBtn.type = 'button';
+      portraitBtn.className = 'action-btn-compact';
       portraitBtn.textContent = 'Set portrait';
       portraitBtn.addEventListener('click', function () { openSetPortraitDialog(entity, galleryImages); });
       right.appendChild(portraitBtn);
