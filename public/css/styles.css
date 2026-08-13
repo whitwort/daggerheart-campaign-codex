@@ -262,6 +262,10 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 .leaflet-popup-content-wrapper { background: var(--parchment); color: var(--ink); border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.35); }
 .leaflet-popup-tip { background: var(--parchment); }
 .leaflet-popup-content { margin: 0.85rem 1rem; max-height: 50vh; overflow-y: auto; }
+/* Flipped-below popups (pin too close to container top — see the
+   popupopen handler in map.js): the tip would point up at nothing,
+   so hide it. */
+.popup-below .leaflet-popup-tip-container { display: none; }
 /* The leaflet container stays CLIPPED (Leaflet's own default,
    overflow: hidden) — do NOT reintroduce `overflow: visible` here.
    It was tried as a popup-clipping fix and turned out to be the root

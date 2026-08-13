@@ -62,19 +62,50 @@ function bindPinPreviewPopup(layer, entity, gmView, handleClick, navigateFn) {
   layer.bindPopup(function () { return buildEntityPreviewCard(entity, gmView); },
     { className: 'entity-preview-popup', maxWidth: 280, autoPan: false });
   // The map container is clipped (overflow: hidden — see styles.css
-  // for why visible is banned), so a popup taller than the space
-  // between its pin and the container top would get its top cut off.
-  // Cap the scrollable content area to the space actually available
-  // above the anchor instead: ~90px covers popup chrome (tip, padding,
-  // title) and the 140px floor keeps popups usable for pins hugging
-  // the top edge (those may still clip slightly — accepted tradeoff).
+  // for why visible is banned), so popups must fit INSIDE it. Two
+  // cooperating mechanisms per open:
+  //   1. Clamp the scrollable content to the space on the popup's
+  //      side of the pin (~90px covers chrome: tip, wrapper padding,
+  //      marker popupAnchor lift).
+  //   2. If the space above the pin is too tight for a usable card,
+  //      FLIP the popup below the pin instead — space below is large
+  //      exactly when space above is small, so between the two sides
+  //      a readable popup always fits. Flipping = a positive y
+  //      offset of the popup's own rendered height (Leaflet anchors
+  //      popups by their bottom edge), applied via options.offset +
+  //      update(); the 'popup-below' class hides the now-misleading
+  //      tip. Offset and class are RESET at the start of every open:
+  //      both persist on the popup object across opens, and the
+  //      right choice depends on where the pin sits after pans/zooms,
+  //      so each open re-decides from scratch.
   layer.on('popupopen', function (e) {
     const map = layer._map;
-    const contentEl = e.popup.getElement() && e.popup.getElement().querySelector('.leaflet-popup-content');
+    const popup = e.popup;
+    const popupEl = popup.getElement();
+    const contentEl = popupEl && popupEl.querySelector('.leaflet-popup-content');
     if (!map || !contentEl) return;
-    const anchorY = map.latLngToContainerPoint(e.popup.getLatLng()).y;
-    const available = Math.max(140, anchorY - 90);
-    contentEl.style.maxHeight = Math.min(available, window.innerHeight * 0.5) + 'px';
+    if (!popup._defaultOffset) popup._defaultOffset = popup.options.offset;
+    popup.options.offset = popup._defaultOffset;
+    popupEl.classList.remove('popup-below');
+
+    const anchorY = map.latLngToContainerPoint(popup.getLatLng()).y;
+    const containerH = map.getSize().y;
+    const spaceAbove = anchorY - 90;
+    const spaceBelow = containerH - anchorY - 60;
+    const capPx = window.innerHeight * 0.5;
+
+    if (spaceAbove >= 180 || spaceAbove >= spaceBelow) {
+      contentEl.style.maxHeight = Math.min(Math.max(60, spaceAbove), capPx) + 'px';
+    } else {
+      contentEl.style.maxHeight = Math.min(Math.max(60, spaceBelow), capPx) + 'px';
+      popupEl.classList.add('popup-below');
+      // Height must be measured AFTER the clamp above so the offset
+      // matches what will actually render. +30 ≈ pin-tip gap plus
+      // Leaflet's 20px .leaflet-popup bottom margin.
+      const h = popupEl.offsetHeight;
+      popup.options.offset = L.point(0, h + 30);
+      popup.update();
+    }
   });
   // Real mouse hover only. Leaflet's own abstracted 'mouseover' event
   // can also fire from the browser's synthetic touch-to-mouse
