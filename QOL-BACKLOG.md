@@ -148,26 +148,17 @@ scattered CSS.
 
 ## Phase 11 (visual styling) — polish follow-ups
 
-- **Codex TOC entry-row layout stability — good enough, not perfect.**
-  Fixed the hidden-badge-toggle vertical "jump" via a fixed
-  `min-height` on `.entity-group-list li` (see Phase 11 commits). This
-  is a reasonable approximation but not a fully-principled fix — worth
-  a closer look later if other row-content combinations (map-link icon
-  + hidden badge together, longer names wrapping, etc.) turn out to
-  still shift layout on state changes.
-- **Character-select dropdown JS error — reported, never repro'd.**
-  Gregg reported clicking the (currently placeholder-only) 'Character'
-  dropdown (true-player nav slot, mirrors GM's 'View' dropdown) threw a
-  JS error. No listener is attached to it and no ID collisions were
-  found via static review. The surrounding code (nav switcher, tab
-  system, gallery) has been substantially rewritten since this was
-  reported — may already be moot, but was never confirmed fixed. Get
-  the actual error text/stack if it still reproduces.
-- **GM-mode 'tab item area' yellow line — best-effort guess, needs
-  confirmation.** Interpreted as the Admin DB (Import/Export) sub-tabs'
-  bottom border, aligned to match the main nav strip's line color. Low
-  confidence this was the intended region — screenshot needed if it's
-  still wrong.
+- **Character-select dropdown JS error — open, deferred to Phase 14.**
+  Confirmed to persist across multiple types of interactions in player
+  view mode. Deferred to the future phase focused on player-view
+  (Phase 14 — player-facing contribution features); revisit repro/fix
+  there rather than in general Phase 11 polish.
+
+Closed this session: Codex TOC entry-row layout stability (accepted as
+good enough), GM-mode 'tab item area' yellow line (accepted as
+correct), popup flip-below unverified cases from handoff 10 §3
+(circle-pin gap constant, hover-open/trackpad behavior, desktop
+scrollbar spot-check — accepted, no further action).
 
 ## Future phases (scoped, not started)
 
