@@ -1167,9 +1167,13 @@ function buildLoreEditBox(entity, editState, isNew) {
   return box;
 }
 
-// Lore tab content. Player view: a plain bulleted list (no per-item
-// controls). GM view: each item is a small card — a reveal/hide toggle
-// switch top-right (live, one-tap), Edit/Delete bottom-right; Edit swaps
+// Lore tab content. Player view: each item its own well, styled
+// identically to the GM view's card (parchment-edge fill, fear left
+// strip — every item shown to a player is by definition
+// all-players-visible) but with no toggle/Edit/Delete controls. This
+// establishes the visual language reused for map pin popups. GM
+// view: each item is a small card — a reveal/hide toggle switch
+// top-right (live, one-tap), Edit/Delete bottom-right; Edit swaps
 // the card into buildLoreEditBox() in place.
 function renderLoreTab(container, entity, gmView) {
   const items = loreItemsForEntity(entity.id, gmView);
@@ -1182,19 +1186,20 @@ function renderLoreTab(container, entity, gmView) {
       container.appendChild(emptyP);
       return;
     }
-    const well = document.createElement('div');
-    well.className = 'lore-bullet-well';
-    const ul = document.createElement('ul');
-    ul.className = 'lore-bullet-list';
+    const loreListDiv = document.createElement('div');
+    loreListDiv.id = 'codex-lore-list';
     items.forEach(function (item) {
-      const li = document.createElement('li');
-      renderMarkdownInto(li, item.content).then(function () {
-        applyWikiLinks(li, entity.id, gmView);
+      const itemDiv = document.createElement('div');
+      itemDiv.className = 'lore-item vis-visible';
+      const bodyDiv = document.createElement('div');
+      bodyDiv.className = 'lore-item-body';
+      renderMarkdownInto(bodyDiv, item.content).then(function () {
+        applyWikiLinks(bodyDiv, entity.id, gmView);
       });
-      ul.appendChild(li);
+      itemDiv.appendChild(bodyDiv);
+      loreListDiv.appendChild(itemDiv);
     });
-    well.appendChild(ul);
-    container.appendChild(well);
+    container.appendChild(loreListDiv);
     return;
   }
 
