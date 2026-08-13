@@ -912,62 +912,35 @@ function loadMap(mapEntityId) {
   });
 }
 
-// Sizes #map-container to fit its available width/height while
-// preserving the map image's aspect ratio: landscape images run as
-// tall as the well's width allows, portrait images run as wide as
-// the height cap allows (whichever axis binds first). Re-run on
-// every window resize (see below), not just at load, so the map
-// stays maximized in its well as the viewport changes.
-function sizeMapContainerToFit() {
-  const containerEl = document.getElementById('map-container');
-  if (!containerEl || !state.mapImgWidth || !state.mapImgHeight || containerEl.offsetParent === null) return;
-  // Reset inline width before measuring: once set, containerEl's own
-  // clientWidth reflects the STALE previous computed width, not the
-  // well's current available width — clearing it first restores the
-  // normal block-fill-parent measurement, same as the very first call.
-  containerEl.style.width = '';
-  const aspect = state.mapImgHeight / state.mapImgWidth;
-  const availableWidth = containerEl.clientWidth;
-  const maxHeight = window.innerHeight * 0.8;
-
-  let targetWidth = availableWidth;
-  let targetHeight = targetWidth * aspect;
-  if (targetHeight > maxHeight) {
-    targetHeight = maxHeight;
-    targetWidth = targetHeight / aspect;
-  }
-  containerEl.style.width = targetWidth + 'px';
-  containerEl.style.height = targetHeight + 'px';
-  containerEl.style.margin = '1rem auto 0';
-  if (state.leafletMap && state.mapBounds) {
-    // Container's pixel size just changed but its aspect always matches
-    // the image's (see above), so re-fitting always fills it edge to
-    // edge with no gray margin — re-derive minZoom too, since the
-    // fit-to-bounds zoom level itself shifts with the new pixel size.
-    // Unclamp minZoom BEFORE refitting: the fit-to-container zoom is
-    // pinned as minZoom after every fit (to stop users zooming out
-    // past the image), but that pin is derived from the PREVIOUS
-    // container size. When the window shrinks, the new fit needs a
-    // LOWER zoom than the old pin allows — fitBounds silently clamps
-    // to minZoom, the image stays at the old scale (larger than the
-    // container), and overflow: visible (needed for popups) lets it
-    // paint across the whole page. Re-pinning getZoom() afterward
-    // then locks in the clamped value, so minZoom could only ever
-    // ratchet upward — which is why growing the window back never
-    // recovered. animate: false keeps each pass synchronous and
-    // self-contained under rapid resize events.
+// Container sizing lives entirely in CSS (see #map-container in
+// styles.css: min()/aspect-ratio driven by --map-w/--map-h). JS's
+// only job on size change is telling Leaflet to re-read its
+// container and refit. The observer watches the CONTAINER, not
+// body — its callback mutates nothing outside the container's own
+// clipped panes, so it cannot re-trigger itself (the body observer
+// tried previously fed back on its own side effects; this one is
+// structurally incapable of that). The setTimeout both debounces
+// bursts and defers work out of the observation cycle (same
+// pattern as portraitResizeObserver's rAF deferral). Zero-width
+// fires (tab panel display:none) are skipped; the re-show fire
+// with real dimensions handles refit when returning to the tab.
+let mapRefitTimer = null;
+const mapContainerObserver = new ResizeObserver(function () {
+  clearTimeout(mapRefitTimer);
+  mapRefitTimer = setTimeout(function () {
+    const containerEl = document.getElementById('map-container');
+    if (!containerEl || containerEl.clientWidth === 0) return;
+    if (!state.leafletMap || !state.mapBounds) return;
+    // Unclamp before refit: minZoom is pinned to the PREVIOUS fit
+    // level; a shrink needs a lower zoom and would silently clamp,
+    // leaving the image over-zoomed and cropped (see c60f659).
     state.leafletMap.setMinZoom(-99);
     state.leafletMap.invalidateSize({ animate: false });
     state.leafletMap.fitBounds(state.mapBounds, { animate: false });
     state.leafletMap.setMinZoom(state.leafletMap.getZoom());
-  }
-}
-
-let mapResizeTimer = null;
-window.addEventListener('resize', function () {
-  clearTimeout(mapResizeTimer);
-  mapResizeTimer = setTimeout(sizeMapContainerToFit, 150);
+  }, 100);
 });
+mapContainerObserver.observe(document.getElementById('map-container'));
 
 function renderMapImage(mapEntityId, imageDoc) {
   const placeholderEl = document.getElementById('map-tab-placeholder');
@@ -981,7 +954,15 @@ function renderMapImage(mapEntityId, imageDoc) {
 
         state.mapImgHeight = img.naturalHeight;
         state.mapImgWidth = img.naturalWidth;
-        sizeMapContainerToFit();
+        // Constants, not measurements: CSS derives all sizing from
+        // these (see #map-container in styles.css).
+        containerEl.style.setProperty('--map-w', img.naturalWidth);
+        containerEl.style.setProperty('--map-h', img.naturalHeight);
+        // Clear any legacy inline sizing from the pre-CSS-sizing code
+        // (a long-lived tab can carry it across an auto-reload).
+        containerEl.style.width = '';
+        containerEl.style.height = '';
+        containerEl.style.margin = '';
 
         const bounds = [[0, 0], [img.naturalHeight, img.naturalWidth]];
         state.mapBounds = bounds;
