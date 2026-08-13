@@ -21,6 +21,9 @@ jobs:
       - name: Write service account key
         run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}' > /tmp/firebase-key.json
 
+      - name: Debug - show key identity
+        run: node -e "const k=require('/tmp/firebase-key.json'); console.log('project_id:', k.project_id); console.log('client_email:', k.client_email);"
+
       - name: Export prod Firestore
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-key.json
