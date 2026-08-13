@@ -315,10 +315,12 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 #pin-panel-entity-list { max-height: 220px; overflow-y: auto; border: 1px solid var(--parchment-edge); border-radius: 4px; margin-top: 0.4rem; }
 #pin-panel-radius-row input[type="range"] { width: 100%; margin-top: 0.3rem; }
 #pin-panel-radius-hint { font-size: 0.75rem; color: var(--ink-soft); margin: 0.3rem 0 0 0; }
-#pin-panel-move-row { margin-top: 0.75rem; }
-#pin-panel-move-row button { padding: 0.35rem 0.8rem; cursor: pointer; background: var(--void); color: var(--parchment); border: 1px solid var(--void-line); }
-#pin-panel-move-row button.active-mode { outline: 2px solid var(--fear); }
-#pin-panel-move-hint { font-size: 0.75rem; color: var(--ink-soft); margin: 0.3rem 0 0 0; }
+#pin-panel-move-hint { font-size: 0.75rem; color: var(--ink-soft); margin: 0.5rem 0 0 0; text-align: center; }
+/* Save / Move pin / Cancel: standard button width/height (no
+   exception — this panel is wide enough), stacked vertically in that
+   order rather than the usual horizontal modal-actions row. */
+#pin-panel-actions { flex-direction: column; align-items: stretch; }
+#pin-panel-actions #pin-panel-move-btn.active-mode { outline: 2px solid var(--fear); }
 #pin-panel-error { color: var(--notice); font-size: 0.85rem; margin-top: 0.5rem; display: none; }
 
 /* Shown instead of the (hidden) pin panel while a pin is actively

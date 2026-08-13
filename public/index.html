@@ -243,7 +243,7 @@
   <div id="pin-panel">
     <h3 id="pin-panel-title">New pin</h3>
 
-    <label for="pin-panel-search">Target entity</label>
+    <label for="pin-panel-search">Select an Entry:</label>
     <input type="text" id="pin-panel-search" placeholder="Search name/tags...">
     <div id="pin-panel-entity-list"></div>
 
@@ -256,17 +256,15 @@
       </p>
     </div>
 
-    <div id="pin-panel-move-row">
-      <button id="pin-panel-move-btn" type="button">Move pin position</button>
-      <p id="pin-panel-move-hint" style="display:none;">Drag the marker on the map to reposition it.</p>
-    </div>
-
     <p id="pin-panel-error" class="modal-error"></p>
 
-    <div class="modal-actions">
+    <div class="modal-actions" id="pin-panel-actions">
       <button id="pin-panel-save" type="button">Save</button>
+      <button id="pin-panel-move-btn" type="button">Move pin</button>
       <button id="pin-panel-cancel" type="button">Cancel</button>
     </div>
+
+    <p id="pin-panel-move-hint" style="display:none;">Drag the marker on the map to reposition it.</p>
   </div>
 
   <div id="pin-move-indicator">
