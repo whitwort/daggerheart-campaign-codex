@@ -34,7 +34,6 @@
 * { box-sizing: border-box; }
 
 body {
-  overflow-x: hidden;
   font-family: var(--font-body), sans-serif;
   color: var(--parchment);
   background-color: #090A12;
@@ -188,15 +187,6 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 #map-well {
   background: var(--void-raised); border: 1px solid var(--void-line);
   border-radius: 14px; padding: 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.3); margin-top: 1rem;
-  /* Horizontal-only clip lives here, on a DIFFERENT element than
-     #map-container.leaflet-container (which needs full overflow:
-     visible for tall popups) — mixing hidden+visible on the SAME
-     element gets silently auto-converted to auto by the browser (see
-     that rule's comment), so splitting the two axes across two
-     elements is the only way to get "clip horizontal, allow
-     vertical" for real. overflow-y is deliberately left untouched
-     (default visible) so popups still float freely above this well. */
-  overflow-x: hidden;
 }
 #map-tab-placeholder { color: var(--ink-soft); margin-top: 0; }
 #map-container { height: 70vh; margin-top: 1rem; background: var(--void); border-radius: 8px; display: none; }
@@ -252,11 +242,14 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
    bindPinPreviewPopup in map.js for the autoPan side of this fix).
    Must be a single `overflow: visible`, not split into
    overflow-x/overflow-y — per spec, when one axis is hidden and the
-   other visible, browsers silently recompute the "visible" axis to
-   auto instead (mixing hidden+visible isn't allowed), which quietly
-   defeated this same fix once already. Horizontal-bleed protection
-   (nav bar width regression, see Admin-grid-style bug) lives on body
-   instead, where it can't interact with this element's own overflow. */
+   other visible (or left as its default, which IS visible), browsers
+   silently recompute the "visible" axis to auto instead (mixing
+   hidden+visible isn't allowed). This bit twice: once here directly,
+   once one level up on #map-well via the same mechanism. The actual
+   nav-bar-width issue this was chasing wasn't a horizontal-overflow
+   problem at all — see the --viewport-w custom property in main.js —
+   so no overflow-x guard belongs anywhere in this chain; every
+   attempt at one just reintroduced this popup-clipping bug. */
 #map-container.leaflet-container { overflow: visible; }
 .entity-preview-card h3 { margin: 0; font-size: 1.15rem; font-family: var(--font-display), sans-serif; font-weight: 400; }
 .entity-preview-card .entity-type-line { margin: 0.2rem 0 0.6rem; font-size: 0.85rem; }
