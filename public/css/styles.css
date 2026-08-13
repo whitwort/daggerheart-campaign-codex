@@ -473,21 +473,6 @@ select {
 .toggle-switch-label.state-visible { color: var(--fear); font-weight: 500; }
 .entity-visibility-toggle-row { display: flex; align-items: center; gap: 0.3rem; background: rgba(233,221,194,0.55); border-radius: 8px; padding: 0.4rem 0.6rem; }
 
-/* Player-view lore list */
-/* Player-view Lore tab: wraps the bullet list in a well styled like a
-   GM-view "visible to party" lore item (parchment-edge fill, fear
-   left strip) — not dynamic per item, just the same "here's lore the
-   party knows" visual language applied once to the whole list. */
-.lore-bullet-well {
-  background: var(--parchment-edge); border-radius: 8px; padding: 0.75rem 1rem 0.75rem 1.25rem;
-  box-shadow: inset 3px 0 0 var(--fear); margin-top: 0.75rem;
-}
-.lore-bullet-list { margin: 0; padding-left: 1.25rem; }
-.lore-bullet-list li { margin-bottom: 0.5rem; }
-.lore-bullet-list li:last-child { margin-bottom: 0; }
-.lore-bullet-list li > :first-child { margin-top: 0; }
-.lore-bullet-list li > :last-child { margin-bottom: 0; }
-
 #codex-related { margin-top: 1rem; }
 #codex-related-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 /* Specificity note: #codex-related-chips prefix (not just .related-chip)
