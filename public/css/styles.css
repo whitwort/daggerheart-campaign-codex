@@ -233,7 +233,14 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
    the rest of the app for "more not shown". */
 .leaflet-popup-content-wrapper { background: var(--parchment); color: var(--ink); border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.35); }
 .leaflet-popup-tip { background: var(--parchment); }
-.leaflet-popup-content { margin: 0.85rem 1rem; }
+.leaflet-popup-content { margin: 0.85rem 1rem; max-height: 50vh; overflow-y: auto; }
+/* Leaflet clips anything extending past the map container by default
+   (its own base CSS sets overflow:hidden on .leaflet-container) — a
+   popup taller than the visible map gets its top cut off. Letting it
+   overflow instead means the popup floats freely above the map well
+   rather than fighting autoPan for space inside it (see
+   bindPinPreviewPopup in map.js for the autoPan side of this fix). */
+#map-container.leaflet-container { overflow: visible; }
 .entity-preview-card h3 { margin: 0; font-size: 1.15rem; font-family: var(--font-display), sans-serif; font-weight: 400; }
 .entity-preview-card .entity-type-line { margin: 0.2rem 0 0.6rem; font-size: 0.85rem; }
 .entity-preview-card .entity-meta-line { font-size: 0.8rem; margin: -0.1rem 0 0.6rem; }
