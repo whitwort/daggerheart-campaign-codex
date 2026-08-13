@@ -929,15 +929,19 @@ function sizeMapContainerToFit() {
     // the image's (see above), so re-fitting always fills it edge to
     // edge with no gray margin — re-derive minZoom too, since the
     // fit-to-bounds zoom level itself shifts with the new pixel size.
-    // animate: false on both, deliberately: fitBounds animates by
-    // default, and a second resize landing mid-animation makes
-    // getZoom() read a transient in-between zoom — setMinZoom then
-    // locks that wrong value in, leaving the image rendered larger
-    // than the fitted container. With overflow: visible on the
-    // container (needed for popups), that oversized image paints
-    // across the page instead of being clipped — the "map grows to
-    // cover everything" symptom. Synchronous, unanimated calls make
-    // each resize pass self-contained.
+    // Unclamp minZoom BEFORE refitting: the fit-to-container zoom is
+    // pinned as minZoom after every fit (to stop users zooming out
+    // past the image), but that pin is derived from the PREVIOUS
+    // container size. When the window shrinks, the new fit needs a
+    // LOWER zoom than the old pin allows — fitBounds silently clamps
+    // to minZoom, the image stays at the old scale (larger than the
+    // container), and overflow: visible (needed for popups) lets it
+    // paint across the whole page. Re-pinning getZoom() afterward
+    // then locks in the clamped value, so minZoom could only ever
+    // ratchet upward — which is why growing the window back never
+    // recovered. animate: false keeps each pass synchronous and
+    // self-contained under rapid resize events.
+    state.leafletMap.setMinZoom(-99);
     state.leafletMap.invalidateSize({ animate: false });
     state.leafletMap.fitBounds(state.mapBounds, { animate: false });
     state.leafletMap.setMinZoom(state.leafletMap.getZoom());
@@ -968,7 +972,7 @@ function renderMapImage(mapEntityId, imageDoc) {
         state.mapBounds = bounds;
         const map = L.map('map-container', {
           crs: L.CRS.Simple,
-          minZoom: -3,
+          minZoom: -99,
           zoomSnap: 0,
           zoomDelta: 0.5,
           maxBoundsViscosity: 1.0
