@@ -7,6 +7,13 @@ scripts/service-account.json
 scripts/*.json
 scripts/*-key.json
 
+# Firestore backups - campaign data, must never land in this public repo.
+# Backups live in the private whitwort/aethers-children-data repo instead
+# (see .github/workflows/backup.yml). This is a guard against accidental
+# local drops, not the enforcement mechanism.
+backups/
+backup-repo/
+
 # Node
 node_modules/
 
