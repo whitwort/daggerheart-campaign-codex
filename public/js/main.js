@@ -35,3 +35,25 @@ document.getElementById('tab-btn-map').textContent = CONFIG.tabs.map;
       });
     });
 
+// TEMP DEBUG (remove after nav-width diagnosis): live width readout.
+// Distinguishes a stale layout viewport (clientWidth) from the real
+// window size (innerWidth / visualViewport.width) after iPad split
+// resizes. If clientWidth < innerWidth after growing the split, the
+// ICB itself is stale — no CSS on nav can fix that.
+(function () {
+  const el = document.createElement('div');
+  el.id = 'debug-width-readout';
+  el.style.cssText = 'position:fixed;bottom:4px;left:4px;z-index:99999;background:#000;color:#0f0;font:12px monospace;padding:4px 8px;border-radius:4px;opacity:0.85;pointer-events:none;';
+  document.body.appendChild(el);
+  function upd() {
+    el.textContent =
+      'client:' + document.documentElement.clientWidth +
+      ' inner:' + window.innerWidth +
+      (window.visualViewport ? ' vv:' + Math.round(window.visualViewport.width) + ' scale:' + window.visualViewport.scale.toFixed(3) : '') +
+      ' navR:' + Math.round(document.getElementById('tabs').getBoundingClientRect().right);
+  }
+  upd();
+  window.addEventListener('resize', upd);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', upd);
+  setInterval(upd, 1000);
+})();
