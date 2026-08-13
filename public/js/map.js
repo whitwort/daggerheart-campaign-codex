@@ -782,6 +782,42 @@ function loadMap(mapEntityId) {
   });
 }
 
+// Sizes #map-container to fit its available width/height while
+// preserving the map image's aspect ratio: landscape images run as
+// tall as the well's width allows, portrait images run as wide as
+// the height cap allows (whichever axis binds first). Re-run on
+// every window resize (see below), not just at load, so the map
+// stays maximized in its well as the viewport changes.
+function sizeMapContainerToFit() {
+  const containerEl = document.getElementById('map-container');
+  if (!containerEl || !state.mapImgWidth || !state.mapImgHeight || containerEl.offsetParent === null) return;
+  // Reset inline width before measuring: once set, containerEl's own
+  // clientWidth reflects the STALE previous computed width, not the
+  // well's current available width — clearing it first restores the
+  // normal block-fill-parent measurement, same as the very first call.
+  containerEl.style.width = '';
+  const aspect = state.mapImgHeight / state.mapImgWidth;
+  const availableWidth = containerEl.clientWidth;
+  const maxHeight = window.innerHeight * 0.8;
+
+  let targetWidth = availableWidth;
+  let targetHeight = targetWidth * aspect;
+  if (targetHeight > maxHeight) {
+    targetHeight = maxHeight;
+    targetWidth = targetHeight / aspect;
+  }
+  containerEl.style.width = targetWidth + 'px';
+  containerEl.style.height = targetHeight + 'px';
+  containerEl.style.margin = '1rem auto 0';
+  if (state.leafletMap) state.leafletMap.invalidateSize();
+}
+
+let mapResizeTimer = null;
+window.addEventListener('resize', function () {
+  clearTimeout(mapResizeTimer);
+  mapResizeTimer = setTimeout(sizeMapContainerToFit, 150);
+});
+
 function renderMapImage(mapEntityId, imageDoc) {
   const placeholderEl = document.getElementById('map-tab-placeholder');
   const containerEl = document.getElementById('map-container');
@@ -792,24 +828,10 @@ function renderMapImage(mapEntityId, imageDoc) {
         placeholderEl.style.display = 'none';
         containerEl.style.display = 'block';
 
-        // Size the container to exactly match the image's aspect ratio
-        // (constrained by whichever of width/max-height binds first), so
-        // fitBounds has no mismatched axis to leave a margin on.
-        const aspect = img.naturalHeight / img.naturalWidth;
-        const availableWidth = containerEl.clientWidth;
-        const maxHeight = window.innerHeight * 0.8;
-
-        let targetWidth = availableWidth;
-        let targetHeight = targetWidth * aspect;
-        if (targetHeight > maxHeight) {
-          targetHeight = maxHeight;
-          targetWidth = targetHeight / aspect;
-        }
-        containerEl.style.width = targetWidth + 'px';
-        containerEl.style.height = targetHeight + 'px';
-        containerEl.style.margin = '1rem auto 0';
-
         state.mapImgHeight = img.naturalHeight;
+        state.mapImgWidth = img.naturalWidth;
+        sizeMapContainerToFit();
+
         const bounds = [[0, 0], [img.naturalHeight, img.naturalWidth]];
         const map = L.map('map-container', {
           crs: L.CRS.Simple,
