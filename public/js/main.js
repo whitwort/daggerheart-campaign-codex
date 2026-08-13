@@ -30,14 +30,14 @@ window.addEventListener('resize', function () {
 });
 // Window resize alone doesn't catch the scrollbar toggling on/off from a
 // content-height change (e.g. switching to the Map tab) with no actual
-// window resize — a ResizeObserver on body catches that case too.
-// Doesn't mutate anything the observed element's own size depends on
-// (unlike the portrait hero band's observer in codex.js), so there's no
-// self-triggering loop risk here.
-new ResizeObserver(function () {
-  clearTimeout(viewportWResizeTimer);
-  viewportWResizeTimer = setTimeout(updateViewportWidthVar, 150);
-}).observe(document.body);
+// window resize. A ResizeObserver on body was tried here to catch that
+// case too, but body's own size can change AS A RESULT of nav's width
+// changing (nav is part of body's layout) — that's a real feedback loop,
+// not just a theoretical one: it manifested as the map growing without
+// bound after a few resizes until it covered the whole page. Explicit
+// one-shot calls at the actual known trigger points (tab switches, map
+// load — see the tab click handler below and renderMapImage in map.js)
+// avoid that risk entirely; nothing here reacts to its own side effects.
 
     // --- Map tab -------------------------------------------------------
     document.querySelectorAll('nav#tabs button').forEach(function (btn) {
@@ -53,6 +53,7 @@ new ResizeObserver(function () {
         if (btn.dataset.tab === 'admin-panel') {
           ensureImportEditorReady();
         }
+        setTimeout(updateViewportWidthVar, 0);
       });
     });
 
