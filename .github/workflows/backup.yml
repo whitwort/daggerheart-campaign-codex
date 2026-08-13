@@ -5,14 +5,19 @@ on:
     - cron: '0 9 * * *'  # 9am UTC daily
   workflow_dispatch: {}
 
-permissions:
-  contents: write
-
 jobs:
   backup-prod:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout app repo (for the export script)
+        uses: actions/checkout@v4
+
+      - name: Checkout private backups repo
+        uses: actions/checkout@v4
+        with:
+          repository: whitwort/aethers-children-data
+          token: ${{ secrets.BACKUP_REPO_PAT }}
+          path: backup-repo
 
       - uses: actions/setup-node@v4
         with:
@@ -28,16 +33,16 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-key.json
         run: |
-          mkdir -p backups
           node scripts/firestore-backup.js export \
             --project daggerheart-campaign-codex \
-            --out backups/prod-$(date -u +%Y-%m-%d).json
+            --out backup-repo/prod-$(date -u +%Y-%m-%d).json
 
       - name: Commit backup
+        working-directory: backup-repo
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add backups/
+          git add .
           git diff --staged --quiet && echo "No changes" && exit 0
           git commit -m "Rolling backup $(date -u +%Y-%m-%d)"
           git push
