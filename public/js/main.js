@@ -35,6 +35,40 @@ document.getElementById('tab-btn-map').textContent = CONFIG.tabs.map;
       });
     });
 
+// iPadOS Safari split/Stage Manager resize can RESCALE the page
+// instead of reflowing it: the layout viewport keeps a stale width
+// (here: clientWidth stuck at a mid-drag value) and a <1 scale is
+// applied to the whole canvas, leaving a gap at the right edge that
+// no CSS can address (100% and clientWidth both resolve against the
+// same stale layout viewport — which is also why the earlier
+// --viewport-w JS never helped). Rewriting the viewport meta content
+// after resizes settle forces WebKit to recompute the layout width
+// from device-width and reset scale to 1. The two content strings
+// are semantically identical (1 vs 1.0) — alternating guarantees the
+// attribute actually changes so WebKit reprocesses it.
+(function () {
+  const meta = document.querySelector('meta[name="viewport"]');
+  if (!meta) return;
+  const variants = ['width=device-width, initial-scale=1', 'width=device-width, initial-scale=1.0'];
+  let flip = 0;
+  let settleTimer = null;
+  function reassert() {
+    const drift = Math.abs(document.documentElement.clientWidth - window.innerWidth);
+    const scaled = window.visualViewport && Math.abs(window.visualViewport.scale - 1) > 0.001;
+    if (drift > 1 || scaled) {
+      flip = 1 - flip;
+      meta.setAttribute('content', variants[flip]);
+    }
+  }
+  function schedule() {
+    clearTimeout(settleTimer);
+    settleTimer = setTimeout(reassert, 250);
+  }
+  window.addEventListener('resize', schedule);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', schedule);
+  schedule();
+})();
+
 // TEMP DEBUG (remove after nav-width diagnosis): live width readout.
 // Distinguishes a stale layout viewport (clientWidth) from the real
 // window size (innerWidth / visualViewport.width) after iPad split
