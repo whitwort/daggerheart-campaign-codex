@@ -33,6 +33,7 @@ export const state = {
   loadedMapId: null,
   mapImgHeight: 0,
   mapImgWidth: 0,
+  mapBounds: null,
   pinLayer: null,
   allPins: [],
   currentMapEntityId: null,  // Location entity whose map image is shown
