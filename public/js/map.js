@@ -6,7 +6,7 @@ import { state } from './state.js';
 import {
   renderList, renderDetailForSelected, isEntityPlayerVisible,
   registerVisibilityChangeHandler, registerMapNavigationHandler, clearCodexSearchInput,
-  buildEntityPreviewCard
+  buildEntityPreviewCard, categoryGroupLabel
 } from './codex.js';
 import { renderAdminRootEntitySelect } from './admin.js';
 import { entityMapImageDocId, getCachedImage, putCachedImage } from './images.js';
@@ -380,7 +380,21 @@ function renderPinPickerEntityList() {
 
     const header = document.createElement('div');
     header.className = 'entity-group-header' + (collapsed ? ' collapsed' : '');
-    header.textContent = cat + ' (' + entities.length + ')';
+    const dotSpan = document.createElement('span');
+    dotSpan.className = 'entity-group-dot ' + categoryPinClass(cat);
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'entity-group-title';
+    titleSpan.textContent = categoryGroupLabel(cat);
+    const countSpan = document.createElement('span');
+    countSpan.className = 'entity-group-count';
+    countSpan.textContent = '(' + entities.length + ')';
+    const caretSpan = document.createElement('span');
+    caretSpan.className = 'entity-group-caret';
+    caretSpan.textContent = '\u25be';
+    header.appendChild(dotSpan);
+    header.appendChild(titleSpan);
+    header.appendChild(countSpan);
+    header.appendChild(caretSpan);
     header.addEventListener('click', function () {
       state.pinPickerCollapse[cat] = collapsed ? false : true;
       renderPinPickerEntityList();
