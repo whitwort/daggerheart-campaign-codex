@@ -44,7 +44,8 @@ body {
     radial-gradient(ellipse 900px 900px at 35% 90%, rgba(60,45,90,0.22), transparent 70%);
   background-attachment: fixed;
   background-repeat: no-repeat;
-  padding: 1.5rem 2rem;
+  --page-pad-x: 2rem; /* consumed by nav#tabs' full-bleed math */
+  padding: 1.5rem var(--page-pad-x);
   margin: 0;
   min-height: 100vh;
 }
@@ -109,14 +110,21 @@ input, select, textarea {
 }
 input::placeholder, textarea::placeholder { color: var(--ink-soft); }
 
-/* Nav strip: distinct near-black full-bleed band with twinkling stars */
+/* Nav strip: distinct near-black full-bleed band with twinkling stars.
+   Full-bleed by countering body's own horizontal padding with
+   percentage-based width — 100% of body's content box tracks the
+   scrollbar's presence automatically at layout time, unlike 100vw
+   (always includes the gutter) or a JS-measured clientWidth snapshot
+   (goes stale whenever a content-height change toggles the scrollbar
+   with no resize/tab event to re-measure — the root cause of the
+   "nav too narrow on Map tab, GM view" bug: GM view has the most
+   height volatility, so its scrollbar toggles most often between
+   measurements). --page-pad-x must match body's horizontal padding. */
 nav#tabs {
-  position: relative;
-  left: 50%;
-  right: 50%;
-  margin-left: calc(-1 * var(--viewport-w, 100vw) / 2);
-  margin-right: calc(-1 * var(--viewport-w, 100vw) / 2);
-  width: var(--viewport-w, 100vw);
+  position: relative; /* containing block for .nav-star */
+  margin-left: calc(-1 * var(--page-pad-x));
+  margin-right: calc(-1 * var(--page-pad-x));
+  width: calc(100% + 2 * var(--page-pad-x));
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -247,8 +255,8 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
    hidden+visible isn't allowed). This bit twice: once here directly,
    once one level up on #map-well via the same mechanism. The actual
    nav-bar-width issue this was chasing wasn't a horizontal-overflow
-   problem at all — see the --viewport-w custom property in main.js —
-   so no overflow-x guard belongs anywhere in this chain; every
+   problem at all — see the nav#tabs full-bleed comment above — so no
+   overflow-x guard belongs anywhere in this chain; every
    attempt at one just reintroduced this popup-clipping bug. */
 #map-container.leaflet-container { overflow: visible; }
 .entity-preview-card h3 { margin: 0; font-size: 1.15rem; font-family: var(--font-display), sans-serif; font-weight: 400; }

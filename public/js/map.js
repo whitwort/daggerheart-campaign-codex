@@ -755,7 +755,7 @@ function ensureMapTabReady() {
     // measured size goes stale while hidden, which is what produces the
     // "map drifted off-center with grey margins" bug — invalidateSize()
     // re-measures and re-centers without a full reload.
-    state.leafletMap.invalidateSize();
+    state.leafletMap.invalidateSize({ animate: false });
     renderPins();
     renderBreadcrumb();
     return;
@@ -924,19 +924,22 @@ function sizeMapContainerToFit() {
   containerEl.style.width = targetWidth + 'px';
   containerEl.style.height = targetHeight + 'px';
   containerEl.style.margin = '1rem auto 0';
-  // Map height changes can toggle the page scrollbar independent of any
-  // tab click (e.g. navigating between maps via a circle pin while
-  // already on the Map tab) — keep nav#tabs' --viewport-w in sync here
-  // too. One-shot, not observed/reactive — see main.js for why that
-  // matters (a ResizeObserver here caused a real runaway growth loop).
-  document.documentElement.style.setProperty('--viewport-w', document.documentElement.clientWidth + 'px');
   if (state.leafletMap && state.mapBounds) {
     // Container's pixel size just changed but its aspect always matches
     // the image's (see above), so re-fitting always fills it edge to
     // edge with no gray margin — re-derive minZoom too, since the
     // fit-to-bounds zoom level itself shifts with the new pixel size.
-    state.leafletMap.invalidateSize();
-    state.leafletMap.fitBounds(state.mapBounds);
+    // animate: false on both, deliberately: fitBounds animates by
+    // default, and a second resize landing mid-animation makes
+    // getZoom() read a transient in-between zoom — setMinZoom then
+    // locks that wrong value in, leaving the image rendered larger
+    // than the fitted container. With overflow: visible on the
+    // container (needed for popups), that oversized image paints
+    // across the page instead of being clipped — the "map grows to
+    // cover everything" symptom. Synchronous, unanimated calls make
+    // each resize pass self-contained.
+    state.leafletMap.invalidateSize({ animate: false });
+    state.leafletMap.fitBounds(state.mapBounds, { animate: false });
     state.leafletMap.setMinZoom(state.leafletMap.getZoom());
   }
 }
@@ -983,8 +986,8 @@ function renderMapImage(mapEntityId, imageDoc) {
         });
 
         setTimeout(function () {
-          map.invalidateSize();
-          map.fitBounds(bounds);
+          map.invalidateSize({ animate: false });
+          map.fitBounds(bounds, { animate: false });
           map.setMinZoom(map.getZoom());
           map.setMaxBounds(bounds);
 
