@@ -49,8 +49,8 @@ document.getElementById('tab-btn-map').textContent = CONFIG.tabs.map;
 (function () {
   const meta = document.querySelector('meta[name="viewport"]');
   if (!meta) return;
-  const variants = ['width=device-width, initial-scale=1', 'width=device-width, initial-scale=1.0'];
-  let flip = 0;
+  const rest = 'width=device-width, initial-scale=1, minimum-scale=1';
+  const clamp = rest + ', maximum-scale=1';
   let settleTimer = null;
   function reassert() {
     // Trigger ONLY on the broken-state signature: scale below 1
@@ -63,8 +63,13 @@ document.getElementById('tab-btn-map').textContent = CONFIG.tabs.map;
       ? window.visualViewport.scale < 0.999
       : document.documentElement.clientWidth < window.innerWidth - 1;
     if (scaledDown) {
-      flip = 1 - flip;
-      meta.setAttribute('content', variants[flip]);
+      // Semantically-equivalent content rewrites are parse-identical
+      // no-ops to WebKit (1 vs 1.0 confirmed ineffective). Forcing a
+      // REAL constraint change works: clamp maximum-scale=1 so the
+      // sub-1 scale is invalid and WebKit must recompute layout at
+      // scale 1, then release the clamp so pinch-zoom-in still works.
+      meta.setAttribute('content', clamp);
+      setTimeout(function () { meta.setAttribute('content', rest); }, 100);
     }
   }
   function schedule() {
