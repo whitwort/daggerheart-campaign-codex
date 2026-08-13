@@ -171,15 +171,28 @@ scattered CSS.
 
 ## Future phases (scoped, not started)
 
-- **Phase 12 — SRD data import.** Ingest Daggerheart SRD content into
+- **Phase 12 — Offline / degraded connectivity.** Missed opportunities
+  for offline experience and handling intermittent connectivity at the
+  table. Prod database backup/snapshot/export strategy folds in here.
+  Relevant data point from Phase 11 debugging: the app currently does
+  a full re-render on every Firestore snapshot (e.g.
+  `renderDetailForSelected()` rebuilds the whole detail card
+  wholesale) — this raced with an in-flight click at least once (the
+  intermittent "Set portrait needs two clicks" bug). A
+  reconnect-and-catch-up snapshot mid-interaction will hit this same
+  pattern harder than normal live use does, so this phase should
+  budget time for listener/render resilience, not just connectivity
+  detection and caching.
+- **Phase 13 — SRD data import.** Ingest Daggerheart SRD content into
   the codex, reusing critical-path parsing/structuring work already
   done in the separate `daggerheart-encounter-builder` repo rather than
   starting from scratch.
-- **Phase 13 — Offline / degraded connectivity.** Missed opportunities
-  for offline experience and handling intermittent connectivity at the
-  table. Prod database backup/snapshot/export strategy folds in here.
 - **Phase 14 — Player-facing contribution features.** Character
   management, in-app GM messaging at the table, codex-unlock
   notifications, and other ways players contribute directly rather than
-  read-only.
+  read-only. Highest risk (auth/rules changes). Should explicitly
+  inherit Phase 11's established UI conventions (button-width standing
+  rule, `.action-btn-compact` pattern, preview-card visual language,
+  portrait-picker-style floating draggable panel pattern) rather than
+  reinventing them.
 
