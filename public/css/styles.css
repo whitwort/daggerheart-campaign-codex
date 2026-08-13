@@ -249,6 +249,14 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 .entity-preview-card .lore-item { margin-bottom: 0; }
 .entity-preview-card .lore-item-body { font-size: 0.85rem; }
 .entity-preview-more { text-align: center; color: var(--ink-soft); margin: 0.3rem 0 0; letter-spacing: 0.15em; }
+.entity-preview-hint { text-align: center; color: var(--ink-soft); font-size: 0.75rem; font-style: italic; margin: 0.6rem 0 0; }
+
+/* Leaflet zoom control: reskin to match the app's parchment card
+   look (same treatment as pin preview popups/pin-panel) rather than
+   Leaflet's default plain white buttons. */
+.leaflet-control-zoom { border: 1px solid var(--void-line); box-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+.leaflet-control-zoom a { background: var(--parchment); color: var(--ink); border-color: var(--parchment-edge); }
+.leaflet-control-zoom a:hover { background: var(--parchment-edge); }
 .map-pin-legend {
   background: var(--void-raised); color: var(--parchment); padding: 0.5rem 0.6rem; border-radius: 4px;
   border: 1px solid var(--void-line);

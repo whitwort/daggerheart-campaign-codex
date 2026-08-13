@@ -1877,6 +1877,11 @@ function buildEntityPreviewCard(entity, gmView) {
     }
   }
 
+  const hintP = document.createElement('p');
+  hintP.className = 'entity-preview-hint';
+  hintP.textContent = 'Tap/click to open';
+  card.appendChild(hintP);
+
   return card;
 }
 
