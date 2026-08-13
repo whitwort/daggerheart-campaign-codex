@@ -776,7 +776,8 @@ button:disabled:hover { border-color: var(--void-line); }
   border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,0.55);
 }
 .portrait-picker-header {
-  cursor: grab; padding: 0.6rem 0.8rem; user-select: none;
+  cursor: grab; padding: 0.6rem 0.8rem; user-select: none; -webkit-user-select: none;
+  touch-action: none; -webkit-touch-callout: none;
   font-family: var(--font-display), sans-serif; font-weight: 400; font-size: 0.95rem;
   border-bottom: 1px solid var(--void-line);
 }
@@ -806,7 +807,8 @@ button:disabled:hover { border-color: var(--void-line); }
    during editing so the whole band is draggable, not just its empty
    space. */
 .codex-card-hero.portrait-card-editable {
-  cursor: grab; touch-action: none; user-select: none; pointer-events: auto;
+  cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
+  -webkit-touch-callout: none; pointer-events: auto;
 }
 .codex-card-hero.portrait-card-editable.dragging { cursor: grabbing; }
 /* Card content sits over the hero layer; during Stage B card-drag it
