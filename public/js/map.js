@@ -46,16 +46,20 @@ function isMapEntity(entity) {
 // Safari reports that as false even with a trackpad attached and
 // actively hovering, so it silently killed the mouseover binding
 // there. Removed.)
-function bindPinPreviewPopup(layer, entity, gmView) {
+function bindPinPreviewPopup(layer, entity, gmView, handleClick, navigateFn) {
+  // Registered BEFORE bindPopup, deliberately: bindPopup() silently
+  // attaches its OWN internal click listener that opens the popup —
+  // and since Leaflet fires listeners in registration order, that
+  // internal handler would otherwise run before ours and mutate the
+  // open/closed state out from under this check. Worse, that internal
+  // handler TOGGLES for markers but only opens (never closes) for
+  // circles/paths — registering first sidesteps both: we always read
+  // the true state as it was *before* this click.
+  layer.on('click', function () {
+    if (!handleClick()) return;
+    if (layer.isPopupOpen()) navigateFn();
+  });
   layer.bindPopup(function () { return buildEntityPreviewCard(entity, gmView); },
-    // autoPan off: Leaflet's default autoPan tries to shift the map so
-    // a too-tall popup fits inside the container — but that pan moves
-    // the marker out from under a mouse-triggered hover, firing
-    // mouseout, closing the popup, moving the marker back, firing
-    // mouseover again... a flicker loop. Paired with the
-    // #map-container overflow:visible override below, the popup just
-    // floats above the container instead, so there's nothing for
-    // autoPan to try to fix in the first place.
     { className: 'entity-preview-popup', maxWidth: 280, autoPan: false });
   layer.on('mouseover', function () { layer.openPopup(); });
 }
@@ -562,20 +566,7 @@ function renderPins() {
         className: 'map-pin-circle ' + categoryPinClass(entity.category),
         weight: 2, fillOpacity: 0.2
       });
-      bindPinPreviewPopup(circle, entity, gmView);
-      circle.on('click', function () {
-        if (!handleClick()) return;
-        // "Navigate" pairs with the preview popup bound above: click
-        // when the preview is already open (mouse: opened by hover
-        // already, so this is effectively one click; touch: this is
-        // the second tap) goes to the full entry. Click when it's
-        // not open yet (touch's first tap) opens the preview instead
-        // of jumping straight there — same click handler serves both
-        // input types via this single state check, no device
-        // detection anywhere.
-        if (circle.isPopupOpen()) { navigateToMapForEntity(entity.id); }
-        else { circle.openPopup(); }
-      });
+      bindPinPreviewPopup(circle, entity, gmView, handleClick, function () { navigateToMapForEntity(entity.id); });
       circle.addTo(state.pinLayer);
       return;
     }
@@ -584,16 +575,11 @@ function renderPins() {
     // colored marker (color = entry type) that jumps to the codex detail.
     const marker = L.marker([lat, pin.x], { icon: pinDivIcon(entity ? entity.category : null) });
     if (entity) {
-      bindPinPreviewPopup(marker, entity, gmView);
+      bindPinPreviewPopup(marker, entity, gmView, handleClick, function () { switchToCodexEntity(entity.id); });
     } else {
       marker.bindTooltip('(unlinked pin)');
+      marker.on('click', function () { handleClick(); });
     }
-    marker.on('click', function () {
-      if (!handleClick()) return;
-      if (!entity) return;
-      if (marker.isPopupOpen()) { switchToCodexEntity(entity.id); }
-      else { marker.openPopup(); }
-    });
     marker.addTo(state.pinLayer);
   });
 
