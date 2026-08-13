@@ -96,7 +96,7 @@
     <div id="codex-tab">
       <div id="codex-list-pane">
         <h3 class="pane-title">Table of contents</h3>
-        <div id="codex-filters">
+        <div id="codex-filters" class="pane-filters">
           <input id="codex-search" type="text" placeholder="Search name/tags...">
         </div>
         <div id="codex-entities"></div>
@@ -244,8 +244,10 @@
     <div id="pin-panel-header"><h3 id="pin-panel-title">New pin</h3></div>
     <div id="pin-panel-body">
 
-    <label for="pin-panel-search">Select an Entry:</label>
-    <input type="text" id="pin-panel-search" placeholder="Search name/tags...">
+    <h3 class="pane-title">Select an Entry:</h3>
+    <div class="pane-filters">
+      <input type="text" id="pin-panel-search" placeholder="Search name/tags...">
+    </div>
     <div id="pin-panel-entity-list"></div>
 
     <div id="pin-panel-radius-row" style="display:none;">
