@@ -809,7 +809,15 @@ function sizeMapContainerToFit() {
   containerEl.style.width = targetWidth + 'px';
   containerEl.style.height = targetHeight + 'px';
   containerEl.style.margin = '1rem auto 0';
-  if (state.leafletMap) state.leafletMap.invalidateSize();
+  if (state.leafletMap && state.mapBounds) {
+    // Container's pixel size just changed but its aspect always matches
+    // the image's (see above), so re-fitting always fills it edge to
+    // edge with no gray margin — re-derive minZoom too, since the
+    // fit-to-bounds zoom level itself shifts with the new pixel size.
+    state.leafletMap.invalidateSize();
+    state.leafletMap.fitBounds(state.mapBounds);
+    state.leafletMap.setMinZoom(state.leafletMap.getZoom());
+  }
 }
 
 let mapResizeTimer = null;
@@ -833,6 +841,7 @@ function renderMapImage(mapEntityId, imageDoc) {
         sizeMapContainerToFit();
 
         const bounds = [[0, 0], [img.naturalHeight, img.naturalWidth]];
+        state.mapBounds = bounds;
         const map = L.map('map-container', {
           crs: L.CRS.Simple,
           minZoom: -3,
