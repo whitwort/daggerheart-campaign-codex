@@ -38,16 +38,18 @@ function isMapEntity(entity) {
 // "Navigate" (click-through to the full entry) is not wired up yet —
 // click still jumps straight there unchanged, same as before this
 // pass; that's the next piece of work.
-// Standards note: no touch/mouse device-sniffing — `(hover: hover)`
-// is the standards-based capability check, and Leaflet already
-// normalizes mouse/touch into one 'click'/'mouseover' event model so
-// no separate touch handling is needed here at all.
+// Standards note: no touch/mouse device-sniffing — Leaflet already
+// normalizes mouse/touch into one 'click' event model, and real touch
+// taps don't fire 'mouseover' in the first place, so binding it
+// unconditionally is enough; no capability check needed. (Tried
+// gating this behind `matchMedia('(hover: hover)')` first — iPadOS
+// Safari reports that as false even with a trackpad attached and
+// actively hovering, so it silently killed the mouseover binding
+// there. Removed.)
 function bindPinPreviewPopup(layer, entity, gmView) {
   layer.bindPopup(function () { return buildEntityPreviewCard(entity, gmView); },
     { className: 'entity-preview-popup', maxWidth: 280 });
-  if (window.matchMedia && window.matchMedia('(hover: hover)').matches) {
-    layer.on('mouseover', function () { layer.openPopup(); });
-  }
+  layer.on('mouseover', function () { layer.openPopup(); });
 }
 
 // CSS class carrying the entry-type color (see styles.css "Pin color
