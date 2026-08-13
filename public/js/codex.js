@@ -286,7 +286,16 @@ function portraitRenderInto(imgEl, hWrapEl, vWrapEl, containerEl, img) {
   // is explicit, nothing in flow depends on it.
   const band = containerEl.parentElement;
   if (band && band.classList.contains('codex-card-hero-band')) {
-    band.style.height = Math.max(0, clamped.y + ih) + 'px';
+    // Band takes no layout space (absolute, z-index 0) — its height is
+    // purely decorative and must never exceed the card's own height
+    // (set entirely by the normal-flow content next to it), or the
+    // image visibly pokes out past the bottom of the card well. This
+    // only bites on very wide screens: scale is cw-driven (see
+    // portraitCurrentScale), so a wide card produces a tall band with
+    // no natural ceiling otherwise.
+    const card = band.parentElement;
+    const cardHeight = card ? card.clientHeight : Infinity;
+    band.style.height = Math.min(cardHeight, Math.max(0, clamped.y + ih)) + 'px';
   }
   const ch = containerEl.clientHeight;
   portraitApplyEdgeFade(hWrapEl, vWrapEl, img, { cw: cw, ch: ch, x: clamped.x, y: clamped.y, iw: iw, ih: ih });
