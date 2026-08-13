@@ -132,14 +132,6 @@ scattered CSS.
   zoom is accepted as a known limitation for now. Revisit only if a
   specific map still has a real legibility problem 10a can't reach —
   proven in practice, not pre-built speculatively.
-- **10d. Map icon inconsistency — reported, unresolved, blocked on
-  repro.** Gregg reported the map-open icon doesn't always show for
-  Locations that do have a map. Code condition
-  (`entity.category==='Location' && entity.hasMapImage`) verified
-  identical/correct in both Entry Browser and Codex page. Likely a
-  stale `false` `hasMapImage` flag on a specific pre-existing entity;
-  re-upload/re-save should force it true. Need a specific entity name
-  from Gregg to confirm/fix.
 
 ## Dev ergonomics
 
