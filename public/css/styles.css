@@ -52,6 +52,7 @@ body {
 header { display: flex; align-items: flex-end; gap: 1rem; margin-bottom: 1.25rem; }
 header h1 { margin: 0; font-size: 2rem; line-height: 1; font-family: var(--font-display), sans-serif; font-weight: 400; color: #E1C081; letter-spacing: 0.02em; }
 #auth-area { align-self: flex-start; margin-left: auto; font-size: 0.8125rem; display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; color: var(--ink-soft); text-align: right; }
+#sign-out-btn { width: auto; min-width: 0; padding: 0.5rem 1.1rem; }
 #sign-out-btn { padding: 0.55rem 1rem; }
 #login-gate {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -68,13 +69,16 @@ header h1 { margin: 0; font-size: 2rem; line-height: 1; font-family: var(--font-
 /* STANDING RULE (see QOL-BACKLOG.md): every button in this app is the
    same FIXED width/height by default via this rule (width, not just
    min-width — min-width alone doesn't equalize buttons with very
-   different label lengths). Only 4 exception categories exist
-   (sign-in CTA, flat tabs, text-link-style buttons, icon-only
-   circular buttons) — see QOL-BACKLOG.md for the exact list. Any
-   exception MUST reset both `width: auto;` and `min-width: 0;` —
-   resetting only min-width leaves the fixed width still applying via
-   cascade fallthrough. Do not add a 5th ad hoc exception without
-   updating that list. */
+   different label lengths). See QOL-BACKLOG.md for the full,
+   numbered exception list. Any exception MUST reset both
+   `width: auto;` and `min-width: 0;` — resetting only min-width
+   leaves the fixed width still applying via cascade fallthrough. Do
+   not add an ad hoc exception without updating that list.
+   Base width sized to fit the longest surviving default-width
+   label, "Move pin position" (18 chars) / "Delete map image" (17
+   chars) — NOT "+ New member", which is shorter and no longer the
+   constraint. Flag to Gregg if those two should also get their own
+   narrower exception or shortened text. */
 button {
   font-family: var(--font-body), sans-serif;
   background: var(--void);
@@ -86,8 +90,8 @@ button {
   padding: 0.5rem 1rem;
   font-size: 0.9rem;
   line-height: 1.2;
-  width: 13rem;
-  min-width: 13rem;
+  width: 12rem;
+  min-width: 12rem;
   text-align: center;
 }
 button:hover { border-color: var(--fear); }
@@ -251,6 +255,11 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 .modal-actions button { padding: 0.4rem 0.9rem; cursor: pointer; }
 .modal-error { color: var(--notice); font-size: 0.85rem; margin-top: 0.5rem; display: none; }
 
+/* Map pin action buttons: own exception (7), narrower than the base
+   13rem-era width, sized to fit the longest label "Remove pin" — all
+   three must match each other. */
+#map-new-pin-btn, #map-edit-pin-btn, #map-remove-pin-btn { width: 8rem; min-width: 8rem; }
+
 /* Pin panel: docked to the side (not a full-screen modal) so the map
    stays visible/clickable while placing or editing a pin. */
 #pin-panel {
@@ -310,7 +319,7 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 #codex-filters select, #codex-filters input { padding: 0.35rem; font-size: 0.9rem; }
 #codex-search { flex: 1; }
 #codex-list-actions { display: flex; justify-content: flex-end; margin-top: 0.5rem; }
-#codex-new-btn { padding: 0.4rem 0.8rem; cursor: pointer; }
+#codex-new-btn { padding: 0.4rem 0.8rem; cursor: pointer; width: auto; min-width: 0; }
 
 /* Dark-themed native form controls: override iOS Safari's light chrome
    with a custom arrow so selects don't fall back to the system look. */
@@ -462,7 +471,7 @@ select {
 .toggle-switch-label { font-size: 0.7rem; color: var(--ink-soft); margin-right: 0.3rem; vertical-align: middle; }
 .toggle-switch-label.state-hidden { color: var(--hope); font-weight: 500; }
 .toggle-switch-label.state-visible { color: var(--fear); font-weight: 500; }
-.entity-visibility-toggle-row { display: flex; align-items: center; gap: 0.3rem; }
+.entity-visibility-toggle-row { display: flex; align-items: center; gap: 0.3rem; background: var(--parchment); border-radius: 8px; padding: 0.4rem 0.6rem; }
 
 /* Player-view lore list */
 /* Player-view Lore tab: wraps the bullet list in a well styled like a
@@ -547,7 +556,7 @@ select {
 .entity-edit-field input[type="file"]::-webkit-file-upload-button {
   background: #000000; color: var(--parchment); border: 3px solid var(--parchment-edge); border-radius: 8px;
   padding: 0.5rem 1rem; font-family: inherit; font-size: 0.9rem; cursor: pointer; margin-right: 0.6rem;
-  box-shadow: inset 0 0 10px 2px rgba(0,0,0,0.9); width: 13rem; min-width: 13rem; text-align: center;
+  box-shadow: inset 0 0 10px 2px rgba(0,0,0,0.9); width: 12rem; min-width: 12rem; text-align: center;
 }
 .entity-edit-field input[type="file"]::-webkit-file-upload-button:hover { border-color: var(--hope); }
 .entity-edit-field > button { margin-top: 0.5rem; }
@@ -567,6 +576,12 @@ select {
 .lore-vis-badge.visible { background: var(--fear); color: #fff; box-shadow: 0 0 0.4rem var(--fear-glow); }
 .lore-vis-badge.hidden { background: var(--hope); color: var(--void); box-shadow: 0 0 0.4rem var(--hope-glow); }
 .lore-item-btn { cursor: pointer; }
+/* Exception (8): entry-card action buttons — lore Edit/Delete, + New
+   lore, entity-level Edit/Delete, gallery + New image. All must
+   match; width sized to fit the longest label, "+ New image". Future
+   Notes-tab "+ New Note" button (QOL-BACKLOG) should reuse this
+   class. */
+.lore-item-btn, .action-btn-compact { width: 8.5rem; min-width: 8.5rem; cursor: pointer; }
 .lore-item-body { font-size: 0.906rem; line-height: 1.6; color: var(--ink); font-weight: 400; }
 .lore-item-body > :first-child { margin-top: 0; }
 .lore-item-body > :last-child { margin-bottom: 0; }

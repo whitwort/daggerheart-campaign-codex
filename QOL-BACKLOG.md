@@ -28,6 +28,29 @@ height, with NO per-context exceptions, except:**
    width — `#admin-players-table button` (Edit/Remove/Save/Cancel in
    the Manage Party row-actions column; two 13rem buttons overflowed
    the card edge).
+7. Map pin action buttons — `#map-new-pin-btn, #map-edit-pin-btn,
+   #map-remove-pin-btn`, all three matching, sized to fit the longest
+   label ("Remove pin").
+8. Entry-card action buttons — `.action-btn-compact` (lore item
+   Edit/Delete, + New lore, entity-level Edit/Delete, gallery + New
+   image), all matching, sized to fit the longest label ("+ New
+   image"). Reuse this class for the future Notes-tab "+ New Note"
+   button (see below).
+9. `#sign-out-btn` and `#codex-new-btn` — single buttons, no group to
+   match, `width: auto; min-width: 0;`.
+
+Base width lowered from 13rem to 12rem as of the "+ New party member"
+→ "+ New member" rename (that label no longer defines the floor).
+"Move pin position" (18 chars) and "Delete map image" (17 chars) are
+now the longest surviving default-width labels — 12rem was sized to
+still fit them without wrapping. Flag if those two should also get
+their own narrower exception or shortened text.
+
+## Future: Notes tab "+ New Note" button
+Add a "+ New Note" button to the Notes tab, styled with the
+`.action-btn-compact` class (exception 8 above) so it matches the
+lore/gallery/entity-card action buttons. Not yet implemented — no
+"add a note" flow exists on that tab yet.
 
 This was corrected piecemeal across many earlier Phase 11 sessions
 (gallery Delete, lore Edit/Delete, admin buttons/dropdowns, map pin
