@@ -1,0 +1,40 @@
+name: Backup
+
+on:
+  schedule:
+    - cron: '0 9 * * *'  # 9am UTC daily
+  workflow_dispatch: {}
+
+jobs:
+  backup-prod:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install firebase-admin
+        run: npm install --no-save firebase-admin@12
+
+      - name: Write service account key
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}' > /tmp/firebase-key.json
+
+      - name: Export prod Firestore
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-key.json
+        run: |
+          mkdir -p backups
+          node scripts/firestore-backup.js export \
+            --project daggerheart-campaign-codex \
+            --out backups/prod-$(date -u +%Y-%m-%d).json
+
+      - name: Commit backup
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add backups/
+          git diff --staged --quiet && echo "No changes" && exit 0
+          git commit -m "Rolling backup $(date -u +%Y-%m-%d)"
+          git push
