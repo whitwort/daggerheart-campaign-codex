@@ -48,7 +48,15 @@ function isMapEntity(entity) {
 // there. Removed.)
 function bindPinPreviewPopup(layer, entity, gmView) {
   layer.bindPopup(function () { return buildEntityPreviewCard(entity, gmView); },
-    { className: 'entity-preview-popup', maxWidth: 280 });
+    // autoPan off: Leaflet's default autoPan tries to shift the map so
+    // a too-tall popup fits inside the container — but that pan moves
+    // the marker out from under a mouse-triggered hover, firing
+    // mouseout, closing the popup, moving the marker back, firing
+    // mouseover again... a flicker loop. Paired with the
+    // #map-container overflow:visible override below, the popup just
+    // floats above the container instead, so there's nothing for
+    // autoPan to try to fix in the first place.
+    { className: 'entity-preview-popup', maxWidth: 280, autoPan: false });
   layer.on('mouseover', function () { layer.openPopup(); });
 }
 
