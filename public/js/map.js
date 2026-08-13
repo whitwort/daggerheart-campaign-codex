@@ -541,7 +541,16 @@ function renderPins() {
       bindPinPreviewPopup(circle, entity, gmView);
       circle.on('click', function () {
         if (!handleClick()) return;
-        navigateToMapForEntity(entity.id);
+        // "Navigate" pairs with the preview popup bound above: click
+        // when the preview is already open (mouse: opened by hover
+        // already, so this is effectively one click; touch: this is
+        // the second tap) goes to the full entry. Click when it's
+        // not open yet (touch's first tap) opens the preview instead
+        // of jumping straight there — same click handler serves both
+        // input types via this single state check, no device
+        // detection anywhere.
+        if (circle.isPopupOpen()) { navigateToMapForEntity(entity.id); }
+        else { circle.openPopup(); }
       });
       circle.addTo(state.pinLayer);
       return;
@@ -557,7 +566,9 @@ function renderPins() {
     }
     marker.on('click', function () {
       if (!handleClick()) return;
-      if (entity) switchToCodexEntity(entity.id);
+      if (!entity) return;
+      if (marker.isPopupOpen()) { switchToCodexEntity(entity.id); }
+      else { marker.openPopup(); }
     });
     marker.addTo(state.pinLayer);
   });
