@@ -188,6 +188,15 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 #map-well {
   background: var(--void-raised); border: 1px solid var(--void-line);
   border-radius: 14px; padding: 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.3); margin-top: 1rem;
+  /* Horizontal-only clip lives here, on a DIFFERENT element than
+     #map-container.leaflet-container (which needs full overflow:
+     visible for tall popups) — mixing hidden+visible on the SAME
+     element gets silently auto-converted to auto by the browser (see
+     that rule's comment), so splitting the two axes across two
+     elements is the only way to get "clip horizontal, allow
+     vertical" for real. overflow-y is deliberately left untouched
+     (default visible) so popups still float freely above this well. */
+  overflow-x: hidden;
 }
 #map-tab-placeholder { color: var(--ink-soft); margin-top: 0; }
 #map-container { height: 70vh; margin-top: 1rem; background: var(--void); border-radius: 8px; display: none; }
