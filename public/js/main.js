@@ -35,52 +35,6 @@ document.getElementById('tab-btn-map').textContent = CONFIG.tabs.map;
       });
     });
 
-// iPadOS Safari split/Stage Manager resize can RESCALE the page
-// instead of reflowing it: the layout viewport keeps a stale width
-// (here: clientWidth stuck at a mid-drag value) and a <1 scale is
-// applied to the whole canvas, leaving a gap at the right edge that
-// no CSS can address (100% and clientWidth both resolve against the
-// same stale layout viewport — which is also why the earlier
-// --viewport-w JS never helped). Rewriting the viewport meta content
-// after resizes settle forces WebKit to recompute the layout width
-// from device-width and reset scale to 1. The two content strings
-// are semantically identical (1 vs 1.0) — alternating guarantees the
-// attribute actually changes so WebKit reprocesses it.
-(function () {
-  const meta = document.querySelector('meta[name="viewport"]');
-  if (!meta) return;
-  const rest = 'width=device-width, initial-scale=1, minimum-scale=1';
-  const clamp = rest + ', maximum-scale=1';
-  let settleTimer = null;
-  function reassert() {
-    // Trigger ONLY on the broken-state signature: scale below 1
-    // (users can pinch-zoom IN past 1, never OUT below fit, so a
-    // sub-1 scale is always Safari's stale-resize state, and
-    // checking > 1 here would stomp intentional user zoom). Fallback
-    // without visualViewport: layout narrower than the window, which
-    // is likewise impossible via user zoom.
-    const scaledDown = window.visualViewport
-      ? window.visualViewport.scale < 0.999
-      : document.documentElement.clientWidth < window.innerWidth - 1;
-    if (scaledDown) {
-      // Semantically-equivalent content rewrites are parse-identical
-      // no-ops to WebKit (1 vs 1.0 confirmed ineffective). Forcing a
-      // REAL constraint change works: clamp maximum-scale=1 so the
-      // sub-1 scale is invalid and WebKit must recompute layout at
-      // scale 1, then release the clamp so pinch-zoom-in still works.
-      meta.setAttribute('content', clamp);
-      setTimeout(function () { meta.setAttribute('content', rest); }, 100);
-    }
-  }
-  function schedule() {
-    clearTimeout(settleTimer);
-    settleTimer = setTimeout(reassert, 250);
-  }
-  window.addEventListener('resize', schedule);
-  if (window.visualViewport) window.visualViewport.addEventListener('resize', schedule);
-  schedule();
-})();
-
 // TEMP DEBUG (remove after nav-width diagnosis): live width readout.
 // Distinguishes a stale layout viewport (clientWidth) from the real
 // window size (innerWidth / visualViewport.width) after iPad split
