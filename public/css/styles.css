@@ -239,8 +239,15 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
    popup taller than the visible map gets its top cut off. Letting it
    overflow instead means the popup floats freely above the map well
    rather than fighting autoPan for space inside it (see
-   bindPinPreviewPopup in map.js for the autoPan side of this fix). */
-#map-container.leaflet-container { overflow: visible; }
+   bindPinPreviewPopup in map.js for the autoPan side of this fix).
+   Only the vertical axis needs this — popups only grow taller, never
+   wider, than the map. A blanket overflow:visible let Leaflet's
+   internal panes bleed horizontally too, inflating the page's total
+   scroll width and making the main nav bar (sized against that
+   inflated width) fall short of the actual window edge — same class
+   of bug as the earlier Admin grid min-width:0 issue. Keeping
+   overflow-x: hidden avoids reopening that. */
+#map-container.leaflet-container { overflow-x: hidden; overflow-y: visible; }
 .entity-preview-card h3 { margin: 0; font-size: 1.15rem; font-family: var(--font-display), sans-serif; font-weight: 400; }
 .entity-preview-card .entity-type-line { margin: 0.2rem 0 0.6rem; font-size: 0.85rem; }
 .entity-preview-card .entity-meta-line { font-size: 0.8rem; margin: -0.1rem 0 0.6rem; }
