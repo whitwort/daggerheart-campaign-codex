@@ -61,6 +61,21 @@ function bindPinPreviewPopup(layer, entity, gmView, handleClick, navigateFn) {
   });
   layer.bindPopup(function () { return buildEntityPreviewCard(entity, gmView); },
     { className: 'entity-preview-popup', maxWidth: 280, autoPan: false });
+  // The map container is clipped (overflow: hidden — see styles.css
+  // for why visible is banned), so a popup taller than the space
+  // between its pin and the container top would get its top cut off.
+  // Cap the scrollable content area to the space actually available
+  // above the anchor instead: ~90px covers popup chrome (tip, padding,
+  // title) and the 140px floor keeps popups usable for pins hugging
+  // the top edge (those may still clip slightly — accepted tradeoff).
+  layer.on('popupopen', function (e) {
+    const map = layer._map;
+    const contentEl = e.popup.getElement() && e.popup.getElement().querySelector('.leaflet-popup-content');
+    if (!map || !contentEl) return;
+    const anchorY = map.latLngToContainerPoint(e.popup.getLatLng()).y;
+    const available = Math.max(140, anchorY - 90);
+    contentEl.style.maxHeight = Math.min(available, window.innerHeight * 0.5) + 'px';
+  });
   // Real mouse hover only. Leaflet's own abstracted 'mouseover' event
   // can also fire from the browser's synthetic touch-to-mouse
   // translation (used so :hover CSS still works after a tap) — when
