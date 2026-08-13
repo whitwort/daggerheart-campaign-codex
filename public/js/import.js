@@ -40,6 +40,11 @@ const db = getFirestore(firebaseApp);
 // - Created entities: visibility 'gm-only', hasMapImage false.
 // - Lore items: kind 'imported', authorId null, authorType 'gm',
 //   visibility 'gm-only', order = source array index.
+// - authorId/authorType convention (all writers): authorType 'gm' means
+//   authorId null; authorType 'character' means authorId is the authoring
+//   Player Character's entities/ doc id (never a uid/email — a player may
+//   own several PCs, and authorship must survive a PC's death). No writer
+//   sets 'character' yet (Phase 14, player contribution).
 
 const importJsonEl = document.getElementById('admin-import-json');
 const importRunBtn = document.getElementById('admin-import-run-btn');

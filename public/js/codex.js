@@ -400,10 +400,19 @@ gmViewSelect.addEventListener('change', function () {
   notifyVisibilityChange();
 });
 
+// Authorship model: authorType is 'gm' (authorId null) or 'character'
+// (authorId = the authoring Player Character's entities/ doc id — never a
+// player's uid/email). "Written by" tracks in-fiction knowledge, not who's
+// at the table: a player owns one or more PCs (admin.js players/ +
+// entities.ownerId=email), and a PC's authorship survives the PC's death.
+// So "can this player see an author-only item" resolves through the
+// authoring character's owner, not the item itself.
 function loreItemVisibleToPlayer(item) {
   if (item.visibility === 'all-players') return true;
-  return item.visibility === 'author-only'
-    && state.currentUser && item.authorId === state.currentUser.uid;
+  if (item.visibility !== 'author-only') return false;
+  if (item.authorType !== 'character' || !item.authorId || !state.currentUser) return false;
+  const authorEntity = state.allEntities.find(function (e) { return e.id === item.authorId; });
+  return !!authorEntity && authorEntity.ownerId === state.currentUser.email;
 }
 
 function loreItemsForEntity(entityId, gmView) {
@@ -1081,7 +1090,7 @@ function saveLoreEdit(entity, editState, isNew, saveBtn) {
       return addDoc(collection(db, 'loreItems'), {
         entityId: entity.id,
         kind: 'gm-note',
-        authorId: state.currentUser ? state.currentUser.uid : null,
+        authorId: null,
         authorType: 'gm',
         visibility: editState.visibility,
         content: c,
