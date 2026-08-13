@@ -32,6 +32,7 @@ export const state = {
   leafletMap: null,
   loadedMapId: null,
   mapImgHeight: 0,
+  mapImgWidth: 0,
   pinLayer: null,
   allPins: [],
   currentMapEntityId: null,  // Location entity whose map image is shown
