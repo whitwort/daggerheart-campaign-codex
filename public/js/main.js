@@ -53,9 +53,16 @@ document.getElementById('tab-btn-map').textContent = CONFIG.tabs.map;
   let flip = 0;
   let settleTimer = null;
   function reassert() {
-    const drift = Math.abs(document.documentElement.clientWidth - window.innerWidth);
-    const scaled = window.visualViewport && Math.abs(window.visualViewport.scale - 1) > 0.001;
-    if (drift > 1 || scaled) {
+    // Trigger ONLY on the broken-state signature: scale below 1
+    // (users can pinch-zoom IN past 1, never OUT below fit, so a
+    // sub-1 scale is always Safari's stale-resize state, and
+    // checking > 1 here would stomp intentional user zoom). Fallback
+    // without visualViewport: layout narrower than the window, which
+    // is likewise impossible via user zoom.
+    const scaledDown = window.visualViewport
+      ? window.visualViewport.scale < 0.999
+      : document.documentElement.clientWidth < window.innerWidth - 1;
+    if (scaledDown) {
       flip = 1 - flip;
       meta.setAttribute('content', variants[flip]);
     }
