@@ -322,9 +322,17 @@ function portraitObserveContainer(el) {
   if (portraitObservedEl === el) return;
   if (!portraitResizeObserver) {
     portraitResizeObserver = new ResizeObserver(function () {
-      if (cardHeroState && cardHeroState.containerEl.isConnected) {
-        portraitRenderInto(cardHeroState.imgEl, cardHeroState.hWrapEl, cardHeroState.vWrapEl, cardHeroState.containerEl, cardHeroState.portrait);
-      }
+      // Deferred to next frame: the callback below mutates band.style.height,
+      // and heroWrap (the observed element) sizes against band via CSS — a
+      // synchronous mutation here resizes the observed element from inside
+      // its own callback, which is exactly the pattern that trips browsers'
+      // "ResizeObserver loop completed with undelivered notifications"
+      // warning. Deferring breaks the same-frame self-trigger.
+      requestAnimationFrame(function () {
+        if (cardHeroState && cardHeroState.containerEl.isConnected) {
+          portraitRenderInto(cardHeroState.imgEl, cardHeroState.hWrapEl, cardHeroState.vWrapEl, cardHeroState.containerEl, cardHeroState.portrait);
+        }
+      });
     });
   }
   if (portraitObservedEl) portraitResizeObserver.unobserve(portraitObservedEl);
