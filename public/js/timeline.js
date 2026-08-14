@@ -30,12 +30,12 @@ function buildTimelinePanel() {
   introP.className = 'admin-hint';
   introP.appendChild(document.createTextNode('Dates use the campaign\u2019s shorthand notation \u2014 see '));
   const explainerEntity = state.allEntities.find(function (e) {
-    return e.category === 'Game Mechanics' && e.name === 'Dates and Time';
+    return (e.name || '').trim().toLowerCase() === 'dates and time';
   });
   if (explainerEntity && (isGmView() || isEntityPlayerVisible(explainerEntity.id))) {
     const link = document.createElement('a');
     link.href = '#';
-    link.textContent = '\u201cDates and Time\u201d';
+    link.textContent = '\u201cDates and Time\u201d (' + explainerEntity.category + ')';
     link.addEventListener('click', function (ev) {
       ev.preventDefault();
       switchToCodexEntity(explainerEntity.id);
