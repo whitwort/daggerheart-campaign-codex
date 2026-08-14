@@ -1,18 +1,21 @@
 import {
-  getFirestore, doc, collection, writeBatch, serverTimestamp,
+  getFirestore, doc, setDoc, collection, writeBatch, serverTimestamp,
   query, where, getDocs
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
-import { addSource } from './sources.js';
 
 const db = getFirestore(firebaseApp);
 
-// All SRD-imported content is attributed to this fixed source, resolved
-// (or created, on first ever import) at the start of every run — see
-// ensureSrdSourceId() below. Self-configuring: doesn't depend on Gregg
-// having created it first via the Admin > Sources UI.
-const SRD_SOURCE_TEXT = 'Daggerheart SRD/Darrington Press: <www.darringtonpress.com/license>';
+// All SRD-imported content is attributed to this fixed-id source doc
+// (found-or-created by ID, not text — durable against Gregg editing the
+// display text later via Admin > Sources, which a text-match lookup
+// would break). [text](url) link syntax, not <url> autolink syntax —
+// <...> requires a scheme (http://) to parse as a link; a bare
+// www.-prefixed autolink without one renders with stray literal
+// "<"/">" around it.
+const SRD_SOURCE_ID = 'srd-daggerheart';
+const SRD_SOURCE_TEXT = 'Daggerheart SRD/Darrington Press: [www.darringtonpress.com/license](https://www.darringtonpress.com/license)';
 
 // --- SRD import (Phase 12b) ----------------------------------------------
 // GM-only, driven by the Admin tab's "Import from SRD" tab (conditional on
@@ -170,14 +173,17 @@ function commitOpsChunked(ops, progressCb) {
   return p;
 }
 
-// Finds the SRD source by exact text match (state.allSources is already
+// Finds the SRD source by its fixed doc id (state.allSources is already
 // live for the GM — same in-memory-filter-over-fresh-query pattern used
-// for entity idempotency elsewhere in this file), creating it on first
-// run if it doesn't exist yet.
+// for entity idempotency elsewhere in this file), creating it with the
+// default text on first run only. If Gregg has since edited the text via
+// Admin > Sources, that edit is left alone — we never overwrite it.
 function ensureSrdSourceId() {
-  const existing = state.allSources.find(function (s) { return s.text === SRD_SOURCE_TEXT; });
+  const existing = state.allSources.find(function (s) { return s.id === SRD_SOURCE_ID; });
   if (existing) return Promise.resolve(existing.id);
-  return addSource(SRD_SOURCE_TEXT).then(function (ref) { return ref.id; });
+  return setDoc(doc(db, 'sources', SRD_SOURCE_ID), {
+    text: SRD_SOURCE_TEXT, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+  }).then(function () { return SRD_SOURCE_ID; });
 }
 
 function runSrdImport(repo, progressCb) {
