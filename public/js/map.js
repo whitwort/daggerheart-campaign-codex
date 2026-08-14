@@ -8,7 +8,7 @@ import {
   registerVisibilityChangeHandler, registerMapNavigationHandler, clearCodexSearchInput,
   buildEntityPreviewCard, categoryGroupLabel
 } from './codex.js';
-import { renderAdminRootEntitySelect } from './admin.js';
+import { renderAdminRootEntitySelect, renderAdminCampaignTypeSelect, renderAdminSrdRepo } from './admin.js';
 import { entityMapImageDocId, getCachedImage, putCachedImage } from './images.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
 
@@ -768,6 +768,8 @@ function attachConfigListener() {
       const newRoot = docSnap.exists() ? (docSnap.data().rootEntityId || null) : null;
       const wasFollowingRoot = state.currentMapEntityId === lastKnownRootEntityId;
       state.rootEntityId = newRoot;
+      state.campaignType = docSnap.exists() ? (docSnap.data().campaignType || 'daggerheart') : 'daggerheart';
+      state.srdRepo = docSnap.exists() && docSnap.data().srdRepo ? docSnap.data().srdRepo : 'seansbox/daggerheart-srd';
       if (wasFollowingRoot) {
         state.currentMapEntityId = newRoot;
       } else {
@@ -775,6 +777,8 @@ function attachConfigListener() {
       }
       lastKnownRootEntityId = newRoot;
       renderAdminRootEntitySelect();
+      renderAdminCampaignTypeSelect();
+      renderAdminSrdRepo();
       if (document.getElementById('map-panel').classList.contains('active')) {
         ensureMapTabReady();
       }

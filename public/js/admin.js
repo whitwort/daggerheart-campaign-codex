@@ -18,6 +18,13 @@ const adminAddPlayerErrorEl = document.getElementById('admin-add-player-error');
 const adminPlayersTbodyEl = document.getElementById('admin-players-tbody');
 const adminRootEntitySelectEl = document.getElementById('admin-root-entity-select');
 const adminRootEntityStatusEl = document.getElementById('admin-root-entity-status');
+const adminCampaignTypeSelectEl = document.getElementById('admin-campaign-type-select');
+const adminCampaignTypeStatusEl = document.getElementById('admin-campaign-type-status');
+const adminDbSrdTabBtnEl = document.getElementById('admin-db-srd-tab-btn');
+const adminSrdRepoEl = document.getElementById('admin-srd-repo');
+const adminSrdRepoStatusEl = document.getElementById('admin-srd-repo-status');
+const adminSrdUpdateBtnEl = document.getElementById('admin-srd-update-btn');
+const adminSrdUpdateStatusEl = document.getElementById('admin-srd-update-status');
 
     // --- Admin: root map selector (Phase 7b-4). GM-only control, but
     // Root location: which Location entity's map image is the top-level
@@ -60,6 +67,61 @@ const adminRootEntityStatusEl = document.getElementById('admin-root-entity-statu
         .finally(function () {
           state.adminRootSelectUpdating = false;
         });
+    });
+
+    // --- Admin: campaign type (Phase 12b). Gates Daggerheart-specific UI
+    // (e.g. the Import from SRD tab). Same config/campaign doc as the
+    // root-entity setting above; updated via the shared config listener
+    // in map.js.
+
+    function renderAdminCampaignTypeSelect() {
+      adminCampaignTypeSelectEl.value = state.campaignType || 'daggerheart';
+      adminDbSrdTabBtnEl.style.display = state.campaignType === 'daggerheart' ? '' : 'none';
+      if (state.campaignType !== 'daggerheart' && adminDbSrdTabBtnEl.classList.contains('active')) {
+        // Selected tab just got hidden — fall back to Backup.
+        adminDbSrdTabBtnEl.classList.remove('active');
+        document.getElementById('admin-db-srd').classList.remove('active');
+        document.querySelector('#admin-db-tabs button[data-db-tab="admin-db-backup"]').classList.add('active');
+        document.getElementById('admin-db-backup').classList.add('active');
+      }
+    }
+
+    adminCampaignTypeSelectEl.addEventListener('change', function () {
+      const newCampaignType = adminCampaignTypeSelectEl.value;
+      adminCampaignTypeStatusEl.textContent = 'Saving...';
+      setDoc(doc(db, 'config', 'campaign'), { campaignType: newCampaignType }, { merge: true })
+        .then(function () {
+          adminCampaignTypeStatusEl.textContent = 'Saved.';
+        })
+        .catch(function (err) {
+          adminCampaignTypeStatusEl.textContent = 'Save failed: ' + err.message;
+        });
+    });
+
+    // --- Admin: SRD import repo setting (Phase 12b scaffolding). Actual
+    // SRD parsing/import lands in a future session (Phase 13); this wires
+    // the repo setting to config/campaign and stubs the button.
+
+    function renderAdminSrdRepo() {
+      if (document.activeElement === adminSrdRepoEl) return;
+      adminSrdRepoEl.value = state.srdRepo || '';
+    }
+
+    adminSrdRepoEl.addEventListener('change', function () {
+      const newSrdRepo = adminSrdRepoEl.value.trim() || 'seansbox/daggerheart-srd';
+      adminSrdRepoEl.value = newSrdRepo;
+      adminSrdRepoStatusEl.textContent = 'Saving...';
+      setDoc(doc(db, 'config', 'campaign'), { srdRepo: newSrdRepo }, { merge: true })
+        .then(function () {
+          adminSrdRepoStatusEl.textContent = 'Saved.';
+        })
+        .catch(function (err) {
+          adminSrdRepoStatusEl.textContent = 'Save failed: ' + err.message;
+        });
+    });
+
+    adminSrdUpdateBtnEl.addEventListener('click', function () {
+      adminSrdUpdateStatusEl.textContent = 'SRD import not yet implemented.';
     });
 
     // --- Admin tab (Phase 7a-5/6): GM-only. Listeners are only attached
@@ -281,4 +343,7 @@ document.querySelectorAll('#admin-db-tabs button').forEach(function (btn) {
   });
 });
 
-export { attachAdminListeners, detachAdminListeners, renderAdminRootEntitySelect, renderAdminPlayersList };
+export {
+  attachAdminListeners, detachAdminListeners, renderAdminRootEntitySelect, renderAdminPlayersList,
+  renderAdminCampaignTypeSelect, renderAdminSrdRepo
+};
