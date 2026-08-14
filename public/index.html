@@ -176,12 +176,12 @@
     <section id="admin-section-database" class="admin-card">
       <h2>Data</h2>
       <div id="admin-db-tabs">
-        <button type="button" class="active" data-db-tab="admin-db-import">Import Lore</button>
+        <button type="button" class="active" data-db-tab="admin-db-backup">Backup</button>
+        <button type="button" data-db-tab="admin-db-import">Import Lore</button>
         <button type="button" data-db-tab="admin-db-export">Export Lore</button>
-        <button type="button" data-db-tab="admin-db-backup">Backup</button>
       </div>
 
-      <div id="admin-db-import" class="admin-db-tab-panel active">
+      <div id="admin-db-import" class="admin-db-tab-panel">
         <p>Paste JSON or Upload a file containing lore data (entities, lore, images, etc.).</p>
         <textarea id="admin-import-json" rows="8" style="width:100%;box-sizing:border-box;" placeholder='{"entities": []}'></textarea>
         <div class="actions-row">
@@ -203,7 +203,7 @@
         <p class="lore-empty">Export tools are coming in a future update.</p>
       </div>
 
-      <div id="admin-db-backup" class="admin-db-tab-panel">
+      <div id="admin-db-backup" class="admin-db-tab-panel active">
         <h3>Download a backup</h3>
         <p>Download a full raw copy of the backend database for the current project.</p>
         <div class="actions-row">
@@ -230,10 +230,6 @@
           </div>
         </div>
         <div id="backup-restore-summary" class="actions-row-left"></div>
-        <button type="button" id="backup-restore-log-toggle" class="collapse-toggle">Log &#9656;</button>
-        <div id="backup-restore-log-body" style="display:none;">
-          <pre id="backup-restore-report" style="white-space:pre-wrap;overflow-x:auto;"></pre>
-        </div>
       </div>
     </section>
     </div>

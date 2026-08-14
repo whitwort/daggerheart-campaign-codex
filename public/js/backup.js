@@ -121,9 +121,6 @@ const restoreUploadBtn = document.getElementById('backup-restore-upload-btn');
 const restoreFileInputEl = document.getElementById('backup-restore-file-input');
 const restoreRunBtn = document.getElementById('backup-restore-run-btn');
 const restoreSummaryEl = document.getElementById('backup-restore-summary');
-const restoreLogToggleEl = document.getElementById('backup-restore-log-toggle');
-const restoreLogBodyEl = document.getElementById('backup-restore-log-body');
-const restoreReportEl = document.getElementById('backup-restore-report');
 
 let pendingDump = null;
 
@@ -185,7 +182,7 @@ restoreRunBtn.addEventListener('click', function () {
 
   restoreRunBtn.disabled = true;
   const lines = [];
-  function log(line) { lines.push(line); restoreReportEl.textContent = lines.join('\n'); }
+  function log(line) { lines.push(line); restoreSummaryEl.textContent = lines.join('\n'); }
 
   runBackupRestore(pendingDump, mode, log).then(function () {
     log('Done.');
@@ -194,9 +191,4 @@ restoreRunBtn.addEventListener('click', function () {
     log('Restore failed: ' + err.message);
     restoreRunBtn.disabled = false;
   });
-});
-
-restoreLogToggleEl.addEventListener('click', function () {
-  const open = restoreLogBodyEl.style.display !== 'none';
-  restoreLogBodyEl.style.display = open ? 'none' : 'block';
 });
