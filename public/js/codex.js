@@ -2295,13 +2295,6 @@ function renderDetailForSelected() {
   headingRow.appendChild(rightCol);
   headingTarget.appendChild(headingRow);
 
-  if (!editing) {
-    const sourceLabelDiv = document.createElement('div');
-    sourceLabelDiv.className = 'source-label';
-    renderSourceLabel(sourceLabelDiv, entity.sourceId);
-    headingTarget.appendChild(sourceLabelDiv);
-  }
-
   if (editing) {
     const editBlock = document.createElement('div');
     editBlock.className = 'entity-edit-block';
@@ -2383,10 +2376,18 @@ function renderDetailForSelected() {
     }
   }
 
-  // --- Entity-level GM actions: bottom-right of the Entry Card ---
+  // --- Bottom row: source attribution (always, lower-left) + GM
+  // Edit/Delete actions (lower-right, GM only) ---
+  const cardActions = document.createElement('div');
+  cardActions.className = 'actions-row codex-card-bottom-actions';
+  const left = document.createElement('div');
+  left.className = 'actions-row-left';
+  const sourceLabelDiv = document.createElement('div');
+  sourceLabelDiv.className = 'source-label';
+  renderSourceLabel(sourceLabelDiv, entity.sourceId);
+  left.appendChild(sourceLabelDiv);
+  cardActions.appendChild(left);
   if (gmView) {
-    const cardActions = document.createElement('div');
-    cardActions.className = 'actions-row codex-card-bottom-actions';
     const right = document.createElement('div');
     right.className = 'actions-row-right';
     const editBtn = document.createElement('button');
@@ -2400,8 +2401,8 @@ function renderDetailForSelected() {
     deleteBtn.addEventListener('click', function () { deleteEntity(entity); });
     right.appendChild(deleteBtn);
     cardActions.appendChild(right);
-    contentWrap.appendChild(cardActions);
   }
+  contentWrap.appendChild(cardActions);
 }
 
 searchEl.addEventListener('input', renderList);
