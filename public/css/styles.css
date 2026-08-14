@@ -906,3 +906,19 @@ button:disabled:hover { border-color: var(--void-line); }
 .portrait-fade-row input[type="range"] { width: 100%; accent-color: var(--hope); }
 .portrait-fade-value { text-align: right; color: rgba(233,221,194,0.65); }
 
+#timeline-panel { padding: 1rem 1.5rem; }
+#timeline-list { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 1rem; }
+/* Exception (QOL-BACKLOG #11): full-width flat row buttons, not fixed-width
+   action buttons -- same width:auto/min-width:0 override pattern as
+   .related-chip above, needed because the base button rule is width:13rem. */
+.timeline-row,
+.timeline-row:active,
+.timeline-row:focus {
+  display: flex; align-items: baseline; gap: 0.75rem; width: 100%; min-width: 0;
+  text-align: left; background: rgba(94,130,150,0.10); border: 1px solid transparent;
+  border-radius: 6px; padding: 0.5rem 0.75rem; cursor: pointer; box-shadow: none; outline: none;
+}
+.timeline-row:hover { background: rgba(94,130,150,0.18); border-color: rgba(61,84,100,0.3); }
+.timeline-row-date { font-family: 'Comfortaa', sans-serif; font-size: 0.8rem; color: var(--ink-soft); min-width: 8rem; flex-shrink: 0; }
+.timeline-row-name { font-weight: 600; flex-grow: 1; }
+.timeline-row-cat { font-size: 0.75rem; color: var(--ink-soft); font-style: italic; }

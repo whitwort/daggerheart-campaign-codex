@@ -7,6 +7,7 @@ import { state } from './state.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
 import { renderMarkdownInto } from './markdown.js';
 import { renderAdminRootEntitySelect, renderAdminPlayersList } from './admin.js';
+import { parseDateSpec } from './dates.js';
 import {
   uploadEntityMapImage, deleteEntityMapImage,
   uploadEntityGalleryImage, deleteEntityGalleryImage, setGalleryImageVisibility, setEntityPortrait
@@ -811,6 +812,16 @@ function saveEntityEdit(entity) {
   const cat = draft.category;
   const tags = draft.tags.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
   const aliases = draft.aliases.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+  const dateStr = ((cat === 'Scene' || cat === 'Event') && draft.date.trim()) ? draft.date.trim() : '';
+  let dateSort = null;
+  if (dateStr) {
+    const parsed = parseDateSpec(dateStr);
+    if (!parsed.ok) {
+      window.alert('Date: ' + parsed.error);
+      return;
+    }
+    dateSort = parsed.offsetSeconds;
+  }
   const entityData = {
     slug: slugify(name),
     name: name,
@@ -818,7 +829,8 @@ function saveEntityEdit(entity) {
     ancestry: (cat === 'Character' && draft.ancestry.trim()) ? draft.ancestry.trim() : null,
     subtype: ((CONFIG.subtypesByCategory[cat] || []).length && draft.subtype) ? draft.subtype : null,
     aliases: (cat === 'Character') ? aliases : [],
-    date: ((cat === 'Scene' || cat === 'Event') && draft.date.trim()) ? draft.date.trim() : null,
+    date: dateStr || null,
+    dateSort: dateSort,
     ownerId: (cat === 'Character' && draft.ownerId) ? draft.ownerId : null,
     parentId: draft.parentId || null,
     relatedIds: draft.relatedIds.slice(),
@@ -1077,6 +1089,7 @@ function saveNewEntity() {
     ancestry: null,
     aliases: [],
     date: null,
+    dateSort: null,
     parentId: null,
     relatedIds: [],
     visibility: 'gm-only',
@@ -2153,7 +2166,7 @@ function renderDetailForSelected() {
       leftCol.appendChild(ownerWrap);
     }
     if (draft.category === 'Scene' || draft.category === 'Event') {
-      leftCol.appendChild(makeEditField('Date', draft.date, function (v) { draft.date = v; }, { placeholder: 'e.g. Day 2, 3500 ya' }));
+      leftCol.appendChild(makeEditField('Date', draft.date, function (v) { draft.date = v; }, { placeholder: 'e.g. 12d, 45y   or   3500ya' }));
     }
   } else {
     const heading = document.createElement('h2');

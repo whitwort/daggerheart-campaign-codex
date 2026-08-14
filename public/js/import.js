@@ -4,6 +4,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp, CONFIG } from './firebase.js';
 import { state } from './state.js';
+import { parseDateSpec } from './dates.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -269,6 +270,14 @@ function validateImport() {
     if ('date' in raw && typeof raw.date !== 'string') {
       errors.push(label + ' (' + name + '): date must be a string'); return;
     }
+    let dateSort = null;
+    if ('date' in raw && raw.date) {
+      const parsedDate = parseDateSpec(raw.date);
+      if (!parsedDate.ok) {
+        errors.push(label + ' (' + name + '): date "' + raw.date + '" — ' + parsedDate.error); return;
+      }
+      dateSort = parsedDate.offsetSeconds;
+    }
     const aliases = raw.aliases || [];
     if (!Array.isArray(aliases) || aliases.some(function (a) { return typeof a !== 'string'; })) {
       errors.push(label + ' (' + name + '): aliases must be an array of strings'); return;
@@ -286,6 +295,7 @@ function validateImport() {
       parentSlug: raw.parentSlug, relatedSlugs: relatedSlugs,
       tags: tags, lore: lore, isDuplicate: isDuplicate,
       ancestry: raw.ancestry || null, aliases: aliases, date: raw.date || null,
+      dateSort: dateSort,
       subtype: raw.subtype || null,
       hasRelated: ('relatedSlugs' in raw), hasTags: ('tags' in raw),
       hasAncestry: ('ancestry' in raw), hasAliases: ('aliases' in raw),
@@ -488,6 +498,7 @@ function runImport() {
           ancestry: it.ancestry,
           aliases: it.aliases,
           date: it.date,
+          dateSort: it.dateSort,
           subtype: it.subtype,
           visibility: 'gm-only',
           hasMapImage: false,
@@ -510,6 +521,7 @@ function runImport() {
         ancestry: it.ancestry,
         aliases: it.aliases,
         date: it.date,
+        dateSort: it.dateSort,
         subtype: it.subtype,
         visibility: 'gm-only',
         hasMapImage: existing.hasMapImage || false,
@@ -537,7 +549,7 @@ function runImport() {
       if (it.hasTags) data.tags = it.tags;
       if (it.hasAncestry) data.ancestry = it.ancestry;
       if (it.hasAliases) data.aliases = it.aliases;
-      if (it.hasDate) data.date = it.date;
+      if (it.hasDate) { data.date = it.date; data.dateSort = it.dateSort; }
       if (it.hasSubtype) data.subtype = it.subtype;
       ops.push({ type: 'update', ref: doc(db, 'entities', it.id), data: data });
       const existingLore = loreByEntity[it.id] || [];
