@@ -13,6 +13,7 @@ import {
   uploadEntityMapImage, deleteEntityMapImage,
   uploadEntityGalleryImage, deleteEntityGalleryImage, setGalleryImageVisibility, setGalleryImageSource, setEntityPortrait
 } from './images.js';
+import { getTemplateSchema } from './templates.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -36,6 +37,19 @@ function slugify(name) {
   return name.toLowerCase().trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
+}
+
+// Kept in sync with the copy in srd-import.js (small, not worth a
+// shared-utils module split -- same convention as slugify above).
+function humanizeKey(key) {
+  return key.replace(/_/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+}
+
+// Resolves the subtype a draft's category/subtype pair should be saved
+// and looked up under -- categories without a subtypesByCategory list
+// never carry one, matching saveEntityEdit's own resolution.
+function draftSubtype(draft) {
+  return ((CONFIG.subtypesByCategory[draft.category] || []).length && draft.subtype) ? draft.subtype : null;
 }
 
 // CSS class carrying the entry-type dot/pin color (see styles.css "Pin
@@ -797,7 +811,10 @@ function buildEntityDraft(entity) {
     relatedIds: (entity.relatedIds || []).slice(),
     ownerId: entity.ownerId || '',
     sourceId: entity.sourceId || null,
-    meta: !!entity.meta
+    meta: !!entity.meta,
+    useTemplate: !!entity.useTemplate,
+    details: Object.assign({}, entity.details || {}),
+    features: (entity.features || []).map(function (f) { return { name: f.name || '', text: f.text || '' }; })
   };
 }
 
@@ -833,12 +850,18 @@ function saveEntityEdit(entity) {
     }
     dateSort = parsed.offsetSeconds;
   }
+  const subtype = draftSubtype(draft);
+  // useTemplate only sticks if a template schema still applies to the
+  // saved category/subtype (guards against a stale true left over from
+  // before the category was changed) -- details/features data itself is
+  // never wiped, so flipping back is non-destructive.
+  const templateSchema = getTemplateSchema(cat, subtype);
   const entityData = {
     slug: slugify(name),
     name: name,
     category: cat,
     ancestry: (cat === 'Character' && draft.ancestry.trim()) ? draft.ancestry.trim() : null,
-    subtype: ((CONFIG.subtypesByCategory[cat] || []).length && draft.subtype) ? draft.subtype : null,
+    subtype: subtype,
     aliases: (cat === 'Character') ? aliases : [],
     date: dateStr || null,
     dateSort: dateSort,
@@ -848,6 +871,9 @@ function saveEntityEdit(entity) {
     tags: tags,
     sourceId: draft.sourceId || null,
     meta: !!draft.meta,
+    useTemplate: !!draft.useTemplate && !!templateSchema,
+    details: draft.details || {},
+    features: draft.features || [],
     updatedAt: serverTimestamp()
   };
   updateDoc(doc(db, 'entities', entity.id), entityData).then(function () {
@@ -1026,6 +1052,106 @@ function buildMapImageEditSection(entity) {
   return wrap;
 }
 
+// Structured stat-block editor (Weapons/Armor/Abilities pilot): only
+// rendered when a template schema applies to the draft's current
+// category/subtype (see templates.js). The "Use structured template"
+// toggle is per-entity opt-in per Gregg's design -- unchecked leaves
+// details/features data in place but unused, so re-checking later is
+// non-destructive. Detail keys are the schema's fixed whitelist (not a
+// freeform key list -- that's the point, keeps search indexing sane);
+// Features is a freely add/removable {name,text} list.
+function buildTemplateEditor(draft) {
+  const schema = getTemplateSchema(draft.category, draftSubtype(draft));
+  if (!schema) return null;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'entity-edit-field entity-edit-template-block';
+
+  const toggleWrap = document.createElement('div');
+  toggleWrap.className = 'entity-edit-meta-row';
+  const toggleLabel = document.createElement('label');
+  toggleLabel.className = 'toggle-switch';
+  const toggleInput = document.createElement('input');
+  toggleInput.type = 'checkbox';
+  toggleInput.checked = !!draft.useTemplate;
+  toggleInput.addEventListener('change', function () {
+    draft.useTemplate = toggleInput.checked;
+    renderDetailForSelected();
+  });
+  const toggleSlider = document.createElement('span');
+  toggleSlider.className = 'toggle-slider';
+  toggleLabel.appendChild(toggleInput);
+  toggleLabel.appendChild(toggleSlider);
+  toggleWrap.appendChild(toggleLabel);
+  const toggleText = document.createElement('span');
+  toggleText.className = 'toggle-switch-label';
+  toggleText.textContent = 'Use structured template (Details/Features)';
+  toggleWrap.appendChild(toggleText);
+  wrap.appendChild(toggleWrap);
+
+  if (!draft.useTemplate) return wrap;
+
+  schema.detailKeys.forEach(function (d) {
+    const fieldWrap = document.createElement('div');
+    fieldWrap.className = 'entity-edit-field';
+    const label = document.createElement('label');
+    label.textContent = humanizeKey(d.key);
+    fieldWrap.appendChild(label);
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = draft.details[d.key] || '';
+    input.addEventListener('input', function () { draft.details[d.key] = input.value; });
+    fieldWrap.appendChild(input);
+    wrap.appendChild(fieldWrap);
+  });
+
+  if (schema.hasFeatures) {
+    const featLabel = document.createElement('label');
+    featLabel.textContent = 'Features';
+    wrap.appendChild(featLabel);
+    const featList = document.createElement('div');
+    featList.className = 'template-feature-edit-list';
+    draft.features.forEach(function (f, i) {
+      const row = document.createElement('div');
+      row.className = 'template-feature-edit-row';
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.placeholder = 'Name';
+      nameInput.value = f.name;
+      nameInput.addEventListener('input', function () { f.name = nameInput.value; });
+      row.appendChild(nameInput);
+      const textInput = document.createElement('input');
+      textInput.type = 'text';
+      textInput.placeholder = 'Effect text';
+      textInput.value = f.text;
+      textInput.addEventListener('input', function () { f.text = textInput.value; });
+      row.appendChild(textInput);
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'action-btn-compact';
+      removeBtn.textContent = 'Remove';
+      removeBtn.addEventListener('click', function () {
+        draft.features.splice(i, 1);
+        renderDetailForSelected();
+      });
+      row.appendChild(removeBtn);
+      featList.appendChild(row);
+    });
+    wrap.appendChild(featList);
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'action-btn-compact';
+    addBtn.textContent = '+ Add feature';
+    addBtn.addEventListener('click', function () {
+      draft.features.push({ name: '', text: '' });
+      renderDetailForSelected();
+    });
+    wrap.appendChild(addBtn);
+  }
+
+  return wrap;
+}
+
 function renderEntityEditBlock(container, entity, draft) {
   container.appendChild(buildParentSelect(entity.id, draft.parentId, function (v) { draft.parentId = v; }));
   container.appendChild(makeEditField('Tags (comma-separated)', draft.tags, function (v) { draft.tags = v; }));
@@ -1048,6 +1174,9 @@ function renderEntityEditBlock(container, entity, draft) {
   metaTextLabel.textContent = 'Meta';
   metaWrap.appendChild(metaTextLabel);
   container.appendChild(metaWrap);
+
+  const templateEditor = buildTemplateEditor(draft);
+  if (templateEditor) container.appendChild(templateEditor);
 
   container.appendChild(buildRelatedEditor(entity.id, draft));
   const sourceWrap = document.createElement('div');
@@ -1142,6 +1271,9 @@ function saveNewEntity() {
     tags: [],
     sourceId: (sortedSources()[0] && sortedSources()[0].id) || null,
     meta: false,
+    useTemplate: false,
+    details: {},
+    features: [],
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   };
@@ -2301,6 +2433,35 @@ function renderDetailForSelected() {
       metaDiv.className = 'entity-meta-line';
       metaDiv.textContent = metaBits.join(' \u00b7 ');
       leftCol.appendChild(metaDiv);
+    }
+
+    // Structured stat block (Weapons/Armor/Abilities pilot) -- Details as
+    // a compact inline line, Features as named bullets. Nothing shown if
+    // useTemplate is off or both are empty (e.g. a template-eligible type
+    // Gregg hasn't opted an entry into yet).
+    if (entity.useTemplate) {
+      const detailKeys = Object.keys(entity.details || {});
+      if (detailKeys.length) {
+        const detailsDiv = document.createElement('div');
+        detailsDiv.className = 'entity-meta-line entity-template-details-line';
+        detailsDiv.textContent = detailKeys.map(function (k) {
+          return humanizeKey(k) + ': ' + entity.details[k];
+        }).join(' \u00b7 ');
+        leftCol.appendChild(detailsDiv);
+      }
+      if (entity.features && entity.features.length) {
+        const featuresDiv = document.createElement('div');
+        featuresDiv.className = 'entity-template-features';
+        entity.features.forEach(function (f) {
+          const p = document.createElement('p');
+          const strong = document.createElement('strong');
+          strong.textContent = f.name + '.';
+          p.appendChild(strong);
+          p.appendChild(document.createTextNode(' ' + f.text));
+          featuresDiv.appendChild(p);
+        });
+        leftCol.appendChild(featuresDiv);
+      }
     }
 
     if (entity.tags && entity.tags.length || entity.meta) {
