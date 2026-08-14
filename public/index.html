@@ -164,22 +164,22 @@
 
     <section id="admin-section-config" class="admin-card">
       <h2>Configuration</h2>
-      <h3>Map root location</h3>
-      <p id="admin-root-entity-hint" class="admin-hint">The Map tab shows this Location entity's map image.</p>
-      <div id="admin-root-entity">
-        <select id="admin-root-entity-select"><option value="">-- none --</option></select>
-      </div>
-      <p id="admin-root-entity-status"></p>
-
       <h3>Campaign type</h3>
       <p class="admin-hint">Turn on or off App features based on the type of campaign.</p>
       <div id="admin-campaign-type">
-        <select id="admin-campaign-type-select">
+        <select id="admin-campaign-type-select" class="admin-config-select">
           <option value="daggerheart">Daggerheart</option>
           <option value="not-daggerheart">Not Daggerheart</option>
         </select>
       </div>
       <p id="admin-campaign-type-status"></p>
+
+      <h3>Map root location</h3>
+      <p id="admin-root-entity-hint" class="admin-hint">The Map tab shows this Location entity's map image.</p>
+      <div id="admin-root-entity">
+        <select id="admin-root-entity-select" class="admin-config-select"><option value="">-- none --</option></select>
+      </div>
+      <p id="admin-root-entity-status"></p>
     </section>
 
     <section id="admin-section-sources" class="admin-card">
