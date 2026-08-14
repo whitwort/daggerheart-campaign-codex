@@ -43,6 +43,10 @@ height, with NO per-context exceptions, except:**
     all three matching, sized to fit the longest label ("Move pin"),
     not the app-wide 12rem — grouped bottom-right rather than
     stacked, matching the portrait-picker panel's button treatment.
+11. Timeline tab rows — `.timeline-row` — full-width flat rows (not
+    action buttons), one per dated Scene/Event, click-to-navigate to
+    the Codex entry. `width: auto; min-width: 0; text-align: left`
+    override, same pattern as `.related-chip`.
 
 Base width lowered from 13rem to 12rem as of the "+ New party member"
 → "+ New member" rename (that label no longer defines the floor).
@@ -200,6 +204,22 @@ it) is done and verified. Next up: Phase 13.
   same SRD type* that happen to share a name/slug — would silently
   overwrite as an "update." Hand-vet the data if this ever comes up
   rather than building detection speculatively.
+- **Dates & Timeline — first pass DONE (interjected before Phase 13).**
+  Normalized date notation (y/d/h/m tokens, epoch = campaign start,
+  1-indexed forward / literal-magnitude backward, spec locked with
+  Gregg) parsed and validated by `public/js/dates.js`
+  (`parseDateSpec`). Scene/Event entities get a `dateSort` field
+  (signed integer, internal sort key only, 64/64/16/256 s/m/h/d/y
+  ratio) computed on save in both the inline edit form (`codex.js`)
+  and bulk JSON import (`import.js`); bad syntax blocks save with an
+  explanation. New Timeline tab (`public/js/timeline.js`) lists dated
+  Scene/Event entities chronologically, click-through to the Codex
+  entry, links to a "Dates and Time" lore entry (Game Mechanics >
+  Aether's Children) for the player-facing explanation — entry
+  content drafted, not yet created in Firestore as of this session.
+  Not done: retroactive dateSort backfill for any pre-existing
+  Scene/Event entities that already have a free-text `date` but predate
+  this feature (none currently known to exist, but not verified).
 - **Phase 13 — Offline / degraded connectivity.** Missed opportunities
   for offline experience and handling intermittent connectivity at the
   table. Prod database backup/snapshot/export strategy folds in here.
