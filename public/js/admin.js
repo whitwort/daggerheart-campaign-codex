@@ -5,6 +5,8 @@ import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
 import { runSrdImport } from './srd-import.js';
+import { renderMarkdownInto } from './markdown.js';
+import { addSource, updateSource, deleteSource, registerSourcesChangeHandler } from './sources.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -26,6 +28,13 @@ const adminSrdRepoEl = document.getElementById('admin-srd-repo');
 const adminSrdRepoStatusEl = document.getElementById('admin-srd-repo-status');
 const adminSrdUpdateBtnEl = document.getElementById('admin-srd-update-btn');
 const adminSrdUpdateStatusEl = document.getElementById('admin-srd-update-status');
+const adminSourcesListEl = document.getElementById('admin-sources-list');
+const adminSourceNewBtn = document.getElementById('admin-source-new-btn');
+const adminNewSourceFormEl = document.getElementById('admin-new-source-form');
+const adminNewSourceTextEl = document.getElementById('admin-new-source-text');
+const adminSourceSaveBtn = document.getElementById('admin-source-save-btn');
+const adminSourceCancelBtn = document.getElementById('admin-source-cancel-btn');
+const adminSourceErrorEl = document.getElementById('admin-source-error');
 
     // --- Admin: root map selector (Phase 7b-4). GM-only control, but
     // Root location: which Location entity's map image is the top-level
@@ -344,6 +353,122 @@ function detachAdminListeners() {
   detachListener('joinRequestsUnsub');
   detachListener('playersUnsub');
 }
+
+// --- Admin: Sources (interjected before Phase 13). GM-only CRUD UI over
+// the sources collection (data layer + live listener in sources.js,
+// shared with codex.js/images.js for label/dropdown rendering). Listener
+// lifecycle is NOT admin-only (players need state.allSources too, for
+// their own attribution labels) — attached in auth.js's
+// attachDataListeners, not here. This module just renders the list and
+// registers for re-render on change.
+
+function renderAdminSourcesList() {
+  adminSourcesListEl.innerHTML = '';
+  if (state.allSources.length === 0) {
+    const emptyP = document.createElement('p');
+    emptyP.className = 'lore-empty';
+    emptyP.textContent = 'No sources defined yet.';
+    adminSourcesListEl.appendChild(emptyP);
+    return;
+  }
+  state.allSources.slice()
+    .sort(function (a, b) { return (a.text || '').localeCompare(b.text || ''); })
+    .forEach(function (s) {
+      const editing = state.adminSourceEditId === s.id;
+      const row = document.createElement('div');
+      row.className = 'admin-source-row';
+
+      if (editing) {
+        const textarea = document.createElement('textarea');
+        textarea.rows = 3;
+        textarea.style.width = '100%';
+        textarea.style.boxSizing = 'border-box';
+        textarea.value = state.adminSourceEditDraft;
+        textarea.addEventListener('input', function () { state.adminSourceEditDraft = textarea.value; });
+        row.appendChild(textarea);
+
+        const actions = document.createElement('div');
+        actions.className = 'actions-row-right';
+        const saveBtn = document.createElement('button');
+        saveBtn.textContent = 'Save';
+        saveBtn.addEventListener('click', function () {
+          const text = state.adminSourceEditDraft.trim();
+          if (!text) { window.alert('Source text is required.'); return; }
+          updateSource(s.id, text).then(function () {
+            state.adminSourceEditId = null;
+          }).catch(function (err) { window.alert('Save failed: ' + err.message); });
+        });
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.addEventListener('click', function () {
+          state.adminSourceEditId = null;
+          renderAdminSourcesList();
+        });
+        actions.appendChild(saveBtn);
+        actions.appendChild(cancelBtn);
+        row.appendChild(actions);
+      } else {
+        const bodyDiv = document.createElement('div');
+        bodyDiv.className = 'admin-source-body';
+        renderMarkdownInto(bodyDiv, s.text);
+        row.appendChild(bodyDiv);
+
+        const actions = document.createElement('div');
+        actions.className = 'actions-row-right';
+        const editBtn = document.createElement('button');
+        editBtn.textContent = 'Edit';
+        editBtn.addEventListener('click', function () {
+          state.adminSourceEditId = s.id;
+          state.adminSourceEditDraft = s.text || '';
+          renderAdminSourcesList();
+        });
+        const removeBtn = document.createElement('button');
+        removeBtn.textContent = 'Remove';
+        removeBtn.addEventListener('click', function () {
+          const confirmed = window.confirm('Remove this source? Entries citing it will show as having no source.');
+          if (!confirmed) return;
+          deleteSource(s.id).catch(function (err) { window.alert('Remove failed: ' + err.message); });
+        });
+        actions.appendChild(editBtn);
+        actions.appendChild(removeBtn);
+        row.appendChild(actions);
+      }
+
+      adminSourcesListEl.appendChild(row);
+    });
+}
+
+registerSourcesChangeHandler(renderAdminSourcesList);
+
+adminSourceNewBtn.addEventListener('click', function () {
+  adminNewSourceFormEl.style.display = 'block';
+  adminSourceErrorEl.textContent = '';
+  adminNewSourceTextEl.value = '';
+  adminNewSourceTextEl.focus();
+});
+
+adminSourceCancelBtn.addEventListener('click', function () {
+  adminNewSourceFormEl.style.display = 'none';
+  adminSourceErrorEl.textContent = '';
+});
+
+adminSourceSaveBtn.addEventListener('click', function () {
+  const text = adminNewSourceTextEl.value.trim();
+  adminSourceErrorEl.textContent = '';
+  if (!text) {
+    adminSourceErrorEl.textContent = 'Source text is required.';
+    return;
+  }
+  adminSourceSaveBtn.disabled = true;
+  addSource(text).then(function () {
+    adminSourceSaveBtn.disabled = false;
+    adminNewSourceFormEl.style.display = 'none';
+    adminNewSourceTextEl.value = '';
+  }).catch(function (err) {
+    adminSourceSaveBtn.disabled = false;
+    adminSourceErrorEl.textContent = 'Add failed: ' + err.message;
+  });
+});
 
 // --- Database subsection: Import | Export sub-tabs ------------------------
 document.querySelectorAll('#admin-db-tabs button').forEach(function (btn) {

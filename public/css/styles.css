@@ -922,3 +922,27 @@ button:disabled:hover { border-color: var(--void-line); }
 .timeline-row-date { font-family: 'Comfortaa', sans-serif; font-size: 0.8rem; color: var(--ink-soft); min-width: 8rem; flex-shrink: 0; }
 .timeline-row-name { font-weight: 600; flex-grow: 1; }
 .timeline-row-cat { font-size: 0.75rem; color: var(--ink-soft); font-style: italic; }
+
+/* --- Sources: GM-defined attribution list, shown as a subtle lower-left
+   label on entity cards, lore item wells, and gallery items. Links
+   inside source Markdown inherit the muted label color but keep the
+   standard underline, per Gregg's styling call. */
+.source-label {
+  text-align: left;
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+  margin-top: 0.5rem;
+  opacity: 0.8;
+}
+.source-label a,
+.source-label a:visited {
+  color: inherit;
+  text-decoration: underline;
+}
+.source-label p { margin: 0; display: inline; }
+.lore-item-source-row { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.3rem; margin-bottom: 0.4rem; }
+.admin-source-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; padding: 0.6rem 0; border-bottom: 1px solid rgba(94,130,150,0.18); }
+.admin-source-row:last-child { border-bottom: none; }
+.admin-source-body { flex-grow: 1; font-size: 0.85rem; }
+.admin-source-body p:first-child { margin-top: 0; }
+.admin-source-body p:last-child { margin-bottom: 0; }

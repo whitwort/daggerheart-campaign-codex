@@ -182,6 +182,29 @@
       <p id="admin-campaign-type-status"></p>
     </section>
 
+    <section id="admin-section-sources" class="admin-card">
+      <h2>Sources</h2>
+      <p class="admin-hint">Track where entries/lore/images come from (your own homebrew, SRD content, etc.). Attribution is shown to players. Markdown supported.</p>
+      <div id="admin-sources-list"></div>
+      <div class="actions-row">
+        <div class="actions-row-left"></div>
+        <div class="actions-row-right">
+          <button id="admin-source-new-btn">+ New source</button>
+        </div>
+      </div>
+      <div id="admin-new-source-form" style="display:none;">
+        <textarea id="admin-new-source-text" rows="3" style="width:100%;box-sizing:border-box;" placeholder="e.g. Daggerheart SRD (CC-BY, Darrington Press)"></textarea>
+        <div class="actions-row">
+          <div class="actions-row-left"></div>
+          <div class="actions-row-right">
+            <button id="admin-source-save-btn">Save</button>
+            <button id="admin-source-cancel-btn">Cancel</button>
+          </div>
+        </div>
+      </div>
+      <p id="admin-source-error"></p>
+    </section>
+
     <section id="admin-section-database" class="admin-card">
       <h2>Data</h2>
       <div id="admin-db-tabs">

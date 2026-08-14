@@ -220,6 +220,21 @@ it) is done and verified. Next up: Phase 13.
   Not done: retroactive dateSort backfill for any pre-existing
   Scene/Event entities that already have a free-text `date` but predate
   this feature (none currently known to exist, but not verified).
+- **Sources / attribution — DONE (interjected before Phase 13).** New
+  `sources` collection (GM-defined list, {text: markdown}), CRUD in a
+  new Admin > Sources card (`public/js/sources.js` data layer +
+  `admin.js` UI). `sourceId` (dropdown-picked, nullable) added to
+  entities, loreItems, and gallery images. Shown to players: a subtle
+  muted Markdown label, lower-left of the entity card / lore item well /
+  gallery item. Every Hidden->Visible toggle (entity, lore item, gallery
+  image) now confirms before proceeding if the entry has no source set
+  (`confirmRevealWithoutSource`). Not done: bulk JSON import
+  (`import.js`) and SRD import (`srd-import.js`) don't set sourceId —
+  SRD-imported content in particular probably wants an auto-assigned
+  "Daggerheart SRD" source once one exists, revisit if it comes up.
+  Also not done: the map-pin preview-card popup (buildEntityPreviewCard)
+  doesn't show the source label — deliberately skipped as a secondary/
+  pared-down view, not one of the primary surfaces asked for.
 - **Phase 13 — Offline / degraded connectivity.** Missed opportunities
   for offline experience and handling intermittent connectivity at the
   table. Prod database backup/snapshot/export strategy folds in here.
