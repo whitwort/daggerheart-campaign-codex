@@ -952,9 +952,9 @@ button:disabled:hover { border-color: var(--void-line); }
 }
 .source-label p { margin: 0; display: inline; }
 .lore-item-source-row { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.3rem; margin-bottom: 0.4rem; }
-.admin-source-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; padding: 0.6rem 0; border-bottom: 1px solid rgba(94,130,150,0.18); }
+.admin-source-row { display: flex; flex-direction: column; gap: 0.4rem; padding: 0.6rem 0; border-bottom: 1px solid rgba(94,130,150,0.18); }
 .admin-source-row:last-child { border-bottom: none; }
-.admin-source-body { flex-grow: 1; font-size: 0.85rem; }
+.admin-source-body { font-size: 0.85rem; }
 .admin-source-body p:first-child { margin-top: 0; }
 .admin-source-body p:last-child { margin-bottom: 0; }
 .admin-config-select { width: 16rem; box-sizing: border-box; }
