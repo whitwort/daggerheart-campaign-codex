@@ -35,7 +35,7 @@ function buildTimelinePanel() {
   if (explainerEntity && (isGmView() || isEntityPlayerVisible(explainerEntity.id))) {
     const link = document.createElement('a');
     link.href = '#';
-    link.textContent = '\u201cDates and Time\u201d (' + explainerEntity.category + ')';
+    link.textContent = '\u201cDates and Times\u201d (' + explainerEntity.category + ')';
     link.addEventListener('click', function (ev) {
       ev.preventDefault();
       switchToCodexEntity(explainerEntity.id);
