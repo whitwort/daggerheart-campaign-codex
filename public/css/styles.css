@@ -764,6 +764,17 @@ select {
 }
 .wiki-link:hover { text-decoration: underline; }
 
+/* App-wide link styling for Markdown-rendered body content (real
+   authored hyperlinks, not auto-linked .wiki-link entity names) —
+   matches the wiki-link color convention so links don't fall back to
+   raw browser blue/purple defaults. .source-label overrides this
+   further down (in source order) to a muted inherit-color treatment
+   per Gregg's call — attribution footer, not body content. */
+.lore-item-body a, .admin-source-body a, .entity-preview-card a {
+  color: var(--fear);
+  text-decoration: underline;
+}
+
 /* Import conflict rows (Admin bulk import) */
 .import-conflict-row { display: flex; align-items: center; gap: 0.5rem; margin: 0.25rem 0; }
 .import-conflict-row select { min-width: 6.5rem; }

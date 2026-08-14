@@ -390,6 +390,7 @@ function renderAdminSourcesList() {
         const actions = document.createElement('div');
         actions.className = 'actions-row-right';
         const saveBtn = document.createElement('button');
+        saveBtn.className = 'action-btn-compact';
         saveBtn.textContent = 'Save';
         saveBtn.addEventListener('click', function () {
           const text = state.adminSourceEditDraft.trim();
@@ -399,6 +400,7 @@ function renderAdminSourcesList() {
           }).catch(function (err) { window.alert('Save failed: ' + err.message); });
         });
         const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'action-btn-compact';
         cancelBtn.textContent = 'Cancel';
         cancelBtn.addEventListener('click', function () {
           state.adminSourceEditId = null;
@@ -416,6 +418,7 @@ function renderAdminSourcesList() {
         const actions = document.createElement('div');
         actions.className = 'actions-row-right';
         const editBtn = document.createElement('button');
+        editBtn.className = 'action-btn-compact';
         editBtn.textContent = 'Edit';
         editBtn.addEventListener('click', function () {
           state.adminSourceEditId = s.id;
@@ -423,6 +426,7 @@ function renderAdminSourcesList() {
           renderAdminSourcesList();
         });
         const removeBtn = document.createElement('button');
+        removeBtn.className = 'action-btn-compact';
         removeBtn.textContent = 'Remove';
         removeBtn.addEventListener('click', function () {
           const confirmed = window.confirm('Remove this source? Entries citing it will show as having no source.');

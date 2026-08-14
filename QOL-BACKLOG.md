@@ -47,6 +47,10 @@ height, with NO per-context exceptions, except:**
     action buttons), one per dated Scene/Event, click-to-navigate to
     the Codex entry. `width: auto; min-width: 0; text-align: left`
     override, same pattern as `.related-chip`.
+12. Admin Sources list Edit/Remove/Save/Cancel — reuses
+    `.action-btn-compact` (exception 8) rather than a new exception;
+    the default 12rem width caused two side-by-side buttons to overflow
+    the Admin card's `.admin-source-row`.
 
 Base width lowered from 13rem to 12rem as of the "+ New party member"
 → "+ New member" rename (that label no longer defines the floor).
