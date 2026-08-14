@@ -843,7 +843,7 @@ button:disabled:hover { border-color: var(--void-line); }
    panel is only 15rem wide, too narrow for the base 13rem fixed-width
    button, let alone two side by side. */
 .portrait-picker-body button { width: auto; min-width: 0; text-align: center; padding: 0.4rem 0.9rem; }
-#admin-players-table button { width: auto; min-width: 0; text-align: center; padding: 0.4rem 0.9rem; }
+#admin-players-table button { width: 6rem; min-width: 6rem; text-align: center; padding: 0.4rem 0.9rem; }
 .portrait-picker-body .modal-actions { margin-top: 0.9rem; }
 /* .image-edit-status defaults to --ink-soft (dark brown, for the light
    parchment card) — unreadable on this dark panel; override to a muted

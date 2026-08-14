@@ -171,6 +171,16 @@
         <select id="admin-root-entity-select"><option value="">-- none --</option></select>
       </div>
       <p id="admin-root-entity-status"></p>
+
+      <h3>Campaign type</h3>
+      <p>Turn on or off App features based on the type of campaign.</p>
+      <div id="admin-campaign-type">
+        <select id="admin-campaign-type-select">
+          <option value="daggerheart">Daggerheart</option>
+          <option value="not-daggerheart">Not Daggerheart</option>
+        </select>
+      </div>
+      <p id="admin-campaign-type-status"></p>
     </section>
 
     <section id="admin-section-database" class="admin-card">
@@ -179,6 +189,7 @@
         <button type="button" class="active" data-db-tab="admin-db-backup">Backup</button>
         <button type="button" data-db-tab="admin-db-import">Import Lore</button>
         <button type="button" data-db-tab="admin-db-export">Export Lore</button>
+        <button type="button" id="admin-db-srd-tab-btn" data-db-tab="admin-db-srd" style="display:none;">Import from SRD</button>
       </div>
 
       <div id="admin-db-import" class="admin-db-tab-panel">
@@ -230,6 +241,24 @@
           </div>
         </div>
         <div id="backup-restore-summary" class="actions-row-left"></div>
+      </div>
+
+      <div id="admin-db-srd" class="admin-db-tab-panel">
+        <p>Pull entity data from a Daggerheart SRD parse repository on GitHub.</p>
+        <div class="actions-row">
+          <div class="actions-row-left">
+            <label for="admin-srd-repo">SRD parse repository</label>
+            <input type="text" id="admin-srd-repo" placeholder="seansbox/daggerheart-srd">
+          </div>
+        </div>
+        <p id="admin-srd-repo-status"></p>
+        <div class="actions-row">
+          <div class="actions-row-left"></div>
+          <div class="actions-row-right">
+            <button type="button" id="admin-srd-update-btn">Update entries</button>
+          </div>
+        </div>
+        <p id="admin-srd-update-status"></p>
       </div>
     </section>
     </div>
