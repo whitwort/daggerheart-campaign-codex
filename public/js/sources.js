@@ -1,5 +1,5 @@
 import {
-  getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp
+  getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
@@ -42,9 +42,30 @@ function notifySourcesChange() {
   sourcesChangeHandlers.forEach(function (fn) { fn(); });
 }
 
+// GM-controlled display order (Admin > Sources drag handle), also used
+// everywhere a source dropdown is built. Sources predating this field
+// (just the auto-created SRD source, at time of writing) have no
+// `order` — sortedSources() below treats a missing order as sorting
+// last, stable-tiebroken by text, so they don't jump around
+// unpredictably until the GM drags them into place once.
+function sortedSources() {
+  return state.allSources.slice().sort(function (a, b) {
+    const orderA = (typeof a.order === 'number') ? a.order : Infinity;
+    const orderB = (typeof b.order === 'number') ? b.order : Infinity;
+    if (orderA !== orderB) return orderA - orderB;
+    return plainTextPreview(a.text).localeCompare(plainTextPreview(b.text));
+  });
+}
+
+function nextSourceOrder() {
+  return state.allSources.reduce(function (max, s) {
+    return (typeof s.order === 'number' && s.order > max) ? s.order : max;
+  }, -1) + 1;
+}
+
 function addSource(text) {
   return addDoc(collection(db, 'sources'), {
-    text: text, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+    text: text, order: nextSourceOrder(), createdAt: serverTimestamp(), updatedAt: serverTimestamp()
   });
 }
 function updateSource(id, text) {
@@ -52,6 +73,17 @@ function updateSource(id, text) {
 }
 function deleteSource(id) {
   return deleteDoc(doc(db, 'sources', id));
+}
+
+// Called after a drag-reorder in Admin > Sources. orderedIds is the full
+// list of source ids in their new display order; writes 0..n-1 as each
+// doc's order field in one batch.
+function reorderSources(orderedIds) {
+  const batch = writeBatch(db);
+  orderedIds.forEach(function (id, idx) {
+    batch.update(doc(db, 'sources', id), { order: idx, updatedAt: serverTimestamp() });
+  });
+  return batch.commit();
 }
 
 function sourceById(id) {
@@ -69,7 +101,8 @@ function plainTextPreview(md) {
   return stripped.slice(0, 36) || '(untitled source)';
 }
 
-// Builds a <select> of all defined sources (value = source id, "" = none).
+// Builds a <select> of all defined sources (value = source id, "" = none),
+// in the GM's Admin > Sources display order.
 function buildSourceSelect(currentSourceId, onChange) {
   const select = document.createElement('select');
   select.className = 'source-select';
@@ -77,14 +110,12 @@ function buildSourceSelect(currentSourceId, onChange) {
   noneOpt.value = '';
   noneOpt.textContent = '-- no source --';
   select.appendChild(noneOpt);
-  state.allSources.slice()
-    .sort(function (a, b) { return plainTextPreview(a.text).localeCompare(plainTextPreview(b.text)); })
-    .forEach(function (s) {
-      const opt = document.createElement('option');
-      opt.value = s.id;
-      opt.textContent = plainTextPreview(s.text);
-      select.appendChild(opt);
-    });
+  sortedSources().forEach(function (s) {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = plainTextPreview(s.text);
+    select.appendChild(opt);
+  });
   select.value = currentSourceId || '';
   select.addEventListener('change', function () { onChange(select.value || null); });
   return select;
@@ -95,9 +126,14 @@ function buildSourceSelect(currentSourceId, onChange) {
 // by the source's Markdown content. Hides el and returns false if
 // there's no resolvable source (empty sourceId, or a dangling id from a
 // deleted source) so callers can collapse the label's layout space.
-function renderSourceLabel(el, sourceId) {
+// containingEntitySourceId (optional): the entity/entry this item lives
+// under. If the item's own source is the SAME as the entity's, the
+// label is suppressed as redundant — but the item's sourceId is left
+// untouched in the database either way; this only affects display.
+function renderSourceLabel(el, sourceId, containingEntitySourceId) {
   const source = sourceById(sourceId);
-  if (!source) {
+  const redundant = containingEntitySourceId != null && sourceId === containingEntitySourceId;
+  if (!source || redundant) {
     el.style.display = 'none';
     return false;
   }
@@ -121,6 +157,6 @@ function confirmRevealWithoutSource(sourceId) {
 
 export {
   attachSourcesListener, detachSourcesListener, registerSourcesChangeHandler,
-  addSource, updateSource, deleteSource, sourceById, buildSourceSelect, renderSourceLabel,
-  confirmRevealWithoutSource
+  addSource, updateSource, deleteSource, reorderSources, sortedSources, nextSourceOrder,
+  sourceById, buildSourceSelect, renderSourceLabel, confirmRevealWithoutSource
 };

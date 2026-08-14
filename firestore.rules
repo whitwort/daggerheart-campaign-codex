@@ -104,7 +104,7 @@ service cloud.firestore {
     // above). Read for GM+player: attribution is always shown to players,
     // not just GM bookkeeping (Gregg's call). Write GM-only.
     function isValidSource() {
-      return request.resource.data.keys().hasOnly(['text', 'createdAt', 'updatedAt'])
+      return request.resource.data.keys().hasOnly(['text', 'order', 'createdAt', 'updatedAt'])
         && request.resource.data.text is string
         && request.resource.data.text.size() > 0;
     }

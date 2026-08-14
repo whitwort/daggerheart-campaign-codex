@@ -6,7 +6,7 @@ import { state } from './state.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
 import { runSrdImport } from './srd-import.js';
 import { renderMarkdownInto } from './markdown.js';
-import { addSource, updateSource, deleteSource, registerSourcesChangeHandler } from './sources.js';
+import { addSource, updateSource, deleteSource, reorderSources, sortedSources, registerSourcesChangeHandler } from './sources.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -362,6 +362,19 @@ function detachAdminListeners() {
 // attachDataListeners, not here. This module just renders the list and
 // registers for re-render on change.
 
+// Same lazy-CDN SortableJS pattern as the Gallery tab's drag-reorder
+// (codex.js) — shares state.sortableModulePromise so the two don't
+// double-fetch if both tabs get used in one session.
+function loadSortable() {
+  if (!state.sortableModulePromise) {
+    state.sortableModulePromise = import('https://esm.sh/sortablejs@1.15.2')
+      .then(function (mod) { return mod.default || mod; });
+  }
+  return state.sortableModulePromise;
+}
+
+let sourcesSortableInstance = null;
+
 function renderAdminSourcesList() {
   adminSourcesListEl.innerHTML = '';
   if (state.allSources.length === 0) {
@@ -371,12 +384,21 @@ function renderAdminSourcesList() {
     adminSourcesListEl.appendChild(emptyP);
     return;
   }
-  state.allSources.slice()
-    .sort(function (a, b) { return (a.text || '').localeCompare(b.text || ''); })
-    .forEach(function (s) {
+  const sorted = sortedSources();
+  sorted.forEach(function (s) {
       const editing = state.adminSourceEditId === s.id;
       const row = document.createElement('div');
       row.className = 'admin-source-row';
+      row.dataset.sourceId = s.id;
+
+      const handle = document.createElement('div');
+      handle.className = 'source-drag-handle';
+      handle.title = 'Drag to reorder';
+      handle.textContent = '\u2261';
+      row.appendChild(handle);
+
+      const rowBody = document.createElement('div');
+      rowBody.className = 'admin-source-row-body';
 
       if (editing) {
         const textarea = document.createElement('textarea');
@@ -385,7 +407,7 @@ function renderAdminSourcesList() {
         textarea.style.boxSizing = 'border-box';
         textarea.value = state.adminSourceEditDraft;
         textarea.addEventListener('input', function () { state.adminSourceEditDraft = textarea.value; });
-        row.appendChild(textarea);
+        rowBody.appendChild(textarea);
 
         const actions = document.createElement('div');
         actions.className = 'actions-row-right';
@@ -408,12 +430,12 @@ function renderAdminSourcesList() {
         });
         actions.appendChild(saveBtn);
         actions.appendChild(cancelBtn);
-        row.appendChild(actions);
+        rowBody.appendChild(actions);
       } else {
         const bodyDiv = document.createElement('div');
         bodyDiv.className = 'admin-source-body';
         renderMarkdownInto(bodyDiv, s.text);
-        row.appendChild(bodyDiv);
+        rowBody.appendChild(bodyDiv);
 
         const actions = document.createElement('div');
         actions.className = 'actions-row-right';
@@ -435,11 +457,33 @@ function renderAdminSourcesList() {
         });
         actions.appendChild(editBtn);
         actions.appendChild(removeBtn);
-        row.appendChild(actions);
+        rowBody.appendChild(actions);
       }
 
+      row.appendChild(rowBody);
       adminSourcesListEl.appendChild(row);
-    });
+  });
+
+  if (sourcesSortableInstance) {
+    sourcesSortableInstance.destroy();
+    sourcesSortableInstance = null;
+  }
+  if (sorted.length > 1) {
+    loadSortable().then(function (Sortable) {
+      sourcesSortableInstance = new Sortable(adminSourcesListEl, {
+        handle: '.source-drag-handle',
+        animation: 150,
+        onEnd: function () {
+          const orderedIds = Array.prototype.slice.call(adminSourcesListEl.children)
+            .map(function (el) { return el.dataset.sourceId; });
+          reorderSources(orderedIds).catch(function (err) {
+            window.alert('Reorder failed: ' + err.message);
+            renderAdminSourcesList();
+          });
+        }
+      });
+    }).catch(function () { /* drag-reorder unavailable; edit/remove still work */ });
+  }
 }
 
 registerSourcesChangeHandler(renderAdminSourcesList);
