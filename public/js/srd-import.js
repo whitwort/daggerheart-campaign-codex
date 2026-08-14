@@ -4,6 +4,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
+import { nextSourceOrder } from './sources.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -182,7 +183,7 @@ function ensureSrdSourceId() {
   const existing = state.allSources.find(function (s) { return s.id === SRD_SOURCE_ID; });
   if (existing) return Promise.resolve(existing.id);
   return setDoc(doc(db, 'sources', SRD_SOURCE_ID), {
-    text: SRD_SOURCE_TEXT, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+    text: SRD_SOURCE_TEXT, order: nextSourceOrder(), createdAt: serverTimestamp(), updatedAt: serverTimestamp()
   }).then(function () { return SRD_SOURCE_ID; });
 }
 

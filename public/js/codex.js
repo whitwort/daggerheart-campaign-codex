@@ -1409,7 +1409,7 @@ function renderLoreTab(container, entity, gmView) {
       itemDiv.appendChild(bodyDiv);
       const sourceLabelDiv = document.createElement('div');
       sourceLabelDiv.className = 'source-label';
-      renderSourceLabel(sourceLabelDiv, item.sourceId);
+      renderSourceLabel(sourceLabelDiv, item.sourceId, entity.sourceId);
       itemDiv.appendChild(sourceLabelDiv);
       loreListDiv.appendChild(itemDiv);
     });
@@ -1510,7 +1510,7 @@ function renderLoreTab(container, entity, gmView) {
 
     const sourceLabelDiv = document.createElement('div');
     sourceLabelDiv.className = 'source-label';
-    renderSourceLabel(sourceLabelDiv, item.sourceId);
+    renderSourceLabel(sourceLabelDiv, item.sourceId, entity.sourceId);
     itemDiv.appendChild(sourceLabelDiv);
 
     loreListDiv.appendChild(itemDiv);
@@ -1958,7 +1958,7 @@ function renderGalleryTab(container, entity, gmView) {
 
       const sourceLabelDiv = document.createElement('div');
       sourceLabelDiv.className = 'source-label';
-      renderSourceLabel(sourceLabelDiv, img.sourceId);
+      renderSourceLabel(sourceLabelDiv, img.sourceId, entity.sourceId);
       figDiv.appendChild(sourceLabelDiv);
 
       if (gmView) {

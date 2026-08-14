@@ -986,8 +986,23 @@ button:disabled:hover { border-color: var(--void-line); }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.admin-source-row { display: flex; flex-direction: column; gap: 0.4rem; padding: 0.6rem 0; border-bottom: 1px solid rgba(94,130,150,0.18); }
+.admin-source-row { display: flex; flex-direction: row; align-items: flex-start; gap: 0.5rem; padding: 0.6rem 0; border-bottom: 1px solid rgba(94,130,150,0.18); }
 .admin-source-row:last-child { border-bottom: none; }
+.admin-source-row-body { display: flex; flex-direction: column; gap: 0.4rem; flex: 1; min-width: 0; }
+.source-drag-handle {
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  color: var(--ink-soft);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.source-drag-handle:active { cursor: grabbing; }
 .admin-source-body { font-size: 0.85rem; }
 .admin-source-body p:first-child { margin-top: 0; }
 .admin-source-body p:last-child { margin-bottom: 0; }
