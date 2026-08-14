@@ -52,6 +52,20 @@ function draftSubtype(draft) {
   return ((CONFIG.subtypesByCategory[draft.category] || []).length && draft.subtype) ? draft.subtype : null;
 }
 
+// Lore item 'meta' field: enum ('', 'meta', 'meta-details', 'meta-features'),
+// null/absent on the doc means none. Legacy docs from before this enum
+// (boolean true) still normalize to 'meta' for editing/badge purposes.
+function normalizeMetaForEdit(v) {
+  if (v === 'meta-details' || v === 'meta-features' || v === 'meta') return v;
+  return v ? 'meta' : '';
+}
+function metaBadgeLabel(v) {
+  if (v === 'meta-details') return 'Meta \u00b7 Details';
+  if (v === 'meta-features') return 'Meta \u00b7 Features';
+  if (v) return 'Meta';
+  return null;
+}
+
 // CSS class carrying the entry-type dot/pin color (see styles.css "Pin
 // color legend" block — single place to edit colors). Mirrors
 // categoryPinClass() in map.js; kept local since codex.js and map.js
@@ -442,6 +456,43 @@ function loreItemsForEntity(entityId, gmView) {
     .sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
 }
 
+// Display-time merge (structured template pilot, refined per Gregg):
+// entity.details/features are NEVER rendered as a standalone block --
+// instead the FIRST 'meta-details'/'meta-features' lore item (in this
+// viewer's visible, order-sorted list) gets the structured data
+// synthesized into a "### Details"/"### Feature" block matching the
+// original SRD markdown's own formatting, prepended to whatever the item
+// already holds (SRD leftover bullets like weapon Damage, or anything
+// Gregg hand-adds). Later items sharing the same meta value render
+// exactly as authored. Stored content is never rewritten -- this runs
+// fresh on every render, so editing details/features or re-running SRD
+// import is reflected immediately with no lore item migration needed.
+function buildDetailsMarkdown(entity) {
+  const keys = Object.keys(entity.details || {});
+  if (!keys.length) return '';
+  const lines = ['### Details'];
+  keys.forEach(function (k) { lines.push('- **' + humanizeKey(k) + ':** ' + entity.details[k]); });
+  return lines.join('\n');
+}
+function buildFeaturesMarkdown(entity) {
+  const feats = entity.features || [];
+  if (!feats.length) return '';
+  const lines = ['### Feature'];
+  feats.forEach(function (f) { lines.push('**' + f.name + '.** ' + f.text, ''); });
+  return lines.join('\n').trim();
+}
+function resolveLoreItemMarkdown(entity, item, items) {
+  if (!entity.useTemplate || !item.meta) return item.content;
+  if (item.meta === 'meta-details' || item.meta === 'meta-features') {
+    const first = items.find(function (it) { return it.meta === item.meta; });
+    if (first && first.id === item.id) {
+      const synthesized = item.meta === 'meta-details' ? buildDetailsMarkdown(entity) : buildFeaturesMarkdown(entity);
+      if (synthesized) return item.content ? synthesized + '\n\n' + item.content : synthesized;
+    }
+  }
+  return item.content;
+}
+
 // Exported for map.js: pins pointing at player-invisible entities are
 // themselves hidden from players.
 function isEntityPlayerVisible(entityId) {
@@ -811,7 +862,6 @@ function buildEntityDraft(entity) {
     relatedIds: (entity.relatedIds || []).slice(),
     ownerId: entity.ownerId || '',
     sourceId: entity.sourceId || null,
-    meta: !!entity.meta,
     useTemplate: !!entity.useTemplate,
     details: Object.assign({}, entity.details || {}),
     features: (entity.features || []).map(function (f) { return { name: f.name || '', text: f.text || '' }; })
@@ -870,7 +920,6 @@ function saveEntityEdit(entity) {
     relatedIds: draft.relatedIds.slice(),
     tags: tags,
     sourceId: draft.sourceId || null,
-    meta: !!draft.meta,
     useTemplate: !!draft.useTemplate && !!templateSchema,
     details: draft.details || {},
     features: draft.features || [],
@@ -1156,25 +1205,6 @@ function renderEntityEditBlock(container, entity, draft) {
   container.appendChild(buildParentSelect(entity.id, draft.parentId, function (v) { draft.parentId = v; }));
   container.appendChild(makeEditField('Tags (comma-separated)', draft.tags, function (v) { draft.tags = v; }));
 
-  const metaWrap = document.createElement('div');
-  metaWrap.className = 'entity-edit-field entity-edit-meta-row';
-  const metaSwitchLabel = document.createElement('label');
-  metaSwitchLabel.className = 'toggle-switch';
-  const metaSwitchInput = document.createElement('input');
-  metaSwitchInput.type = 'checkbox';
-  metaSwitchInput.checked = !!draft.meta;
-  metaSwitchInput.addEventListener('change', function () { draft.meta = metaSwitchInput.checked; });
-  const metaSwitchSlider = document.createElement('span');
-  metaSwitchSlider.className = 'toggle-slider';
-  metaSwitchLabel.appendChild(metaSwitchInput);
-  metaSwitchLabel.appendChild(metaSwitchSlider);
-  metaWrap.appendChild(metaSwitchLabel);
-  const metaTextLabel = document.createElement('span');
-  metaTextLabel.className = 'toggle-switch-label';
-  metaTextLabel.textContent = 'Meta';
-  metaWrap.appendChild(metaTextLabel);
-  container.appendChild(metaWrap);
-
   const templateEditor = buildTemplateEditor(draft);
   if (templateEditor) container.appendChild(templateEditor);
 
@@ -1270,7 +1300,6 @@ function saveNewEntity() {
     hasMapImage: false,
     tags: [],
     sourceId: (sortedSources()[0] && sortedSources()[0].id) || null,
-    meta: false,
     useTemplate: false,
     details: {},
     features: [],
@@ -1378,7 +1407,7 @@ function saveLoreEdit(entity, editState, isNew, saveBtn) {
         authorType: 'gm',
         visibility: editState.visibility,
         content: c,
-        meta: !!editState.meta,
+        meta: editState.meta || null,
         sourceId: editState.sourceId || null,
         order: maxOrder,
         createdAt: serverTimestamp(),
@@ -1390,7 +1419,7 @@ function saveLoreEdit(entity, editState, isNew, saveBtn) {
     updateDoc(doc(db, 'loreItems', editState.id), {
       content: content,
       visibility: editState.visibility,
-      meta: !!editState.meta,
+      meta: editState.meta || null,
       sourceId: editState.sourceId || null,
       updatedAt: serverTimestamp()
     }).then(done).catch(fail);
@@ -1459,23 +1488,26 @@ function buildLoreEditBox(entity, editState, isNew) {
 
   const metaRow = document.createElement('div');
   metaRow.className = 'lore-item-meta-row';
-  const metaSwitchLabel = document.createElement('label');
-  metaSwitchLabel.className = 'toggle-switch';
-  const metaSwitchInput = document.createElement('input');
-  metaSwitchInput.type = 'checkbox';
-  metaSwitchInput.checked = !!editState.meta;
-  metaSwitchInput.addEventListener('change', function () {
-    editState.meta = metaSwitchInput.checked;
+  const metaRowLabel = document.createElement('span');
+  metaRowLabel.className = 'toggle-switch-label';
+  metaRowLabel.textContent = 'Meta';
+  metaRow.appendChild(metaRowLabel);
+  const metaSelect = document.createElement('select');
+  metaSelect.className = 'lore-meta-select';
+  [
+    ['', 'None'],
+    ['meta', 'Meta'],
+    ['meta-details', 'Meta \u2014 Details'],
+    ['meta-features', 'Meta \u2014 Features']
+  ].forEach(function (pair) {
+    const opt = document.createElement('option');
+    opt.value = pair[0];
+    opt.textContent = pair[1];
+    metaSelect.appendChild(opt);
   });
-  const metaSwitchSlider = document.createElement('span');
-  metaSwitchSlider.className = 'toggle-slider';
-  metaSwitchLabel.appendChild(metaSwitchInput);
-  metaSwitchLabel.appendChild(metaSwitchSlider);
-  metaRow.appendChild(metaSwitchLabel);
-  const metaLabel = document.createElement('span');
-  metaLabel.className = 'toggle-switch-label';
-  metaLabel.textContent = 'Meta';
-  metaRow.appendChild(metaLabel);
+  metaSelect.value = editState.meta || '';
+  metaSelect.addEventListener('change', function () { editState.meta = metaSelect.value; });
+  metaRow.appendChild(metaSelect);
   box.appendChild(metaRow);
 
   const bottomRow = document.createElement('div');
@@ -1540,7 +1572,7 @@ function renderLoreTab(container, entity, gmView) {
       itemDiv.className = 'lore-item vis-visible';
       const bodyDiv = document.createElement('div');
       bodyDiv.className = 'lore-item-body';
-      renderMarkdownInto(bodyDiv, item.content).then(function () {
+      renderMarkdownInto(bodyDiv, resolveLoreItemMarkdown(entity, item, items)).then(function () {
         applyWikiLinks(bodyDiv, entity.id, gmView);
       });
       itemDiv.appendChild(bodyDiv);
@@ -1579,10 +1611,10 @@ function renderLoreTab(container, entity, gmView) {
     toggleRow.className = 'lore-item-toggle-row';
     const toggleRowLeft = document.createElement('div');
     toggleRowLeft.className = 'lore-item-toggle-row-left';
-    if (item.meta) {
+    if (metaBadgeLabel(item.meta)) {
       const metaTag = document.createElement('span');
       metaTag.className = 'meta-tag';
-      metaTag.textContent = 'Meta';
+      metaTag.textContent = metaBadgeLabel(item.meta);
       toggleRowLeft.appendChild(metaTag);
     }
     toggleRow.appendChild(toggleRowLeft);
@@ -1618,7 +1650,7 @@ function renderLoreTab(container, entity, gmView) {
 
     const bodyDiv = document.createElement('div');
     bodyDiv.className = 'lore-item-body';
-    renderMarkdownInto(bodyDiv, item.content).then(function () {
+    renderMarkdownInto(bodyDiv, resolveLoreItemMarkdown(entity, item, items)).then(function () {
       applyWikiLinks(bodyDiv, entity.id, gmView);
     });
     itemDiv.appendChild(bodyDiv);
@@ -1633,7 +1665,7 @@ function renderLoreTab(container, entity, gmView) {
       editBtn.className = 'lore-item-btn';
       editBtn.textContent = 'Edit';
       editBtn.addEventListener('click', function () {
-        state.loreEdit = { entityId: entity.id, id: item.id, content: item.content, visibility: item.visibility, meta: !!item.meta, sourceId: item.sourceId || null };
+        state.loreEdit = { entityId: entity.id, id: item.id, content: item.content, visibility: item.visibility, meta: normalizeMetaForEdit(item.meta), sourceId: item.sourceId || null };
         renderDetailForSelected();
       });
       actionsRow.appendChild(editBtn);
@@ -1668,7 +1700,7 @@ function renderLoreTab(container, entity, gmView) {
     newLoreBtn.className = 'action-btn-compact';
     newLoreBtn.textContent = '+ New lore';
     newLoreBtn.addEventListener('click', function () {
-      state.loreEdit = { entityId: entity.id, id: null, content: '', visibility: 'gm-only', meta: false, sourceId: null };
+      state.loreEdit = { entityId: entity.id, id: null, content: '', visibility: 'gm-only', meta: '', sourceId: null };
       renderDetailForSelected();
     });
     right.appendChild(newLoreBtn);
@@ -2435,39 +2467,18 @@ function renderDetailForSelected() {
       leftCol.appendChild(metaDiv);
     }
 
-    // Structured stat block (Weapons/Armor/Abilities pilot) -- Details as
-    // a compact inline line, Features as named bullets. Nothing shown if
-    // useTemplate is off or both are empty (e.g. a template-eligible type
-    // Gregg hasn't opted an entry into yet).
-    if (entity.useTemplate) {
-      const detailKeys = Object.keys(entity.details || {});
-      if (detailKeys.length) {
-        const detailsDiv = document.createElement('div');
-        detailsDiv.className = 'entity-meta-line entity-template-details-line';
-        detailsDiv.textContent = detailKeys.map(function (k) {
-          return humanizeKey(k) + ': ' + entity.details[k];
-        }).join(' \u00b7 ');
-        leftCol.appendChild(detailsDiv);
-      }
-      if (entity.features && entity.features.length) {
-        const featuresDiv = document.createElement('div');
-        featuresDiv.className = 'entity-template-features';
-        entity.features.forEach(function (f) {
-          const p = document.createElement('p');
-          const strong = document.createElement('strong');
-          strong.textContent = f.name + '.';
-          p.appendChild(strong);
-          p.appendChild(document.createTextNode(' ' + f.text));
-          featuresDiv.appendChild(p);
-        });
-        leftCol.appendChild(featuresDiv);
-      }
-    }
+    // Structured details/features render as a display-time merge into the
+    // entity's lore items (first 'meta-details'/'meta-features' item) --
+    // see renderLoreList -- not as a standalone block here.
 
-    if (entity.tags && entity.tags.length || entity.meta) {
+    // Meta badge: derived from category membership in CONFIG.metaCategories,
+    // not a per-entity toggle (removed -- was a lingering oversight; an
+    // entry's meta-ness is entirely a function of its type).
+    const isMetaCategory = CONFIG.metaCategories.indexOf(entity.category) !== -1;
+    if (entity.tags && entity.tags.length || isMetaCategory) {
       const tagsDiv = document.createElement('div');
       tagsDiv.id = 'codex-tags';
-      if (entity.meta) {
+      if (isMetaCategory) {
         const metaTag = document.createElement('span');
         metaTag.className = 'meta-tag';
         metaTag.textContent = 'Meta';

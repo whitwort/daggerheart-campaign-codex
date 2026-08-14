@@ -130,14 +130,18 @@ function formatSrdRecord(rec) {
 }
 
 // Structured-template pilot (Weapons/Armor/Abilities): splits a record
-// into { details, features, flavorMd, mechanicsMd } instead of one
-// markdown blob. Whitelisted scalar keys (schema.detailKeys) become the
-// entity's structured `details`; the feature array (if schema.hasFeatures)
-// becomes structured `features`; everything else long-tail (non-
-// whitelisted scalars, question arrays, other feature-shaped arrays)
-// becomes markdown in the "mechanics" lore item. description/note (none
-// of the 3 pilot types currently have either) would become the "flavor"
-// lore item.
+// into { details, features, flavorMd, detailsLeftoverMd, featuresLeftoverMd }
+// instead of one markdown blob. Whitelisted scalar keys (schema.detailKeys)
+// become the entity's structured `details`; the feature array (if
+// schema.hasFeatures) becomes structured `features`. Everything else
+// long-tail (non-whitelisted scalars, question arrays, other feature-
+// shaped arrays) becomes markdown -- scalars/questions bucketed as
+// "details leftover", other {name,text} arrays as "features leftover" --
+// each destined for its matching 'meta-details'/'meta-features' lore item,
+// where codex.js's display-time merge prepends the structured data as a
+// matching "### Details"/"### Feature" block (see codex.js
+// resolveLoreItemMarkdown). description/note (none of the 3 pilot types
+// currently have either) become the "flavor" lore item.
 function buildTemplateData(rec, schema) {
   const details = {};
   const usedKeys = { name: true, description: true, note: true };
@@ -160,7 +164,8 @@ function buildTemplateData(rec, schema) {
   if (rec.description) flavorLines.push(rec.description, '');
   if (rec.note) flavorLines.push('*' + rec.note + '*', '');
 
-  const mechLines = [];
+  const detailLeftoverLines = [];
+  const featureLeftoverLines = [];
   Object.keys(rec).forEach(function (key) {
     if (usedKeys[key]) return;
     const val = rec[key];
@@ -168,20 +173,19 @@ function buildTemplateData(rec, schema) {
     if (Array.isArray(val)) {
       if (!val.length) return;
       if (val[0] && typeof val[0] === 'object' && 'name' in val[0] && 'text' in val[0]) {
-        mechLines.push('### ' + humanizeKey(key));
-        val.forEach(function (item) { mechLines.push('**' + item.name + '.** ' + item.text, ''); });
+        val.forEach(function (item) { featureLeftoverLines.push('**' + item.name + '.** ' + item.text, ''); });
       } else if (val[0] && typeof val[0] === 'object' && 'question' in val[0]) {
-        mechLines.push('### ' + humanizeKey(key));
-        val.forEach(function (item) { mechLines.push('- ' + item.question); });
-        mechLines.push('');
+        detailLeftoverLines.push('### ' + humanizeKey(key));
+        val.forEach(function (item) { detailLeftoverLines.push('- ' + item.question); });
+        detailLeftoverLines.push('');
       }
       // array-of-arrays (domains' "card") not used by any pilot type; skip.
     } else if (key === 'text') {
       // Freeform prose field (e.g. an ability's effect text) -- its own
       // paragraph, not a "- **Text:** ..." bullet.
-      mechLines.push(val, '');
+      detailLeftoverLines.push(val, '');
     } else {
-      mechLines.push('- **' + humanizeKey(key) + ':** ' + val);
+      detailLeftoverLines.push('- **' + humanizeKey(key) + ':** ' + val);
     }
   });
 
@@ -189,7 +193,8 @@ function buildTemplateData(rec, schema) {
     details: details,
     features: features,
     flavorMd: flavorLines.join('\n').trim(),
-    mechMd: mechLines.join('\n').trim()
+    detailsLeftoverMd: detailLeftoverLines.join('\n').trim(),
+    featuresLeftoverMd: featureLeftoverLines.join('\n').trim()
   };
 }
 
@@ -272,18 +277,26 @@ function runSrdImport(repo, progressCb) {
   });
 }
 
-// Builds the 0-2 lore item payloads (entityId filled in by the caller)
-// for one record: template-schema types get up to two ('flavor'
-// = meta:false, 'mechanics' = meta:true, either may be omitted if
-// empty); legacy types get exactly one (meta:false, full formatSrdRecord
-// blob) -- unchanged behavior.
+// Builds the 1-3 lore item payloads (entityId filled in by the caller)
+// for one record. Template-schema types: 'flavor' (meta: null) if
+// description/note present, 'meta-details' if the entity has structured
+// details or detail-shaped leftover text, 'meta-features' if it has
+// structured features or feature-shaped leftover text -- the anchor items
+// are created even with empty content so codex.js's display-time merge
+// always has somewhere to attach the synthesized block. Legacy types get
+// exactly one (meta: null, full formatSrdRecord blob) -- unchanged.
 function buildLoreDocs(rec, schema, templ) {
   if (!schema) {
-    return [{ meta: false, content: formatSrdRecord(rec) }];
+    return [{ meta: null, content: formatSrdRecord(rec) }];
   }
   const docsOut = [];
-  if (templ.flavorMd) docsOut.push({ meta: false, content: templ.flavorMd });
-  if (templ.mechMd) docsOut.push({ meta: true, content: templ.mechMd });
+  if (templ.flavorMd) docsOut.push({ meta: null, content: templ.flavorMd });
+  if (Object.keys(templ.details).length || templ.detailsLeftoverMd) {
+    docsOut.push({ meta: 'meta-details', content: templ.detailsLeftoverMd });
+  }
+  if (schema.hasFeatures && (templ.features.length || templ.featuresLeftoverMd)) {
+    docsOut.push({ meta: 'meta-features', content: templ.featuresLeftoverMd });
+  }
   return docsOut;
 }
 
