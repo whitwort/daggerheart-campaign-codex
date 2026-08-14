@@ -174,15 +174,15 @@
     </section>
 
     <section id="admin-section-database" class="admin-card">
-      <h2>Database</h2>
+      <h2>Data</h2>
       <div id="admin-db-tabs">
-        <button type="button" class="active" data-db-tab="admin-db-import">Import</button>
-        <button type="button" data-db-tab="admin-db-export">Export</button>
+        <button type="button" class="active" data-db-tab="admin-db-import">Import Lore</button>
+        <button type="button" data-db-tab="admin-db-export">Export Lore</button>
         <button type="button" data-db-tab="admin-db-backup">Backup</button>
       </div>
 
       <div id="admin-db-import" class="admin-db-tab-panel active">
-        <p>Paste JSON or Upload a file.</p>
+        <p>Paste JSON or Upload a file containing lore data (entities, lore, images, etc.).</p>
         <textarea id="admin-import-json" rows="8" style="width:100%;box-sizing:border-box;" placeholder='{"entities": []}'></textarea>
         <div class="actions-row">
           <div class="actions-row-left"></div>
@@ -204,12 +204,8 @@
       </div>
 
       <div id="admin-db-backup" class="admin-db-tab-panel">
-        <p>Download a full raw copy of every collection (config, entities,
-          images, joinRequests, loreItems, pins, players) for whichever
-          project this build is connected to. Restore a downloaded file
-          into any project's app the same way — this is separate from the
-          Import tab above, which is for merging structured entity/lore
-          content, not raw backups.</p>
+        <h3>Download a backup</h3>
+        <p>Download a full raw copy of the backend database for the current project.</p>
         <div class="actions-row">
           <div class="actions-row-left"></div>
           <div class="actions-row-right">
