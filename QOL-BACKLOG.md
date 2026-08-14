@@ -267,6 +267,21 @@ it) is done and verified. Next up: Phase 13.
   `min-width:0` on flex ancestors let it push wider than its container
   (worse for the lore-item-source-row flex context than entity edit
   mode). `plainTextPreview` truncation also shortened 60->36 chars.
+- **Source ordering + drag reorder — DONE.** Sources now carry a GM-
+  controlled `order` field, used everywhere a source dropdown is built
+  (`buildSourceSelect`) and in the Admin Sources list itself
+  (`sortedSources()` in `sources.js` — missing-order sources, i.e. only
+  ones predating this feature, sort last, tiebroken alphabetically).
+  Admin > Sources rows got a drag handle (`.source-drag-handle`, "≡")
+  wired to SortableJS (`handle:` option, so dragging the markdown text
+  itself doesn't start a drag) — same lazy-CDN-load pattern as the
+  Gallery tab's reorder, sharing `state.sortableModulePromise`.
+  `reorderSources()` batch-writes 0..n-1 on drop.
+- **Redundant source label suppression — DONE.** `renderSourceLabel`
+  takes an optional `containingEntitySourceId`; if a lore item's or
+  gallery image's own source matches its entity's, the label is hidden
+  as redundant — data is untouched, this is display-only. Entity cards
+  themselves have no "containing" comparison (nothing above them).
 - **Phase 13 — Offline / degraded connectivity.** Missed opportunities
   for offline experience and handling intermittent connectivity at the
   table. Prod database backup/snapshot/export strategy folds in here.
