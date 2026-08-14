@@ -4,8 +4,15 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
+import { addSource } from './sources.js';
 
 const db = getFirestore(firebaseApp);
+
+// All SRD-imported content is attributed to this fixed source, resolved
+// (or created, on first ever import) at the start of every run — see
+// ensureSrdSourceId() below. Self-configuring: doesn't depend on Gregg
+// having created it first via the Admin > Sources UI.
+const SRD_SOURCE_TEXT = 'Daggerheart SRD/Darrington Press: <www.darringtonpress.com/license>';
 
 // --- SRD import (Phase 12b) ----------------------------------------------
 // GM-only, driven by the Admin tab's "Import from SRD" tab (conditional on
@@ -163,26 +170,37 @@ function commitOpsChunked(ops, progressCb) {
   return p;
 }
 
+// Finds the SRD source by exact text match (state.allSources is already
+// live for the GM — same in-memory-filter-over-fresh-query pattern used
+// for entity idempotency elsewhere in this file), creating it on first
+// run if it doesn't exist yet.
+function ensureSrdSourceId() {
+  const existing = state.allSources.find(function (s) { return s.text === SRD_SOURCE_TEXT; });
+  if (existing) return Promise.resolve(existing.id);
+  return addSource(SRD_SOURCE_TEXT).then(function (ref) { return ref.id; });
+}
+
 function runSrdImport(repo, progressCb) {
   const results = { created: 0, updated: 0, skipped: 0, errors: [] };
 
-  let chain = Promise.resolve();
-  SRD_TYPES.forEach(function (typeDef) {
-    chain = chain.then(function () {
-      progressCb('Fetching ' + typeDef.key + '...');
-      return fetchSrdType(repo, typeDef.key).then(function (records) {
-        return processType(typeDef, records, progressCb, results);
-      }).catch(function (err) {
-        results.errors.push(typeDef.key + ': ' + err.message);
-        progressCb(typeDef.key + ' FAILED: ' + err.message);
+  return ensureSrdSourceId().then(function (srdSourceId) {
+    let chain = Promise.resolve();
+    SRD_TYPES.forEach(function (typeDef) {
+      chain = chain.then(function () {
+        progressCb('Fetching ' + typeDef.key + '...');
+        return fetchSrdType(repo, typeDef.key).then(function (records) {
+          return processType(typeDef, records, progressCb, results, srdSourceId);
+        }).catch(function (err) {
+          results.errors.push(typeDef.key + ': ' + err.message);
+          progressCb(typeDef.key + ' FAILED: ' + err.message);
+        });
       });
     });
+    return chain.then(function () { return results; });
   });
-
-  return chain.then(function () { return results; });
 }
 
-function processType(typeDef, records, progressCb, results) {
+function processType(typeDef, records, progressCb, results, srdSourceId) {
   const ops = [];
   // entityId -> markdown, for entities that already exist (need their old
   // 'imported' lore looked up and deleted before the fresh one is added).
@@ -216,6 +234,7 @@ function processType(typeDef, records, progressCb, results) {
           ownerId: null,
           hasMapImage: existing.hasMapImage || false,
           visibility: existing.visibility || 'all-players',
+          sourceId: srdSourceId,
           createdAt: existing.createdAt || serverTimestamp(),
           updatedAt: serverTimestamp()
         }
@@ -241,6 +260,7 @@ function processType(typeDef, records, progressCb, results) {
           ownerId: null,
           hasMapImage: false,
           visibility: 'all-players',
+          sourceId: srdSourceId,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         }
@@ -255,6 +275,7 @@ function processType(typeDef, records, progressCb, results) {
           authorType: 'gm',
           visibility: 'all-players',
           content: markdown,
+          sourceId: srdSourceId,
           order: 0,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
@@ -287,6 +308,7 @@ function processType(typeDef, records, progressCb, results) {
             authorType: 'gm',
             visibility: 'all-players',
             content: t.markdown,
+            sourceId: srdSourceId,
             order: 0,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp()

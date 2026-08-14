@@ -235,6 +235,14 @@ it) is done and verified. Next up: Phase 13.
   Also not done: the map-pin preview-card popup (buildEntityPreviewCard)
   doesn't show the source label — deliberately skipped as a secondary/
   pared-down view, not one of the primary surfaces asked for.
+- **SRD import auto-source — DONE.** `srd-import.js` self-configures a
+  fixed source, `Daggerheart SRD/Darrington Press: <www.darringtonpress.com/license>`,
+  found-or-created (by exact text match against `state.allSources`) at
+  the start of every "Update entries" run — no manual Admin > Sources
+  setup needed first. Applied to every created/updated SRD entity and
+  its `imported` lore item. Bulk JSON import (`import.js`) deliberately
+  left alone — arbitrary pasted content has no fixed source to
+  auto-assign.
 - **Phase 13 — Offline / degraded connectivity.** Missed opportunities
   for offline experience and handling intermittent connectivity at the
   table. Prod database backup/snapshot/export strategy folds in here.
