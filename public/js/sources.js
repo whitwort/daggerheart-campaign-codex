@@ -90,10 +90,11 @@ function buildSourceSelect(currentSourceId, onChange) {
   return select;
 }
 
-// Renders the lower-left attribution label into el (Markdown, muted —
-// see .source-label CSS). Hides el and returns false if there's no
-// resolvable source (empty sourceId, or a dangling id from a deleted
-// source) so callers can collapse the label's layout space.
+// Renders the lower-left attribution label into el, prefixed with
+// "Source: " (plain text, not part of the GM-authored Markdown) followed
+// by the source's Markdown content. Hides el and returns false if
+// there's no resolvable source (empty sourceId, or a dangling id from a
+// deleted source) so callers can collapse the label's layout space.
 function renderSourceLabel(el, sourceId) {
   const source = sourceById(sourceId);
   if (!source) {
@@ -101,7 +102,11 @@ function renderSourceLabel(el, sourceId) {
     return false;
   }
   el.style.display = '';
-  renderMarkdownInto(el, source.text);
+  el.innerHTML = '';
+  el.appendChild(document.createTextNode('Source: '));
+  const contentSpan = document.createElement('span');
+  el.appendChild(contentSpan);
+  renderMarkdownInto(contentSpan, source.text);
   return true;
 }
 
