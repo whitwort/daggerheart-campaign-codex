@@ -122,11 +122,17 @@ service cloud.firestore {
     // 'subtype' (Phase 12b, SRD import): optional finer-grained label
     // under a Game Mechanics/Equipment category (e.g. subtype 'weapons'
     // under category 'Equipment'). Not category-exclusive like ancestry.
+    // 'useTemplate' (structured stat-block pilot): opt-in per entity, GM-
+    // set. 'details' ({key: value} strings) and 'features' ({name,text}[])
+    // are the structured data it renders from -- see templates.js for the
+    // per-(category,subtype) whitelist that governs which scalar fields
+    // are allowed to live here vs. staying long-tail markdown.
     function isValidEntity() {
       return request.resource.data.keys().hasOnly(
           ['slug', 'name', 'category', 'subtype', 'parentId', 'relatedIds', 'mapId',
            'hasMapImage', 'visibility', 'tags', 'createdAt', 'updatedAt',
-           'ancestry', 'aliases', 'date', 'dateSort', 'ownerId', 'sourceId', 'meta'])
+           'ancestry', 'aliases', 'date', 'dateSort', 'ownerId', 'sourceId', 'meta',
+           'useTemplate', 'details', 'features'])
         && request.resource.data.visibility in ['gm-only', 'all-players']
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0

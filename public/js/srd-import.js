@@ -5,6 +5,7 @@ import {
 import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
 import { nextSourceOrder } from './sources.js';
+import { getTemplateSchema } from './templates.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -128,6 +129,70 @@ function formatSrdRecord(rec) {
   return lines.join('\n').trim();
 }
 
+// Structured-template pilot (Weapons/Armor/Abilities): splits a record
+// into { details, features, flavorMd, mechanicsMd } instead of one
+// markdown blob. Whitelisted scalar keys (schema.detailKeys) become the
+// entity's structured `details`; the feature array (if schema.hasFeatures)
+// becomes structured `features`; everything else long-tail (non-
+// whitelisted scalars, question arrays, other feature-shaped arrays)
+// becomes markdown in the "mechanics" lore item. description/note (none
+// of the 3 pilot types currently have either) would become the "flavor"
+// lore item.
+function buildTemplateData(rec, schema) {
+  const details = {};
+  const usedKeys = { name: true, description: true, note: true };
+
+  schema.detailKeys.forEach(function (d) {
+    const val = rec[d.key];
+    if (val !== null && val !== undefined && val !== '') details[d.key] = String(val);
+    usedKeys[d.key] = true;
+  });
+
+  let features = [];
+  if (schema.hasFeatures) {
+    usedKeys.feature = true;
+    if (Array.isArray(rec.feature)) {
+      features = rec.feature.map(function (f) { return { name: f.name, text: f.text }; });
+    }
+  }
+
+  const flavorLines = [];
+  if (rec.description) flavorLines.push(rec.description, '');
+  if (rec.note) flavorLines.push('*' + rec.note + '*', '');
+
+  const mechLines = [];
+  Object.keys(rec).forEach(function (key) {
+    if (usedKeys[key]) return;
+    const val = rec[key];
+    if (val === null || val === undefined || val === '') return;
+    if (Array.isArray(val)) {
+      if (!val.length) return;
+      if (val[0] && typeof val[0] === 'object' && 'name' in val[0] && 'text' in val[0]) {
+        mechLines.push('### ' + humanizeKey(key));
+        val.forEach(function (item) { mechLines.push('**' + item.name + '.** ' + item.text, ''); });
+      } else if (val[0] && typeof val[0] === 'object' && 'question' in val[0]) {
+        mechLines.push('### ' + humanizeKey(key));
+        val.forEach(function (item) { mechLines.push('- ' + item.question); });
+        mechLines.push('');
+      }
+      // array-of-arrays (domains' "card") not used by any pilot type; skip.
+    } else if (key === 'text') {
+      // Freeform prose field (e.g. an ability's effect text) -- its own
+      // paragraph, not a "- **Text:** ..." bullet.
+      mechLines.push(val, '');
+    } else {
+      mechLines.push('- **' + humanizeKey(key) + ':** ' + val);
+    }
+  });
+
+  return {
+    details: details,
+    features: features,
+    flavorMd: flavorLines.join('\n').trim(),
+    mechMd: mechLines.join('\n').trim()
+  };
+}
+
 function stripBom(text) {
   return text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;
 }
@@ -207,10 +272,27 @@ function runSrdImport(repo, progressCb) {
   });
 }
 
+// Builds the 0-2 lore item payloads (entityId filled in by the caller)
+// for one record: template-schema types get up to two ('flavor'
+// = meta:false, 'mechanics' = meta:true, either may be omitted if
+// empty); legacy types get exactly one (meta:false, full formatSrdRecord
+// blob) -- unchanged behavior.
+function buildLoreDocs(rec, schema, templ) {
+  if (!schema) {
+    return [{ meta: false, content: formatSrdRecord(rec) }];
+  }
+  const docsOut = [];
+  if (templ.flavorMd) docsOut.push({ meta: false, content: templ.flavorMd });
+  if (templ.mechMd) docsOut.push({ meta: true, content: templ.mechMd });
+  return docsOut;
+}
+
 function processType(typeDef, records, progressCb, results, srdSourceId) {
   const ops = [];
-  // entityId -> markdown, for entities that already exist (need their old
-  // 'imported' lore looked up and deleted before the fresh one is added).
+  const schema = getTemplateSchema(typeDef.category, typeDef.subtype);
+  // entityId -> lore docs to (re)write, for entities that already exist
+  // (need their old 'imported' lore looked up and deleted before the
+  // fresh one is added).
   const updateTargets = [];
 
   records.forEach(function (rec) {
@@ -221,7 +303,11 @@ function processType(typeDef, records, progressCb, results, srdSourceId) {
         && (typeDef.subtype ? e.subtype === typeDef.subtype : !e.subtype)
         && e.slug === slug;
     });
-    const markdown = formatSrdRecord(rec);
+    const templ = schema ? buildTemplateData(rec, schema) : null;
+    const templateFields = schema
+      ? { useTemplate: true, details: templ.details, features: templ.features }
+      : { useTemplate: false, details: {}, features: [] };
+    const loreDocs = buildLoreDocs(rec, schema, templ);
 
     if (existing) {
       ops.push({
@@ -242,11 +328,14 @@ function processType(typeDef, records, progressCb, results, srdSourceId) {
           hasMapImage: existing.hasMapImage || false,
           visibility: existing.visibility || 'all-players',
           sourceId: srdSourceId,
+          useTemplate: templateFields.useTemplate,
+          details: templateFields.details,
+          features: templateFields.features,
           createdAt: existing.createdAt || serverTimestamp(),
           updatedAt: serverTimestamp()
         }
       });
-      updateTargets.push({ entityId: existing.id, markdown: markdown });
+      updateTargets.push({ entityId: existing.id, loreDocs: loreDocs });
       results.updated += 1;
     } else {
       const entityRef = doc(collection(db, 'entities'));
@@ -268,25 +357,31 @@ function processType(typeDef, records, progressCb, results, srdSourceId) {
           hasMapImage: false,
           visibility: 'all-players',
           sourceId: srdSourceId,
+          useTemplate: templateFields.useTemplate,
+          details: templateFields.details,
+          features: templateFields.features,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         }
       });
-      ops.push({
-        type: 'set',
-        ref: doc(collection(db, 'loreItems')),
-        data: {
-          entityId: entityRef.id,
-          kind: 'imported',
-          authorId: null,
-          authorType: 'gm',
-          visibility: 'all-players',
-          content: markdown,
-          sourceId: srdSourceId,
-          order: 0,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        }
+      loreDocs.forEach(function (ld, i) {
+        ops.push({
+          type: 'set',
+          ref: doc(collection(db, 'loreItems')),
+          data: {
+            entityId: entityRef.id,
+            kind: 'imported',
+            authorId: null,
+            authorType: 'gm',
+            visibility: 'all-players',
+            content: ld.content,
+            meta: ld.meta,
+            sourceId: srdSourceId,
+            order: i,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          }
+        });
       });
       results.created += 1;
     }
@@ -295,9 +390,9 @@ function processType(typeDef, records, progressCb, results, srdSourceId) {
   progressCb(typeDef.key + ': resolving lore for ' + updateTargets.length + ' existing entries...');
 
   // Sequentially look up + delete old 'imported' lore for updated
-  // entities, then add the fresh write-up. Sequential (not parallel) to
-  // stay predictable under Firestore's per-second query limits at this
-  // batch size (up to ~190 entities for one type).
+  // entities, then add the fresh write-up(s). Sequential (not parallel)
+  // to stay predictable under Firestore's per-second query limits at
+  // this batch size (up to ~190 entities for one type).
   let lorePromise = Promise.resolve();
   updateTargets.forEach(function (t) {
     lorePromise = lorePromise.then(function () {
@@ -305,21 +400,24 @@ function processType(typeDef, records, progressCb, results, srdSourceId) {
         loreIds.forEach(function (id) {
           ops.push({ type: 'delete', ref: doc(db, 'loreItems', id) });
         });
-        ops.push({
-          type: 'set',
-          ref: doc(collection(db, 'loreItems')),
-          data: {
-            entityId: t.entityId,
-            kind: 'imported',
-            authorId: null,
-            authorType: 'gm',
-            visibility: 'all-players',
-            content: t.markdown,
-            sourceId: srdSourceId,
-            order: 0,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
-          }
+        t.loreDocs.forEach(function (ld, i) {
+          ops.push({
+            type: 'set',
+            ref: doc(collection(db, 'loreItems')),
+            data: {
+              entityId: t.entityId,
+              kind: 'imported',
+              authorId: null,
+              authorType: 'gm',
+              visibility: 'all-players',
+              content: ld.content,
+              meta: ld.meta,
+              sourceId: srdSourceId,
+              order: i,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
+            }
+          });
         });
       });
     });
