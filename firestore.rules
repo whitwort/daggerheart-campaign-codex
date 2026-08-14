@@ -127,6 +127,10 @@ service cloud.firestore {
     // are the structured data it renders from -- see templates.js for the
     // per-(category,subtype) whitelist that governs which scalar fields
     // are allowed to live here vs. staying long-tail markdown.
+    // 'meta' on entities is dead legacy (removed -- Meta badge is now
+    // derived from category membership in CONFIG.metaCategories, not a
+    // per-entity flag). Tolerated in hasOnly, same as 'mapId' above, so
+    // updates to already-written docs don't fail.
     function isValidEntity() {
       return request.resource.data.keys().hasOnly(
           ['slug', 'name', 'category', 'subtype', 'parentId', 'relatedIds', 'mapId',
@@ -150,6 +154,12 @@ service cloud.firestore {
     // non-GM write path (player notes) — hence the tighter shape checks.
     // {entityId, kind, authorId, authorType, visibility, content, order,
     //  createdAt, updatedAt}
+    // 'meta': enum, null/absent = none, 'meta' = general GM/mechanics
+    // marker, 'meta-details'/'meta-features' = structured-template pilot
+    // anchor items (codex.js display-time-merges entity.details/features
+    // into the first such item -- see resolveLoreItemMarkdown). Legacy
+    // boolean true/false from before the enum is still tolerated (not
+    // rewritten retroactively).
     function isValidLoreItem() {
       return request.resource.data.keys().hasOnly(
           ['entityId', 'kind', 'authorId', 'authorType', 'visibility',
@@ -157,7 +167,11 @@ service cloud.firestore {
         && request.resource.data.entityId is string
         && request.resource.data.kind in ['imported', 'gm-note', 'player-note']
         && request.resource.data.visibility in ['gm-only', 'all-players', 'author-only']
-        && request.resource.data.content is string;
+        && request.resource.data.content is string
+        && (!('meta' in request.resource.data)
+            || request.resource.data.meta == null
+            || request.resource.data.meta is bool
+            || request.resource.data.meta in ['meta', 'meta-details', 'meta-features']);
     }
     // Player-note constraint: players may only write their OWN notes, and
     // can't disguise a note as another kind or another author. GM writes
