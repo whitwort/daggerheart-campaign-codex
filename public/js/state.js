@@ -38,6 +38,8 @@ export const state = {
   allPins: [],
   currentMapEntityId: null,  // Location entity whose map image is shown
   rootEntityId: null,  // from config/campaign doc, GM-selected root Location entity
+  campaignType: null,  // from config/campaign doc: 'daggerheart' | 'not-daggerheart' — gates Daggerheart-specific UI (e.g. Import from SRD)
+  srdRepo: 'seansbox/daggerheart-srd',  // from config/campaign doc, editable GM setting for SRD Import tab
   mapMode: null,  // null | 'add' | 'edit' | 'remove'
   pinDraft: null,  // { id: existingPinId|null, entityId, x, y, radius, moveMode } — open pin panel's in-progress state
   pinPickerCollapse: {},  // pin panel's entity picker accordion collapse state (category -> collapsed bool), mirrors categoryCollapse

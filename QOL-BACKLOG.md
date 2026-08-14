@@ -27,7 +27,8 @@ height, with NO per-context exceptions, except:**
 6. Buttons inside a narrow table cell too narrow for the fixed 13rem
    width — `#admin-players-table button` (Edit/Remove/Save/Cancel in
    the Manage Party row-actions column; two 13rem buttons overflowed
-   the card edge).
+   the card edge). Fixed at `6rem` so Edit/Remove/Save/Cancel are all
+   the same width as each other (not just narrower than 13rem).
 7. Map pin action buttons — `#map-new-pin-btn, #map-edit-pin-btn,
    #map-remove-pin-btn`, all three matching, sized to fit the longest
    label ("Remove pin").
