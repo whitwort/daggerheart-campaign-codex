@@ -66,7 +66,7 @@ function sourceById(id) {
 function plainTextPreview(md) {
   const firstLine = (md || '').split('\n')[0];
   const stripped = firstLine.replace(/[*_`#>[\]]/g, '').trim();
-  return stripped.slice(0, 60) || '(untitled source)';
+  return stripped.slice(0, 36) || '(untitled source)';
 }
 
 // Builds a <select> of all defined sources (value = source id, "" = none).

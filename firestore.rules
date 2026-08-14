@@ -126,7 +126,7 @@ service cloud.firestore {
       return request.resource.data.keys().hasOnly(
           ['slug', 'name', 'category', 'subtype', 'parentId', 'relatedIds', 'mapId',
            'hasMapImage', 'visibility', 'tags', 'createdAt', 'updatedAt',
-           'ancestry', 'aliases', 'date', 'dateSort', 'ownerId', 'sourceId'])
+           'ancestry', 'aliases', 'date', 'dateSort', 'ownerId', 'sourceId', 'meta'])
         && request.resource.data.visibility in ['gm-only', 'all-players']
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
