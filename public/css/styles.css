@@ -1008,25 +1008,27 @@ button:disabled:hover { border-color: var(--void-line); }
 .admin-source-body p:last-child { margin-bottom: 0; }
 .admin-config-select { width: 16rem; box-sizing: border-box; }
 
-/* Meta tag: small pill shown when an entity or lore item has Meta==TRUE.
-   Fear-colored to match the Meta toggle's own checked-state slider color
-   (all .toggle-switch inputs turn fear-colored when checked — this reuses
-   that same association rather than introducing a new color mapping).
+/* Meta tag: small badge shown when an entity or lore item has
+   Meta==TRUE. Fear-colored to match the Meta toggle's own checked-state
+   slider color (all .toggle-switch inputs turn fear-colored when
+   checked — this reuses that same association rather than introducing
+   a new color mapping). Styled like the app's other small badges
+   (Tags, .lore-vis-badge) — solid background, small radius, no
+   uppercase/pill treatment — rather than the low-contrast
+   dark-text-on-tinted-background version from the first pass.
    #codex-tags .meta-tag (not just .meta-tag) needed: #codex-tags span's
    ID-based selector otherwise outranks a bare class selector and would
    win with its parchment/ink styling regardless of source order. */
 .meta-tag,
 #codex-tags .meta-tag {
   display: inline-block;
-  font-size: 0.65rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--fear);
-  background: var(--fear-glow);
-  border: 1px solid var(--fear);
-  border-radius: 10px;
-  padding: 0.1rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--fear);
+  box-shadow: 0 0 0.4rem var(--fear-glow);
+  border-radius: 3px;
+  padding: 0.1rem 0.45rem;
   margin-right: 0.35rem;
 }
 .entity-edit-meta-row { display: flex; align-items: center; gap: 0.4rem; margin-top: 1rem; }
