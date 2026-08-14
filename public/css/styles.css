@@ -100,6 +100,7 @@ button:active { box-shadow: inset 0 2px 5px rgba(0,0,0,0.65); }
 select {
   padding: 0.5rem 1rem;
   line-height: 1.2;
+  font-size: 0.9rem;
 }
 input, select, textarea {
   font-family: inherit;
@@ -725,7 +726,7 @@ select {
   position: absolute; top: 1rem; right: 1rem; width: 2.5rem; height: 2.5rem;
   border-radius: 50%; font-size: 1.1rem; line-height: 1; padding: 0; min-width: 0;
 }
-#admin-root-entity-hint { font-size: 0.85rem; color: var(--ink-soft); }
+.admin-hint { font-size: 0.85rem; color: var(--ink-soft); }
 
 /* Wiki links: auto-linked entity names inside lore text */
 .wiki-link {
