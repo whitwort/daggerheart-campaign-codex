@@ -779,6 +779,7 @@ function buildEntityDraft(entity) {
     name: entity.name || '',
     category: entity.category || CONFIG.categories[0],
     ancestry: entity.ancestry || '',
+    subtype: entity.subtype || '',
     aliases: (entity.aliases || []).join(', '),
     date: entity.date || '',
     parentId: entity.parentId || '',
@@ -815,6 +816,7 @@ function saveEntityEdit(entity) {
     name: name,
     category: cat,
     ancestry: (cat === 'Character' && draft.ancestry.trim()) ? draft.ancestry.trim() : null,
+    subtype: ((CONFIG.subtypesByCategory[cat] || []).length && draft.subtype) ? draft.subtype : null,
     aliases: (cat === 'Character') ? aliases : [],
     date: ((cat === 'Scene' || cat === 'Event') && draft.date.trim()) ? draft.date.trim() : null,
     ownerId: (cat === 'Character' && draft.ownerId) ? draft.ownerId : null,
@@ -2052,6 +2054,29 @@ function renderDetailForSelected() {
     });
     catWrap.appendChild(catSelect);
     leftCol.appendChild(catWrap);
+
+    if ((CONFIG.subtypesByCategory[draft.category] || []).length) {
+      const subtypeWrap = document.createElement('div');
+      subtypeWrap.className = 'entity-edit-field';
+      const subtypeLabelEl = document.createElement('label');
+      subtypeLabelEl.textContent = 'Subtype';
+      subtypeWrap.appendChild(subtypeLabelEl);
+      const subtypeSelect = document.createElement('select');
+      const noneOpt = document.createElement('option');
+      noneOpt.value = '';
+      noneOpt.textContent = '-- none --';
+      subtypeSelect.appendChild(noneOpt);
+      CONFIG.subtypesByCategory[draft.category].forEach(function (st) {
+        const opt = document.createElement('option');
+        opt.value = st;
+        opt.textContent = subtypeLabel(st);
+        subtypeSelect.appendChild(opt);
+      });
+      subtypeSelect.value = draft.subtype || '';
+      subtypeSelect.addEventListener('change', function () { draft.subtype = subtypeSelect.value; });
+      subtypeWrap.appendChild(subtypeSelect);
+      leftCol.appendChild(subtypeWrap);
+    }
 
     if (draft.category === 'Character') {
       leftCol.appendChild(makeEditField('Ancestry', draft.ancestry, function (v) { draft.ancestry = v; }));

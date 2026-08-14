@@ -12,8 +12,10 @@ const db = getFirestore(firebaseApp);
 // Input shape:
 //   { "entities": [ { "name", "category", "parentSlug": string|null,
 //       "relatedSlugs": [..]?, "tags": [..]?, "lore": ["md", ..]?,
-//       "ancestry": string?, "aliases": [..]?, "date": string? }, .. ] }
-// ancestry/aliases are meant for Characters, date for Scenes/Events, but
+//       "ancestry": string?, "aliases": [..]?, "date": string?,
+//       "subtype": string? }, .. ] }
+// ancestry/aliases are meant for Characters, date for Scenes/Events,
+// subtype for Game Mechanics/Equipment (see CONFIG.subtypesByCategory) —
 // the importer doesn't enforce category pairing — the form does.
 // Semantics:
 // - Dedup by slug (slugified name) against existing entities: each match
@@ -261,6 +263,9 @@ function validateImport() {
     if ('ancestry' in raw && typeof raw.ancestry !== 'string') {
       errors.push(label + ' (' + name + '): ancestry must be a string'); return;
     }
+    if ('subtype' in raw && typeof raw.subtype !== 'string') {
+      errors.push(label + ' (' + name + '): subtype must be a string'); return;
+    }
     if ('date' in raw && typeof raw.date !== 'string') {
       errors.push(label + ' (' + name + '): date must be a string'); return;
     }
@@ -281,9 +286,10 @@ function validateImport() {
       parentSlug: raw.parentSlug, relatedSlugs: relatedSlugs,
       tags: tags, lore: lore, isDuplicate: isDuplicate,
       ancestry: raw.ancestry || null, aliases: aliases, date: raw.date || null,
+      subtype: raw.subtype || null,
       hasRelated: ('relatedSlugs' in raw), hasTags: ('tags' in raw),
       hasAncestry: ('ancestry' in raw), hasAliases: ('aliases' in raw),
-      hasDate: ('date' in raw)
+      hasDate: ('date' in raw), hasSubtype: ('subtype' in raw)
     });
   });
 
@@ -482,6 +488,7 @@ function runImport() {
           ancestry: it.ancestry,
           aliases: it.aliases,
           date: it.date,
+          subtype: it.subtype,
           visibility: 'gm-only',
           hasMapImage: false,
           tags: it.tags,
@@ -503,6 +510,7 @@ function runImport() {
         ancestry: it.ancestry,
         aliases: it.aliases,
         date: it.date,
+        subtype: it.subtype,
         visibility: 'gm-only',
         hasMapImage: existing.hasMapImage || false,
         tags: it.tags,
@@ -530,6 +538,7 @@ function runImport() {
       if (it.hasAncestry) data.ancestry = it.ancestry;
       if (it.hasAliases) data.aliases = it.aliases;
       if (it.hasDate) data.date = it.date;
+      if (it.hasSubtype) data.subtype = it.subtype;
       ops.push({ type: 'update', ref: doc(db, 'entities', it.id), data: data });
       const existingLore = loreByEntity[it.id] || [];
       const existingContent = {};
