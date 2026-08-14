@@ -163,7 +163,31 @@ scrollbar spot-check — accepted, no further action).
 
 ## Future phases (scoped, not started)
 
-- **Phase 12 — Offline / degraded connectivity.** Missed opportunities
+- **Phase 12b — SRD data import — DONE.** Ingest Daggerheart SRD content
+  into the codex, reusing the upstream-repo approach already proven in
+  the sibling `daggerheart-encounter-builder` project (that repo
+  consumes `seansbox/daggerheart-srd`'s pre-parsed JSON rather than
+  parsing the SRD PDF itself; this repo does the same, one step further
+  into new entity types). Admin tab: Configuration > Campaign Type
+  (Daggerheart / Not Daggerheart, gates the tab below) and Data >
+  Import from SRD (repo setting, default `seansbox/daggerheart-srd`;
+  "Update entries" button). New categories `Ancestry`* (*already
+  existed), `Community`, `Game Mechanics`* (*already existed),
+  `Equipment` — the latter two carry an optional `subtype` field
+  (`abilities`/`beastforms`/`classes`/`domains`/`subclasses` under Game
+  Mechanics; `armor`/`consumables`/`items`/`weapons` under Equipment).
+  Idempotent re-run: matched against existing entities by
+  (category, subtype, slug) via `state.allEntities`; on match, entity
+  fields + its `kind:'imported'` lore item are rewritten fresh rather
+  than duplicated. All SRD-imported content is `visibility:
+  'all-players'` (public rules text, not campaign secrets). Source
+  files: `public/js/srd-import.js` (fetch/parse/map/upsert),
+  `public/js/admin.js` (Campaign Type + SRD tab wiring),
+  `firestore.rules` (`subtype` added to `isValidEntity()`'s allowed
+  keys). Not yet built: manual subtype editing in the entity edit form
+  (only the SRD importer sets it today) — add if a GM-authored entity
+  ever needs one.
+- **Phase 13 — Offline / degraded connectivity.** Missed opportunities
   for offline experience and handling intermittent connectivity at the
   table. Prod database backup/snapshot/export strategy folds in here.
   Relevant data point from Phase 11 debugging: the app currently does
@@ -175,10 +199,6 @@ scrollbar spot-check — accepted, no further action).
   pattern harder than normal live use does, so this phase should
   budget time for listener/render resilience, not just connectivity
   detection and caching.
-- **Phase 13 — SRD data import.** Ingest Daggerheart SRD content into
-  the codex, reusing critical-path parsing/structuring work already
-  done in the separate `daggerheart-encounter-builder` repo rather than
-  starting from scratch.
 - **Phase 14 — Player-facing contribution features.** Character
   management, in-app GM messaging at the table, codex-unlock
   notifications, and other ways players contribute directly rather than

@@ -4,6 +4,7 @@ import {
 import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
+import { runSrdImport } from './srd-import.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -118,7 +119,21 @@ const adminSrdUpdateStatusEl = document.getElementById('admin-srd-update-status'
     });
 
     adminSrdUpdateBtnEl.addEventListener('click', function () {
-      adminSrdUpdateStatusEl.textContent = 'SRD import not yet implemented.';
+      adminSrdUpdateBtnEl.disabled = true;
+      const repo = (state.srdRepo || 'seansbox/daggerheart-srd').trim();
+      adminSrdUpdateStatusEl.textContent = 'Starting...';
+      runSrdImport(repo, function (line) {
+        adminSrdUpdateStatusEl.textContent = line;
+      }).then(function (results) {
+        adminSrdUpdateBtnEl.disabled = false;
+        let summary = 'Done: ' + results.created + ' created, ' + results.updated + ' updated';
+        if (results.skipped) summary += ', ' + results.skipped + ' skipped (no name)';
+        if (results.errors.length) summary += '. Errors: ' + results.errors.join('; ');
+        adminSrdUpdateStatusEl.textContent = summary;
+      }).catch(function (err) {
+        adminSrdUpdateBtnEl.disabled = false;
+        adminSrdUpdateStatusEl.textContent = 'Update failed: ' + err.message;
+      });
     });
 
     // --- Admin tab (Phase 7a-5/6): GM-only. Listeners are only attached
