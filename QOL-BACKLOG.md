@@ -247,6 +247,26 @@ it) is done and verified. Next up: Phase 13.
   its `imported` lore item. Bulk JSON import (`import.js`) deliberately
   left alone — arbitrary pasted content has no fixed source to
   auto-assign.
+- **Meta field extended to entities — DONE.** Originally lore-item-only
+  (handoff 13 session); now entities also carry a `meta` boolean
+  (default false), editable via a toggle in the entity edit form (below
+  Tags). Displayed as a small fear-colored "Meta" pill: on the entry
+  card, same line as Tags, before them; on lore items (GM view), left
+  side of the visibility-toggle row, mirroring the toggle's own position
+  on the right. Not done: player-view lore items (no toggle row exists
+  there to align against) and gallery images don't show a Meta pill —
+  not asked for.
+- **Source label placement fix — DONE.** Was near the entity card
+  heading (not "lower-left of container" as intended); moved to below
+  the GM Edit/Delete row (still lower-left; GM Edit/Delete stays
+  lower-right). Lore item source label similarly moved to after its
+  Edit/Delete row, not before.
+- **Source dropdown overflow fix — DONE.** `.source-select` now has
+  `width:100%; max-width:18rem; min-width:0; box-sizing:border-box;` —
+  was unconstrained, and long option text (up to 60 chars) plus missing
+  `min-width:0` on flex ancestors let it push wider than its container
+  (worse for the lore-item-source-row flex context than entity edit
+  mode). `plainTextPreview` truncation also shortened 60->36 chars.
 - **Phase 13 — Offline / degraded connectivity.** Missed opportunities
   for offline experience and handling intermittent connectivity at the
   table. Prod database backup/snapshot/export strategy folds in here.

@@ -796,7 +796,8 @@ function buildEntityDraft(entity) {
     tags: (entity.tags || []).join(', '),
     relatedIds: (entity.relatedIds || []).slice(),
     ownerId: entity.ownerId || '',
-    sourceId: entity.sourceId || null
+    sourceId: entity.sourceId || null,
+    meta: !!entity.meta
   };
 }
 
@@ -846,6 +847,7 @@ function saveEntityEdit(entity) {
     relatedIds: draft.relatedIds.slice(),
     tags: tags,
     sourceId: draft.sourceId || null,
+    meta: !!draft.meta,
     updatedAt: serverTimestamp()
   };
   updateDoc(doc(db, 'entities', entity.id), entityData).then(function () {
@@ -1027,6 +1029,26 @@ function buildMapImageEditSection(entity) {
 function renderEntityEditBlock(container, entity, draft) {
   container.appendChild(buildParentSelect(entity.id, draft.parentId, function (v) { draft.parentId = v; }));
   container.appendChild(makeEditField('Tags (comma-separated)', draft.tags, function (v) { draft.tags = v; }));
+
+  const metaWrap = document.createElement('div');
+  metaWrap.className = 'entity-edit-field entity-edit-meta-row';
+  const metaSwitchLabel = document.createElement('label');
+  metaSwitchLabel.className = 'toggle-switch';
+  const metaSwitchInput = document.createElement('input');
+  metaSwitchInput.type = 'checkbox';
+  metaSwitchInput.checked = !!draft.meta;
+  metaSwitchInput.addEventListener('change', function () { draft.meta = metaSwitchInput.checked; });
+  const metaSwitchSlider = document.createElement('span');
+  metaSwitchSlider.className = 'toggle-slider';
+  metaSwitchLabel.appendChild(metaSwitchInput);
+  metaSwitchLabel.appendChild(metaSwitchSlider);
+  metaWrap.appendChild(metaSwitchLabel);
+  const metaTextLabel = document.createElement('span');
+  metaTextLabel.className = 'toggle-switch-label';
+  metaTextLabel.textContent = 'Meta';
+  metaWrap.appendChild(metaTextLabel);
+  container.appendChild(metaWrap);
+
   container.appendChild(buildRelatedEditor(entity.id, draft));
   const sourceWrap = document.createElement('div');
   sourceWrap.className = 'entity-edit-field';
@@ -1114,6 +1136,7 @@ function saveNewEntity() {
     hasMapImage: false,
     tags: [],
     sourceId: null,
+    meta: false,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   };
@@ -1417,11 +1440,22 @@ function renderLoreTab(container, entity, gmView) {
 
     const toggleRow = document.createElement('div');
     toggleRow.className = 'lore-item-toggle-row';
+    const toggleRowLeft = document.createElement('div');
+    toggleRowLeft.className = 'lore-item-toggle-row-left';
+    if (item.meta) {
+      const metaTag = document.createElement('span');
+      metaTag.className = 'meta-tag';
+      metaTag.textContent = 'Meta';
+      toggleRowLeft.appendChild(metaTag);
+    }
+    toggleRow.appendChild(toggleRowLeft);
+    const toggleRowRight = document.createElement('div');
+    toggleRowRight.className = 'lore-item-toggle-row-right';
     const toggleLabel = document.createElement('span');
     const itemVisible = item.visibility === 'all-players';
     toggleLabel.className = 'toggle-switch-label ' + (itemVisible ? 'state-visible' : 'state-hidden');
     toggleLabel.textContent = itemVisible ? 'Visible to party' : 'Hidden from party';
-    toggleRow.appendChild(toggleLabel);
+    toggleRowRight.appendChild(toggleLabel);
     const switchLabel = document.createElement('label');
     switchLabel.className = 'toggle-switch';
     const switchInput = document.createElement('input');
@@ -1441,7 +1475,8 @@ function renderLoreTab(container, entity, gmView) {
     switchSlider.className = 'toggle-slider';
     switchLabel.appendChild(switchInput);
     switchLabel.appendChild(switchSlider);
-    toggleRow.appendChild(switchLabel);
+    toggleRowRight.appendChild(switchLabel);
+    toggleRow.appendChild(toggleRowRight);
     itemDiv.appendChild(toggleRow);
 
     const bodyDiv = document.createElement('div');
@@ -1450,11 +1485,6 @@ function renderLoreTab(container, entity, gmView) {
       applyWikiLinks(bodyDiv, entity.id, gmView);
     });
     itemDiv.appendChild(bodyDiv);
-
-    const sourceLabelDiv = document.createElement('div');
-    sourceLabelDiv.className = 'source-label';
-    renderSourceLabel(sourceLabelDiv, item.sourceId);
-    itemDiv.appendChild(sourceLabelDiv);
 
     // Hide Edit/Delete on other items while one item (or a new draft) is
     // already being edited — forces finishing that edit first, rather
@@ -1477,6 +1507,11 @@ function renderLoreTab(container, entity, gmView) {
       actionsRow.appendChild(delBtn);
       itemDiv.appendChild(actionsRow);
     }
+
+    const sourceLabelDiv = document.createElement('div');
+    sourceLabelDiv.className = 'source-label';
+    renderSourceLabel(sourceLabelDiv, item.sourceId);
+    itemDiv.appendChild(sourceLabelDiv);
 
     loreListDiv.appendChild(itemDiv);
   });
@@ -2263,10 +2298,16 @@ function renderDetailForSelected() {
       leftCol.appendChild(metaDiv);
     }
 
-    if (entity.tags && entity.tags.length) {
+    if (entity.tags && entity.tags.length || entity.meta) {
       const tagsDiv = document.createElement('div');
       tagsDiv.id = 'codex-tags';
-      entity.tags.forEach(function (t) {
+      if (entity.meta) {
+        const metaTag = document.createElement('span');
+        metaTag.className = 'meta-tag';
+        metaTag.textContent = 'Meta';
+        tagsDiv.appendChild(metaTag);
+      }
+      (entity.tags || []).forEach(function (t) {
         const span = document.createElement('span');
         span.textContent = t;
         tagsDiv.appendChild(span);
@@ -2376,18 +2417,13 @@ function renderDetailForSelected() {
     }
   }
 
-  // --- Bottom row: source attribution (always, lower-left) + GM
-  // Edit/Delete actions (lower-right, GM only) ---
-  const cardActions = document.createElement('div');
-  cardActions.className = 'actions-row codex-card-bottom-actions';
-  const left = document.createElement('div');
-  left.className = 'actions-row-left';
-  const sourceLabelDiv = document.createElement('div');
-  sourceLabelDiv.className = 'source-label';
-  renderSourceLabel(sourceLabelDiv, entity.sourceId);
-  left.appendChild(sourceLabelDiv);
-  cardActions.appendChild(left);
+  // --- GM Edit/Delete actions (lower-right), then source attribution
+  // (lower-left) on its own row below them, for GM view. Players never
+  // see the actions row, so the source label just ends up at the
+  // bottom either way. ---
   if (gmView) {
+    const cardActions = document.createElement('div');
+    cardActions.className = 'actions-row codex-card-bottom-actions';
     const right = document.createElement('div');
     right.className = 'actions-row-right';
     const editBtn = document.createElement('button');
@@ -2401,8 +2437,12 @@ function renderDetailForSelected() {
     deleteBtn.addEventListener('click', function () { deleteEntity(entity); });
     right.appendChild(deleteBtn);
     cardActions.appendChild(right);
+    contentWrap.appendChild(cardActions);
   }
-  contentWrap.appendChild(cardActions);
+  const sourceLabelDiv = document.createElement('div');
+  sourceLabelDiv.className = 'source-label';
+  renderSourceLabel(sourceLabelDiv, entity.sourceId);
+  contentWrap.appendChild(sourceLabelDiv);
 }
 
 searchEl.addEventListener('input', renderList);
