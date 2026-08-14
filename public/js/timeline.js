@@ -30,7 +30,7 @@ function buildTimelinePanel() {
   introP.className = 'admin-hint';
   introP.appendChild(document.createTextNode('Dates use the campaign\u2019s shorthand notation \u2014 see '));
   const explainerEntity = state.allEntities.find(function (e) {
-    return (e.name || '').trim().toLowerCase() === 'dates and time';
+    return (e.name || '').trim().toLowerCase() === 'dates and times';
   });
   if (explainerEntity && (isGmView() || isEntityPlayerVisible(explainerEntity.id))) {
     const link = document.createElement('a');
@@ -42,7 +42,7 @@ function buildTimelinePanel() {
     });
     introP.appendChild(link);
   } else {
-    introP.appendChild(document.createTextNode('\u201cDates and Time\u201d (Game Mechanics)'));
+    introP.appendChild(document.createTextNode('\u201cDates and Times\u201d (Game Mechanics)'));
   }
   introP.appendChild(document.createTextNode(' for the full explanation.'));
   panelEl.appendChild(introP);
