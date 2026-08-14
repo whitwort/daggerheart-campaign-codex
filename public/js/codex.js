@@ -480,7 +480,8 @@ function isCategoryCollapsed(cat) {
 const CATEGORY_GROUP_LABELS = {
   'Character': 'Characters', 'Faction': 'Factions', 'Location': 'Locations',
   'Item': 'Items', 'World Facts': 'World Facts', 'Organization': 'Organizations',
-  'Event': 'Events', 'Scene': 'Scenes', 'Ancestry': 'Ancestries', 'Game Mechanics': 'Game Mechanics'
+  'Event': 'Events', 'Scene': 'Scenes', 'Ancestry': 'Ancestries', 'Community': 'Communities',
+  'Game Mechanics': 'Game Mechanics', 'Equipment': 'Equipment'
 };
 function categoryGroupLabel(cat) {
   return CATEGORY_GROUP_LABELS[cat] || cat;
@@ -1844,6 +1845,9 @@ function buildEntityPreviewCard(entity, gmView) {
   if (entity.ancestry) {
     catP.appendChild(document.createTextNode(' \u2014 ' + entity.ancestry));
   }
+  if (entity.subtype) {
+    catP.appendChild(document.createTextNode(' \u2014 ' + entity.subtype));
+  }
   card.appendChild(catP);
 
   const metaBits = [];
@@ -2015,6 +2019,9 @@ function renderDetailForSelected() {
     catP.appendChild(catEm);
     if (entity.ancestry) {
       catP.appendChild(document.createTextNode(' \u2014 ' + entity.ancestry));
+    }
+    if (entity.subtype) {
+      catP.appendChild(document.createTextNode(' \u2014 ' + entity.subtype));
     }
     leftCol.appendChild(catP);
 
