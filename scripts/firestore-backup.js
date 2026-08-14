@@ -28,7 +28,7 @@
 const fs = require('fs');
 const admin = require('firebase-admin');
 
-const COLLECTIONS = ['entities', 'images', 'joinRequests', 'loreItems', 'pins', 'players'];
+const COLLECTIONS = ['config', 'entities', 'images', 'joinRequests', 'loreItems', 'pins', 'players'];
 const BATCH_LIMIT = 500;
 
 function parseArgs(argv) {
