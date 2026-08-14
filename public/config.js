@@ -18,13 +18,13 @@ window.APP_CONFIG = {
     codex: 'Codex'
   },
 
-  categories: ['Character', 'Faction', 'Location', 'Item', 'World Facts', 'Organization', 'Event', 'Scene', 'Ancestry', 'Game Mechanics'],
+  categories: ['Character', 'Faction', 'Location', 'Item', 'World Facts', 'Organization', 'Event', 'Scene', 'Ancestry', 'Community', 'Game Mechanics', 'Equipment'],
 
   // "Meta" entry types: categories that describe rules/lore-as-fact
   // rather than something with a physical presence in the world, so they
   // never get a map pin. Excluded from the Map tab's pin-target picker
   // and legend. Adjust freely — this is the one place that list lives.
-  metaCategories: ['World Facts', 'Game Mechanics', 'Ancestry'],
+  metaCategories: ['World Facts', 'Game Mechanics', 'Ancestry', 'Community', 'Equipment'],
 
   // Icons used for entry links across the app (Entry Browser map links,
   // Entry Card map link, map breadcrumb). One place to swap the glyphs.

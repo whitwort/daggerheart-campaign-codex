@@ -102,9 +102,12 @@ service cloud.firestore {
     //  hasMapImage, tags, createdAt, updatedAt}
     // 'mapId' is a dead legacy field still present on early test docs;
     // tolerated in hasOnly so updates to those docs don't fail.
+    // 'subtype' (Phase 12b, SRD import): optional finer-grained label
+    // under a Game Mechanics/Equipment category (e.g. subtype 'weapons'
+    // under category 'Equipment'). Not category-exclusive like ancestry.
     function isValidEntity() {
       return request.resource.data.keys().hasOnly(
-          ['slug', 'name', 'category', 'parentId', 'relatedIds', 'mapId',
+          ['slug', 'name', 'category', 'subtype', 'parentId', 'relatedIds', 'mapId',
            'hasMapImage', 'visibility', 'tags', 'createdAt', 'updatedAt',
            'ancestry', 'aliases', 'date', 'ownerId'])
         && request.resource.data.visibility in ['gm-only', 'all-players']
