@@ -8,7 +8,7 @@ import { attachListener, detachListener, safeSnapshotHandler } from './listeners
 import { renderMarkdownInto } from './markdown.js';
 import { renderAdminRootEntitySelect, renderAdminPlayersList } from './admin.js';
 import { parseDateSpec } from './dates.js';
-import { buildSourceSelect, renderSourceLabel, registerSourcesChangeHandler, confirmRevealWithoutSource } from './sources.js';
+import { buildSourceSelect, renderSourceLabel, registerSourcesChangeHandler, confirmRevealWithoutSource, sortedSources } from './sources.js';
 import {
   uploadEntityMapImage, deleteEntityMapImage,
   uploadEntityGalleryImage, deleteEntityGalleryImage, setGalleryImageVisibility, setGalleryImageSource, setEntityPortrait
@@ -1113,6 +1113,11 @@ function showNewEntityError(message) {
   entityNewErrorEl.style.display = 'block';
 }
 
+// New-entity default source: the GM's first source in Admin > Sources
+// drag-order (sortedSources()[0]) — hand-created entities default to
+// it rather than "no source", since most campaign content shares one
+// dominant attribution (homebrew). Deliberately UI-level-only, applied
+// at creation time; never backfilled onto existing entities.
 function saveNewEntity() {
   const name = entityNewNameEl.value.trim();
   if (!name) {
@@ -1135,7 +1140,7 @@ function saveNewEntity() {
     visibility: 'gm-only',
     hasMapImage: false,
     tags: [],
-    sourceId: null,
+    sourceId: (sortedSources()[0] && sortedSources()[0].id) || null,
     meta: false,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
