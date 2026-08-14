@@ -25,6 +25,7 @@ export const state = {
   selectedId: null,
   gmPreviewAsPlayer: false,
   categoryCollapse: {},  // Entry Browser accordion: category -> collapsed(bool); default COLLAPSED (only explicit `false` expands)
+  subtypeCollapse: {},   // Entry Browser accordion, nested level: 'category|subtype' -> collapsed(bool); same default-collapsed convention
   detailActiveTab: 'lore',  // Entry Card tab box: 'lore' | 'notes'; resets to 'lore' on selection change
   detailEditMode: false,   // true = the open Entry Card is showing inline edit fields for the entity itself
   detailEditDraft: null,   // { name, category, ancestry, aliases, date, parentId, tags, relatedIds } — in-progress entity edit; re-populates edit inputs across re-renders so unrelated snapshot updates don't clobber typing
