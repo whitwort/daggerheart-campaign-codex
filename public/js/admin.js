@@ -472,6 +472,13 @@ function renderAdminSourcesList() {
     loadSortable().then(function (Sortable) {
       sourcesSortableInstance = new Sortable(adminSourcesListEl, {
         handle: '.source-drag-handle',
+        // forceFallback: with a handle restriction, native HTML5 DnD
+        // (SortableJS's default for mouse) doesn't reliably respect the
+        // handle scoping in every browser — this makes mouse dragging
+        // silently not start while touch (which never uses native DnD,
+        // hence unaffected) works fine. Forcing SortableJS's own
+        // JS-simulated drag for both input types fixes that asymmetry.
+        forceFallback: true,
         animation: 150,
         onEnd: function () {
           const orderedIds = Array.prototype.slice.call(adminSourcesListEl.children)
