@@ -473,6 +473,21 @@ function isCategoryCollapsed(cat) {
   return state.categoryCollapse[cat] !== false;
 }
 
+// Subtype sub-groups (Phase 12b, SRD import): a second, nested collapse
+// level under categories that use `entity.subtype` (Game Mechanics,
+// Equipment). Keyed by 'category|subtype' so the same subtype string
+// under two different categories collapses independently. Same
+// default-collapsed convention as isCategoryCollapsed.
+function subtypeCollapseKey(cat, subtype) {
+  return cat + '|' + subtype;
+}
+function isSubtypeCollapsed(cat, subtype) {
+  return state.subtypeCollapse[subtypeCollapseKey(cat, subtype)] !== false;
+}
+function subtypeLabel(subtype) {
+  return subtype.charAt(0).toUpperCase() + subtype.slice(1);
+}
+
 // TOC group headers show the category as a group label ("Characters (41)")
 // so plural reads more naturally than the singular per-entity type name
 // used everywhere else (entity type line, category dropdown, etc).
@@ -552,7 +567,8 @@ function renderList() {
 
     const ul = document.createElement('ul');
     ul.className = 'entity-group-list' + (collapsed ? ' collapsed' : '');
-    entities.forEach(function (entity) {
+
+    function buildEntityLi(entity) {
       const li = document.createElement('li');
       li.dataset.id = entity.id;
       if (entity.id === state.selectedId) li.classList.add('active');
@@ -585,8 +601,65 @@ function renderList() {
       if (rightCol.children.length) li.appendChild(rightCol);
 
       li.addEventListener('click', function () { selectEntity(entity.id); });
-      ul.appendChild(li);
+      return li;
+    }
+
+    // Entities without a subtype render directly in this category's list,
+    // same as before subtypes existed. Entities WITH a subtype (Game
+    // Mechanics/Equipment, from SRD import) are grouped into their own
+    // nested collapsible sub-list, appended as a single <li> so it's
+    // naturally hidden when the parent category collapses (no extra
+    // collapse-propagation logic needed).
+    const plainEntities = [];
+    const bySubtype = {};
+    entities.forEach(function (entity) {
+      if (entity.subtype) {
+        if (!bySubtype[entity.subtype]) bySubtype[entity.subtype] = [];
+        bySubtype[entity.subtype].push(entity);
+      } else {
+        plainEntities.push(entity);
+      }
     });
+
+    plainEntities.forEach(function (entity) { ul.appendChild(buildEntityLi(entity)); });
+
+    Object.keys(bySubtype).sort(function (a, b) { return subtypeLabel(a).localeCompare(subtypeLabel(b)); })
+      .forEach(function (subtype) {
+        const subEntities = bySubtype[subtype];
+        const subCollapsed = searchActive ? false : isSubtypeCollapsed(cat, subtype);
+
+        const subLi = document.createElement('li');
+        subLi.className = 'entity-subgroup-li';
+
+        const subHeader = document.createElement('div');
+        subHeader.className = 'entity-subgroup-header' + (subCollapsed ? ' collapsed' : '');
+        const subTitleSpan = document.createElement('span');
+        subTitleSpan.className = 'entity-group-title';
+        subTitleSpan.textContent = subtypeLabel(subtype);
+        const subCountSpan = document.createElement('span');
+        subCountSpan.className = 'entity-group-count';
+        subCountSpan.textContent = '(' + subEntities.length + ')';
+        const subCaretSpan = document.createElement('span');
+        subCaretSpan.className = 'entity-subgroup-caret';
+        subCaretSpan.textContent = '\u25be';
+        subHeader.appendChild(subTitleSpan);
+        subHeader.appendChild(subCountSpan);
+        subHeader.appendChild(subCaretSpan);
+        subHeader.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          state.subtypeCollapse[subtypeCollapseKey(cat, subtype)] = subCollapsed ? false : true;
+          renderList();
+        });
+        subLi.appendChild(subHeader);
+
+        const subUl = document.createElement('ul');
+        subUl.className = 'entity-subgroup-list' + (subCollapsed ? ' collapsed' : '');
+        subEntities.forEach(function (entity) { subUl.appendChild(buildEntityLi(entity)); });
+        subLi.appendChild(subUl);
+
+        ul.appendChild(subLi);
+      });
+
     listEl.appendChild(ul);
   });
 }
