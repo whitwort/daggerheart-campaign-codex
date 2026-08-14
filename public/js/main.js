@@ -6,6 +6,7 @@ import './codex.js';
 import './images.js';
 import { ensureImportEditorReady } from './import.js';
 import './backup.js';
+import { ensureTimelineTabReady } from './timeline.js';
 
 document.getElementById('campaign-title').textContent = CONFIG.campaignName;
 document.getElementById('tab-btn-codex').textContent = CONFIG.tabs.codex;
@@ -32,6 +33,9 @@ document.getElementById('tab-btn-map').textContent = CONFIG.tabs.map;
         }
         if (btn.dataset.tab === 'admin-panel') {
           ensureImportEditorReady();
+        }
+        if (btn.dataset.tab === 'timeline-panel') {
+          ensureTimelineTabReady();
         }
       });
     });
