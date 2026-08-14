@@ -31,7 +31,7 @@ window.APP_CONFIG = {
   // srd-import.js) so imported and manually-created entries use the same
   // vocabulary. Categories not listed here don't offer a subtype field.
   subtypesByCategory: {
-    'Game Mechanics': ['abilities', 'beastforms', 'classes', 'domains', 'subclasses'],
+    'Game Mechanics': ['abilities', 'beastforms', 'classes', 'domains', 'subclasses', "Aether's Children"],
     'Equipment': ['armor', 'consumables', 'items', 'weapons']
   },
 
