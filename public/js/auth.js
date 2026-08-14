@@ -11,6 +11,7 @@ import { attachListener, detachListener, safeSnapshotHandler } from './listeners
 import { attachCodexListeners, detachCodexListeners, renderList, renderDetailForSelected } from './codex.js';
 import { attachPinsListener, attachConfigListener, detachMapDataListeners } from './map.js';
 import { attachAdminListeners, detachAdminListeners } from './admin.js';
+import { attachSourcesListener, detachSourcesListener } from './sources.js';
 import { attachVersionListener, detachVersionListener, initUpdateBanner } from './version.js';
 
 export const auth = getAuth(firebaseApp);
@@ -86,6 +87,7 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
       attachCodexListeners();
       attachPinsListener();
       attachConfigListener();
+      attachSourcesListener();
     }
 
     // Bugfix: attachDataListeners()/attachAdminListeners() only ever ran
@@ -101,6 +103,7 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
       detachCodexListeners();
       detachMapDataListeners();
       detachAdminListeners();
+      detachSourcesListener();
     }
 
     function updateAccessUI(role) {

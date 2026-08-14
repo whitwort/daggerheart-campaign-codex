@@ -197,6 +197,7 @@ const IMAGE_CACHE_STORE = 'images';
           ownerId: entityId,
           role: 'gallery',
           visibility: 'gm-only',
+          sourceId: null,
           data: processed.dataUrl,
           contentType: 'image/webp',
           width: processed.width,
@@ -215,6 +216,10 @@ const IMAGE_CACHE_STORE = 'images';
 
     function setGalleryImageVisibility(imageDocId, visibility) {
       return updateDoc(doc(db, 'images', imageDocId), { visibility: visibility });
+    }
+
+    function setGalleryImageSource(imageDocId, sourceId) {
+      return updateDoc(doc(db, 'images', imageDocId), { sourceId: sourceId });
     }
 
     // Sets imageDocId as entityId's portrait (clearing isPortrait on any
@@ -282,6 +287,6 @@ const IMAGE_CACHE_STORE = 'images';
 export {
   entityMapImageDocId,
   uploadEntityMapImage, deleteEntityMapImage,
-  uploadEntityGalleryImage, deleteEntityGalleryImage, setGalleryImageVisibility, setEntityPortrait,
+  uploadEntityGalleryImage, deleteEntityGalleryImage, setGalleryImageVisibility, setGalleryImageSource, setEntityPortrait,
   getCachedImage, putCachedImage
 };

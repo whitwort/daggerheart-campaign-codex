@@ -97,6 +97,23 @@ service cloud.firestore {
     // player with a hacked client can read gm-only lore — accepted
     // (trust-the-table model, see phase 8 handoff).
 
+    // Sources (interjected before Phase 13): GM-maintained attribution
+    // list, {text: markdown, createdAt, updatedAt}. Entities/loreItems
+    // carry an optional sourceId pointing here (images too, but images
+    // has no shape-validation function to extend — see match /images/
+    // above). Read for GM+player: attribution is always shown to players,
+    // not just GM bookkeeping (Gregg's call). Write GM-only.
+    function isValidSource() {
+      return request.resource.data.keys().hasOnly(['text', 'createdAt', 'updatedAt'])
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0;
+    }
+    match /sources/{sourceId} {
+      allow read: if isGM() || isPlayer();
+      allow create, update: if isGM() && isValidSource();
+      allow delete: if isGM();
+    }
+
     // Entities: unified lore/location objects. Replaces `entries`.
     // {slug, name, category, parentId, relatedIds, visibility,
     //  hasMapImage, tags, createdAt, updatedAt}
@@ -109,7 +126,7 @@ service cloud.firestore {
       return request.resource.data.keys().hasOnly(
           ['slug', 'name', 'category', 'subtype', 'parentId', 'relatedIds', 'mapId',
            'hasMapImage', 'visibility', 'tags', 'createdAt', 'updatedAt',
-           'ancestry', 'aliases', 'date', 'dateSort', 'ownerId'])
+           'ancestry', 'aliases', 'date', 'dateSort', 'ownerId', 'sourceId'])
         && request.resource.data.visibility in ['gm-only', 'all-players']
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
@@ -130,7 +147,7 @@ service cloud.firestore {
     function isValidLoreItem() {
       return request.resource.data.keys().hasOnly(
           ['entityId', 'kind', 'authorId', 'authorType', 'visibility',
-           'content', 'meta', 'order', 'createdAt', 'updatedAt'])
+           'content', 'meta', 'sourceId', 'order', 'createdAt', 'updatedAt'])
         && request.resource.data.entityId is string
         && request.resource.data.kind in ['imported', 'gm-note', 'player-note']
         && request.resource.data.visibility in ['gm-only', 'all-players', 'author-only']
