@@ -1186,6 +1186,7 @@ function saveLoreEdit(entity, editState, isNew, saveBtn) {
         authorType: 'gm',
         visibility: editState.visibility,
         content: c,
+        meta: !!editState.meta,
         order: maxOrder,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -1196,6 +1197,7 @@ function saveLoreEdit(entity, editState, isNew, saveBtn) {
     updateDoc(doc(db, 'loreItems', editState.id), {
       content: content,
       visibility: editState.visibility,
+      meta: !!editState.meta,
       updatedAt: serverTimestamp()
     }).then(done).catch(fail);
   }
@@ -1248,13 +1250,41 @@ function buildLoreEditBox(entity, editState, isNew) {
   textarea.addEventListener('input', function () { editState.content = textarea.value; });
   box.appendChild(textarea);
 
+  const metaRow = document.createElement('div');
+  metaRow.className = 'lore-item-meta-row';
+  const metaSwitchLabel = document.createElement('label');
+  metaSwitchLabel.className = 'toggle-switch';
+  const metaSwitchInput = document.createElement('input');
+  metaSwitchInput.type = 'checkbox';
+  metaSwitchInput.checked = !!editState.meta;
+  metaSwitchInput.addEventListener('change', function () {
+    editState.meta = metaSwitchInput.checked;
+  });
+  const metaSwitchSlider = document.createElement('span');
+  metaSwitchSlider.className = 'toggle-slider';
+  metaSwitchLabel.appendChild(metaSwitchInput);
+  metaSwitchLabel.appendChild(metaSwitchSlider);
+  metaRow.appendChild(metaSwitchLabel);
+  const metaLabel = document.createElement('span');
+  metaLabel.className = 'toggle-switch-label';
+  metaLabel.textContent = 'Meta';
+  metaRow.appendChild(metaLabel);
+  box.appendChild(metaRow);
+
   const bottomRow = document.createElement('div');
   bottomRow.className = 'actions-row';
   const left = document.createElement('div');
   left.className = 'actions-row-left';
   const hint = document.createElement('span');
   hint.className = 'lore-edit-hint';
-  hint.textContent = 'Use an unordered Markdown list to add multiple items';
+  hint.appendChild(document.createTextNode('Use an unordered '));
+  const mdLink = document.createElement('a');
+  mdLink.href = 'https://www.markdownguide.org/cheat-sheet/';
+  mdLink.target = '_blank';
+  mdLink.rel = 'noopener noreferrer';
+  mdLink.textContent = 'Markdown';
+  hint.appendChild(mdLink);
+  hint.appendChild(document.createTextNode(' list to add multiple items'));
   left.appendChild(hint);
   bottomRow.appendChild(left);
 
@@ -1376,7 +1406,7 @@ function renderLoreTab(container, entity, gmView) {
       editBtn.className = 'lore-item-btn';
       editBtn.textContent = 'Edit';
       editBtn.addEventListener('click', function () {
-        state.loreEdit = { entityId: entity.id, id: item.id, content: item.content, visibility: item.visibility };
+        state.loreEdit = { entityId: entity.id, id: item.id, content: item.content, visibility: item.visibility, meta: !!item.meta };
         renderDetailForSelected();
       });
       actionsRow.appendChild(editBtn);
@@ -1406,7 +1436,7 @@ function renderLoreTab(container, entity, gmView) {
     newLoreBtn.className = 'action-btn-compact';
     newLoreBtn.textContent = '+ New lore';
     newLoreBtn.addEventListener('click', function () {
-      state.loreEdit = { entityId: entity.id, id: null, content: '', visibility: 'gm-only' };
+      state.loreEdit = { entityId: entity.id, id: null, content: '', visibility: 'gm-only', meta: false };
       renderDetailForSelected();
     });
     right.appendChild(newLoreBtn);
@@ -1934,7 +1964,11 @@ function buildEntityPreviewCard(entity, gmView) {
   catEm.textContent = entity.category || '';
   catP.appendChild(catEm);
   if (entity.ancestry) {
-    catP.appendChild(document.createTextNode(' \u2014 ' + entity.ancestry));
+    catP.appendChild(document.createTextNode(' \u2014 '));
+    const ancestrySpan = document.createElement('span');
+    ancestrySpan.textContent = entity.ancestry;
+    catP.appendChild(ancestrySpan);
+    applyWikiLinks(ancestrySpan, entity.id, gmView);
   }
   if (entity.subtype) {
     catP.appendChild(document.createTextNode(' \u2014 ' + entity.subtype));
@@ -2132,7 +2166,11 @@ function renderDetailForSelected() {
     catEm.textContent = entity.category || '';
     catP.appendChild(catEm);
     if (entity.ancestry) {
-      catP.appendChild(document.createTextNode(' \u2014 ' + entity.ancestry));
+      catP.appendChild(document.createTextNode(' \u2014 '));
+      const ancestrySpan = document.createElement('span');
+      ancestrySpan.textContent = entity.ancestry;
+      catP.appendChild(ancestrySpan);
+      applyWikiLinks(ancestrySpan, entity.id, gmView);
     }
     if (entity.subtype) {
       catP.appendChild(document.createTextNode(' \u2014 ' + entity.subtype));
@@ -2227,9 +2265,19 @@ function renderDetailForSelected() {
   if (editing) return; // tags/gallery/related/delete are edited inline above; card ends here
 
   // --- Related entities ---
+  // Relatedness is enforced symmetric at display time: A -> B always
+  // implies B -> A, even if only one side's relatedIds array actually
+  // stores the link (e.g. a link added before this rule existed, or an
+  // edit that only touched one side). We don't rewrite the other side's
+  // document — just union it in here — so this stays correct regardless
+  // of which entity's data is stale.
   // Player view only links to targets that are themselves player-visible;
   // dangling IDs (deleted target) silently skipped.
-  const relatedIds = entity.relatedIds || [];
+  const reverseRelatedIds = state.allEntities
+    .filter(function (e) { return e.id !== entity.id && (e.relatedIds || []).indexOf(entity.id) !== -1; })
+    .map(function (e) { return e.id; });
+  const relatedIds = (entity.relatedIds || []).concat(reverseRelatedIds)
+    .filter(function (id, idx, arr) { return arr.indexOf(id) === idx; });
   if (relatedIds.length) {
     const visibleRelated = relatedIds
       .map(function (id) { return state.allEntities.find(function (e) { return e.id === id; }); })

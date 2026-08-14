@@ -130,7 +130,7 @@ service cloud.firestore {
     function isValidLoreItem() {
       return request.resource.data.keys().hasOnly(
           ['entityId', 'kind', 'authorId', 'authorType', 'visibility',
-           'content', 'order', 'createdAt', 'updatedAt'])
+           'content', 'meta', 'order', 'createdAt', 'updatedAt'])
         && request.resource.data.entityId is string
         && request.resource.data.kind in ['imported', 'gm-note', 'player-note']
         && request.resource.data.visibility in ['gm-only', 'all-players', 'author-only']

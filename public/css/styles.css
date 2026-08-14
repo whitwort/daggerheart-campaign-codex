@@ -673,6 +673,7 @@ select {
 .lore-item.vis-hidden { box-shadow: inset 3px 0 0 var(--hope); }
 .lore-item.vis-visible { box-shadow: inset 3px 0 0 var(--fear); }
 .lore-item-toggle-row { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 0.4rem; }
+.lore-item-meta-row { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.4rem; }
 .lore-item-actions-row { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.4rem; margin-top: 0.4rem; }
 .lore-vis-badge { padding: 0.1rem 0.45rem; font-size: 0.7rem; border-radius: 3px; }
 .lore-vis-badge.visible { background: var(--fear); color: #fff; box-shadow: 0 0 0.4rem var(--fear-glow); }
