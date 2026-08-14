@@ -57,7 +57,9 @@ their own narrower exception or shortened text.
 Add a "+ New Note" button to the Notes tab, styled with the
 `.action-btn-compact` class (exception 8 above) so it matches the
 lore/gallery/entity-card action buttons. Not yet implemented — no
-"add a note" flow exists on that tab yet.
+"add a note" flow exists on that tab yet. Explicitly deferred to
+Phase 14 (that's when the Notes tab itself gets built out as part of
+player-facing contribution features) rather than done standalone now.
 
 This was corrected piecemeal across many earlier Phase 11 sessions
 (gallery Delete, lore Edit/Delete, admin buttons/dropdowns, map pin
@@ -117,12 +119,16 @@ scattered CSS.
   (`b414066`, empty-state fix `ff14f18`). Legend rebuilds every
   `renderPins()` from the same filtered (gm/player-visibility) pin set,
   hides entirely when nothing to show.
-- **10b. Pin-safety on Location map image change — still open.** Old
-  alert-on-dimension-change warning was dropped when map images moved to
-  the entity form. Changed map image can silently leave existing pins
-  (raw pixel coords in the old image's coordinate space) misaligned.
-  First pass: warn GM pin locations may be wrong. Better: guided
-  re-check/relocate UI. Not started.
+- **10b. Pin-safety on Location map image change — DONE.** Both upload
+  (replace) and delete now warn when the location has existing pins:
+  upload shows a confirm naming the pin count before the new image is
+  set (pins are stored in the old image's pixel coordinate space, so a
+  replacement can misalign them); delete's existing confirm now also
+  names the pin count instead of a generic warning. Both read live
+  from `state.allPins` filtered by `mapEntityId === entity.id`. No
+  guided re-check/relocate UI (that idea from the original note is
+  still just an idea, not built) — this is the warning-only version,
+  which is what was asked for.
 - **10c. Map tiling — explored, shelved.** Rabbit-hole scope worked out:
   client-side pyramid generation, new `tiles` sub-schema (50-150+ docs
   per map upload, writeBatch chunking + orphan-on-interrupt risk),
@@ -136,16 +142,10 @@ scattered CSS.
 
 ## Dev ergonomics
 
-- **Dev-only test Player login (2FA friction fix).** Root cause:
-  private-browsing windows don't persist session cookies, so the
-  `sonora.kirintor` test account re-triggers 2FA on every refresh.
-  Fix in progress: separate non-private browser app (Firefox/Edge/etc.)
-  for the second Google account — separate cookie jar, no code change.
-  If that doesn't hold: Option B is an Email/Password provider enabled
-  **only** on `daggerheart-campaign-codex-dev` Auth (console toggle +
-  one whitelisted test user), with the sign-in button gated in code on
-  `projectId === 'daggerheart-campaign-codex-dev'` so it can't surface
-  on prod. Not started — holding on Option A's result.
+- **Dev-only test Player login (2FA friction) — RESOLVED.** No longer
+  an issue; Option A (separate non-private browser app for the second
+  Google account, separate cookie jar) held. Option B (Email/Password
+  provider gated to the dev project) was never needed.
 
 ## Phase 11 (visual styling) — polish follow-ups
 
@@ -163,30 +163,43 @@ scrollbar spot-check — accepted, no further action).
 
 ## Future phases (scoped, not started)
 
-- **Phase 12b — SRD data import — DONE.** Ingest Daggerheart SRD content
-  into the codex, reusing the upstream-repo approach already proven in
-  the sibling `daggerheart-encounter-builder` project (that repo
-  consumes `seansbox/daggerheart-srd`'s pre-parsed JSON rather than
-  parsing the SRD PDF itself; this repo does the same, one step further
-  into new entity types). Admin tab: Configuration > Campaign Type
-  (Daggerheart / Not Daggerheart, gates the tab below) and Data >
-  Import from SRD (repo setting, default `seansbox/daggerheart-srd`;
-  "Update entries" button). New categories `Ancestry`* (*already
-  existed), `Community`, `Game Mechanics`* (*already existed),
-  `Equipment` — the latter two carry an optional `subtype` field
-  (`abilities`/`beastforms`/`classes`/`domains`/`subclasses` under Game
-  Mechanics; `armor`/`consumables`/`items`/`weapons` under Equipment).
-  Idempotent re-run: matched against existing entities by
-  (category, subtype, slug) via `state.allEntities`; on match, entity
-  fields + its `kind:'imported'` lore item are rewritten fresh rather
-  than duplicated. All SRD-imported content is `visibility:
-  'all-players'` (public rules text, not campaign secrets). Source
-  files: `public/js/srd-import.js` (fetch/parse/map/upsert),
-  `public/js/admin.js` (Campaign Type + SRD tab wiring),
-  `firestore.rules` (`subtype` added to `isValidEntity()`'s allowed
-  keys). Not yet built: manual subtype editing in the entity edit form
-  (only the SRD importer sets it today) — add if a GM-authored entity
-  ever needs one.
+**Phase 12 — CLOSED.** All Phase 12/12b work (backup/export/migration
+infra, and the SRD import scaffolding + implementation that followed
+it) is done and verified. Next up: Phase 13.
+
+- **Phase 12b — SRD data import — DONE, verified end-to-end.** Ingest
+  Daggerheart SRD content into the codex, reusing the upstream-repo
+  approach already proven in the sibling
+  `daggerheart-encounter-builder` project (that repo consumes
+  `seansbox/daggerheart-srd`'s pre-parsed JSON rather than parsing the
+  SRD PDF itself; this repo does the same, one step further into new
+  entity types). Admin tab: Configuration > Campaign Type (Daggerheart
+  / Not Daggerheart, gates the tab below) and Data > Import from SRD
+  (repo setting, default `seansbox/daggerheart-srd`; "Update entries"
+  button). New categories `Ancestry`* (*already existed), `Community`,
+  `Game Mechanics`* (*already existed), `Equipment` — the latter two
+  carry an optional `subtype` field
+  (`abilities`/`beastforms`/`classes`/`domains`/`subclasses` under
+  Game Mechanics, plus homebrew `"Aether's Children"`;
+  `armor`/`consumables`/`items`/`weapons` under Equipment). Idempotent
+  re-run: matched against existing entities by (category, subtype,
+  slug) via `state.allEntities`; on match, entity fields + its
+  `kind:'imported'` lore item are rewritten fresh rather than
+  duplicated. All SRD-imported content is `visibility: 'all-players'`
+  (public rules text, not campaign secrets). Entry Browser groups
+  subtypes as a nested collapsible ToC level under their category.
+  Manual subtype editing is also in place — both the inline entity
+  edit form (Game Mechanics/Equipment categories) and the bulk JSON
+  paste importer accept `subtype` — not SRD-import-only. Source files:
+  `public/js/srd-import.js` (fetch/parse/map/upsert), `public/js/
+  admin.js` (Campaign Type + SRD tab wiring), `firestore.rules`
+  (`subtype` added to `isValidEntity()`'s allowed keys),
+  `public/js/codex.js` (subtype edit field + ToC nesting),
+  `public/js/import.js` (subtype in bulk import). Deliberately
+  deferred, not a bug: no de-dup handling for two records *within the
+  same SRD type* that happen to share a name/slug — would silently
+  overwrite as an "update." Hand-vet the data if this ever comes up
+  rather than building detection speculatively.
 - **Phase 13 — Offline / degraded connectivity.** Missed opportunities
   for offline experience and handling intermittent connectivity at the
   table. Prod database backup/snapshot/export strategy folds in here.

@@ -958,6 +958,17 @@ function buildMapImageEditSection(entity) {
   input.addEventListener('change', function () {
     const file = input.files[0];
     if (!file) return;
+    if (mapImg) {
+      const pinCount = state.allPins.filter(function (p) { return p.mapEntityId === entity.id; }).length;
+      if (pinCount > 0 && !window.confirm(
+        'This location already has a map image with ' + pinCount + ' pin' + (pinCount === 1 ? '' : 's') +
+        ' on it. Replacing the image may leave existing pins misaligned, since pin positions are stored ' +
+        'relative to the old image. Continue?'
+      )) {
+        input.value = '';
+        return;
+      }
+    }
     input.disabled = true;
     uploadEntityMapImage(entity.id, file, {
       onStatus: function (text) { statusEl.textContent = text; }
@@ -975,7 +986,12 @@ function buildMapImageEditSection(entity) {
     delBtn.type = 'button';
     delBtn.textContent = 'Delete map image';
     delBtn.addEventListener('click', function () {
-      if (!window.confirm('Delete this location\u2019s map image? Pins on its map will be unreachable until a new image is set.')) return;
+      const pinCount = state.allPins.filter(function (p) { return p.mapEntityId === entity.id; }).length;
+      const warning = pinCount > 0
+        ? 'Delete this location\u2019s map image? It has ' + pinCount + ' pin' + (pinCount === 1 ? '' : 's') +
+          ' on it, which will be unreachable until a new image is set.'
+        : 'Delete this location\u2019s map image?';
+      if (!window.confirm(warning)) return;
       deleteEntityMapImage(entity.id).catch(function (err) {
         window.alert('Delete failed: ' + err.message);
       });
