@@ -26,6 +26,15 @@ window.APP_CONFIG = {
   // and legend. Adjust freely — this is the one place that list lives.
   metaCategories: ['World Facts', 'Game Mechanics', 'Ancestry', 'Community', 'Equipment'],
 
+  // Subtype options for the two categories that carry one (Phase 12b, SRD
+  // import). Matches the source SRD JSON type names verbatim (see
+  // srd-import.js) so imported and manually-created entries use the same
+  // vocabulary. Categories not listed here don't offer a subtype field.
+  subtypesByCategory: {
+    'Game Mechanics': ['abilities', 'beastforms', 'classes', 'domains', 'subclasses'],
+    'Equipment': ['armor', 'consumables', 'items', 'weapons']
+  },
+
   // Icons used for entry links across the app (Entry Browser map links,
   // Entry Card map link, map breadcrumb). One place to swap the glyphs.
   icons: {
