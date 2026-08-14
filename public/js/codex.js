@@ -8,9 +8,10 @@ import { attachListener, detachListener, safeSnapshotHandler } from './listeners
 import { renderMarkdownInto } from './markdown.js';
 import { renderAdminRootEntitySelect, renderAdminPlayersList } from './admin.js';
 import { parseDateSpec } from './dates.js';
+import { buildSourceSelect, renderSourceLabel, registerSourcesChangeHandler, confirmRevealWithoutSource } from './sources.js';
 import {
   uploadEntityMapImage, deleteEntityMapImage,
-  uploadEntityGalleryImage, deleteEntityGalleryImage, setGalleryImageVisibility, setEntityPortrait
+  uploadEntityGalleryImage, deleteEntityGalleryImage, setGalleryImageVisibility, setGalleryImageSource, setEntityPortrait
 } from './images.js';
 
 const db = getFirestore(firebaseApp);
@@ -360,6 +361,10 @@ function registerVisibilityChangeHandler(fn) {
 function notifyVisibilityChange() {
   visibilityChangeHandlers.forEach(function (fn) { fn(); });
 }
+
+// Live-refresh the currently-rendered card (source labels/dropdowns)
+// whenever a GM edit to the Sources list comes in.
+registerSourcesChangeHandler(function () { renderDetailForSelected(); });
 
 // map.js registers its "switch to Map tab and load this Location's map"
 // function here (same inverted-dependency pattern as above).
@@ -758,6 +763,10 @@ function buildEntityVisibilityToggle(entity) {
   input.type = 'checkbox';
   input.checked = !hidden;
   input.addEventListener('change', function () {
+    if (input.checked && !confirmRevealWithoutSource(entity.sourceId)) {
+      input.checked = false;
+      return;
+    }
     updateDoc(doc(db, 'entities', entity.id), {
       visibility: input.checked ? 'all-players' : 'gm-only',
       updatedAt: serverTimestamp()
@@ -786,7 +795,8 @@ function buildEntityDraft(entity) {
     parentId: entity.parentId || '',
     tags: (entity.tags || []).join(', '),
     relatedIds: (entity.relatedIds || []).slice(),
-    ownerId: entity.ownerId || ''
+    ownerId: entity.ownerId || '',
+    sourceId: entity.sourceId || null
   };
 }
 
@@ -835,6 +845,7 @@ function saveEntityEdit(entity) {
     parentId: draft.parentId || null,
     relatedIds: draft.relatedIds.slice(),
     tags: tags,
+    sourceId: draft.sourceId || null,
     updatedAt: serverTimestamp()
   };
   updateDoc(doc(db, 'entities', entity.id), entityData).then(function () {
@@ -1017,6 +1028,13 @@ function renderEntityEditBlock(container, entity, draft) {
   container.appendChild(buildParentSelect(entity.id, draft.parentId, function (v) { draft.parentId = v; }));
   container.appendChild(makeEditField('Tags (comma-separated)', draft.tags, function (v) { draft.tags = v; }));
   container.appendChild(buildRelatedEditor(entity.id, draft));
+  const sourceWrap = document.createElement('div');
+  sourceWrap.className = 'entity-edit-field';
+  const sourceLabel = document.createElement('label');
+  sourceLabel.textContent = 'Source';
+  sourceWrap.appendChild(sourceLabel);
+  sourceWrap.appendChild(buildSourceSelect(draft.sourceId, function (v) { draft.sourceId = v; }));
+  container.appendChild(sourceWrap);
   if (draft.category === 'Location') {
     container.appendChild(buildMapImageEditSection(entity));
   }
@@ -1095,6 +1113,7 @@ function saveNewEntity() {
     visibility: 'gm-only',
     hasMapImage: false,
     tags: [],
+    sourceId: null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   };
@@ -1200,6 +1219,7 @@ function saveLoreEdit(entity, editState, isNew, saveBtn) {
         visibility: editState.visibility,
         content: c,
         meta: !!editState.meta,
+        sourceId: editState.sourceId || null,
         order: maxOrder,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -1211,6 +1231,7 @@ function saveLoreEdit(entity, editState, isNew, saveBtn) {
       content: content,
       visibility: editState.visibility,
       meta: !!editState.meta,
+      sourceId: editState.sourceId || null,
       updatedAt: serverTimestamp()
     }).then(done).catch(fail);
   }
@@ -1247,6 +1268,10 @@ function buildLoreEditBox(entity, editState, isNew) {
   switchInput.type = 'checkbox';
   switchInput.checked = editState.visibility === 'all-players';
   switchInput.addEventListener('change', function () {
+    if (switchInput.checked && !confirmRevealWithoutSource(editState.sourceId)) {
+      switchInput.checked = false;
+      return;
+    }
     editState.visibility = switchInput.checked ? 'all-players' : 'gm-only';
     updateToggleLabel();
   });
@@ -1256,6 +1281,15 @@ function buildLoreEditBox(entity, editState, isNew) {
   switchLabel.appendChild(switchSlider);
   toggleRow.appendChild(switchLabel);
   box.appendChild(toggleRow);
+
+  const sourceRow = document.createElement('div');
+  sourceRow.className = 'lore-item-source-row';
+  const sourceRowLabel = document.createElement('span');
+  sourceRowLabel.className = 'toggle-switch-label';
+  sourceRowLabel.textContent = 'Source';
+  sourceRow.appendChild(sourceRowLabel);
+  sourceRow.appendChild(buildSourceSelect(editState.sourceId, function (v) { editState.sourceId = v; }));
+  box.appendChild(sourceRow);
 
   const textarea = document.createElement('textarea');
   textarea.className = 'lore-edit-textarea';
@@ -1350,6 +1384,10 @@ function renderLoreTab(container, entity, gmView) {
         applyWikiLinks(bodyDiv, entity.id, gmView);
       });
       itemDiv.appendChild(bodyDiv);
+      const sourceLabelDiv = document.createElement('div');
+      sourceLabelDiv.className = 'source-label';
+      renderSourceLabel(sourceLabelDiv, item.sourceId);
+      itemDiv.appendChild(sourceLabelDiv);
       loreListDiv.appendChild(itemDiv);
     });
     container.appendChild(loreListDiv);
@@ -1390,6 +1428,10 @@ function renderLoreTab(container, entity, gmView) {
     switchInput.type = 'checkbox';
     switchInput.checked = item.visibility === 'all-players';
     switchInput.addEventListener('change', function () {
+      if (switchInput.checked && !confirmRevealWithoutSource(item.sourceId)) {
+        switchInput.checked = false;
+        return;
+      }
       updateDoc(doc(db, 'loreItems', item.id), {
         visibility: switchInput.checked ? 'all-players' : 'gm-only',
         updatedAt: serverTimestamp()
@@ -1409,6 +1451,11 @@ function renderLoreTab(container, entity, gmView) {
     });
     itemDiv.appendChild(bodyDiv);
 
+    const sourceLabelDiv = document.createElement('div');
+    sourceLabelDiv.className = 'source-label';
+    renderSourceLabel(sourceLabelDiv, item.sourceId);
+    itemDiv.appendChild(sourceLabelDiv);
+
     // Hide Edit/Delete on other items while one item (or a new draft) is
     // already being edited — forces finishing that edit first, rather
     // than silently discarding it by switching targets.
@@ -1419,7 +1466,7 @@ function renderLoreTab(container, entity, gmView) {
       editBtn.className = 'lore-item-btn';
       editBtn.textContent = 'Edit';
       editBtn.addEventListener('click', function () {
-        state.loreEdit = { entityId: entity.id, id: item.id, content: item.content, visibility: item.visibility, meta: !!item.meta };
+        state.loreEdit = { entityId: entity.id, id: item.id, content: item.content, visibility: item.visibility, meta: !!item.meta, sourceId: item.sourceId || null };
         renderDetailForSelected();
       });
       actionsRow.appendChild(editBtn);
@@ -1449,7 +1496,7 @@ function renderLoreTab(container, entity, gmView) {
     newLoreBtn.className = 'action-btn-compact';
     newLoreBtn.textContent = '+ New lore';
     newLoreBtn.addEventListener('click', function () {
-      state.loreEdit = { entityId: entity.id, id: null, content: '', visibility: 'gm-only', meta: false };
+      state.loreEdit = { entityId: entity.id, id: null, content: '', visibility: 'gm-only', meta: false, sourceId: null };
       renderDetailForSelected();
     });
     right.appendChild(newLoreBtn);
@@ -1874,6 +1921,11 @@ function renderGalleryTab(container, entity, gmView) {
       }
       figDiv.appendChild(imgWrap);
 
+      const sourceLabelDiv = document.createElement('div');
+      sourceLabelDiv.className = 'source-label';
+      renderSourceLabel(sourceLabelDiv, img.sourceId);
+      figDiv.appendChild(sourceLabelDiv);
+
       if (gmView) {
         const barDiv = document.createElement('div');
         barDiv.className = 'gallery-item-bar';
@@ -1888,6 +1940,10 @@ function renderGalleryTab(container, entity, gmView) {
         switchInput.type = 'checkbox';
         switchInput.checked = visible;
         switchInput.addEventListener('change', function () {
+          if (switchInput.checked && !confirmRevealWithoutSource(img.sourceId)) {
+            switchInput.checked = false;
+            return;
+          }
           setGalleryImageVisibility(img.id, switchInput.checked ? 'all-players' : 'gm-only')
             .catch(function (err) { window.alert('Visibility change failed: ' + err.message); });
         });
@@ -1896,6 +1952,12 @@ function renderGalleryTab(container, entity, gmView) {
         switchLabel.appendChild(switchInput);
         switchLabel.appendChild(switchSlider);
         barDiv.appendChild(switchLabel);
+
+        const sourceSelect = buildSourceSelect(img.sourceId, function (newSourceId) {
+          setGalleryImageSource(img.id, newSourceId)
+            .catch(function (err) { window.alert('Source change failed: ' + err.message); });
+        });
+        barDiv.appendChild(sourceSelect);
 
         const delBtn = document.createElement('button');
         delBtn.type = 'button';
@@ -2232,6 +2294,13 @@ function renderDetailForSelected() {
   }
   headingRow.appendChild(rightCol);
   headingTarget.appendChild(headingRow);
+
+  if (!editing) {
+    const sourceLabelDiv = document.createElement('div');
+    sourceLabelDiv.className = 'source-label';
+    renderSourceLabel(sourceLabelDiv, entity.sourceId);
+    headingTarget.appendChild(sourceLabelDiv);
+  }
 
   if (editing) {
     const editBlock = document.createElement('div');
