@@ -108,6 +108,7 @@ input, select, textarea {
   color: var(--parchment);
   border: 1px solid var(--void-line);
   border-radius: 6px;
+  font-size: 0.9rem;
 }
 input::placeholder, textarea::placeholder { color: var(--ink-soft); }
 

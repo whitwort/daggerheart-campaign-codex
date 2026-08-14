@@ -88,11 +88,8 @@ const adminSrdUpdateStatusEl = document.getElementById('admin-srd-update-status'
 
     adminCampaignTypeSelectEl.addEventListener('change', function () {
       const newCampaignType = adminCampaignTypeSelectEl.value;
-      adminCampaignTypeStatusEl.textContent = 'Saving...';
+      adminCampaignTypeStatusEl.textContent = '';
       setDoc(doc(db, 'config', 'campaign'), { campaignType: newCampaignType }, { merge: true })
-        .then(function () {
-          adminCampaignTypeStatusEl.textContent = 'Saved.';
-        })
         .catch(function (err) {
           adminCampaignTypeStatusEl.textContent = 'Save failed: ' + err.message;
         });
