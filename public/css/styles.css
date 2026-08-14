@@ -764,13 +764,15 @@ select {
 }
 .wiki-link:hover { text-decoration: underline; }
 
-/* App-wide link styling for Markdown-rendered body content (real
-   authored hyperlinks, not auto-linked .wiki-link entity names) —
-   matches the wiki-link color convention so links don't fall back to
-   raw browser blue/purple defaults. .source-label overrides this
-   further down (in source order) to a muted inherit-color treatment
-   per Gregg's call — attribution footer, not body content. */
-.lore-item-body a, .admin-source-body a, .entity-preview-card a {
+/* App-wide link styling for Markdown-rendered narrative content (lore
+   body, codex preview cards) — real authored hyperlinks, not
+   auto-linked .wiki-link entity names. Matches the wiki-link color
+   convention so links don't fall back to raw browser blue/purple
+   defaults. Instruction/label/attribution contexts (hints, the lore
+   editor's Markdown-cheat-sheet link, Sources) use a different,
+   inherit-color rule below instead — see that comment for the app-wide
+   split. */
+.lore-item-body a, .entity-preview-card a {
   color: var(--fear);
   text-decoration: underline;
 }
@@ -945,8 +947,21 @@ button:disabled:hover { border-color: var(--void-line); }
   margin-top: 0.5rem;
   opacity: 0.8;
 }
+/* App-wide rule: links inside instruction/label/attribution text
+   (hints, the lore editor's Markdown-cheat-sheet link, Sources — both
+   the player-facing lower-left label and the Admin list view of the
+   same text) inherit the surrounding text's color rather than standing
+   out, but keep the underline. Deliberately NOT applied to narrative
+   content (lore body, codex preview cards) or .wiki-link — those stay
+   as-is per Gregg's call. */
 .source-label a,
-.source-label a:visited {
+.source-label a:visited,
+.admin-source-body a,
+.admin-source-body a:visited,
+.admin-hint a,
+.admin-hint a:visited,
+.lore-edit-hint a,
+.lore-edit-hint a:visited {
   color: inherit;
   text-decoration: underline;
 }
