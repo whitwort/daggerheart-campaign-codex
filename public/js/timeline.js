@@ -2,8 +2,10 @@ import { state } from './state.js';
 import {
   registerVisibilityChangeHandler, isEntityPlayerVisible,
   renderList, renderDetailForSelected, clearCodexSearchInput,
-  renderEntityViewCard, buildEntityPreviewCard, enterEntityEditMode
+  renderEntityViewCard, buildEntityPreviewCard, enterEntityEditMode,
+  appendDateSegments
 } from './codex.js';
+import { formatDateSegments } from './dates.js';
 
 const panelEl = document.getElementById('timeline-panel');
 let built = false;
@@ -251,7 +253,7 @@ function showClusterPicker(items, anchorEl) {
     row.addEventListener('click', function () { hideClusterPicker(); openEntityInPanel(d.entity.id); });
     const dateSpan = document.createElement('span');
     dateSpan.className = 'timeline-row-date';
-    dateSpan.textContent = d.entity.date || '';
+    appendDateSegments(dateSpan, d.entity.date || '');
     const nameSpan = document.createElement('span');
     nameSpan.className = 'timeline-row-name';
     nameSpan.textContent = d.entity.name;
@@ -368,7 +370,7 @@ function renderListPanel() {
 
     const dateSpan = document.createElement('span');
     dateSpan.className = 'timeline-row-date';
-    dateSpan.textContent = entity.date || '';
+    appendDateSegments(dateSpan, entity.date || '');
     row.appendChild(dateSpan);
 
     const nameSpan = document.createElement('span');
@@ -481,6 +483,21 @@ function niceTicks() {
 
 function catClass(category) { return 'cat-' + (category || '').toLowerCase(); }
 
+// SVG analog of codex.js's appendDateSegments: builds <tspan> children
+// instead of HTML text nodes/<b> elements, since SVG <text> can't hold
+// arbitrary HTML. Bold segments get the .timeline-date-bold class
+// (font-weight, set in CSS) rather than a <b> tag, which SVG doesn't
+// have.
+function appendDateTspans(textEl, raw) {
+  const svgns = 'http://www.w3.org/2000/svg';
+  formatDateSegments(raw).forEach(function (seg) {
+    const tspan = document.createElementNS(svgns, 'tspan');
+    if (seg.bold) tspan.setAttribute('class', 'timeline-date-bold');
+    tspan.textContent = seg.text;
+    textEl.appendChild(tspan);
+  });
+}
+
 function render() {
   hideClusterPicker();
   const rect = dom.svg.getBoundingClientRect();
@@ -522,7 +539,7 @@ function render() {
     const g = mk('g', { class: 'timeline-axis-tick' });
     g.appendChild(mk('line', { x1: spineCross - 5, y1: px, x2: spineCross + 5, y2: px }));
     const txt = mk('text', { x: spineCross - 10, y: px + 3, 'text-anchor': 'end' });
-    txt.textContent = fmtTick(Math.round(t * YEAR_SECONDS), granularity);
+    appendDateTspans(txt, fmtTick(Math.round(t * YEAR_SECONDS), granularity));
     g.appendChild(txt);
     dom.svg.appendChild(g);
   }
@@ -562,7 +579,7 @@ function render() {
       }
 
       const dateLbl = mk('text', { class: 'timeline-node-date', x: spineCross + 14, y: cy + 12 });
-      dateLbl.textContent = d.entity.date || '';
+      appendDateTspans(dateLbl, d.entity.date || '');
       dom.svg.appendChild(dateLbl);
     } else {
       const cx = spineCross, cy = px;

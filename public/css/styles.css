@@ -1029,6 +1029,9 @@ button:disabled:hover { border-color: var(--void-line); }
   fill: var(--parchment); pointer-events: none;
 }
 .timeline-node-date { font-family: var(--font-body), sans-serif; font-size: 9.5px; fill: rgba(233,221,194,0.55); pointer-events: none; }
+/* Bold "ago" marker for tick/node dates (appendDateTspans, timeline.js)
+   -- SVG has no <b> element, so this is the tspan equivalent. */
+.timeline-date-bold { font-weight: 700; }
 
 .timeline-cluster-dot { cursor: pointer; }
 .timeline-cluster-dot circle { fill: var(--void-raised); stroke: var(--parchment-edge); stroke-width: 1.5; }

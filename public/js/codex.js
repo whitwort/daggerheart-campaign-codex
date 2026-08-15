@@ -7,7 +7,7 @@ import { state } from './state.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
 import { renderMarkdownInto } from './markdown.js';
 import { renderAdminRootEntitySelect, renderAdminPlayersList } from './admin.js';
-import { parseDateSpec } from './dates.js';
+import { parseDateSpec, formatDateSegments } from './dates.js';
 import { buildSourceSelect, renderSourceLabel, registerSourcesChangeHandler, confirmRevealWithoutSource, sortedSources } from './sources.js';
 import {
   uploadEntityMapImage, deleteEntityMapImage,
@@ -2351,6 +2351,50 @@ function renderGalleryTab(container, entity, gmView, readOnly) {
 // tags) but with NO interactive controls (no visibility toggle, no
 // map link, no tab menu) — just the first lore item if there is one,
 // view-only, with a "…" hint if there are more not being shown.
+// Appends formatDateSegments' {text,bold} segments as text nodes / <b>
+// elements into an HTML container -- shared by both meta-line builders
+// below and reused wherever an authored date string needs the spaced/
+// bold-"a" display treatment outside SVG contexts (which use their own
+// <tspan>-based version, see timeline.js appendDateTspans).
+function appendDateSegments(container, raw) {
+  formatDateSegments(raw).forEach(function (seg) {
+    if (seg.bold) {
+      const b = document.createElement('b');
+      b.textContent = seg.text;
+      container.appendChild(b);
+    } else {
+      container.appendChild(document.createTextNode(seg.text));
+    }
+  });
+}
+
+// Shared "Also known as / Date / Owned by" meta line, used by both the
+// small map-pin/preview card and the full entity view card -- was
+// duplicated inline in both places before; centralized here so the
+// date-formatting treatment (spacing + bold "a") only needs applying
+// once. Returns the built <div> (caller appends it), or null if there's
+// nothing to show.
+function buildEntityMetaLine(entity, gmView) {
+  const bits = [];
+  if (entity.aliases && entity.aliases.length) bits.push({ kind: 'text', text: 'Also known as: ' + entity.aliases.join(', ') });
+  if (entity.date) bits.push({ kind: 'date', label: 'Date: ', date: entity.date });
+  if (entity.ownerId && gmView) bits.push({ kind: 'text', text: 'Owned by: ' + entity.ownerId });
+  if (!bits.length) return null;
+
+  const metaDiv = document.createElement('div');
+  metaDiv.className = 'entity-meta-line';
+  bits.forEach(function (bit, i) {
+    if (i > 0) metaDiv.appendChild(document.createTextNode(' \u00b7 '));
+    if (bit.kind === 'date') {
+      metaDiv.appendChild(document.createTextNode(bit.label));
+      appendDateSegments(metaDiv, bit.date);
+    } else {
+      metaDiv.appendChild(document.createTextNode(bit.text));
+    }
+  });
+  return metaDiv;
+}
+
 function buildEntityPreviewCard(entity, gmView) {
   const card = document.createElement('div');
   card.className = 'entity-preview-card';
@@ -2376,16 +2420,8 @@ function buildEntityPreviewCard(entity, gmView) {
   }
   card.appendChild(catP);
 
-  const metaBits = [];
-  if (entity.aliases && entity.aliases.length) metaBits.push('Also known as: ' + entity.aliases.join(', '));
-  if (entity.date) metaBits.push('Date: ' + entity.date);
-  if (entity.ownerId && gmView) metaBits.push('Owned by: ' + entity.ownerId);
-  if (metaBits.length) {
-    const metaDiv = document.createElement('div');
-    metaDiv.className = 'entity-meta-line';
-    metaDiv.textContent = metaBits.join(' \u00b7 ');
-    card.appendChild(metaDiv);
-  }
+  const metaLine = buildEntityMetaLine(entity, gmView);
+  if (metaLine) card.appendChild(metaLine);
 
   if (entity.tags && entity.tags.length) {
     // Class, not #codex-tags id — this card can coexist in the DOM
@@ -2640,16 +2676,8 @@ function renderEntityViewCard(container, entity, gmView, opts) {
   }
   leftCol.appendChild(catP);
 
-  const metaBits = [];
-  if (entity.aliases && entity.aliases.length) metaBits.push('Also known as: ' + entity.aliases.join(', '));
-  if (entity.date) metaBits.push('Date: ' + entity.date);
-  if (entity.ownerId && gmView) metaBits.push('Owned by: ' + entity.ownerId);
-  if (metaBits.length) {
-    const metaDiv = document.createElement('div');
-    metaDiv.className = 'entity-meta-line';
-    metaDiv.textContent = metaBits.join(' \u00b7 ');
-    leftCol.appendChild(metaDiv);
-  }
+  const metaLine = buildEntityMetaLine(entity, gmView);
+  if (metaLine) leftCol.appendChild(metaLine);
 
   // Structured details/features render as a display-time merge into the
   // entity's lore items (first 'meta-details'/'meta-features' item) --
@@ -2830,5 +2858,5 @@ export {
   attachCodexListeners, detachCodexListeners, renderList, renderDetailForSelected,
   isEntityPlayerVisible, registerVisibilityChangeHandler, registerMapNavigationHandler,
   clearCodexSearchInput, buildEntityPreviewCard, categoryGroupLabel, entityMatchesQuery,
-  renderEntityViewCard, applyWikiLinks, enterEntityEditMode
+  renderEntityViewCard, applyWikiLinks, enterEntityEditMode, appendDateSegments
 };
