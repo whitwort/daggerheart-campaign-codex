@@ -6,7 +6,7 @@ import { state } from './state.js';
 import {
   renderList, renderDetailForSelected, isEntityPlayerVisible,
   registerVisibilityChangeHandler, registerMapNavigationHandler, clearCodexSearchInput,
-  buildEntityPreviewCard, categoryGroupLabel, entityMatchesQuery,
+  categoryGroupLabel, entityMatchesQuery,
   renderEntityViewCard, enterEntityEditMode
 } from './codex.js';
 import { renderAdminRootEntitySelect, renderAdminCampaignTypeSelect, renderAdminSrdRepo } from './admin.js';
@@ -47,86 +47,18 @@ function isMapEntity(entity) {
 // Safari reports that as false even with a trackpad attached and
 // actively hovering, so it silently killed the mouseover binding
 // there. Removed.)
-function bindPinPreviewPopup(layer, entity, gmView, handleClick, navigateFn) {
-  // Registered BEFORE bindPopup, deliberately: bindPopup() silently
-  // attaches its OWN internal click listener that opens the popup —
-  // and since Leaflet fires listeners in registration order, that
-  // internal handler would otherwise run before ours and mutate the
-  // open/closed state out from under this check. Worse, that internal
-  // handler TOGGLES for markers but only opens (never closes) for
-  // circles/paths — registering first sidesteps both: we always read
-  // the true state as it was *before* this click.
-  layer.on('click', function () {
-    if (!handleClick()) return;
-    if (layer.isPopupOpen()) navigateFn();
-  });
-  layer.bindPopup(function () { return buildEntityPreviewCard(entity, gmView); },
-    { className: 'entity-preview-popup', maxWidth: 280, autoPan: false });
-  // The map container is clipped (overflow: hidden — see styles.css
-  // for why visible is banned), so popups must fit INSIDE it. Two
-  // cooperating mechanisms per open:
-  //   1. Clamp the scrollable content to the space on the popup's
-  //      side of the pin (~90px covers chrome: tip, wrapper padding,
-  //      marker popupAnchor lift).
-  //   2. If the space above the pin is too tight for a usable card,
-  //      FLIP the popup below the pin instead — space below is large
-  //      exactly when space above is small, so between the two sides
-  //      a readable popup always fits. Flipping = a positive y
-  //      offset of the popup's own rendered height (Leaflet anchors
-  //      popups by their bottom edge), applied via options.offset +
-  //      update(); the 'popup-below' class hides the now-misleading
-  //      tip. Offset and class are RESET at the start of every open:
-  //      both persist on the popup object across opens, and the
-  //      right choice depends on where the pin sits after pans/zooms,
-  //      so each open re-decides from scratch.
-  layer.on('popupopen', function (e) {
-    const map = layer._map;
-    const popup = e.popup;
-    const popupEl = popup.getElement();
-    const contentEl = popupEl && popupEl.querySelector('.leaflet-popup-content');
-    if (!map || !contentEl) return;
-    if (!popup._defaultOffset) popup._defaultOffset = popup.options.offset;
-    popup.options.offset = popup._defaultOffset;
-    popupEl.classList.remove('popup-below');
-
-    const anchorY = map.latLngToContainerPoint(popup.getLatLng()).y;
-    const containerH = map.getSize().y;
-    const spaceAbove = anchorY - 90;
-    const spaceBelow = containerH - anchorY - 60;
-    const capPx = window.innerHeight * 0.5;
-
-    if (spaceAbove >= 180 || spaceAbove >= spaceBelow) {
-      contentEl.style.maxHeight = Math.min(Math.max(60, spaceAbove), capPx) + 'px';
-    } else {
-      contentEl.style.maxHeight = Math.min(Math.max(60, spaceBelow), capPx) + 'px';
-      popupEl.classList.add('popup-below');
-      // Height must be measured AFTER the clamp above so the offset
-      // matches what will actually render. +30 ≈ pin-tip gap plus
-      // Leaflet's 20px .leaflet-popup bottom margin.
-      const h = popupEl.offsetHeight;
-      popup.options.offset = L.point(0, h + 30);
-      popup.update();
-    }
-  });
-  // Real mouse hover only. Leaflet's own abstracted 'mouseover' event
-  // can also fire from the browser's synthetic touch-to-mouse
-  // translation (used so :hover CSS still works after a tap) — when
-  // it does, it opens the popup a beat before the click handler above
-  // runs, making that tap look like a second tap and skip straight to
-  // navigate. That's timing-dependent per tap, which is why it hit
-  // some pins and not others rather than every pin uniformly. Native
-  // pointerenter + an explicit pointerType check can't be spoofed by
-  // that translation — touch always reports pointerType 'touch', a
-  // real mouse always reports 'mouse'. getElement() only returns a
-  // node once the layer is actually on the map, hence the 'add' hook.
-  layer.on('add', function () {
-    const el = layer.getElement && layer.getElement();
-    if (!el) return;
-    el.addEventListener('pointerenter', function (e) {
-      if (e.pointerType === 'mouse') layer.openPopup();
-    });
-  });
-}
+// Preview-popup mechanism removed (Phase 13 map rework): both pin
+// shapes now use a plain name-only tooltip on hover and a single tap
+// to act (open the card / navigate) -- see renderPins below. The old
+// bindPinPreviewPopup() built a Codex-preview popup that had to clamp
+// and flip itself to avoid being clipped by the map container's
+// overflow:hidden; that positioning logic never fully stopped being
+// janky, and the mouseover-vs-touch-tap disambiguation it needed
+// (real pointerType checks, registration-order tricks against
+// Leaflet's own popup click handler) was exactly the kind of race
+// that made single-tap unreliable on real touch input (see the
+// marker-click comment in renderPins). One interaction model for both
+// shapes removes the whole class of bug instead of patching it again.
 
 // CSS class carrying the entry-type color (see styles.css "Pin color
 // legend" block — that's the single place to edit colors).
@@ -173,54 +105,144 @@ function navigateToMapForEntity(entityId) {
 }
 registerMapNavigationHandler(navigateToMapForEntity);
 
-// --- Pin-click entity card, below the map -- same read-only-card
-// pattern as Timeline's card pane (renderEntityViewCard, allowEdit:
-// false), replacing the old switchToCodexEntity tab-jump. Own local
-// selected-entity/tab state, independent of the Codex tab's own
-// state.selectedId/detailActiveTab (same reasoning as Timeline's).
+// --- Entity card below/beside the map -- shows the currently-loaded
+// map's own entity by default (Well B), or a tapped pin's entity in
+// its place (Well C, "replaces" per Gregg's call) -- same read-only-
+// card pattern as Timeline's card pane (renderEntityViewCard,
+// allowEdit: false). Own local active-tab state, independent of the
+// Codex tab's own state.selectedId/detailActiveTab (same reasoning as
+// Timeline's).
 const mapCardPaneEl = document.getElementById('map-entity-card-pane');
-let mapCardSelectedId = null;
+let mapCardPinEntityId = null; // set by a tapped pin/breadcrumb ancestor/
+                                // wiki-link; cleared by re-tapping the
+                                // same pin, the card's close (x) button,
+                                // or navigating to a different map
+                                // (loadMap) -- falls back to the
+                                // current map's own entity when null.
 let mapCardActiveTab = 'lore';
 
-// Phase 13 layout fix: #map-layout's height is set from JS to fill
-// the remaining window height below the placeholder/breadcrumb/GM-
-// controls chrome above it -- same fitLayoutHeight pattern as
-// Timeline (timeline.js). Recomputed on tab-open/invalidateSize,
-// after each map image load (breadcrumb depth changes that chrome's
-// height), and on resize.
+// Phase 13 layout fix: #map-layout's height is set from JS to fill the
+// remaining window height below the header/nav -- same fitLayoutHeight
+// pattern as Timeline. #map-image-wrap similarly gets an exact px size
+// from fitMapContainerSize() below, computed against the LOADED IMAGE's
+// aspect ratio -- these are two independent JS-measured fits: one for
+// the outer viewport, one for lossless image containment. Recomputed
+// on tab-open/invalidateSize, after each map image load, on window
+// resize, and whenever the row/column split toggles (that changes
+// #map-image-wrap's own box).
 const mapLayoutEl = document.getElementById('map-layout');
-function fitMapWellHeight() {
+const mapImageWrapEl = document.getElementById('map-image-wrap');
+
+function fitMapTabLayoutHeight() {
   if (!mapLayoutEl) return;
   if (!document.getElementById('map-panel').classList.contains('active')) return;
   const rect = mapLayoutEl.getBoundingClientRect();
   const h = window.innerHeight - rect.top - 16;
   mapLayoutEl.style.height = Math.max(240, h) + 'px';
 }
-window.addEventListener('resize', fitMapWellHeight);
+
+// Side-by-side (row) vs stacked (column) split between the map well
+// and the card well is a plain window-width breakpoint -- NOT the
+// loaded image's aspect ratio (that only governs the image's fit
+// WITHIN the map well, via fitMapContainerSize below; conflating the
+// two was this layout's previous mistake). ~820px = iPad portrait.
+const MAP_SPLIT_BREAKPOINT = 820;
+function updateMapSplitClass() {
+  if (!mapLayoutEl) return;
+  const wide = window.innerWidth >= MAP_SPLIT_BREAKPOINT;
+  mapLayoutEl.classList.toggle('split-row', wide);
+  mapLayoutEl.classList.toggle('split-col', !wide);
+}
+
+// Exact "contain" fit for #map-container within #map-image-wrap's
+// actual available box (its clientWidth/clientHeight already exclude
+// the breadcrumb/controls chrome above/below it, via flexbox -- no
+// manual chrome-height subtraction needed). Whichever dimension binds
+// is derived from the image's own natural aspect ratio; the other is
+// computed to match exactly, so Leaflet's container is ALWAYS the same
+// shape as the image -- no letterboxing, since fitBounds() then never
+// needs to pad with void-colored map background to reconcile a
+// mismatched container shape (that mismatch was the actual cause of
+// the previously-reported black bars: CSS aspect-ratio and a separate
+// max-width/max-height cap could disagree on the container's shape).
+function fitMapContainerSize() {
+  const containerEl = document.getElementById('map-container');
+  if (!mapImageWrapEl || !containerEl) return;
+  if (containerEl.style.display === 'none') return;
+  if (!state.mapImgWidth || !state.mapImgHeight) return;
+  const availW = mapImageWrapEl.clientWidth;
+  const availH = mapImageWrapEl.clientHeight;
+  if (!availW || !availH) return;
+  const aspect = state.mapImgWidth / state.mapImgHeight;
+  let w, h;
+  if (availW / availH > aspect) {
+    h = availH; w = h * aspect;
+  } else {
+    w = availW; h = w / aspect;
+  }
+  containerEl.style.width = Math.max(1, Math.floor(w)) + 'px';
+  containerEl.style.height = Math.max(1, Math.floor(h)) + 'px';
+  if (state.leafletMap) state.leafletMap.invalidateSize({ animate: false });
+}
+
+function fitMapTabLayout() {
+  updateMapSplitClass();
+  fitMapTabLayoutHeight();
+  fitMapContainerSize();
+}
+window.addEventListener('resize', function () {
+  if (!document.getElementById('map-panel').classList.contains('active')) return;
+  fitMapTabLayout();
+});
 
 function renderMapCardPane() {
   const gmView = state.currentRole === 'gm' && !state.gmPreviewAsPlayer;
   mapCardPaneEl.innerHTML = '';
-  const entity = mapCardSelectedId ? state.allEntities.find(function (e) { return e.id === mapCardSelectedId; }) : null;
-  if (!entity || (!gmView && !isEntityPlayerVisible(entity.id))) {
-    mapCardSelectedId = null;
+
+  let entity = null;
+  let showingPin = false;
+  if (mapCardPinEntityId) {
+    const pinEntity = state.allEntities.find(function (e) { return e.id === mapCardPinEntityId; });
+    if (pinEntity && (gmView || isEntityPlayerVisible(pinEntity.id))) {
+      entity = pinEntity;
+      showingPin = true;
+    } else {
+      mapCardPinEntityId = null; // deleted, or visibility toggled off underneath us
+    }
+  }
+  if (!entity) {
+    const mapEntity = state.allEntities.find(function (e) { return e.id === state.currentMapEntityId; });
+    if (mapEntity && (gmView || isEntityPlayerVisible(mapEntity.id))) entity = mapEntity;
+  }
+  if (!entity) {
     const emptyP = document.createElement('p');
     emptyP.className = 'lore-empty map-card-empty';
-    emptyP.textContent = 'Tap a pin to read more.';
+    emptyP.textContent = 'No map selected.';
     mapCardPaneEl.appendChild(emptyP);
     return;
   }
+
   const card = document.createElement('div');
   card.className = 'codex-entity-card';
   mapCardPaneEl.appendChild(card);
-  let headingRightExtra = null;
+
+  const extras = [];
+  if (showingPin) {
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'entity-map-link map-card-close-btn';
+    closeBtn.title = 'Close';
+    closeBtn.textContent = '\u2715';
+    closeBtn.addEventListener('click', closeMapCardPin);
+    extras.push(closeBtn);
+  }
   if (gmView) {
-    headingRightExtra = document.createElement('button');
-    headingRightExtra.type = 'button';
-    headingRightExtra.className = 'entity-map-link timeline-edit-in-codex-link';
-    headingRightExtra.title = 'Edit in Codex';
-    headingRightExtra.textContent = 'Edit in Codex';
-    headingRightExtra.addEventListener('click', function () {
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'entity-map-link timeline-edit-in-codex-link';
+    editBtn.title = 'Edit in Codex';
+    editBtn.textContent = 'Edit in Codex';
+    editBtn.addEventListener('click', function () {
       state.selectedId = entity.id;
       clearCodexSearchInput();
       renderList();
@@ -231,7 +253,15 @@ function renderMapCardPane() {
       document.getElementById('codex-panel').classList.add('active');
       enterEntityEditMode(entity);
     });
+    extras.push(editBtn);
   }
+  let headingRightExtra = null;
+  if (extras.length) {
+    headingRightExtra = document.createElement('div');
+    headingRightExtra.className = 'map-card-heading-extra';
+    extras.forEach(function (el) { headingRightExtra.appendChild(el); });
+  }
+
   renderEntityViewCard(card, entity, gmView, {
     allowEdit: false,
     activeTab: mapCardActiveTab,
@@ -241,14 +271,23 @@ function renderMapCardPane() {
   });
 }
 
+// Well C dismiss -- explicit close button, or re-tapping the same pin
+// (see renderPins' marker click handler below). Falls back to Well B
+// (the current map's own entity), not to an empty state.
+function closeMapCardPin() {
+  mapCardPinEntityId = null;
+  mapCardActiveTab = 'lore';
+  renderMapCardPane();
+}
+
 // Opens a non-map entity (a plain marker pin, a breadcrumb ancestor
-// without its own map, or a wiki-link inside a pin preview popup) in
-// the card pane below the map, instead of switching to the Codex tab.
+// without its own map, or a wiki-link inside the card pane) as Well C,
+// taking over from the current-map card (Well B) until closed.
 // Locations WITH a map image are a different interaction entirely
 // (navigateToMapForEntity zooms into that location's own sub-map) and
 // never go through here.
 function openEntityInMapCard(entityId) {
-  mapCardSelectedId = entityId;
+  mapCardPinEntityId = entityId;
   mapCardActiveTab = 'lore';
   renderMapCardPane();
   mapCardPaneEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -337,23 +376,12 @@ newPinBtn.addEventListener('click', function () { setMapMode('add'); });
 editPinBtn.addEventListener('click', function () { setMapMode('edit'); });
 removePinBtn.addEventListener('click', function () { setMapMode('remove'); });
 
-// Delegated: wiki-links inside pin preview popups (buildEntityPreviewCard
-// content, see codex.js) — the popup DOM lives under #map-container, not
-// #codex-detail, so the delegated wiki-link handler scoped to detailEl in
-// codex.js never sees these clicks. Same map-vs-codex-entry split as
-// breadcrumb links above.
-document.getElementById('map-container').addEventListener('click', function (ev) {
-  const a = ev.target.closest ? ev.target.closest('a.wiki-link') : null;
-  if (!a) return;
-  ev.preventDefault();
-  const entityId = a.dataset.entityId;
-  const entity = state.allEntities.find(function (e) { return e.id === entityId; });
-  if (isMapEntity(entity)) {
-    navigateToMapForEntity(entityId);
-  } else {
-    openEntityInMapCard(entityId);
-  }
-});
+// Wiki-links inside pin preview popups (dead since the popup mechanism
+// was removed -- see the comment above categoryPinClass) used to need
+// their own delegated handler scoped to #map-container here, since
+// that popup DOM lived outside #codex-detail's own delegated handler.
+// The card panes (map-entity-card-pane) have their own separate
+// delegated handler below (openEntityInMapCardOnWikiLinkClick).
 
 function removePin(pin) {
   const entity = state.allEntities.find(function (e) { return e.id === pin.entityId; });
@@ -742,18 +770,28 @@ function renderPins() {
       // Location with a map image: zoom circle. Radius is in map units
       // (this map's own pixel coordinate space), scaling visually with
       // zoom — sized to roughly match the region it zooms into.
+      // Same single-tap/tooltip-only treatment as the plain markers
+      // below (point 5): the old preview popup here was never fully
+      // reliable (clamp/flip positioning to dodge the container's
+      // required overflow:hidden was persistently janky), so this
+      // shape gets the same simplification rather than a third attempt
+      // at fixing the popup.
       const circle = L.circle([lat, pin.x], {
         radius: pin.radius || 150,
         className: 'map-pin-circle ' + categoryPinClass(entity.category),
         weight: 2, fillOpacity: 0.2,
         // While the pin panel is open (add/edit/move), every OTHER pin
-        // goes fully non-interactive — no hover preview, no click —
+        // goes fully non-interactive — no hover tooltip, no click —
         // so nothing but the one being placed/edited responds while
         // it's in progress.
         interactive: !state.pinDraft
       });
       if (!state.pinDraft) {
-        bindPinPreviewPopup(circle, entity, gmView, handleClick, function () { navigateToMapForEntity(entity.id); });
+        circle.bindTooltip(entity.name);
+        circle.on('click', function () {
+          if (!handleClick()) return;
+          navigateToMapForEntity(entity.id);
+        });
       }
       circle.addTo(state.pinLayer);
       return;
@@ -761,22 +799,22 @@ function renderPins() {
 
     // Any other entity (or a location without a map image yet): a small
     // colored marker (color = entry type) that opens the entity's card
-    // below the map (openEntityInMapCard). Single-tap, deliberately --
-    // unlike the map-navigation circles above (which keep a preview-then-
-    // navigate popup, since jumping to a different map is a bigger step
-    // worth previewing first), this needs to be reliable on iOS touch.
-    // The two-tap "preview popup, tap again to open" version tried here
-    // first raced Leaflet's own popup autoClose listener against this
-    // layer's click handler on real touch devices -- inconsistent, hard
-    // to reproduce at a desk. One handler, one outcome per tap removes
-    // the race entirely.
+    // (Well C, taking over from the current-map card) as a single tap.
+    // Tapping the SAME already-open pin again closes it back to Well B
+    // -- a second call to openEntityInMapCard with the same id would be
+    // a harmless no-op otherwise, but a toggle reads better than a tap
+    // that appears to do nothing.
     const marker = L.marker([lat, pin.x], { icon: pinDivIcon(entity ? entity.category : null), interactive: !state.pinDraft });
     if (!state.pinDraft) {
       if (entity) {
         marker.bindTooltip(entity.name);
         marker.on('click', function () {
           if (!handleClick()) return;
-          openEntityInMapCard(entity.id);
+          if (mapCardPinEntityId === entity.id) {
+            closeMapCardPin();
+          } else {
+            openEntityInMapCard(entity.id);
+          }
         });
       } else {
         marker.bindTooltip('(unlinked pin)');
@@ -900,14 +938,13 @@ function ensureMapTabReady() {
     // measured size goes stale while hidden, which is what produces the
     // "map drifted off-center with grey margins" bug — invalidateSize()
     // re-measures and re-centers without a full reload.
-    fitMapWellHeight();
-    state.leafletMap.invalidateSize({ animate: false });
+    fitMapTabLayout();
     renderPins();
     renderBreadcrumb();
     renderMapCardPane();
     return;
   }
-  fitMapWellHeight();
+  fitMapTabLayout();
   renderMapCardPane();
   loadMap(state.currentMapEntityId);
 }
@@ -967,6 +1004,13 @@ function loadMap(mapEntityId) {
   const mapEntity = state.allEntities.find(function (e) { return e.id === mapEntityId; });
   const placeholderEl = document.getElementById('map-tab-placeholder');
   const containerEl = document.getElementById('map-container');
+
+  // A genuine map change (not the dedup-guarded re-entrant case above)
+  // clears any tapped-pin card (Well C) left over from the previous
+  // map -- showing "Baker"'s card while looking at the Genesis map
+  // would be stale/confusing. Falls back to Well B (the new map's own
+  // entity) via renderMapCardPane's normal logic.
+  mapCardPinEntityId = null;
 
   teardownMapRuntime();
   state.loadingMapId = mapEntityId;
@@ -1047,18 +1091,20 @@ function loadMap(mapEntityId) {
   });
 }
 
-// Container sizing lives entirely in CSS (see #map-container in
-// styles.css: min()/aspect-ratio driven by --map-w/--map-h). JS's
-// only job on size change is telling Leaflet to re-read its
-// container and refit. The observer watches the CONTAINER, not
+// #map-container's own width/height are set directly in JS
+// (fitMapContainerSize, above) against #map-image-wrap's available box
+// -- this observer's job is downstream of that: whenever the
+// container's rendered size actually changes (from fitMapContainerSize
+// setting new dimensions, a window resize, or the split direction
+// toggling), re-fit Leaflet's view to it. It watches the CONTAINER, not
 // body — its callback mutates nothing outside the container's own
-// clipped panes, so it cannot re-trigger itself (the body observer
+// clipped panes, so it cannot re-trigger itself (a body-level observer
 // tried previously fed back on its own side effects; this one is
 // structurally incapable of that). The setTimeout both debounces
-// bursts and defers work out of the observation cycle (same
-// pattern as portraitResizeObserver's rAF deferral). Zero-width
-// fires (tab panel display:none) are skipped; the re-show fire
-// with real dimensions handles refit when returning to the tab.
+// bursts and defers work out of the observation cycle (same pattern as
+// portraitResizeObserver's rAF deferral). Zero-width fires (tab panel
+// display:none) are skipped; the re-show fire with real dimensions
+// handles refit when returning to the tab.
 let mapRefitTimer = null;
 const mapContainerObserver = new ResizeObserver(function () {
   clearTimeout(mapRefitTimer);
@@ -1089,30 +1135,12 @@ function renderMapImage(mapEntityId, imageDoc) {
 
         state.mapImgHeight = img.naturalHeight;
         state.mapImgWidth = img.naturalWidth;
-        // Constants, not measurements: CSS derives all sizing from
-        // these (see #map-container in styles.css).
-        containerEl.style.setProperty('--map-w', img.naturalWidth);
-        containerEl.style.setProperty('--map-h', img.naturalHeight);
-        // Clear any legacy inline sizing from the pre-CSS-sizing code
-        // (a long-lived tab can carry it across an auto-reload).
-        containerEl.style.width = '';
-        containerEl.style.height = '';
         containerEl.style.margin = '';
 
-        // Bug 4: side-by-side (map/card columns) for a landscape-ish
-        // image, stacked (map above card) for a portrait-ish one --
-        // decided from the image's own shape, not the viewport's, so
-        // this stays put across resizes/orientation changes as long as
-        // the same map is loaded. 1.2 threshold: comfortably wider-
-        // than-tall counts as "wide"; anything squarer or taller reads
-        // better stacked (a 2/3-width column would otherwise be too
-        // narrow for a tall image to read well at any useful size).
-        const aspect = img.naturalWidth / img.naturalHeight;
-        if (mapLayoutEl) {
-          mapLayoutEl.classList.toggle('layout-side-by-side', aspect >= 1.2);
-          mapLayoutEl.classList.toggle('layout-stacked', aspect < 1.2);
-        }
-        fitMapWellHeight();
+        // Split direction (row/col) and #map-container's own exact px
+        // size are both computed here, before Leaflet ever measures the
+        // container -- see fitMapTabLayout/fitMapContainerSize above.
+        fitMapTabLayout();
 
         const bounds = [[0, 0], [img.naturalHeight, img.naturalWidth]];
         state.mapBounds = bounds;
@@ -1136,8 +1164,7 @@ function renderMapImage(mapEntityId, imageDoc) {
         });
 
         setTimeout(function () {
-          fitMapWellHeight();
-          map.invalidateSize({ animate: false });
+          fitMapTabLayout();
           map.fitBounds(bounds, { animate: false });
           map.setMinZoom(map.getZoom());
           map.setMaxBounds(bounds);

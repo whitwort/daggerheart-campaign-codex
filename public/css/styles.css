@@ -208,62 +208,79 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 .nav-select option { background: var(--void-raised); color: var(--parchment); font-family: var(--font-body), sans-serif; }
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
+/* Map tab layout (Phase 13 rework, third pass):
+   #map-layout is the outer row/column split between the map well
+   (leaflet + pin controls) and the card well (current-map entity, or
+   a tapped pin's entity in its place). The split direction is a
+   window-width breakpoint (JS, map.js: updateMapSplitClass, ~820px =
+   iPad portrait) -- NOT the map image's aspect ratio; that was this
+   layout's previous mistake, conflating two independent decisions.
+   #map-layout's own height is JS-measured (fitMapTabLayoutHeight,
+   same fitLayoutHeight pattern as Timeline) to fill the window below
+   the header/nav.
+   Within the map well, #map-image-wrap is the ONLY thing #map-container
+   needs to fit inside -- giving it flex:1 min-height:0 means the
+   breadcrumb/controls chrome above/below it is automatically excluded
+   from its own clientWidth/clientHeight, so fitMapContainerSize() (JS)
+   can read an exact available box with no manual chrome-height
+   subtraction. #map-container's width/height are then set directly in
+   px by that function -- a real "contain" fit (whichever of width/
+   height binds, given the image's aspect ratio vs the wrap's box), not
+   CSS aspect-ratio + max-width/max-height fighting each other. That
+   fight was the actual cause of the letterboxing bug: with height:100%
+   forced while max-width:100% could also clamp width separately, the
+   rendered box's shape could end up NOT matching the image's aspect
+   ratio, and Leaflet's fitBounds() then padded with void-colored map
+   background to compensate -- exactly the "black bars" reported. */
+#map-layout { display: flex; gap: 1rem; min-height: 0; margin-top: 1rem; }
+#map-layout.split-row { flex-direction: row; align-items: stretch; }
+#map-layout.split-col { flex-direction: column; }
+.split-row #map-well { flex: 2 1 0; min-width: 0; }
+.split-row #map-card-well { flex: 1 1 0; min-width: 0; }
+.split-col #map-well { flex: 1 1 60%; min-height: 0; }
+.split-col #map-card-well { flex: 1 1 auto; min-height: 0; }
 #map-well {
   background: var(--void-raised); border: 1px solid var(--void-line);
-  border-radius: 14px; padding: 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.3); margin-top: 1rem;
+  border-radius: 14px; padding: 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
   display: flex; flex-direction: column; min-height: 0;
 }
+#map-card-well {
+  background: var(--void-raised); border: 1px solid var(--void-line);
+  border-radius: 14px; padding: 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  overflow-y: auto;
+}
 #map-tab-placeholder { color: var(--ink-soft); margin-top: 0; }
-/* Map container sizing (Phase 13 rework): #map-layout's height is set
-   from JS (fitMapWellHeight, map.js) to fill the remaining window
-   height below the placeholder/breadcrumb/GM-controls chrome above it
-   -- same fitLayoutHeight pattern as Timeline, applied here because
-   pure-CSS vh/svh percentages (the old approach) can't account for how
-   much of that chrome varies per view (GM vs player, breadcrumb depth),
-   so on short screens the well as a whole grew past the viewport even
-   though the map image itself was correctly capped.
-   layout-side-by-side vs layout-stacked is a JS decision (renderMapImage,
-   from the loaded image's own aspect ratio) toggled on #map-layout, not
-   a media query -- it's about the MAP IMAGE's shape, not the viewport's.
-   #map-container itself just fills its column via height:100% +
-   aspect-ratio (var(--map-w/--map-h), set once per load) in EITHER
-   layout -- only the column's own flex-basis differs between the two. */
-#map-layout { display: flex; gap: 1rem; min-height: 0; flex: 1 1 auto; margin-top: 1rem; }
-#map-layout.layout-side-by-side { flex-direction: row; align-items: stretch; }
-#map-layout.layout-stacked { flex-direction: column; }
-.map-media-col { display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; overflow: hidden; }
-.layout-side-by-side .map-media-col { flex: 2 1 0; }
-.layout-side-by-side .map-card-col { flex: 1 1 0; }
-.layout-stacked .map-media-col { flex: 0 1 60%; }
-.layout-stacked .map-card-col { flex: 1 1 auto; }
-.map-card-col { min-width: 0; min-height: 0; overflow-y: auto; }
+#map-image-wrap { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
 #map-container {
-  width: auto; height: 100%; max-width: 100%; max-height: 100%;
-  aspect-ratio: var(--map-w, 4) / var(--map-h, 3);
-  margin: 0 auto;
   background: var(--void);
   border-radius: 8px;
   display: none;
+  /* width/height set directly in px by fitMapContainerSize() (map.js) */
 }
-#map-gm-controls { display: none; margin-top: 0.75rem; }
+/* GM pin controls: below the map, right-aligned (actions-row-right
+   already handles the alignment) -- inside the map well's own flex
+   column, so they get their natural height and #map-image-wrap above
+   claims everything else via flex:1. */
+#map-gm-controls { display: none; margin-top: 0.75rem; flex-shrink: 0; }
 #map-mode-hint { font-size: 0.85rem; color: var(--ink-soft); }
 #map-gm-controls button.active-mode { outline: 2px solid var(--fear); }
 #map-image-upload { display: none; gap: 0.5rem; align-items: center; margin-top: 0.5rem; font-size: 0.85rem; }
 #map-image-upload-status { color: var(--ink-soft); }
 
 /* Breadcrumb map navigation (replaces the old "back to parent map" button) */
-#map-breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; margin-top: 0.75rem; font-size: 0.9rem; }
+#map-breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; margin-top: 0.75rem; font-size: 0.9rem; flex-shrink: 0; }
 .map-breadcrumb-link { background: none; border: none; padding: 0; cursor: pointer; color: var(--fear); text-decoration: underline dotted; font-size: inherit; width: auto; min-width: 0; text-align: left; box-shadow: none; }
 .map-breadcrumb-link:hover { text-decoration: underline; }
 .map-breadcrumb-link.current { color: var(--parchment); text-decoration: none; cursor: default; font-weight: bold; }
 
-/* Pin-click entry card, below the map -- same pattern as Timeline's
-   card pane (renderEntityViewCard, allowEdit:false), replacing the
-   old switchToCodexEntity tab-jump for plain entity markers. Location-
-   with-map-image pins (the zoom-into-submap circles) are unaffected --
-   that's a different interaction entirely, not a card view. */
+/* Entity card below/beside the map -- shows the currently-loaded map's
+   own entity by default, or a tapped pin's entity in its place (see
+   renderMapCardPane, map.js). Same read-only-card pattern as Timeline's
+   card pane (renderEntityViewCard, allowEdit:false). */
 #map-entity-card-pane:empty { display: none; }
 .map-card-empty { padding: 1.5rem 0; text-align: center; }
+.map-card-heading-extra { display: flex; gap: 0.5rem; align-items: center; }
+.map-card-close-btn { width: auto; min-width: 0; padding: 0.3rem 0.6rem; font-size: 0.9rem; }
 .map-breadcrumb-icon { margin-right: 0.3rem; }
 .map-breadcrumb-sep { color: var(--ink-soft); }
 
@@ -291,18 +308,10 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 .map-pin-marker.preview .map-pin-marker-body { stroke: #333; stroke-dasharray: 3 2; }
 .map-pin-circle { stroke: var(--pin-color, #888); fill: var(--pin-color, #888); }
 
-/* Map pin preview popup: reskin Leaflet's popup chrome to the
-   campaign parchment theme, then style the pared-down entry card
-   inside it (see buildEntityPreviewCard in codex.js). No per-item
-   toggle/Edit/Delete controls — view-only, same "…" convention as
-   the rest of the app for "more not shown". */
-.leaflet-popup-content-wrapper { background: var(--parchment); color: var(--ink); border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.35); }
-.leaflet-popup-tip { background: var(--parchment); }
-.leaflet-popup-content { margin: 0.85rem 1rem; max-height: 50vh; overflow-y: auto; }
-/* Flipped-below popups (pin too close to container top — see the
-   popupopen handler in map.js): the tip would point up at nothing,
-   so hide it. */
-.popup-below .leaflet-popup-tip-container { display: none; }
+/* Preview-popup Leaflet chrome styling removed (Phase 13 map rework) --
+   no bindPopup() calls remain in map.js (see the comment above
+   categoryPinClass in map.js for why). Pin colors/legend rules below
+   are unaffected -- those style the pins themselves, not a popup. */
 /* The leaflet container stays CLIPPED (Leaflet's own default,
    overflow: hidden) — do NOT reintroduce `overflow: visible` here.
    It was tried as a popup-clipping fix and turned out to be the root
@@ -313,11 +322,7 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
    and iOS Safari responds to ANY horizontal content overflow with
    shrink-to-fit — it rescales the entire page below 1 (observed
    scale 0.96), which is what made the nav bar appear to stop short
-   of the window edge on the Map tab only. Tall popups are handled
-   inside the clipped container instead: a popupopen handler in
-   map.js caps each popup's content height to the space between its
-   pin and the container top (autoPan stays off — autoPan under
-   hover-opened popups caused a pan/close/reopen flicker loop). */
+   of the window edge on the Map tab only. */
 .entity-preview-card h3 { margin: 0; font-size: 1.15rem; font-family: var(--font-display), sans-serif; font-weight: 400; }
 .entity-preview-card .entity-type-line { margin: 0.2rem 0 0.6rem; font-size: 0.85rem; }
 .entity-preview-card .entity-meta-line { font-size: 0.8rem; margin: -0.1rem 0 0.6rem; }
@@ -445,7 +450,14 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
   border-radius: 14px; padding: 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
   display: flex; flex-direction: column; min-height: 0;
 }
-#codex-detail-pane { flex: 1; min-width: 0; overflow-y: auto; min-height: 0; }
+/* Phase 13: this pane clips overflow now (viewport-fit rework), which
+   also clips the vis-hidden/vis-visible glow ring on .codex-entity-card
+   below (an ancestor's overflow:auto clips a descendant's box-shadow
+   bleed, not just its literal content) -- it was rendering as stray
+   triangle/strip fragments instead of the intended ring. Padding gives
+   the glow room to fade out inside the clip instead of being cut off
+   hard at the pane's edge. */
+#codex-detail-pane { flex: 1; min-width: 0; overflow-y: auto; min-height: 0; padding: 0.5rem 1.5rem 1.5rem; }
 .pane-title {
   margin: 0 0 0.75rem; font-size: 0.8rem; color: var(--ink-soft); font-family: var(--font-display), sans-serif;
   font-weight: 400; letter-spacing: 0.08em; text-transform: uppercase;
@@ -1060,15 +1072,30 @@ button:disabled:hover { border-color: var(--void-line); }
    the well's edge. (Originally added to fix a hover-preview popup that
    has since been removed -- kept unclipped anyway since the cluster
    picker has the same escape-the-corner-clip need.) */
-.timeline-well-wrap { position: relative; flex: 1; min-width: 0; overscroll-behavior: contain; }
+.timeline-well-wrap { position: relative; flex: 1; min-width: 0; overscroll-behavior: contain; touch-action: none; }
 .timeline-well-inner {
   position: absolute; inset: 0; overflow: hidden;
   border: 1px solid var(--void-line); border-radius: 14px;
   background: var(--void-raised); /* replaced per-render by the fear/hope gradient */
+  touch-action: none;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
 .timeline-well-empty .timeline-well-inner { display: flex; align-items: center; justify-content: center; }
 .timeline-well-empty .timeline-well-inner::after { content: '(no dated Scenes or Events yet)'; color: rgba(233,221,194,0.5); }
-.timeline-svg { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; overscroll-behavior: contain; }
+/* touch-action:none is duplicated here and on the ancestors above --
+   Safari has had inconsistent enforcement of touch-action when it's
+   only set on an <svg> root rather than also on its HTML ancestors, so
+   this isn't redundant so much as defensive. user-select:none matters
+   for a different reason: without it, a trackpad click-drag starting
+   over the <text> tick labels this SVG contains can be read as a
+   native text-selection drag rather than our pan gesture -- touch-
+   action doesn't govern selection at all, only scroll/zoom/pan, and a
+   selection drag that nears the viewport edge triggers the browser's
+   own auto-scroll, which is what "drag moves the window" looks like. */
+.timeline-svg {
+  width: 100%; height: 100%; display: block; cursor: grab; touch-action: none;
+  overscroll-behavior: contain; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
 .timeline-svg.grabbing { cursor: grabbing; }
 
 .timeline-spine { stroke: rgba(9,10,18,0.55); stroke-width: 2; }
