@@ -668,17 +668,22 @@ pinPanelSaveBtn.addEventListener('click', function () {
   }
 
   pinPanelSaveBtn.disabled = true;
-  const savePromise = draft.id
+  // Phase 13: same optimistic-close as saveLoreEdit/saveEntityEdit --
+  // this panel's button is a persistent DOM node (not rebuilt per
+  // render) so it can't suffer the exact re-enabled-button duplicate
+  // bug those did, but gating the close on the write Promise still left
+  // the panel stuck open and undismissable until reconnect while
+  // offline, which defeats the point of offline editing. Close/reset
+  // mode immediately; catch() only surfaces an eventual failure.
+  (draft.id
     ? updateDoc(doc(db, 'pins', draft.id), pinData)
-    : addDoc(collection(db, 'pins'), pinData);
-  savePromise.then(function () {
-    pinPanelSaveBtn.disabled = false;
-    closePinPanel();
-    setMapMode(null);
-  }).catch(function (err) {
-    pinPanelSaveBtn.disabled = false;
-    showPinPanelError('Save failed: ' + err.message);
+    : addDoc(collection(db, 'pins'), pinData)
+  ).catch(function (err) {
+    window.alert('Pin save failed: ' + err.message);
   });
+  pinPanelSaveBtn.disabled = false;
+  closePinPanel();
+  setMapMode(null);
 });
 
 // --- Pin rendering ---------------------------------------------------------

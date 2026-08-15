@@ -1051,15 +1051,20 @@ function saveEntityEdit(entity) {
     searchIndex: (draft.useTemplate && templateSchema) ? computeSearchIndex(draft.details, draft.features, templateSchema) : [],
     updatedAt: serverTimestamp()
   };
-  updateDoc(doc(db, 'entities', entity.id), entityData).then(function () {
-    state.detailEditMode = false;
-    state.detailEditDraft = null;
-    state.detailEditBaseUpdatedAtMs = null;
-    state.detailEditConflictDismissedAtMs = null;
-    renderDetailForSelected();
-  }).catch(function (err) {
+  // Phase 13: close the edit form optimistically, not gated on the
+  // write Promise -- see saveNewEntity's comment above for why (offline,
+  // this Promise doesn't resolve until reconnect, but the entities
+  // listener's own optimistic local update re-renders almost
+  // immediately, which was leaving the edit form open with a duplicate-
+  // submission risk on every field, not just new entities).
+  updateDoc(doc(db, 'entities', entity.id), entityData).catch(function (err) {
     window.alert('Save failed: ' + err.message);
   });
+  state.detailEditMode = false;
+  state.detailEditDraft = null;
+  state.detailEditBaseUpdatedAtMs = null;
+  state.detailEditConflictDismissedAtMs = null;
+  renderDetailForSelected();
 }
 
 function makeEditField(labelText, value, onInput, opts) {
@@ -1482,20 +1487,27 @@ function saveNewEntity() {
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   };
-  setDoc(doc(db, 'entities', newId), entityData).then(function () {
-    entityNewSaveBtn.disabled = false;
-    closeNewEntityDialog();
-    state.selectedId = newId;
-    state.detailActiveTab = 'lore';
-    state.loreEdit = null;
-    state.detailEditMode = true;
-    state.detailEditDraft = buildEntityDraft({ name: name, category: cat, ancestry: '', aliases: [], date: '', parentId: null, tags: [], relatedIds: [] });
-    renderList();
-    renderDetailForSelected();
-  }).catch(function (err) {
-    entityNewSaveBtn.disabled = false;
-    showNewEntityError('Save failed: ' + err.message);
+  // Phase 13: don't gate closing this dialog / opening the new entity
+  // on the write Promise resolving -- while offline that Promise stays
+  // pending until reconnect (Firestore's own local-mutation snapshot
+  // notification fires almost immediately regardless), so a re-render
+  // triggered by that immediate local update was leaving this dialog's
+  // Save button re-enabled with the edit box still open, inviting a
+  // second click that created a duplicate entity. Close/open optimistically;
+  // .catch() below only surfaces an eventual failure, it doesn't try to
+  // reopen state that's already moved on.
+  setDoc(doc(db, 'entities', newId), entityData).catch(function (err) {
+    window.alert('Save failed: ' + err.message);
   });
+  entityNewSaveBtn.disabled = false;
+  closeNewEntityDialog();
+  state.selectedId = newId;
+  state.detailActiveTab = 'lore';
+  state.loreEdit = null;
+  state.detailEditMode = true;
+  state.detailEditDraft = buildEntityDraft({ name: name, category: cat, ancestry: '', aliases: [], date: '', parentId: null, tags: [], relatedIds: [] });
+  renderList();
+  renderDetailForSelected();
 }
 
 newEntityBtn.addEventListener('click', openNewEntityDialog);
@@ -1560,13 +1572,18 @@ function saveLoreEdit(entity, editState, isNew, saveBtn) {
   }
   saveBtn.disabled = true;
 
-  function done() {
-    saveBtn.disabled = false;
-    state.loreEdit = null;
-    renderDetailForSelected();
-  }
+  // Phase 13: close the edit box optimistically (state.loreEdit = null,
+  // render below) right after the write is initiated, not inside
+  // .then() -- this is the exact bug Gregg found offline: the write
+  // Promise doesn't resolve until reconnect, but the loreItems
+  // listener's own optimistic local update re-renders almost
+  // immediately, which was leaving this box open with saveBtn back at
+  // its default (fresh render = fresh, non-disabled button), so a
+  // second tap fired saveLoreEdit again with the same still-open
+  // editState -- for isNew, a second addDoc -- a real duplicate, not a
+  // rendering glitch. fail() only alerts on an eventual failure; it
+  // doesn't try to reopen the box.
   function fail(err) {
-    saveBtn.disabled = false;
     window.alert('Save failed: ' + err.message);
   }
 
@@ -1574,9 +1591,9 @@ function saveLoreEdit(entity, editState, isNew, saveBtn) {
     const items = splitUnorderedListContent(content) || [content];
     const siblings = state.allLoreItems.filter(function (it) { return it.entityId === entity.id; });
     let maxOrder = siblings.reduce(function (acc, it) { return Math.max(acc, it.order || 0); }, 0);
-    const writes = items.map(function (c) {
+    items.forEach(function (c) {
       maxOrder += 1;
-      return addDoc(collection(db, 'loreItems'), {
+      addDoc(collection(db, 'loreItems'), {
         entityId: entity.id,
         kind: 'gm-note',
         authorId: null,
@@ -1588,9 +1605,8 @@ function saveLoreEdit(entity, editState, isNew, saveBtn) {
         order: maxOrder,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
-      });
+      }).catch(fail);
     });
-    Promise.all(writes).then(done).catch(fail);
   } else {
     updateDoc(doc(db, 'loreItems', editState.id), {
       content: content,
@@ -1598,8 +1614,10 @@ function saveLoreEdit(entity, editState, isNew, saveBtn) {
       meta: editState.meta || null,
       sourceId: editState.sourceId || null,
       updatedAt: serverTimestamp()
-    }).then(done).catch(fail);
+    }).catch(fail);
   }
+  state.loreEdit = null;
+  renderDetailForSelected();
 }
 
 function deleteLoreItem(item) {
@@ -1922,7 +1940,7 @@ function renderLoreTab(container, entity, gmView, readOnly) {
     newLoreBtn.className = 'action-btn-compact';
     newLoreBtn.textContent = '+ New lore';
     newLoreBtn.addEventListener('click', function () {
-      state.loreEdit = { entityId: entity.id, id: null, content: '', visibility: 'gm-only', meta: '', sourceId: null };
+      state.loreEdit = { entityId: entity.id, id: null, content: '', visibility: 'gm-only', meta: '', sourceId: (sortedSources()[0] && sortedSources()[0].id) || null };
       renderDetailForSelected();
     });
     right.appendChild(newLoreBtn);
@@ -2405,6 +2423,15 @@ function renderGalleryTab(container, entity, gmView, readOnly) {
       loadSortable().then(function (Sortable) {
         // eslint-disable-next-line no-new
         new Sortable(galleryDiv, {
+          // forceFallback: same fix as the admin Sources drag (admin.js)
+          // -- native HTML5 DnD (SortableJS's default for non-touch
+          // input) doesn't reliably initiate from trackpad-as-mouse
+          // input in Safari; a click without enough drag distance reads
+          // as a text/element selection instead. Touch never uses native
+          // DnD so it was unaffected, which is why this only showed up
+          // on trackpad. Forcing SortableJS's own JS-simulated drag for
+          // both input types fixes the asymmetry.
+          forceFallback: true,
           animation: 150,
           onEnd: function () {
             const orderedIds = Array.prototype.slice.call(galleryDiv.children)
