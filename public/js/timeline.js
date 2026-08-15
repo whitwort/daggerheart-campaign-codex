@@ -3,7 +3,7 @@ import {
   registerVisibilityChangeHandler, isEntityPlayerVisible,
   renderList, renderDetailForSelected, clearCodexSearchInput,
   renderEntityViewCard, enterEntityEditMode,
-  appendDateSegments
+  appendDateSegments, footerReserve
 } from './codex.js';
 import { formatDateSegments } from './dates.js';
 
@@ -336,7 +336,9 @@ function renderCardPane() {
 function fitLayoutHeight() {
   if (!dom || !dom.layout) return;
   const rect = dom.layout.getBoundingClientRect();
-  const h = window.innerHeight - rect.top - 16; // small bottom breathing room
+  // footerReserve(): leaves room for the #build-version footer -- see
+  // that comment in codex.js. Same fix, shared function.
+  const h = window.innerHeight - rect.top - 16 - footerReserve(); // small bottom breathing room
   dom.layout.style.height = Math.max(320, h) + 'px';
 }
 
