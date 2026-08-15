@@ -1040,6 +1040,16 @@ button:disabled:hover { border-color: var(--void-line); }
 .timeline-node-dot.cat-event { fill: var(--cat-event); }
 .timeline-node-dot.cat-scene { fill: var(--cat-scene); }
 .timeline-node-dot.selected { stroke: var(--parchment); stroke-width: 2.5; }
+/* Time-range Scenes/Events: thin span bar from start to end, behind
+   the start dot, plus a smaller solid end-cap. Same category color as
+   the dot, at reduced opacity so the bar doesn't visually compete with
+   the (more important) start/end points themselves. */
+.timeline-node-span { stroke-width: 3; opacity: 0.5; pointer-events: none; }
+.timeline-node-span.cat-event { stroke: var(--cat-event); }
+.timeline-node-span.cat-scene { stroke: var(--cat-scene); }
+.timeline-node-endcap { stroke: rgba(9,10,18,0.7); stroke-width: 1.5; pointer-events: none; }
+.timeline-node-endcap.cat-event { fill: var(--cat-event); }
+.timeline-node-endcap.cat-scene { fill: var(--cat-scene); }
 .timeline-node-label {
   font-family: var(--font-body), sans-serif; font-size: 11px; font-weight: 500;
   fill: var(--parchment); pointer-events: none;
