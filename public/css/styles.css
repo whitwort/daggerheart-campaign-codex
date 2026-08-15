@@ -419,11 +419,13 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 .search-help-btn {
   position: relative;
   width: 1.15rem;
+  min-width: 1.15rem;
   height: 1.15rem;
   border-radius: 50%;
   border: 1px solid var(--ink-soft);
   background: transparent;
   color: var(--ink-soft);
+  box-shadow: none;
   font-size: 0.68rem;
   font-style: italic;
   font-family: Georgia, serif;
