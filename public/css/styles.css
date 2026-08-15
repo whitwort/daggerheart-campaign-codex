@@ -478,15 +478,15 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
   margin: 0 0 0.75rem; font-size: 0.8rem; color: var(--ink-soft); font-family: var(--font-display), sans-serif;
   font-weight: 400; letter-spacing: 0.08em; text-transform: uppercase;
 }
+/* Shares a row with the search-tips (i) button on the Codex tab
+   (id-scoped, not a change to .pane-title itself -- Timeline's list
+   drawer heading uses that class too and has no button to share with). */
+.pane-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
+.pane-title-row .pane-title { margin-bottom: 0; }
 .pane-filters { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
 .pane-filters select, .pane-filters input { padding: 0.35rem; font-size: 0.9rem; flex: 1; }
-/* #codex-filters stacks the search-tips row above the search box
-   instead of sitting inline inside it (Gregg's ask -- the "i" button
-   was crowding the input). id-scoped override, not a change to
-   .pane-filters itself, since that class is shared elsewhere (Timeline
-   list drawer). */
-#codex-filters { flex-direction: column; gap: 0; }
-.search-help-row { display: flex; justify-content: flex-end; margin-bottom: 0.35rem; }
+/* #codex-filters no longer needs a column layout -- the search-tips
+   row moved up to share .pane-title-row instead (see above). */
 .search-box-wrap { position: relative; flex: 1; display: flex; align-items: center; }
 .search-box-wrap input { flex: 1; padding-right: 1.7rem; }
 /* Positioned relative now (was absolute, when this lived inside
