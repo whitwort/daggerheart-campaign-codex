@@ -282,12 +282,14 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 /* No box chrome here, deliberately -- .codex-entity-card (appended
    inside) already carries its own border/background/shadow, exactly
    matching how it looks on the Codex tab. Wrapping it in a second
-   void-raised box here just double-boxed the same content. Uniform
-   padding, no special-case top/side clearance -- the vis-hidden/
-   vis-visible glow is sized (see .codex-entity-card.vis-hidden/
-   .vis-visible) to fit comfortably inside this normal padding on its
-   own, same approach as #codex-detail-pane. */
-#map-card-well { overflow-y: auto; padding: 1.25rem; }
+   void-raised box here just double-boxed the same content.
+   Same margin/padding-top offset trick as #codex-detail-pane: #map-well
+   has its own visible border flush at the pane's top edge, so this
+   pane (no chrome of its own) needs the offset to put the card's
+   border at that same Y rather than indented by plain padding. */
+#map-card-well {
+  overflow-y: auto; padding: 0.65rem 1rem 1rem; margin-top: -0.65rem;
+}
 #map-tab-placeholder { color: var(--ink-soft); margin-top: 0; }
 #map-image-wrap { display: flex; align-items: center; justify-content: center; margin-top: 0.75rem; }
 #map-container {
@@ -509,14 +511,24 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 /* Phase 13: this pane clips overflow now (viewport-fit rework), which
    also clips the vis-hidden/vis-visible glow ring on .codex-entity-card
    below (an ancestor's overflow:auto clips a descendant's box-shadow
-   bleed, not just its literal content). Uniform padding, matching
-   #codex-list-pane exactly (same value, both sides, top included) so
-   the two panes' content starts at the same Y position with no
-   special-case clearance -- the glow itself is now sized (see
-   .vis-hidden/.vis-visible above) to comfortably fit within this
-   normal padding rather than the padding being inflated to fit the
-   glow. */
-#codex-detail-pane { flex: 1; min-width: 0; overflow-y: auto; min-height: 0; padding: 1.25rem; }
+   bleed, not just its literal content).
+   Top uses a margin/padding offset trick, not plain padding: unlike
+   #codex-list-pane (which has its own visible border sitting flush at
+   the pane's own top edge), this pane has no chrome of its own -- the
+   card's border only appears after the padding inset. Equal padding
+   on both panes therefore does NOT put their visible box tops at the
+   same Y (list-pane's border is unindented; the card's border was
+   still indented by the padding). margin-top:-0.65rem + padding-top:
+   0.65rem cancel out for the card's own position (flush with
+   list-pane's border) while still leaving a real 0.65rem of clearance
+   inside the pane's own (now higher) clip boundary for the glow to
+   fade into -- alignment and clip-clearance stop being the same lever.
+   Side/bottom padding trimmed to 1rem (from 1.25rem) for more card
+   width; still comfortably more than the glow's own reach. */
+#codex-detail-pane {
+  flex: 1; min-width: 0; overflow-y: auto; min-height: 0;
+  padding: 0.65rem 1rem 1rem; margin-top: -0.65rem;
+}
 .pane-title {
   margin: 0 0 0.75rem; font-size: 0.8rem; color: var(--ink-soft); font-family: var(--font-display), sans-serif;
   font-weight: 400; letter-spacing: 0.08em; text-transform: uppercase;
