@@ -7,7 +7,7 @@ import {
   renderList, renderDetailForSelected, isEntityPlayerVisible,
   registerVisibilityChangeHandler, registerMapNavigationHandler, clearCodexSearchInput,
   categoryGroupLabel, entityMatchesQuery,
-  renderEntityViewCard, enterEntityEditMode
+  renderEntityViewCard, enterEntityEditMode, footerReserve
 } from './codex.js';
 import { renderAdminRootEntitySelect, renderAdminCampaignTypeSelect, renderAdminSrdRepo } from './admin.js';
 import { entityMapImageDocId, getCachedImage, putCachedImage } from './images.js';
@@ -145,7 +145,9 @@ function fitMapTabLayoutHeight() {
   if (!mapLayoutEl) return;
   if (!document.getElementById('map-panel').classList.contains('active')) return;
   const rect = mapLayoutEl.getBoundingClientRect();
-  const h = window.innerHeight - rect.top - 16;
+  // footerReserve(): leaves room for the #build-version footer -- see
+  // that comment in codex.js. Same fix, shared function.
+  const h = window.innerHeight - rect.top - 16 - footerReserve();
   mapLayoutEl.style.height = Math.max(240, h) + 'px';
 }
 

@@ -30,6 +30,19 @@ const detailEl = document.getElementById('codex-detail');
 const detailPaneEl = document.getElementById('codex-detail-pane');
 const newEntityBtn = document.getElementById('codex-new-btn');
 const codexTabEl = document.getElementById('codex-tab');
+const buildVersionEl = document.getElementById('build-version');
+
+// Reserve room for the version-label footer (#build-version, a normal
+// in-flow element after #main-app) in every JS-measured viewport-fit
+// height -- without this, sizing a tab to fill exactly to
+// window.innerHeight pushes the footer just past the visible viewport,
+// needing an extra scroll the whole point of this fit was to avoid.
+// Shared by Codex/Map/Timeline's fit functions (each imports this).
+function footerReserve() {
+  if (!buildVersionEl) return 0;
+  const cs = window.getComputedStyle(buildVersionEl);
+  return buildVersionEl.offsetHeight + parseFloat(cs.marginTop || '0');
+}
 
 // Phase 13 layout fix: same pattern as Timeline's fitLayoutHeight
 // (timeline.js) -- CSS alone can't know how much vertical space
@@ -46,7 +59,7 @@ function fitCodexTabHeight() {
   const panel = document.getElementById('codex-panel');
   if (!panel || !panel.classList.contains('active')) return;
   const rect = codexTabEl.getBoundingClientRect();
-  const h = window.innerHeight - rect.top - 16;
+  const h = window.innerHeight - rect.top - 16 - footerReserve();
   codexTabEl.style.height = Math.max(320, h) + 'px';
 }
 window.addEventListener('resize', fitCodexTabHeight);
@@ -3109,5 +3122,5 @@ export {
   isEntityPlayerVisible, registerVisibilityChangeHandler, registerMapNavigationHandler,
   clearCodexSearchInput, buildEntityPreviewCard, categoryGroupLabel, entityMatchesQuery,
   renderEntityViewCard, applyWikiLinks, enterEntityEditMode, appendDateSegments,
-  fitCodexTabHeight
+  fitCodexTabHeight, footerReserve
 };
