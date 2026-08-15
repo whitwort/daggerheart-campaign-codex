@@ -624,7 +624,10 @@ function selectEntity(entityId, clearSearch) {
 // Exported for map.js's switchToCodexEntity (a separate pin-click entity
 // switch, not routed through selectEntity above) so a pin click also
 // clears a stale search query.
-function clearCodexSearchInput() { searchEl.value = ''; }
+function clearCodexSearchInput() {
+  searchEl.value = '';
+  updateSearchClearBtnVisibility();
+}
 
 function isCategoryCollapsed(cat) {
   // Default COLLAPSED — only an explicit `false` (the user expanded it)
@@ -3015,7 +3018,24 @@ function renderEntityViewCard(container, entity, gmView, opts) {
   contentWrap.appendChild(sourceLabelDiv);
 }
 
-searchEl.addEventListener('input', renderList);
+searchEl.addEventListener('input', function () {
+  updateSearchClearBtnVisibility();
+  renderList();
+});
+
+const searchClearBtn = document.getElementById('codex-search-clear-btn');
+function updateSearchClearBtnVisibility() {
+  if (!searchClearBtn) return;
+  searchClearBtn.hidden = searchEl.value.length === 0;
+}
+updateSearchClearBtnVisibility();
+if (searchClearBtn) {
+  searchClearBtn.addEventListener('click', function () {
+    clearCodexSearchInput();
+    renderList();
+    searchEl.focus();
+  });
+}
 
 // Search tips popover: tap-toggle for touch, real-mouse-hover for
 // desktop -- same pointerType-gated approach as map pin popups (see
