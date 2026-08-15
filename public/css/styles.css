@@ -211,25 +211,36 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 #map-well {
   background: var(--void-raised); border: 1px solid var(--void-line);
   border-radius: 14px; padding: 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.3); margin-top: 1rem;
+  display: flex; flex-direction: column; min-height: 0;
 }
 #map-tab-placeholder { color: var(--ink-soft); margin-top: 0; }
-/* Map container sizing is PURE CSS, deliberately: the old JS
-   (sizeMapContainerToFit) measured clientWidth on a 150ms debounce
-   after resize events and wrote the result as sticky inline width —
-   on iPadOS Stage Manager that measurement often landed mid-settle,
-   pinning a transient (too-wide) width, overhanging the page, and
-   tripping iOS shrink-to-fit page scaling (same disease the nav's
-   old --viewport-w JS had; same cure). CSS min()/aspect-ratio
-   re-resolve at layout time and can never capture a stale
-   measurement. --map-w/--map-h are the image's natural pixel size,
-   set once per map load in renderMapImage (constants, not
-   measurements). Width binds on wide wells, the 80svh height cap
-   binds on tall/narrow ones — same fit rule the JS implemented.
-   svh (not vh): stable under iOS toolbar collapse. */
+/* Map container sizing (Phase 13 rework): #map-layout's height is set
+   from JS (fitMapWellHeight, map.js) to fill the remaining window
+   height below the placeholder/breadcrumb/GM-controls chrome above it
+   -- same fitLayoutHeight pattern as Timeline, applied here because
+   pure-CSS vh/svh percentages (the old approach) can't account for how
+   much of that chrome varies per view (GM vs player, breadcrumb depth),
+   so on short screens the well as a whole grew past the viewport even
+   though the map image itself was correctly capped.
+   layout-side-by-side vs layout-stacked is a JS decision (renderMapImage,
+   from the loaded image's own aspect ratio) toggled on #map-layout, not
+   a media query -- it's about the MAP IMAGE's shape, not the viewport's.
+   #map-container itself just fills its column via height:100% +
+   aspect-ratio (var(--map-w/--map-h), set once per load) in EITHER
+   layout -- only the column's own flex-basis differs between the two. */
+#map-layout { display: flex; gap: 1rem; min-height: 0; flex: 1 1 auto; margin-top: 1rem; }
+#map-layout.layout-side-by-side { flex-direction: row; align-items: stretch; }
+#map-layout.layout-stacked { flex-direction: column; }
+.map-media-col { display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; overflow: hidden; }
+.layout-side-by-side .map-media-col { flex: 2 1 0; }
+.layout-side-by-side .map-card-col { flex: 1 1 0; }
+.layout-stacked .map-media-col { flex: 0 1 60%; }
+.layout-stacked .map-card-col { flex: 1 1 auto; }
+.map-card-col { min-width: 0; min-height: 0; overflow-y: auto; }
 #map-container {
-  width: min(100%, calc(80svh * var(--map-w, 4) / var(--map-h, 3)));
+  width: auto; height: 100%; max-width: 100%; max-height: 100%;
   aspect-ratio: var(--map-w, 4) / var(--map-h, 3);
-  margin: 1rem auto 0;
+  margin: 0 auto;
   background: var(--void);
   border-radius: 8px;
   display: none;
@@ -251,7 +262,6 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
    old switchToCodexEntity tab-jump for plain entity markers. Location-
    with-map-image pins (the zoom-into-submap circles) are unaffected --
    that's a different interaction entirely, not a card view. */
-#map-entity-card-pane { margin-top: 1rem; }
 #map-entity-card-pane:empty { display: none; }
 .map-card-empty { padding: 1.5rem 0; text-align: center; }
 .map-breadcrumb-icon { margin-right: 0.3rem; }
@@ -422,12 +432,20 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 #update-banner-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
 #pin-move-indicator button { padding: 0.3rem 0.7rem; cursor: pointer; background: var(--void); color: var(--parchment); border: 1px solid var(--void-line); }
 
-#codex-tab { display: flex; align-items: flex-start; gap: 1.5rem; margin-top: 1rem; }
+#codex-tab { display: flex; align-items: stretch; gap: 1.5rem; margin-top: 1rem; min-height: 0; }
+/* Height set from JS (fitCodexTabHeight, codex.js) to fill the
+   remaining window height below the header/nav -- same pattern as
+   Timeline's fitLayoutHeight. Without this, #codex-entities' own
+   scroll (below) only bounds ITS height; the pane as a whole still
+   grew past the viewport on short screens, pushing +New Entry off
+   the bottom and forcing a page scroll the internal scrollbar was
+   supposed to make unnecessary. */
 #codex-list-pane {
   flex: 0 0 320px; background: var(--void-raised); border: 1px solid var(--void-line);
   border-radius: 14px; padding: 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  display: flex; flex-direction: column; min-height: 0;
 }
-#codex-detail-pane { flex: 1; min-width: 0; }
+#codex-detail-pane { flex: 1; min-width: 0; overflow-y: auto; min-height: 0; }
 .pane-title {
   margin: 0 0 0.75rem; font-size: 0.8rem; color: var(--ink-soft); font-family: var(--font-display), sans-serif;
   font-weight: 400; letter-spacing: 0.08em; text-transform: uppercase;
@@ -477,7 +495,7 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 .search-help-popup ul { margin: 0; padding-left: 1.1rem; }
 .search-help-popup li { margin-bottom: 0.15rem; }
 .search-help-popup code { font-size: 0.78rem; }
-#codex-list-actions { display: flex; justify-content: flex-end; margin-top: 0.5rem; }
+#codex-list-actions { flex: 0 0 auto; display: flex; justify-content: flex-end; margin-top: 0.5rem; }
 #codex-new-btn { padding: 0.4rem 0.8rem; cursor: pointer; width: auto; min-width: 0; }
 
 /* Dark-themed native form controls: override iOS Safari's light chrome
@@ -496,7 +514,7 @@ select {
 
 /* Table of Contents: accordion grouped by category. Blends with the
    surrounding sidebar panel — no separate dark well, per locked mockup. */
-#codex-entities { max-height: 70vh; overflow-y: auto; }
+#codex-entities { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .entity-group-header {
   display: flex; align-items: center; gap: 0.5rem;
   padding: 0.5rem 0.375rem; cursor: pointer;

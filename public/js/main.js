@@ -2,7 +2,7 @@ import { CONFIG } from './firebase.js';
 import { ensureMapTabReady } from './map.js';
 import './auth.js';
 import './admin.js';
-import './codex.js';
+import { fitCodexTabHeight } from './codex.js';
 import './images.js';
 import { ensureImportEditorReady } from './import.js';
 import './backup.js';
@@ -31,6 +31,9 @@ document.getElementById('tab-btn-map').textContent = CONFIG.tabs.map;
         if (btn.dataset.tab === 'map-panel') {
           ensureMapTabReady();
         }
+        if (btn.dataset.tab === 'codex-panel') {
+          fitCodexTabHeight();
+        }
         if (btn.dataset.tab === 'admin-panel') {
           ensureImportEditorReady();
         }
@@ -39,4 +42,10 @@ document.getElementById('tab-btn-map').textContent = CONFIG.tabs.map;
         }
       });
     });
+
+// Codex is the default-active tab on load (no click event fires for
+// it) -- fit its height once up front so it's correctly sized before
+// the first render, same as the other tabs' ready-functions do on
+// their own first activation.
+fitCodexTabHeight();
 

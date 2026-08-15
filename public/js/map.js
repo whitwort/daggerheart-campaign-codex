@@ -182,6 +182,22 @@ const mapCardPaneEl = document.getElementById('map-entity-card-pane');
 let mapCardSelectedId = null;
 let mapCardActiveTab = 'lore';
 
+// Phase 13 layout fix: #map-layout's height is set from JS to fill
+// the remaining window height below the placeholder/breadcrumb/GM-
+// controls chrome above it -- same fitLayoutHeight pattern as
+// Timeline (timeline.js). Recomputed on tab-open/invalidateSize,
+// after each map image load (breadcrumb depth changes that chrome's
+// height), and on resize.
+const mapLayoutEl = document.getElementById('map-layout');
+function fitMapWellHeight() {
+  if (!mapLayoutEl) return;
+  if (!document.getElementById('map-panel').classList.contains('active')) return;
+  const rect = mapLayoutEl.getBoundingClientRect();
+  const h = window.innerHeight - rect.top - 16;
+  mapLayoutEl.style.height = Math.max(240, h) + 'px';
+}
+window.addEventListener('resize', fitMapWellHeight);
+
 function renderMapCardPane() {
   const gmView = state.currentRole === 'gm' && !state.gmPreviewAsPlayer;
   mapCardPaneEl.innerHTML = '';
@@ -740,11 +756,23 @@ function renderPins() {
 
     // Any other entity (or a location without a map image yet): a small
     // colored marker (color = entry type) that opens the entity's card
-    // below the map (openEntityInMapCard).
+    // below the map (openEntityInMapCard). Single-tap, deliberately --
+    // unlike the map-navigation circles above (which keep a preview-then-
+    // navigate popup, since jumping to a different map is a bigger step
+    // worth previewing first), this needs to be reliable on iOS touch.
+    // The two-tap "preview popup, tap again to open" version tried here
+    // first raced Leaflet's own popup autoClose listener against this
+    // layer's click handler on real touch devices -- inconsistent, hard
+    // to reproduce at a desk. One handler, one outcome per tap removes
+    // the race entirely.
     const marker = L.marker([lat, pin.x], { icon: pinDivIcon(entity ? entity.category : null), interactive: !state.pinDraft });
     if (!state.pinDraft) {
       if (entity) {
-        bindPinPreviewPopup(marker, entity, gmView, handleClick, function () { openEntityInMapCard(entity.id); });
+        marker.bindTooltip(entity.name);
+        marker.on('click', function () {
+          if (!handleClick()) return;
+          openEntityInMapCard(entity.id);
+        });
       } else {
         marker.bindTooltip('(unlinked pin)');
         marker.on('click', function () { handleClick(); });
@@ -867,12 +895,14 @@ function ensureMapTabReady() {
     // measured size goes stale while hidden, which is what produces the
     // "map drifted off-center with grey margins" bug — invalidateSize()
     // re-measures and re-centers without a full reload.
+    fitMapWellHeight();
     state.leafletMap.invalidateSize({ animate: false });
     renderPins();
     renderBreadcrumb();
     renderMapCardPane();
     return;
   }
+  fitMapWellHeight();
   renderMapCardPane();
   loadMap(state.currentMapEntityId);
 }
@@ -1064,6 +1094,21 @@ function renderMapImage(mapEntityId, imageDoc) {
         containerEl.style.height = '';
         containerEl.style.margin = '';
 
+        // Bug 4: side-by-side (map/card columns) for a landscape-ish
+        // image, stacked (map above card) for a portrait-ish one --
+        // decided from the image's own shape, not the viewport's, so
+        // this stays put across resizes/orientation changes as long as
+        // the same map is loaded. 1.2 threshold: comfortably wider-
+        // than-tall counts as "wide"; anything squarer or taller reads
+        // better stacked (a 2/3-width column would otherwise be too
+        // narrow for a tall image to read well at any useful size).
+        const aspect = img.naturalWidth / img.naturalHeight;
+        if (mapLayoutEl) {
+          mapLayoutEl.classList.toggle('layout-side-by-side', aspect >= 1.2);
+          mapLayoutEl.classList.toggle('layout-stacked', aspect < 1.2);
+        }
+        fitMapWellHeight();
+
         const bounds = [[0, 0], [img.naturalHeight, img.naturalWidth]];
         state.mapBounds = bounds;
         const map = L.map('map-container', {
@@ -1086,6 +1131,7 @@ function renderMapImage(mapEntityId, imageDoc) {
         });
 
         setTimeout(function () {
+          fitMapWellHeight();
           map.invalidateSize({ animate: false });
           map.fitBounds(bounds, { animate: false });
           map.setMinZoom(map.getZoom());
