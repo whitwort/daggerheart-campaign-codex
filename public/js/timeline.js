@@ -15,6 +15,8 @@ let built = false;
 // tick spacing/labels. Entity node labels always use the real stored
 // entity.date string, never this approximation.
 const YEAR_SECONDS = 64 * 64 * 16 * 256;
+const DAY_SECONDS = 64 * 64 * 16;
+const HOUR_SECONDS = 64 * 64;
 
 // Same "jump to this entity in the Codex tab" pattern as map.js's
 // switchToCodexEntity — duplicated locally rather than shared, since
@@ -52,21 +54,42 @@ let lastClusters = []; // populated by render(), read by handleTap for the tap-v
 
 function tOf(entity) { return entity.dateSort / YEAR_SECONDS; }
 
-function fmtYears(t) {
-  // Strict zero check -- "Epoch" must label exactly one tick. The
-  // day-conversion branch below has its OWN independent rounding
-  // ambiguity (Math.round(t*365)===0 matches a whole range of tiny
-  // nonzero t, not just t===0) which was still colliding into
-  // duplicate "Epoch" labels near epoch even after fixing the coarser
-  // Math.round(t)===0 check -- so days===0 now prints '0d'/'0da'
-  // plainly instead of re-triggering the Epoch label.
-  if (t === 0) return 'Epoch';
-  if (Math.abs(t) < 1) {
-    const days = Math.round(t * 365);
-    return days > 0 ? days + 'd' : Math.abs(days) + 'da';
-  }
-  const y = Math.round(t);
-  return y === 0 ? 'Epoch' : (y > 0 ? y + 'y' : Math.abs(y) + 'ya');
+// Zoom-adaptive tick labels: coarsest granularity (years only) when
+// zoomed out, adding day then hour precision as ticks get closer
+// together, per Gregg's "y -> y,d -> y,d,h" spec -- rather than a
+// single fixed-precision label at every zoom level (the old fmtYears,
+// which either wasted space at wide zoom or lost precision when
+// zoomed in close). granularity: 1=years, 2=years+days, 3=+hours.
+// Works from the entity's real internal-seconds offset (not the
+// "years" float used for pixel math) to avoid compounding float
+// rounding across three unit conversions.
+function tickGranularity(stepYears) {
+  const DAY_IN_YEARS = DAY_SECONDS / YEAR_SECONDS;
+  if (stepYears >= 1) return 1;
+  if (stepYears >= DAY_IN_YEARS) return 2;
+  return 3;
+}
+function fmtTick(offsetSeconds, granularity) {
+  if (offsetSeconds === 0) return 'Epoch';
+  const isPast = offsetSeconds < 0;
+  const suffix = isPast ? 'a' : '';
+  let rem = Math.round(Math.abs(offsetSeconds));
+  const y = Math.floor(rem / YEAR_SECONDS); rem -= y * YEAR_SECONDS;
+  const d = Math.floor(rem / DAY_SECONDS); rem -= d * DAY_SECONDS;
+  const h = Math.floor(rem / HOUR_SECONDS);
+  const tokens = [['y', y]];
+  if (granularity >= 2) tokens.push(['d', d]);
+  if (granularity >= 3) tokens.push(['h', h]);
+  // Only non-zero units are shown -- matches the campaign's own
+  // shorthand convention (e.g. entity dates like "1da, 8ha" never show
+  // a leading "0y"). If every unit at this granularity rounds to zero
+  // (a nonzero-but-sub-granularity offset, e.g. a few minutes while
+  // zoomed out to year-level ticks), fall back to a distinct "<1"
+  // label rather than "Epoch" -- reusing "Epoch" here would reproduce
+  // the exact duplicate-Epoch bug fixed earlier this session.
+  const parts = tokens.filter(function (t) { return t[1] !== 0; }).map(function (t) { return t[1] + t[0] + suffix; });
+  if (!parts.length) return isPast ? '<1ya' : '<1y';
+  return parts.join(', ');
 }
 
 // --- Build the static shell once (toolbar, well+svg+zoom controls+
@@ -303,7 +326,10 @@ function fitLayoutHeight() {
 function refresh() {
   const gmView = isGmView();
   dated = state.allEntities
-    .filter(function (e) { return (e.category === 'Scene' || e.category === 'Event') && e.dateSort !== null && e.dateSort !== undefined; })
+    .filter(function (e) {
+      return (e.category === 'Scene' || e.category === 'Event')
+        && typeof e.dateSort === 'number' && isFinite(e.dateSort);
+    })
     .filter(function (e) { return gmView || isEntityPlayerVisible(e.id); })
     .sort(function (a, b) { return a.dateSort - b.dateSort; });
 
@@ -363,8 +389,18 @@ function fitToView() {
   const rect = dom.svg.getBoundingClientRect();
   const dim = rect.height || 400;
   if (!dated.length) return;
-  const tMin = tOf(dated[0]);
-  const tMax = tOf(dated[dated.length - 1]);
+  // Explicit min/max over every dated entity's t, rather than trusting
+  // dated[0]/dated[last] from the sort -- Array.prototype.sort treats
+  // a NaN-producing comparator result as "equal" (leaves those
+  // elements in their original relative position instead of moving
+  // them to an extreme), so if any entity's dateSort were ever
+  // non-numeric this would silently produce a wrong span. Combined
+  // with refresh()'s isFinite(dateSort) filter, this should be
+  // airtight regardless -- but airtight framing math is cheap
+  // insurance either way.
+  const ts = dated.map(tOf);
+  const tMin = Math.min.apply(null, ts);
+  const tMax = Math.max.apply(null, ts);
   const span = (tMax - tMin) || 1;
   scale = (dim - 80) / span;
   offset = tMin - (40 / scale);
@@ -450,7 +486,13 @@ function render() {
   const rect = dom.svg.getBoundingClientRect();
   const dim = rect.height || 400;
   const crossDim = rect.width || 200;
-  const spineCross = Math.min(70, crossDim * 0.22);
+  // Generous share of the width for the spine's left column (zoom
+  // control + axis tick labels, which can now run to 3 units wide
+  // e.g. "3500ya, 45da, 8ha") -- previously a tight 70px/22% left very
+  // little room for node titles on the right and truncated them well
+  // before actually running out of space.
+  const spineCross = Math.min(160, crossDim * 0.32);
+  const rightMargin = 16;
 
   updateWellGradient();
 
@@ -465,6 +507,7 @@ function render() {
   dom.svg.appendChild(mk('line', { class: 'timeline-spine', x1: spineCross, y1: 0, x2: spineCross, y2: dim }));
 
   const step = niceTicks();
+  const granularity = tickGranularity(step);
   // Integer multiples of step, not accumulated t += step -- floating
   // point drift from repeated addition meant t was rarely EXACTLY 0
   // even when a tick should land precisely on epoch, and combined with
@@ -479,7 +522,7 @@ function render() {
     const g = mk('g', { class: 'timeline-axis-tick' });
     g.appendChild(mk('line', { x1: spineCross - 5, y1: px, x2: spineCross + 5, y2: px }));
     const txt = mk('text', { x: spineCross - 10, y: px + 3, 'text-anchor': 'end' });
-    txt.textContent = fmtYears(t);
+    txt.textContent = fmtTick(Math.round(t * YEAR_SECONDS), granularity);
     g.appendChild(txt);
     dom.svg.appendChild(g);
   }
@@ -499,9 +542,25 @@ function render() {
       dot.addEventListener('pointerleave', function (e) { if (e.pointerType === 'mouse') hidePreview(); });
       dom.svg.appendChild(dot);
 
+      // Truncate against the ACTUAL available width (measured via
+      // getComputedTextLength, not a flat character-count guess) --
+      // the well is often much wider than 26 characters' worth of
+      // text, especially now that the spine sits further right, so a
+      // fixed cutoff was truncating titles well before they needed it.
       const label = mk('text', { class: 'timeline-node-label', x: spineCross + 14, y: cy - 2 });
-      label.textContent = d.entity.name.length > 26 ? d.entity.name.slice(0, 25) + '\u2026' : d.entity.name;
+      label.textContent = d.entity.name;
       dom.svg.appendChild(label);
+      const availableWidth = Math.max(40, crossDim - (spineCross + 14) - rightMargin);
+      if (label.getComputedTextLength() > availableWidth) {
+        let lo = 0, hi = d.entity.name.length;
+        while (lo < hi) {
+          const mid = Math.ceil((lo + hi) / 2);
+          label.textContent = d.entity.name.slice(0, mid) + '\u2026';
+          if (label.getComputedTextLength() <= availableWidth) lo = mid; else hi = mid - 1;
+        }
+        label.textContent = lo > 0 ? d.entity.name.slice(0, lo) + '\u2026' : '\u2026';
+      }
+
       const dateLbl = mk('text', { class: 'timeline-node-date', x: spineCross + 14, y: cy + 12 });
       dateLbl.textContent = d.entity.date || '';
       dom.svg.appendChild(dateLbl);
