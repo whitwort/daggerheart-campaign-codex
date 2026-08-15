@@ -486,6 +486,17 @@ function buildDetailsMarkdown(entity) {
 function buildFeaturesMarkdown(entity) {
   const feats = entity.features || [];
   if (!feats.length) return '';
+  const schema = getTemplateSchema(entity.category, entity.subtype);
+  if (schema && schema.featureGroups) {
+    const lines = [];
+    schema.featureGroups.forEach(function (g) {
+      const groupFeats = feats.filter(function (f) { return f.group === g.key; });
+      if (!groupFeats.length) return;
+      lines.push('### ' + g.label);
+      groupFeats.forEach(function (f) { lines.push('**' + f.name + '.** ' + f.text, ''); });
+    });
+    return lines.join('\n').trim();
+  }
   const lines = ['### Features'];
   feats.forEach(function (f) { lines.push('**' + f.name + '.** ' + f.text, ''); });
   return lines.join('\n').trim();
@@ -1187,47 +1198,94 @@ function buildTemplateEditor(draft) {
   });
 
   if (schema.hasFeatures) {
-    const featLabel = document.createElement('label');
-    featLabel.textContent = 'Features';
-    wrap.appendChild(featLabel);
-    const featList = document.createElement('div');
-    featList.className = 'template-feature-edit-list';
-    draft.features.forEach(function (f, i) {
-      const row = document.createElement('div');
-      row.className = 'template-feature-edit-row';
-      const nameInput = document.createElement('input');
-      nameInput.type = 'text';
-      nameInput.placeholder = 'Name';
-      nameInput.value = f.name;
-      nameInput.addEventListener('input', function () { f.name = nameInput.value; });
-      row.appendChild(nameInput);
-      const textInput = document.createElement('input');
-      textInput.type = 'text';
-      textInput.placeholder = 'Effect text';
-      textInput.value = f.text;
-      textInput.addEventListener('input', function () { f.text = textInput.value; });
-      row.appendChild(textInput);
-      const removeBtn = document.createElement('button');
-      removeBtn.type = 'button';
-      removeBtn.className = 'action-btn-compact';
-      removeBtn.textContent = 'Remove';
-      removeBtn.addEventListener('click', function () {
-        draft.features.splice(i, 1);
+    if (schema.featureGroups) {
+      schema.featureGroups.forEach(function (g) {
+        const featLabel = document.createElement('label');
+        featLabel.textContent = g.label + ' features';
+        wrap.appendChild(featLabel);
+        const featList = document.createElement('div');
+        featList.className = 'template-feature-edit-list';
+        draft.features.forEach(function (f, i) {
+          if (f.group !== g.key) return;
+          const row = document.createElement('div');
+          row.className = 'template-feature-edit-row';
+          const nameInput = document.createElement('input');
+          nameInput.type = 'text';
+          nameInput.placeholder = 'Name';
+          nameInput.value = f.name;
+          nameInput.addEventListener('input', function () { f.name = nameInput.value; });
+          row.appendChild(nameInput);
+          const textInput = document.createElement('input');
+          textInput.type = 'text';
+          textInput.placeholder = 'Effect text';
+          textInput.value = f.text;
+          textInput.addEventListener('input', function () { f.text = textInput.value; });
+          row.appendChild(textInput);
+          const removeBtn = document.createElement('button');
+          removeBtn.type = 'button';
+          removeBtn.className = 'action-btn-compact';
+          removeBtn.textContent = 'Remove';
+          removeBtn.addEventListener('click', function () {
+            draft.features.splice(i, 1);
+            renderDetailForSelected();
+          });
+          row.appendChild(removeBtn);
+          featList.appendChild(row);
+        });
+        wrap.appendChild(featList);
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'action-btn-compact';
+        addBtn.textContent = '+ Add ' + g.label.toLowerCase() + ' feature';
+        addBtn.addEventListener('click', function () {
+          draft.features.push({ name: '', text: '', group: g.key });
+          renderDetailForSelected();
+        });
+        wrap.appendChild(addBtn);
+      });
+    } else {
+      const featLabel = document.createElement('label');
+      featLabel.textContent = 'Features';
+      wrap.appendChild(featLabel);
+      const featList = document.createElement('div');
+      featList.className = 'template-feature-edit-list';
+      draft.features.forEach(function (f, i) {
+        const row = document.createElement('div');
+        row.className = 'template-feature-edit-row';
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.placeholder = 'Name';
+        nameInput.value = f.name;
+        nameInput.addEventListener('input', function () { f.name = nameInput.value; });
+        row.appendChild(nameInput);
+        const textInput = document.createElement('input');
+        textInput.type = 'text';
+        textInput.placeholder = 'Effect text';
+        textInput.value = f.text;
+        textInput.addEventListener('input', function () { f.text = textInput.value; });
+        row.appendChild(textInput);
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'action-btn-compact';
+        removeBtn.textContent = 'Remove';
+        removeBtn.addEventListener('click', function () {
+          draft.features.splice(i, 1);
+          renderDetailForSelected();
+        });
+        row.appendChild(removeBtn);
+        featList.appendChild(row);
+      });
+      wrap.appendChild(featList);
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'action-btn-compact';
+      addBtn.textContent = '+ Add feature';
+      addBtn.addEventListener('click', function () {
+        draft.features.push({ name: '', text: '' });
         renderDetailForSelected();
       });
-      row.appendChild(removeBtn);
-      featList.appendChild(row);
-    });
-    wrap.appendChild(featList);
-    const addBtn = document.createElement('button');
-    addBtn.type = 'button';
-    addBtn.className = 'action-btn-compact';
-    addBtn.textContent = '+ Add feature';
-    addBtn.addEventListener('click', function () {
-      draft.features.push({ name: '', text: '' });
-      renderDetailForSelected();
-    });
-    wrap.appendChild(addBtn);
+      wrap.appendChild(addBtn);
+    }
   }
 
   return wrap;
