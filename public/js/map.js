@@ -1,5 +1,5 @@
 import {
-  getFirestore, collection, onSnapshot, doc, addDoc, updateDoc, deleteDoc
+  getFirestore, collection, onSnapshot, doc, addDoc, updateDoc, deleteDoc, query, where
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp, CONFIG } from './firebase.js';
 import { state } from './state.js';
@@ -10,7 +10,7 @@ import {
   renderEntityViewCard, enterEntityEditMode, footerReserve
 } from './codex.js';
 import { renderAdminRootEntitySelect, renderAdminCampaignTypeSelect, renderAdminSrdRepo } from './admin.js';
-import { entityMapImageDocId, getCachedImage, putCachedImage } from './images.js';
+import { getCachedImage, putCachedImage } from './images.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
 
 const db = getFirestore(firebaseApp);
@@ -1070,63 +1070,86 @@ function loadMap(mapEntityId) {
     return;
   }
 
-  // Image lives in Firestore (images/entity_{id}_map). Live-listen so a
-  // GM's upload (via the entity edit fields) updates the Map tab for
-  // everyone without a reload.
+  // Map image: whichever of this entity's images has role:'gallery' and
+  // isMap:true (Set map, Gallery tab -- same mechanism as Set portrait),
+  // or, for a Location whose map image predates that system, the older
+  // role:'map' singleton doc (deterministic ID entity_{id}_map) -- not
+  // every Location necessarily gets auto-migrated (that happens lazily
+  // in codex.js's setEntityImagesTarget, only once a GM opens that
+  // entity's Codex card), so this still needs to recognize it. One
+  // simple equality-only query (ownerId==, same shape as codex.js's
+  // per-entity images listener) rather than two separate listeners --
+  // no composite-index risk, and it picks up a migration the moment it
+  // happens without any extra wiring.
   placeholderEl.style.display = 'block';
   containerEl.style.display = 'none';
   placeholderEl.textContent = 'Loading map image...';
 
-  const imageDocId = entityMapImageDocId(mapEntityId);
+  // Cache key is per-ENTITY, not per-image-doc -- the underlying image
+  // doc backing "this entity's map" can now change (GM re-picks Set map
+  // on a different gallery image) without the cache knowing or caring
+  // which doc it came from.
+  const mapCacheKey = 'map-for-' + mapEntityId;
 
   // Phase 7c-1: paint instantly from IndexedDB cache (if any) while the
   // listener below does its network round-trip. state.loadedMapId check
   // guards against the live snapshot having already won the race and
   // rendered first — cache is a fallback, never an override.
-  getCachedImage(imageDocId).then(function (cached) {
+  getCachedImage(mapCacheKey).then(function (cached) {
     if (cached && state.loadingMapId === mapEntityId && state.loadedMapId !== mapEntityId) {
       state.currentMapImageDims = { width: cached.width, height: cached.height };
       renderMapImage(mapEntityId, cached);
     }
   });
 
-  state.mapImageUnsub = onSnapshot(doc(db, 'images', imageDocId), safeSnapshotHandler('mapImage', function (imgSnap) {
-    if (state.loadedMapId === mapEntityId && state.leafletMap) {
-      // Already rendered this map; a later snapshot for the same map
-      // (e.g. after a re-upload) means the image changed under us —
-      // simplest correct handling is a full reload of this map.
-      state.leafletMap.remove();
-      state.leafletMap = null;
-      state.pinLayer = null;
-      state.loadedMapId = null;
-    }
-    if (!imgSnap.exists()) {
-      state.currentMapImageDims = null;
+  state.mapImageUnsub = onSnapshot(
+    query(collection(db, 'images'), where('ownerId', '==', mapEntityId)),
+    safeSnapshotHandler('mapImage', function (snapshot) {
+      let chosenData = null;
+      let legacyData = null;
+      snapshot.forEach(function (docSnap) {
+        const d = docSnap.data();
+        if (d.role === 'gallery' && d.isMap) chosenData = d;
+        else if (d.role === 'map') legacyData = d;
+      });
+      if (!chosenData) chosenData = legacyData;
+
+      if (state.loadedMapId === mapEntityId && state.leafletMap) {
+        // Already rendered this map; a later snapshot for the same map
+        // (e.g. after the GM re-picks Set map, or a re-upload) means
+        // the image changed under us — simplest correct handling is a
+        // full reload of this map.
+        state.leafletMap.remove();
+        state.leafletMap = null;
+        state.pinLayer = null;
+        state.loadedMapId = null;
+      }
+      if (!chosenData) {
+        state.currentMapImageDims = null;
+        placeholderEl.style.display = 'block';
+        containerEl.style.display = 'none';
+        placeholderEl.textContent = state.currentRole === 'gm'
+          ? 'No map image for "' + (mapEntity.name || 'this location') + '" yet. Set one via its Gallery tab in the Codex (Set map).'
+          : 'This map has no image yet — ask your GM.';
+        return;
+      }
+      state.currentMapImageDims = { width: chosenData.width, height: chosenData.height };
+      renderMapImage(mapEntityId, chosenData);
+      // Fire-and-forget cache write; source-of-truth render above never
+      // waits on this.
+      putCachedImage({
+        docId: mapCacheKey,
+        version: (chosenData.uploadedAt && chosenData.uploadedAt.toMillis) ? chosenData.uploadedAt.toMillis() : Date.now(),
+        data: chosenData.data,
+        width: chosenData.width,
+        height: chosenData.height,
+        contentType: chosenData.contentType
+      });
+    }), function (err) {
       placeholderEl.style.display = 'block';
       containerEl.style.display = 'none';
-      placeholderEl.textContent = state.currentRole === 'gm'
-        ? 'No map image for "' + (mapEntity.name || 'this location') + '" yet. Add one via Edit on its Codex entry.'
-        : 'This map has no image yet — ask your GM.';
-      return;
-    }
-    const imgData = imgSnap.data();
-    state.currentMapImageDims = { width: imgData.width, height: imgData.height };
-    renderMapImage(mapEntityId, imgData);
-    // Fire-and-forget cache write; source-of-truth render above never
-    // waits on this.
-    putCachedImage({
-      docId: imageDocId,
-      version: (imgData.uploadedAt && imgData.uploadedAt.toMillis) ? imgData.uploadedAt.toMillis() : Date.now(),
-      data: imgData.data,
-      width: imgData.width,
-      height: imgData.height,
-      contentType: imgData.contentType
+      placeholderEl.textContent = 'Map image failed to load: ' + err.message;
     });
-  }), function (err) {
-    placeholderEl.style.display = 'block';
-    containerEl.style.display = 'none';
-    placeholderEl.textContent = 'Map image failed to load: ' + err.message;
-  });
 }
 
 // #map-container's own width/height are set directly in JS
