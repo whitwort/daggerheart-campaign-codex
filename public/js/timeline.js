@@ -836,6 +836,12 @@ function attachStageInteraction() {
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', refit);
   }
+  // Also same as codex.js's font-swap fix -- a font-driven reflow of
+  // the header/nav this tab's height is measured against fires neither
+  // a window resize nor a visualViewport resize.
+  if (window.document && document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(refit);
+  }
 }
 
 function renderTimeline() {

@@ -110,4 +110,27 @@ function flashPendingWrite(label) {
   }, 1200);
 }
 
-export { attachConnectivityListener, detachConnectivityListener, flashPendingWrite };
+// Pending-write counter: separate from (but paired with) the visual
+// flashPendingWrite above. Every New/Edit save handler in this app
+// closes its edit UI optimistically, synchronously, right after
+// initiating the write -- NOT gated on the write Promise resolving
+// (the offline-duplicate-save fix, Phase 13). That's correct for the
+// edit UI, but it means "no edit form is open" stopped being a
+// reliable signal for "safe to reload": version.js's dev auto-reload
+// was checking only the former, so a reload landing in the window
+// between "Save clicked, form closed" and "write actually reached
+// Firestore" could tear down the page mid-request -- worse than a
+// merely-annoying reload, this one could genuinely lose the edit.
+// trackWrite() wraps a write promise so version.js has a real signal
+// for "a write is still in flight" to check instead/as well.
+let pendingWriteCount = 0;
+function hasPendingWrites() { return pendingWriteCount > 0; }
+function trackWrite(promise, label) {
+  pendingWriteCount++;
+  flashPendingWrite(label);
+  const settle = function () { pendingWriteCount = Math.max(0, pendingWriteCount - 1); };
+  promise.then(settle, settle);
+  return promise;
+}
+
+export { attachConnectivityListener, detachConnectivityListener, flashPendingWrite, hasPendingWrites, trackWrite };
