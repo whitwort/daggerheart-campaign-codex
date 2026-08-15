@@ -126,24 +126,24 @@
     </div>
   </div>
   <div id="map-panel" class="tab-panel">
-    <div id="map-well">
-      <p id="map-tab-placeholder">Loading map&hellip;</p>
-      <div id="map-breadcrumb"></div>
-      <div id="map-gm-controls" class="actions-row">
-        <div class="actions-row-left"><span id="map-mode-hint"></span></div>
-        <div class="actions-row-right">
-          <button id="map-new-pin-btn">+ New pin</button>
-          <button id="map-edit-pin-btn">Edit pin</button>
-          <button id="map-remove-pin-btn">Remove pin</button>
-        </div>
-      </div>
-      <div id="map-layout" class="map-layout layout-stacked">
-        <div id="map-media-col" class="map-media-col">
+    <div id="map-layout" class="map-layout split-col">
+      <div id="map-well">
+        <p id="map-tab-placeholder">Loading map&hellip;</p>
+        <div id="map-breadcrumb"></div>
+        <div id="map-image-wrap">
           <div id="map-container"></div>
         </div>
-        <div id="map-card-col" class="map-card-col">
-          <div id="map-entity-card-pane"></div>
+        <div id="map-gm-controls" class="actions-row">
+          <div class="actions-row-left"><span id="map-mode-hint"></span></div>
+          <div class="actions-row-right">
+            <button id="map-new-pin-btn">+ New pin</button>
+            <button id="map-edit-pin-btn">Edit pin</button>
+            <button id="map-remove-pin-btn">Remove pin</button>
+          </div>
         </div>
+      </div>
+      <div id="map-card-well">
+        <div id="map-entity-card-pane"></div>
       </div>
     </div>
   </div>
