@@ -510,16 +510,23 @@ function isEntityPlayerVisible(entityId) {
 // --- List pane (Table of Contents) ---------------------------------------
 
 function matchesFilters(entity) {
-  const q = searchEl.value.trim().toLowerCase();
-  if (!q) return true;
-  const nameMatch = (entity.name || '').toLowerCase().indexOf(q) !== -1;
-  const tagMatch = (entity.tags || []).some(function (t) {
-    return t.toLowerCase().indexOf(q) !== -1;
+  const raw = searchEl.value.trim().toLowerCase();
+  if (!raw) return true;
+  // Comma-separated terms are AND'd ("Bow, Tier 1" -> name/tag/alias
+  // contains "bow" AND name/tag/alias contains "tier 1"); each term still
+  // OR-matches across name/tags/aliases individually, same as before.
+  const terms = raw.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+  if (!terms.length) return true;
+  return terms.every(function (q) {
+    const nameMatch = (entity.name || '').toLowerCase().indexOf(q) !== -1;
+    const tagMatch = (entity.tags || []).some(function (t) {
+      return t.toLowerCase().indexOf(q) !== -1;
+    });
+    const aliasMatch = (entity.aliases || []).some(function (a) {
+      return a.toLowerCase().indexOf(q) !== -1;
+    });
+    return nameMatch || tagMatch || aliasMatch;
   });
-  const aliasMatch = (entity.aliases || []).some(function (a) {
-    return a.toLowerCase().indexOf(q) !== -1;
-  });
-  return nameMatch || tagMatch || aliasMatch;
 }
 
 // Selecting a new entity always lands back on the Lore tab, out of edit
