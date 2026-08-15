@@ -257,9 +257,9 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
    matching how it looks on the Codex tab. Wrapping it in a second
    void-raised box here just double-boxed the same content. Padding
    (not the well's own box) gives the vis-hidden/vis-visible glow ring
-   room to render before hitting this pane's overflow clip -- same fix
-   as #codex-detail-pane. */
-#map-card-well { overflow-y: auto; padding: 0.5rem 1.5rem 1.5rem; }
+   room to render before hitting this pane's overflow clip -- same fix,
+   same 3rem-on-every-side reasoning, as #codex-detail-pane. */
+#map-card-well { overflow-y: auto; padding: 3rem; }
 #map-tab-placeholder { color: var(--ink-soft); margin-top: 0; }
 #map-image-wrap { display: flex; align-items: center; justify-content: center; margin-top: 0.75rem; }
 #map-container {
@@ -469,11 +469,17 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 /* Phase 13: this pane clips overflow now (viewport-fit rework), which
    also clips the vis-hidden/vis-visible glow ring on .codex-entity-card
    below (an ancestor's overflow:auto clips a descendant's box-shadow
-   bleed, not just its literal content) -- it was rendering as stray
-   triangle/strip fragments instead of the intended ring. Padding gives
-   the glow room to fade out inside the clip instead of being cut off
-   hard at the pane's edge. */
-#codex-detail-pane { flex: 1; min-width: 0; overflow-y: auto; min-height: 0; padding: 0.5rem 1.5rem 1.5rem; }
+   bleed, not just its literal content). Padding gives the glow room to
+   fade out inside the clip instead of being cut off hard at the pane's
+   edge -- needs to be roughly the glow's full reach (blur 2.5rem +
+   spread 0.5rem ~= 3rem) on EVERY side, not just a token amount, or
+   the clip still cuts through the glow's still-fairly-opaque inner
+   portion rather than its faded tail -- that's what was showing as a
+   hard rectangular line instead of a soft glow (0.5rem top / 1.5rem
+   sides was nowhere near enough). Every card always carries one of
+   vis-hidden/vis-visible, so this glow is never actually optional --
+   the padding isn't wasted space on some other, glow-less case. */
+#codex-detail-pane { flex: 1; min-width: 0; overflow-y: auto; min-height: 0; padding: 3rem; }
 .pane-title {
   margin: 0 0 0.75rem; font-size: 0.8rem; color: var(--ink-soft); font-family: var(--font-display), sans-serif;
   font-weight: 400; letter-spacing: 0.08em; text-transform: uppercase;
