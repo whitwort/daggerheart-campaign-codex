@@ -84,4 +84,34 @@ function parseDateSpec(raw) {
   return { ok: true, offsetSeconds: offsetSeconds };
 }
 
-export { parseDateSpec };
+// --- Display formatting (spacing + bold "a") ------------------------------
+// Rules (locked with Gregg): always a space between the number and its
+// unit letter (y/d/h/m) for display, regardless of how it was typed
+// ("250ya" and "250 ya" both display as "250 ya"), and a trailing "a"
+// ("ago") renders bold so before/after epoch reads at a glance. This is
+// DISPLAY-only -- entity.date is never rewritten in storage, and
+// parseDateSpec (above) still accepts either spacing on input.
+//
+// Returns an array of { text, bold } segments in display order. Pure
+// data, no DOM -- callers build HTML <b>/text nodes or SVG <tspan>s
+// from this (see appendDateSegments in codex.js, appendDateTspans in
+// timeline.js) since the same segmentation feeds both contexts.
+// Falls back to the raw token as a single non-bold segment if it
+// doesn't match the expected shape (defensive against legacy/bad data
+// that predates validation -- display code shouldn't throw on it).
+function formatDateSegments(raw) {
+  const str = (raw || '').trim();
+  if (!str) return [];
+  const tokens = str.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+  const segments = [];
+  tokens.forEach(function (tok, i) {
+    if (i > 0) segments.push({ text: ', ', bold: false });
+    const m = tok.match(/^(\d+)\s*(y|d|h|m)\s*(a)?$/i);
+    if (!m) { segments.push({ text: tok, bold: false }); return; }
+    segments.push({ text: m[1] + ' ' + m[2].toLowerCase(), bold: false });
+    if (m[3]) segments.push({ text: 'a', bold: true });
+  });
+  return segments;
+}
+
+export { parseDateSpec, formatDateSegments };
