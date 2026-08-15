@@ -13,7 +13,7 @@ import {
   uploadEntityMapImage, deleteEntityMapImage,
   uploadEntityGalleryImage, deleteEntityGalleryImage, setGalleryImageVisibility, setGalleryImageSource, setEntityPortrait
 } from './images.js';
-import { getTemplateSchema } from './templates.js';
+import { getTemplateSchema, normalizeSearchTerm, computeSearchIndex } from './templates.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -525,7 +525,11 @@ function matchesFilters(entity) {
     const aliasMatch = (entity.aliases || []).some(function (a) {
       return a.toLowerCase().indexOf(q) !== -1;
     });
-    return nameMatch || tagMatch || aliasMatch;
+    const qNorm = normalizeSearchTerm(q);
+    const indexMatch = (entity.searchIndex || []).some(function (t) {
+      return t.indexOf(qNorm) !== -1;
+    });
+    return nameMatch || tagMatch || aliasMatch || indexMatch;
   });
 }
 
@@ -937,6 +941,7 @@ function saveEntityEdit(entity) {
     useTemplate: !!draft.useTemplate && !!templateSchema,
     details: draft.details || {},
     features: draft.features || [],
+    searchIndex: (draft.useTemplate && templateSchema) ? computeSearchIndex(draft.details, draft.features, templateSchema) : [],
     updatedAt: serverTimestamp()
   };
   updateDoc(doc(db, 'entities', entity.id), entityData).then(function () {
@@ -1317,6 +1322,7 @@ function saveNewEntity() {
     useTemplate: false,
     details: {},
     features: [],
+    searchIndex: [],
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   };

@@ -67,6 +67,13 @@ function templateSchemaKey(category, subtype) {
   return category + '/' + (subtype || '');
 }
 
+// Kept in sync with the copies in codex.js and srd-import.js (small,
+// not worth a shared-utils module split -- same convention as slugify
+// elsewhere in this project).
+function humanizeKey(key) {
+  return key.replace(/_/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+}
+
 function getTemplateSchema(category, subtype) {
   return TEMPLATE_SCHEMAS[templateSchemaKey(category, subtype)] || null;
 }
@@ -75,4 +82,43 @@ function hasTemplateSchema(category, subtype) {
   return !!getTemplateSchema(category, subtype);
 }
 
-export { TEMPLATE_SCHEMAS, getTemplateSchema, hasTemplateSchema };
+// --- Search index (display-time-adjacent, but this one IS stored: recomputed
+// on every entity save/import, not derived at render time like the Details/
+// Features markdown merge in codex.js) ---------------------------------
+
+// Punctuation-forgiving normalization so "Tier: 1", "Tier 1" match
+// identically -- colons become spaces, whitespace collapses, lowercase.
+// Deliberately NOT fuzzy/stemmed beyond this; see design discussion in
+// session history for why (predictable > clever).
+function normalizeSearchTerm(s) {
+  return String(s).toLowerCase().replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+// Builds an entity's hidden search index from its structured details/
+// features, per the schema's whitelist:
+//  - detailKeys with searchable:true index the qualified "key value" pair
+//    always, and the bare value too when standalone:true (categorical
+//    values like Trait/Range/Domain are safe alone; Tier/Level/Base Score
+//    are not -- "2" collides with every tiered/leveled stat in the game).
+//  - Every structured feature name indexes standalone (feature names are
+//    already specific, curated data -- e.g. "Flexible" -- no key needed).
+// Returns [] when there's no schema (non-template-eligible types) or the
+// entity hasn't opted into useTemplate.
+function computeSearchIndex(details, features, schema) {
+  const idx = [];
+  if (!schema) return idx;
+  schema.detailKeys.forEach(function (d) {
+    if (!d.searchable) return;
+    const val = details && details[d.key];
+    if (val === undefined || val === null || val === '') return;
+    const normVal = normalizeSearchTerm(val);
+    idx.push(normalizeSearchTerm(humanizeKey(d.key)) + ' ' + normVal);
+    if (d.standalone) idx.push(normVal);
+  });
+  (features || []).forEach(function (f) {
+    if (f && f.name) idx.push(normalizeSearchTerm(f.name));
+  });
+  return idx;
+}
+
+export { TEMPLATE_SCHEMAS, getTemplateSchema, hasTemplateSchema, normalizeSearchTerm, computeSearchIndex };

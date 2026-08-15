@@ -5,7 +5,7 @@ import {
 import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
 import { nextSourceOrder } from './sources.js';
-import { getTemplateSchema } from './templates.js';
+import { getTemplateSchema, computeSearchIndex } from './templates.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -318,8 +318,8 @@ function processType(typeDef, records, progressCb, results, srdSourceId) {
     });
     const templ = schema ? buildTemplateData(rec, schema) : null;
     const templateFields = schema
-      ? { useTemplate: true, details: templ.details, features: templ.features }
-      : { useTemplate: false, details: {}, features: [] };
+      ? { useTemplate: true, details: templ.details, features: templ.features, searchIndex: computeSearchIndex(templ.details, templ.features, schema) }
+      : { useTemplate: false, details: {}, features: [], searchIndex: [] };
     const loreDocs = buildLoreDocs(rec, schema, templ);
 
     if (existing) {
@@ -344,6 +344,7 @@ function processType(typeDef, records, progressCb, results, srdSourceId) {
           useTemplate: templateFields.useTemplate,
           details: templateFields.details,
           features: templateFields.features,
+          searchIndex: templateFields.searchIndex,
           createdAt: existing.createdAt || serverTimestamp(),
           updatedAt: serverTimestamp()
         }
@@ -373,6 +374,7 @@ function processType(typeDef, records, progressCb, results, srdSourceId) {
           useTemplate: templateFields.useTemplate,
           details: templateFields.details,
           features: templateFields.features,
+          searchIndex: templateFields.searchIndex,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         }
