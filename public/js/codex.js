@@ -29,6 +29,27 @@ const listEl = document.getElementById('codex-entities');
 const detailEl = document.getElementById('codex-detail');
 const detailPaneEl = document.getElementById('codex-detail-pane');
 const newEntityBtn = document.getElementById('codex-new-btn');
+const codexTabEl = document.getElementById('codex-tab');
+
+// Phase 13 layout fix: same pattern as Timeline's fitLayoutHeight
+// (timeline.js) -- CSS alone can't know how much vertical space
+// header/nav/filters above this row consume without duplicating that
+// measurement here, so it's measured live instead. Without this,
+// #codex-entities' own overflow-y:auto only bounded ITS height; the
+// pane as a whole still grew past the viewport on short screens
+// (subtype-nested groups, several filter rows), pushing +New Entry
+// off the bottom and forcing a page scroll the internal scrollbar
+// was supposed to make unnecessary. Recomputed on load, on switching
+// to this tab, and on resize.
+function fitCodexTabHeight() {
+  if (!codexTabEl) return;
+  const panel = document.getElementById('codex-panel');
+  if (!panel || !panel.classList.contains('active')) return;
+  const rect = codexTabEl.getBoundingClientRect();
+  const h = window.innerHeight - rect.top - 16;
+  codexTabEl.style.height = Math.max(320, h) + 'px';
+}
+window.addEventListener('resize', fitCodexTabHeight);
 
 // slug: human-readable debugging/import aid, NOT the canonical key (auto
 // doc ID is). Regenerated from name on every save; uniqueness is only
@@ -2982,5 +3003,6 @@ export {
   attachCodexListeners, detachCodexListeners, renderList, renderDetailForSelected,
   isEntityPlayerVisible, registerVisibilityChangeHandler, registerMapNavigationHandler,
   clearCodexSearchInput, buildEntityPreviewCard, categoryGroupLabel, entityMatchesQuery,
-  renderEntityViewCard, applyWikiLinks, enterEntityEditMode, appendDateSegments
+  renderEntityViewCard, applyWikiLinks, enterEntityEditMode, appendDateSegments,
+  fitCodexTabHeight
 };
