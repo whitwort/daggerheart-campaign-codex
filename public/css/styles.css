@@ -494,7 +494,7 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 #update-banner-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
 #pin-move-indicator button { padding: 0.3rem 0.7rem; cursor: pointer; background: var(--void); color: var(--parchment); border: 1px solid var(--void-line); }
 
-#codex-tab { display: flex; align-items: stretch; gap: 1.5rem; margin-top: 1rem; min-height: 0; }
+#codex-tab { display: flex; align-items: stretch; gap: 1rem; margin-top: 1rem; min-height: 0; }
 /* Height set from JS (fitCodexTabHeight, codex.js) to fill the
    remaining window height below the header/nav -- same pattern as
    Timeline's fitLayoutHeight. Without this, #codex-entities' own
