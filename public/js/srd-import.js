@@ -158,6 +158,14 @@ function buildTemplateData(rec, schema) {
     if (Array.isArray(rec.feature)) {
       features = rec.feature.map(function (f) { return { name: f.name, text: f.text }; });
     }
+    // Classes: hope_feature_name/hope_feature_text is a single extra
+    // feature, not a separate mechanism -- appended to the same
+    // structured features list rather than modeled as its own field.
+    usedKeys.hope_feature_name = true;
+    usedKeys.hope_feature_text = true;
+    if (rec.hope_feature_name && rec.hope_feature_text) {
+      features.push({ name: rec.hope_feature_name, text: rec.hope_feature_text });
+    }
   }
 
   const flavorLines = [];
