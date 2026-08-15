@@ -131,11 +131,16 @@ service cloud.firestore {
     // derived from category membership in CONFIG.metaCategories, not a
     // per-entity flag). Tolerated in hasOnly, same as 'mapId' above, so
     // updates to already-written docs don't fail.
+    // 'dateEnd'/'dateEndSort' (time-range Scenes/Events): optional end
+    // point alongside 'date'/'dateSort' -- same parse/sort-key shape,
+    // null on both when the entity is a single point in time (the vast
+    // majority). Only meaningful when dateSort is also set.
     function isValidEntity() {
       return request.resource.data.keys().hasOnly(
           ['slug', 'name', 'category', 'subtype', 'parentId', 'relatedIds', 'mapId',
            'hasMapImage', 'visibility', 'tags', 'createdAt', 'updatedAt',
-           'ancestry', 'aliases', 'date', 'dateSort', 'ownerId', 'sourceId', 'meta',
+           'ancestry', 'aliases', 'date', 'dateSort', 'dateEnd', 'dateEndSort',
+           'ownerId', 'sourceId', 'meta',
            'useTemplate', 'details', 'features', 'searchIndex'])
         && request.resource.data.visibility in ['gm-only', 'all-players']
         && request.resource.data.name is string

@@ -911,6 +911,7 @@ function buildEntityDraft(entity) {
     subtype: entity.subtype || '',
     aliases: (entity.aliases || []).join(', '),
     date: entity.date || '',
+    dateEnd: entity.dateEnd || '',
     parentId: entity.parentId || '',
     tags: (entity.tags || []).join(', '),
     relatedIds: (entity.relatedIds || []).slice(),
@@ -968,6 +969,26 @@ function saveEntityEdit(entity) {
       if (!proceed) return;
     }
   }
+  // Optional end date -- turns a single point in time into a span (e.g.
+  // a Scene covering several in-fiction days). Only meaningful once a
+  // start date is set; silently ignored otherwise rather than erroring,
+  // since clearing the start date is a reasonable way to "undo" a dated
+  // entity and shouldn't be blocked by a leftover end date the GM
+  // forgot to also clear.
+  const dateEndStr = (dateStr && draft.dateEnd.trim()) ? draft.dateEnd.trim() : '';
+  let dateEndSort = null;
+  if (dateEndStr) {
+    const parsedEnd = parseDateSpec(dateEndStr);
+    if (!parsedEnd.ok) {
+      window.alert('End date: ' + parsedEnd.error);
+      return;
+    }
+    dateEndSort = parsedEnd.offsetSeconds;
+    if (dateEndSort < dateSort) {
+      window.alert('End date must be at or after the start date.');
+      return;
+    }
+  }
   const subtype = draftSubtype(draft);
   // useTemplate only sticks if a template schema still applies to the
   // saved category/subtype (guards against a stale true left over from
@@ -983,6 +1004,8 @@ function saveEntityEdit(entity) {
     aliases: (cat === 'Character') ? aliases : [],
     date: dateStr || null,
     dateSort: dateSort,
+    dateEnd: dateEndStr || null,
+    dateEndSort: dateEndSort,
     ownerId: (cat === 'Character' && draft.ownerId) ? draft.ownerId : null,
     parentId: draft.parentId || null,
     relatedIds: draft.relatedIds.slice(),
@@ -2378,7 +2401,7 @@ function appendDateSegments(container, raw) {
 function buildEntityMetaLine(entity, gmView) {
   const bits = [];
   if (entity.aliases && entity.aliases.length) bits.push({ kind: 'text', text: 'Also known as: ' + entity.aliases.join(', ') });
-  if (entity.date) bits.push({ kind: 'date', label: 'Date: ', date: entity.date });
+  if (entity.date) bits.push({ kind: 'date', label: 'Date: ', date: entity.date, dateEnd: entity.dateEnd || null });
   if (entity.ownerId && gmView) bits.push({ kind: 'text', text: 'Owned by: ' + entity.ownerId });
   if (!bits.length) return null;
 
@@ -2389,6 +2412,10 @@ function buildEntityMetaLine(entity, gmView) {
     if (bit.kind === 'date') {
       metaDiv.appendChild(document.createTextNode(bit.label));
       appendDateSegments(metaDiv, bit.date);
+      if (bit.dateEnd) {
+        metaDiv.appendChild(document.createTextNode(' \u2013 ')); // en dash, "to"
+        appendDateSegments(metaDiv, bit.dateEnd);
+      }
     } else {
       metaDiv.appendChild(document.createTextNode(bit.text));
     }
@@ -2588,6 +2615,7 @@ function renderDetailForSelected() {
   }
   if (draft.category === 'Scene' || draft.category === 'Event') {
     leftCol.appendChild(makeEditField('Date', draft.date, function (v) { draft.date = v; }, { placeholder: 'e.g. 12d, 45y   or   3500ya' }));
+    leftCol.appendChild(makeEditField('End date (optional, for a span)', draft.dateEnd, function (v) { draft.dateEnd = v; }, { placeholder: 'leave blank for a single point in time' }));
   }
   headingRow.appendChild(leftCol);
 
