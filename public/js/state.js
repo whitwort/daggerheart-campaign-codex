@@ -34,6 +34,8 @@ export const state = {
   detailActiveTab: 'lore',  // Entry Card tab box: 'lore' | 'notes'; resets to 'lore' on selection change
   detailEditMode: false,   // true = the open Entry Card is showing inline edit fields for the entity itself
   detailEditDraft: null,   // { name, category, ancestry, aliases, date, parentId, tags, relatedIds } — in-progress entity edit; re-populates edit inputs across re-renders so unrelated snapshot updates don't clobber typing
+  detailEditBaseUpdatedAtMs: null,  // entity.updatedAt (ms) captured when edit mode was entered; compared against the live entity on every snapshot to detect someone else saved underneath this edit (Phase 13 conflict warning)
+  detailEditConflictDismissedAtMs: null,  // updatedAt (ms) the GM has already acknowledged via "Keep my edits" — suppresses re-showing the same conflict; a further external change (different ms) still re-triggers it
   loreEdit: null,          // { entityId, id: existingLoreId|null, content, visibility } — in-progress lore item edit/create; id===null means a brand-new (unsaved) item
   leafletMap: null,
   loadedMapId: null,

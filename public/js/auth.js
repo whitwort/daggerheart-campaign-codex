@@ -13,6 +13,7 @@ import { attachPinsListener, attachConfigListener, detachMapDataListeners } from
 import { attachAdminListeners, detachAdminListeners } from './admin.js';
 import { attachSourcesListener, detachSourcesListener } from './sources.js';
 import { attachVersionListener, detachVersionListener, initUpdateBanner } from './version.js';
+import { attachConnectivityListener, detachConnectivityListener } from './connectivity.js';
 
 export const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
@@ -143,6 +144,7 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
       detachLiveRoleListeners();
       detachDataListeners();
       detachVersionListener();
+      detachConnectivityListener();
 
       if (user) {
         signInButtonsEl.style.display = 'none';
@@ -151,6 +153,7 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
         // _meta/version read only needs request.auth != null (see rules) —
         // attach for ANY signed-in user, including not-yet-whitelisted.
         attachVersionListener();
+        attachConnectivityListener();
       } else {
         signInButtonsEl.style.display = 'flex';
         signOutBtn.style.display = 'none';

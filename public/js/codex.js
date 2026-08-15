@@ -923,15 +923,28 @@ function buildEntityDraft(entity) {
   };
 }
 
+// Phase 13: entity.updatedAt is a Firestore Timestamp once the write has
+// round-tripped through the server (null on our own still-pending local
+// write, but by the time editing starts we're reading server-confirmed
+// data, so this is safe here).
+function updatedAtMs(entity) {
+  const t = entity && entity.updatedAt;
+  return (t && typeof t.toMillis === 'function') ? t.toMillis() : null;
+}
+
 function enterEntityEditMode(entity) {
   state.detailEditMode = true;
   state.detailEditDraft = buildEntityDraft(entity);
+  state.detailEditBaseUpdatedAtMs = updatedAtMs(entity);
+  state.detailEditConflictDismissedAtMs = null;
   renderDetailForSelected();
 }
 
 function cancelEntityEdit() {
   state.detailEditMode = false;
   state.detailEditDraft = null;
+  state.detailEditBaseUpdatedAtMs = null;
+  state.detailEditConflictDismissedAtMs = null;
   renderDetailForSelected();
 }
 
@@ -1020,6 +1033,8 @@ function saveEntityEdit(entity) {
   updateDoc(doc(db, 'entities', entity.id), entityData).then(function () {
     state.detailEditMode = false;
     state.detailEditDraft = null;
+    state.detailEditBaseUpdatedAtMs = null;
+    state.detailEditConflictDismissedAtMs = null;
     renderDetailForSelected();
   }).catch(function (err) {
     window.alert('Save failed: ' + err.message);
@@ -1580,6 +1595,48 @@ function buildLoreEditBox(entity, editState, isNew) {
   const box = document.createElement('div');
   box.className = 'lore-item';
 
+  // Phase 13: same pattern as the entity-edit conflict banner above --
+  // only meaningful for an existing item (a brand-new unsaved draft has
+  // no server doc to conflict with).
+  if (!isNew) {
+    const liveItem = state.allLoreItems.find(function (li) { return li.id === editState.id; });
+    const liveUpdatedAtMs = liveItem ? updatedAtMs(liveItem) : null;
+    const hasConflict = editState.baseUpdatedAtMs != null &&
+      liveUpdatedAtMs != null &&
+      liveUpdatedAtMs !== editState.baseUpdatedAtMs &&
+      liveUpdatedAtMs !== editState.conflictDismissedAtMs;
+    if (hasConflict) {
+      const conflictBanner = document.createElement('div');
+      conflictBanner.className = 'edit-conflict-banner';
+      const conflictMsg = document.createElement('p');
+      conflictMsg.textContent = 'This lore item was saved elsewhere while you were editing.';
+      conflictBanner.appendChild(conflictMsg);
+      const conflictActions = document.createElement('div');
+      conflictActions.className = 'edit-conflict-actions';
+      const keepBtn = document.createElement('button');
+      keepBtn.textContent = 'Keep my edits';
+      keepBtn.addEventListener('click', function () {
+        editState.conflictDismissedAtMs = liveUpdatedAtMs;
+        renderDetailForSelected();
+      });
+      const reloadBtn = document.createElement('button');
+      reloadBtn.textContent = 'Reload latest';
+      reloadBtn.addEventListener('click', function () {
+        editState.content = liveItem.content;
+        editState.visibility = liveItem.visibility;
+        editState.meta = normalizeMetaForEdit(liveItem.meta);
+        editState.sourceId = liveItem.sourceId || null;
+        editState.baseUpdatedAtMs = liveUpdatedAtMs;
+        editState.conflictDismissedAtMs = null;
+        renderDetailForSelected();
+      });
+      conflictActions.appendChild(keepBtn);
+      conflictActions.appendChild(reloadBtn);
+      conflictBanner.appendChild(conflictActions);
+      box.appendChild(conflictBanner);
+    }
+  }
+
   const toggleRow = document.createElement('div');
   toggleRow.className = 'lore-item-toggle-row';
   const toggleLabel = document.createElement('span');
@@ -1809,7 +1866,7 @@ function renderLoreTab(container, entity, gmView, readOnly) {
       editBtn.className = 'lore-item-btn';
       editBtn.textContent = 'Edit';
       editBtn.addEventListener('click', function () {
-        state.loreEdit = { entityId: entity.id, id: item.id, content: item.content, visibility: item.visibility, meta: normalizeMetaForEdit(item.meta), sourceId: item.sourceId || null };
+        state.loreEdit = { entityId: entity.id, id: item.id, content: item.content, visibility: item.visibility, meta: normalizeMetaForEdit(item.meta), sourceId: item.sourceId || null, baseUpdatedAtMs: updatedAtMs(item), conflictDismissedAtMs: null };
         renderDetailForSelected();
       });
       actionsRow.appendChild(editBtn);
@@ -2536,6 +2593,44 @@ function renderDetailForSelected() {
   const contentWrap = document.createElement('div');
   contentWrap.className = 'codex-card-content';
   detailEl.appendChild(contentWrap);
+
+  // Phase 13: someone else (another GM tab, or a re-sync after this GM's
+  // own connection dropped) saved this entity while this edit form was
+  // open. Draft text is never silently touched by this -- state.draft
+  // already isolates typed content from re-renders -- this is purely a
+  // heads-up + explicit choice, not a race in the data itself.
+  const liveUpdatedAtMs = updatedAtMs(entity);
+  const hasConflict = state.detailEditBaseUpdatedAtMs != null &&
+    liveUpdatedAtMs != null &&
+    liveUpdatedAtMs !== state.detailEditBaseUpdatedAtMs &&
+    liveUpdatedAtMs !== state.detailEditConflictDismissedAtMs;
+  if (hasConflict) {
+    const conflictBanner = document.createElement('div');
+    conflictBanner.className = 'edit-conflict-banner';
+    const conflictMsg = document.createElement('p');
+    conflictMsg.textContent = 'This entry was saved elsewhere while you were editing.';
+    conflictBanner.appendChild(conflictMsg);
+    const conflictActions = document.createElement('div');
+    conflictActions.className = 'edit-conflict-actions';
+    const keepBtn = document.createElement('button');
+    keepBtn.textContent = 'Keep my edits';
+    keepBtn.addEventListener('click', function () {
+      state.detailEditConflictDismissedAtMs = liveUpdatedAtMs;
+      renderDetailForSelected();
+    });
+    const reloadBtn = document.createElement('button');
+    reloadBtn.textContent = 'Reload latest';
+    reloadBtn.addEventListener('click', function () {
+      state.detailEditDraft = buildEntityDraft(entity);
+      state.detailEditBaseUpdatedAtMs = liveUpdatedAtMs;
+      state.detailEditConflictDismissedAtMs = null;
+      renderDetailForSelected();
+    });
+    conflictActions.appendChild(keepBtn);
+    conflictActions.appendChild(reloadBtn);
+    conflictBanner.appendChild(conflictActions);
+    contentWrap.appendChild(conflictBanner);
+  }
 
   const headingRow = document.createElement('div');
   headingRow.className = 'codex-card-heading';
