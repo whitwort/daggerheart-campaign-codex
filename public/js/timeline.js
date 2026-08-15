@@ -48,19 +48,21 @@ let activeTab = 'lore';
 let scale = 1;
 let offset = 0; // in "years" (dateSort / YEAR_SECONDS)
 let fitted = false;
+let lastClusters = []; // populated by render(), read by handleTap for the tap-vs-zoom decision
 
 function tOf(entity) { return entity.dateSort / YEAR_SECONDS; }
 
 function fmtYears(t) {
-  // Strict zero check -- "Epoch" must label exactly one tick. The old
-  // Math.round(t)===0 check matched anything in [-0.5, 0.5) years, so
-  // whenever ticks were closer than a year apart (any time you're
-  // zoomed in near day/month scale) MULTIPLE adjacent ticks all
-  // rounded to 0 and all rendered "Epoch".
+  // Strict zero check -- "Epoch" must label exactly one tick. The
+  // day-conversion branch below has its OWN independent rounding
+  // ambiguity (Math.round(t*365)===0 matches a whole range of tiny
+  // nonzero t, not just t===0) which was still colliding into
+  // duplicate "Epoch" labels near epoch even after fixing the coarser
+  // Math.round(t)===0 check -- so days===0 now prints '0d'/'0da'
+  // plainly instead of re-triggering the Epoch label.
   if (t === 0) return 'Epoch';
   if (Math.abs(t) < 1) {
     const days = Math.round(t * 365);
-    if (days === 0) return 'Epoch';
     return days > 0 ? days + 'd' : Math.abs(days) + 'da';
   }
   const y = Math.round(t);
@@ -100,12 +102,21 @@ function buildShell() {
   const wellCol = document.createElement('div');
   wellCol.className = 'timeline-well-col';
 
+  // Outer wrap has NO overflow:hidden -- that's what was clipping the
+  // hover preview popup (and its title, the first thing to go since the
+  // popup grows upward from the hovered node). Clipping to rounded
+  // corners now happens on an inner div instead; the popup and zoom
+  // controls are positioned relative to the outer (unclipped) wrap.
   const wellWrap = document.createElement('div');
   wellWrap.className = 'timeline-well-wrap';
 
+  const wellInner = document.createElement('div');
+  wellInner.className = 'timeline-well-inner';
+  wellWrap.appendChild(wellInner);
+
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('class', 'timeline-svg');
-  wellWrap.appendChild(svg);
+  wellInner.appendChild(svg);
 
   const zoomControls = document.createElement('div');
   zoomControls.className = 'timeline-zoom-controls';
@@ -125,13 +136,17 @@ function buildShell() {
   preview.className = 'timeline-preview-popup';
   wellWrap.appendChild(preview);
 
+  const clusterPicker = document.createElement('div');
+  clusterPicker.className = 'timeline-cluster-picker';
+  wellWrap.appendChild(clusterPicker);
+
   wellCol.appendChild(wellWrap);
 
   const wellActions = document.createElement('div');
   wellActions.className = 'timeline-well-actions';
   const listToggleBtn = document.createElement('button');
   listToggleBtn.type = 'button';
-  listToggleBtn.className = 'action-btn-compact';
+  listToggleBtn.className = 'timeline-well-action-btn';
   listToggleBtn.textContent = 'List all';
   listToggleBtn.addEventListener('click', function () {
     listPanel.classList.toggle('open');
@@ -139,7 +154,7 @@ function buildShell() {
   wellActions.appendChild(listToggleBtn);
   const fitBtn = document.createElement('button');
   fitBtn.type = 'button';
-  fitBtn.className = 'action-btn-compact';
+  fitBtn.className = 'timeline-well-action-btn';
   fitBtn.textContent = 'Fit all';
   fitBtn.addEventListener('click', function () { fitToView(); render(); });
   wellActions.appendChild(fitBtn);
@@ -186,9 +201,51 @@ function buildShell() {
     openEntityInPanel(a.dataset.entityId);
   });
 
-  dom = { svg: svg, wellWrap: wellWrap, preview: preview, cardPane: cardPane, listPanel: listPanel, listBody: listBody };
+  dom = { layout: layout, svg: svg, wellWrap: wellWrap, preview: preview, clusterPicker: clusterPicker, cardPane: cardPane, listPanel: listPanel, listBody: listBody };
   attachStageInteraction();
+  fitLayoutHeight();
+
+  // Dismiss the cluster picker on any outside tap/click.
+  document.addEventListener('pointerdown', function (e) {
+    if (!dom.clusterPicker.classList.contains('show')) return;
+    if (dom.clusterPicker.contains(e.target)) return;
+    hideClusterPicker();
+  });
 }
+
+function showClusterPicker(items, anchorEl) {
+  const rect = anchorEl.getBoundingClientRect();
+  const wrapRect = dom.wellWrap.getBoundingClientRect();
+  dom.clusterPicker.innerHTML = '';
+  const title = document.createElement('div');
+  title.className = 'timeline-cluster-picker-title';
+  title.textContent = items.length + ' moments at this instant';
+  dom.clusterPicker.appendChild(title);
+  items.slice().sort(function (a, b) { return a.t - b.t; }).forEach(function (d) {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'timeline-row';
+    row.addEventListener('click', function () { hideClusterPicker(); openEntityInPanel(d.entity.id); });
+    const dateSpan = document.createElement('span');
+    dateSpan.className = 'timeline-row-date';
+    dateSpan.textContent = d.entity.date || '';
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'timeline-row-name';
+    nameSpan.textContent = d.entity.name;
+    const catSpan = document.createElement('span');
+    catSpan.className = 'timeline-row-cat ' + catClass(d.entity.category);
+    catSpan.textContent = d.entity.category;
+    row.appendChild(dateSpan); row.appendChild(nameSpan); row.appendChild(catSpan);
+    dom.clusterPicker.appendChild(row);
+  });
+  let left = rect.left - wrapRect.left + 16;
+  const top = rect.top - wrapRect.top - 10;
+  if (left > wrapRect.width - 280) left = rect.left - wrapRect.left - 296;
+  dom.clusterPicker.style.left = Math.max(8, left) + 'px';
+  dom.clusterPicker.style.top = Math.max(8, top) + 'px';
+  dom.clusterPicker.classList.add('show');
+}
+function hideClusterPicker() { dom.clusterPicker.classList.remove('show'); }
 
 function openEntityInPanel(entityId) {
   const entity = dated.find(function (e) { return e.id === entityId; });
@@ -223,6 +280,13 @@ function renderCardPane() {
 }
 
 // --- Data refresh (visibility changes, entity edits) -----------------
+function fitLayoutHeight() {
+  if (!dom || !dom.layout) return;
+  const rect = dom.layout.getBoundingClientRect();
+  const h = window.innerHeight - rect.top - 16; // small bottom breathing room
+  dom.layout.style.height = Math.max(320, h) + 'px';
+}
+
 function refresh() {
   const gmView = isGmView();
   dated = state.allEntities
@@ -230,6 +294,7 @@ function refresh() {
     .filter(function (e) { return gmView || isEntityPlayerVisible(e.id); })
     .sort(function (a, b) { return a.dateSort - b.dateSort; });
 
+  fitLayoutHeight();
   renderListPanel();
   if (selectedId && !dated.find(function (e) { return e.id === selectedId; })) {
     selectedId = null; // e.g. visibility toggled off out from under a player
@@ -362,6 +427,7 @@ function niceTicks() {
 function catClass(category) { return 'cat-' + (category || '').toLowerCase(); }
 
 function render() {
+  hideClusterPicker();
   const rect = dom.svg.getBoundingClientRect();
   const dim = rect.height || 400;
   const crossDim = rect.width || 200;
@@ -400,7 +466,8 @@ function render() {
   }
 
   const clusters = computeLayout(dim);
-  clusters.forEach(function (cl) {
+  lastClusters = clusters;
+  clusters.forEach(function (cl, idx) {
     const px = cl.px;
     if (cl.items.length === 1) {
       const d = cl.items[0];
@@ -423,9 +490,7 @@ function render() {
       const cx = spineCross, cy = px;
       const g = mk('g', { class: 'timeline-cluster-dot' });
       g.setAttribute('data-role', 'cluster');
-      g.dataset.tMin = cl.items[0].t;
-      g.dataset.tMax = cl.items[cl.items.length - 1].t;
-      g.dataset.cy = cy;
+      g.dataset.clusterIndex = idx;
       g.appendChild(mk('circle', { cx: cx, cy: cy, r: 12 }));
       const t = mk('text', { x: cx, y: cy });
       t.textContent = cl.items.length;
@@ -493,6 +558,7 @@ function attachStageInteraction() {
       isPanning = true;
       svg.classList.add('grabbing');
       hidePreview();
+      hideClusterPicker();
       try { svg.setPointerCapture(e.pointerId); } catch (err) { /* no-op */ }
     }
     offset = offsetStart - (e.clientY - dragStartY) / scale;
@@ -541,27 +607,43 @@ function attachStageInteraction() {
 
   function handleTap(target) {
     const el = target.closest && target.closest('[data-role]');
-    if (!el) return;
+    if (!el) {
+      hideClusterPicker();
+      return;
+    }
     if (el.dataset.role === 'node') {
+      hideClusterPicker();
       openEntityInPanel(el.dataset.entityId);
     } else if (el.dataset.role === 'cluster') {
+      const cl = lastClusters[parseInt(el.dataset.clusterIndex, 10)];
+      if (!cl) return;
+      const ts = cl.items.map(function (d) { return d.t; });
+      const tMin = Math.min.apply(null, ts), tMax = Math.max.apply(null, ts);
+      const span = tMax - tMin;
+      if (span <= 0) {
+        // Members share the exact same instant -- no amount of zoom
+        // will ever spatially separate them (this was the actual bug:
+        // a flat scale multiplier can't resolve a true tie). Show a
+        // small picker instead, same idea as a map-cluster spiderfy.
+        showClusterPicker(cl.items, el);
+        return;
+      }
+      hideClusterPicker();
       // "Zoom to bounds": stretch the cluster's own t-span to occupy a
       // generous portion of the viewport, same idea as Leaflet marker
       // clusters zooming to fit their members. Re-clusters and can be
       // tapped again for dense sub-clusters, same as Leaflet's.
-      const tMin = parseFloat(el.dataset.tMin), tMax = parseFloat(el.dataset.tMax);
-      const targetT = tMin + (tMax - tMin) / 2;
       const rect = svg.getBoundingClientRect();
       const dim = rect.height || 400;
-      const span = tMax - tMin;
-      const targetScale = span > 0 ? (dim * 0.6) / span : scale * 6;
+      const targetT = tMin + span / 2;
+      const targetScale = (dim * 0.6) / span;
       scale = Math.max(targetScale, scale * 1.5); // always zoom in, never out
       offset = targetT - (dim / 2) / scale;
       render();
     }
   }
 
-  window.addEventListener('resize', function () { if (built) render(); });
+  window.addEventListener('resize', function () { if (built) { fitLayoutHeight(); render(); } });
 }
 
 function renderTimeline() {
