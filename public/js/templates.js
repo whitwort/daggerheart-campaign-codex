@@ -31,30 +31,33 @@
 const TEMPLATE_SCHEMAS = {
   'Equipment/weapons': {
     detailKeys: [
-      { key: 'burden', standalone: true },
-      { key: 'physical_or_magical', standalone: true },
-      { key: 'primary_or_secondary', standalone: true },
-      { key: 'range', standalone: true },
-      { key: 'tier', standalone: false },
-      { key: 'trait', standalone: true }
+      { key: 'burden', standalone: true, searchable: true },
+      { key: 'physical_or_magical', standalone: true, searchable: true },
+      { key: 'primary_or_secondary', standalone: true, searchable: true },
+      { key: 'range', standalone: true, searchable: true },
+      { key: 'tier', standalone: false, searchable: true },
+      { key: 'trait', standalone: true, searchable: true }
     ],
     hasFeatures: true
   },
   'Equipment/armor': {
-    // Only tier is tracked/searchable. base_score and base_thresholds
-    // don't make sense as search facets (Gregg's call) -- they stay as
-    // long-tail markdown in the mechanics lore item, not structured
-    // `details`.
+    // tier is search-whitelisted; base_score/base_thresholds are tracked
+    // structurally (useful for Phase 14 features -- e.g. auto-computed
+    // armor math) but flagged searchable:false since "3" or "11" alone
+    // are meaningless search terms out of context. Search feature isn't
+    // built yet -- this is forward-looking metadata for when it is.
     detailKeys: [
-      { key: 'tier', standalone: false }
+      { key: 'tier', standalone: false, searchable: true },
+      { key: 'base_score', standalone: false, searchable: false },
+      { key: 'base_thresholds', standalone: false, searchable: false }
     ],
     hasFeatures: true
   },
   'Game Mechanics/abilities': {
     detailKeys: [
-      { key: 'domain', standalone: true },
-      { key: 'level', standalone: false },
-      { key: 'type', standalone: true }
+      { key: 'domain', standalone: true, searchable: true },
+      { key: 'level', standalone: false, searchable: true },
+      { key: 'type', standalone: true, searchable: true }
     ],
     hasFeatures: false
   }
