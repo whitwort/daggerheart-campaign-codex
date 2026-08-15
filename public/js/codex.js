@@ -2658,6 +2658,15 @@ function renderEntityViewCard(container, entity, gmView, opts) {
   if (gmView && allowEdit) {
     rightCol.appendChild(buildEntityVisibilityToggle(entity));
   }
+  // Read-only panels (Timeline now, Map later) can inject their own
+  // heading-right control here -- e.g. Timeline's GM-only "Edit in
+  // Codex" button, which deliberately does NOT unlock inline editing
+  // on the read-only card itself (that stays out of scope, per
+  // Gregg's "no GM controls or clutter" call) but instead jumps to
+  // the Codex tab's real edit flow for that same entity.
+  if (opts.headingRightExtra) {
+    rightCol.appendChild(opts.headingRightExtra);
+  }
   if (entity.category === 'Location' && entity.hasMapImage) {
     const mapLink = document.createElement('button');
     mapLink.type = 'button';
@@ -2807,5 +2816,5 @@ export {
   attachCodexListeners, detachCodexListeners, renderList, renderDetailForSelected,
   isEntityPlayerVisible, registerVisibilityChangeHandler, registerMapNavigationHandler,
   clearCodexSearchInput, buildEntityPreviewCard, categoryGroupLabel, entityMatchesQuery,
-  renderEntityViewCard, applyWikiLinks
+  renderEntityViewCard, applyWikiLinks, enterEntityEditMode
 };
