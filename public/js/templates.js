@@ -60,6 +60,44 @@ const TEMPLATE_SCHEMAS = {
       { key: 'type', standalone: true, searchable: true }
     ],
     hasFeatures: false
+  },
+  'Ancestry/': {
+    detailKeys: [],
+    hasFeatures: true
+  },
+  'Community/': {
+    detailKeys: [],
+    hasFeatures: true
+  },
+  'Game Mechanics/beastforms': {
+    detailKeys: [
+      { key: 'tier', standalone: false, searchable: true },
+      { key: 'trait_bonus', standalone: false, searchable: true },
+      { key: 'evasion_bonus', standalone: false, searchable: true },
+      { key: 'attack', standalone: false, searchable: true },
+      { key: 'advantages', standalone: true, searchable: true }
+    ],
+    hasFeatures: true
+  },
+  'Game Mechanics/classes': {
+    // hope_feature_name/hope_feature_text isn't a detail key -- it's
+    // special-cased in buildTemplateData (srd-import.js) as an extra
+    // entry appended to the structured `features` list, not a separate
+    // mechanism. background/connection (question arrays), items, and
+    // suggested_traits are left as detailsLeftoverMd (existing generic
+    // leftover handling, no schema entry needed).
+    detailKeys: [
+      { key: 'domain_1', standalone: true, searchable: true },
+      { key: 'domain_2', standalone: true, searchable: true },
+      { key: 'subclass_1', standalone: true, searchable: true },
+      { key: 'subclass_2', standalone: true, searchable: true },
+      { key: 'suggested_armor', standalone: true, searchable: true },
+      { key: 'suggested_primary', standalone: true, searchable: true },
+      { key: 'suggested_secondary', standalone: true, searchable: true },
+      { key: 'evasion', standalone: false, searchable: true },
+      { key: 'hp', standalone: false, searchable: true }
+    ],
+    hasFeatures: true
   }
 };
 
