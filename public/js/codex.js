@@ -2360,6 +2360,7 @@ function appendDateSegments(container, raw) {
   formatDateSegments(raw).forEach(function (seg) {
     if (seg.bold) {
       const b = document.createElement('b');
+      b.className = 'date-ago-marker';
       b.textContent = seg.text;
       container.appendChild(b);
     } else {

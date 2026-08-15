@@ -864,6 +864,13 @@ select {
 /* Category-specific metadata under the entity heading */
 .entity-type-line { color: var(--ink-soft); margin: 0.25rem 0 1.125rem; }
 .entity-meta-line { color: var(--ink-soft); font-size: 0.9rem; margin: -0.25rem 0 0.75rem; }
+/* Trailing "a" ("ago") marker on dates -- bold AND italic (per Gregg's
+   explicit call: bold alone was hard to distinguish at small sizes).
+   Shared class between codex.js's appendDateSegments (this, HTML <b>)
+   and timeline.js's appendDateTspans (.timeline-date-bold, SVG
+   <tspan> -- SVG has no <b> element) -- both driven by the same
+   dates.js formatDateSegments() data. */
+.date-ago-marker { font-weight: 700; font-style: italic; }
 .template-feature-edit-row { display: flex; gap: 0.4rem; margin-bottom: 0.4rem; align-items: center; }
 .template-feature-edit-row input { flex: 1; min-width: 0; }
 .entity-edit-template-block { display: flex; flex-direction: column; gap: 0.5rem; }
@@ -998,13 +1005,13 @@ button:disabled:hover { border-color: var(--void-line); }
    would overrun the well's own width, which varies with viewport. */
 .timeline-well-action-btn { width: auto; min-width: 0; padding: 0.4rem 0.9rem; }
 
-/* Outer wrap: position:relative only, deliberately NO overflow:hidden
-   -- that was clipping the hover preview popup (see .timeline-preview-
-   popup below), including its title, since the popup grows upward
-   from the hovered node and the clip cut off whatever crossed the top
-   edge first. Clipping to rounded corners now happens on the INNER div
-   instead; the popup, cluster picker, and zoom controls are positioned
-   relative to this outer (unclipped) wrap so they can escape it. */
+/* Outer wrap: position:relative only, deliberately NO overflow:hidden.
+   Clipping to rounded corners happens on the INNER div instead; the
+   cluster picker and zoom controls are positioned relative to this
+   outer (unclipped) wrap so they can escape it and aren't cut off at
+   the well's edge. (Originally added to fix a hover-preview popup that
+   has since been removed -- kept unclipped anyway since the cluster
+   picker has the same escape-the-corner-clip need.) */
 .timeline-well-wrap { position: relative; flex: 1; min-width: 0; }
 .timeline-well-inner {
   position: absolute; inset: 0; overflow: hidden;
@@ -1031,7 +1038,7 @@ button:disabled:hover { border-color: var(--void-line); }
 .timeline-node-date { font-family: var(--font-body), sans-serif; font-size: 9.5px; fill: rgba(233,221,194,0.55); pointer-events: none; }
 /* Bold "ago" marker for tick/node dates (appendDateTspans, timeline.js)
    -- SVG has no <b> element, so this is the tspan equivalent. */
-.timeline-date-bold { font-weight: 700; }
+.timeline-date-bold { font-weight: 700; font-style: italic; }
 
 .timeline-cluster-dot { cursor: pointer; }
 .timeline-cluster-dot circle { fill: var(--void-raised); stroke: var(--parchment-edge); stroke-width: 1.5; }
@@ -1060,27 +1067,14 @@ button:disabled:hover { border-color: var(--void-line); }
 .timeline-zoom-controls button:last-child { border-bottom: none; }
 .timeline-zoom-controls button:hover { background: var(--parchment-edge); }
 
-/* Hover preview: mouse-only (pointerType-gated, same as map pin popups
-   and the search-help popover), same .entity-preview-card content
-   builder as map pins -- just a bespoke parchment wrapper here instead
-   of Leaflet's popup chrome, since this isn't a Leaflet map. Positioned
-   relative to the outer (unclipped) .timeline-well-wrap -- see that
-   rule's comment for why. */
-.timeline-preview-popup {
-  position: absolute; max-width: 260px; max-height: 50vh; overflow-y: auto;
-  background: var(--parchment); color: var(--ink); border-radius: 10px; padding: 0.85rem 1rem;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.35); pointer-events: none; z-index: 10;
-  opacity: 0; transition: opacity 0.1s ease;
-}
-.timeline-preview-popup.show { opacity: 1; }
-
 /* Cluster picker: shown instead of a zoom when a cluster's members
    share the exact same date (span=0) -- no amount of zooming can ever
    spatially separate a true tie, so this lists them for direct
-   selection instead. Pointer-events enabled (unlike the hover preview
-   above) since it's tap/click-driven, not hover-driven; dismissed on
-   outside tap or the next render(). Reuses .timeline-row styling from
-   the list drawer for visual consistency. */
+   selection instead. Pointer-events enabled since it's tap/click-
+   driven; dismissed on outside tap or the next render(). Reuses
+   .timeline-row styling from the list drawer for visual consistency.
+   (The hover-preview popup this comment used to distinguish itself
+   from was removed -- too noisy/redundant with click-to-open-card.) */
 .timeline-cluster-picker {
   position: absolute; width: 270px; max-height: 50vh; overflow-y: auto;
   background: rgba(26,31,40,0.97); color: var(--parchment); border: 1px solid var(--void-line);
