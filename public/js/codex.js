@@ -2647,6 +2647,38 @@ function renderDetailForSelected() {
 
 searchEl.addEventListener('input', renderList);
 
+// Search tips popover: tap-toggle for touch, real-mouse-hover for
+// desktop -- same pointerType-gated approach as map pin popups (see
+// map.js bindPinPreviewPopup), since real touch taps never fire
+// pointerenter/mouseover and CSS-only :hover doesn't work reliably on
+// iPadOS trackpads either way.
+const searchHelpBtn = document.getElementById('codex-search-help-btn');
+const searchHelpPopup = document.getElementById('codex-search-help-popup');
+const searchHelpWrap = document.getElementById('codex-search-help-wrap');
+if (searchHelpBtn && searchHelpPopup && searchHelpWrap) {
+  function openSearchHelp() {
+    searchHelpPopup.hidden = false;
+    searchHelpBtn.classList.add('active');
+  }
+  function closeSearchHelp() {
+    searchHelpPopup.hidden = true;
+    searchHelpBtn.classList.remove('active');
+  }
+  searchHelpBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (searchHelpPopup.hidden) openSearchHelp(); else closeSearchHelp();
+  });
+  searchHelpWrap.addEventListener('pointerenter', function (e) {
+    if (e.pointerType === 'mouse') openSearchHelp();
+  });
+  searchHelpWrap.addEventListener('pointerleave', function (e) {
+    if (e.pointerType === 'mouse') closeSearchHelp();
+  });
+  document.addEventListener('click', function (e) {
+    if (!searchHelpPopup.hidden && !searchHelpWrap.contains(e.target)) closeSearchHelp();
+  });
+}
+
 export {
   attachCodexListeners, detachCodexListeners, renderList, renderDetailForSelected,
   isEntityPlayerVisible, registerVisibilityChangeHandler, registerMapNavigationHandler,
