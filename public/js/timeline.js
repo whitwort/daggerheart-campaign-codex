@@ -2,7 +2,7 @@ import { state } from './state.js';
 import {
   registerVisibilityChangeHandler, isEntityPlayerVisible,
   renderList, renderDetailForSelected, clearCodexSearchInput,
-  renderEntityViewCard, buildEntityPreviewCard, enterEntityEditMode,
+  renderEntityViewCard, enterEntityEditMode,
   appendDateSegments
 } from './codex.js';
 import { formatDateSegments } from './dates.js';
@@ -157,10 +157,6 @@ function buildShell() {
   zoomControls.appendChild(zoomOutBtn);
   wellWrap.appendChild(zoomControls);
 
-  const preview = document.createElement('div');
-  preview.className = 'timeline-preview-popup';
-  wellWrap.appendChild(preview);
-
   const clusterPicker = document.createElement('div');
   clusterPicker.className = 'timeline-cluster-picker';
   wellWrap.appendChild(clusterPicker);
@@ -226,7 +222,7 @@ function buildShell() {
     openEntityInPanel(a.dataset.entityId);
   });
 
-  dom = { layout: layout, svg: svg, wellWrap: wellWrap, wellInner: wellInner, preview: preview, clusterPicker: clusterPicker, cardPane: cardPane, listPanel: listPanel, listBody: listBody };
+  dom = { layout: layout, svg: svg, wellWrap: wellWrap, wellInner: wellInner, clusterPicker: clusterPicker, cardPane: cardPane, listPanel: listPanel, listBody: listBody };
   attachStageInteraction();
   fitLayoutHeight();
 
@@ -279,6 +275,22 @@ function openEntityInPanel(entityId) {
   activeTab = 'lore';
   renderCardPane();
   centerOnIfOffscreen(entity);
+  render();
+}
+
+// Used specifically by the Event/Scene list drawer's row click (not
+// node/cluster taps or related-chip clicks, which keep the gentler
+// centerOnIfOffscreen behavior above): also zooms the well to isolate
+// the selected entity as its own dot and closes the drawer, per
+// Gregg's explicit ask for that interaction.
+function selectFromList(entityId) {
+  const entity = dated.find(function (e) { return e.id === entityId; });
+  if (!entity) return;
+  selectedId = entityId;
+  activeTab = 'lore';
+  renderCardPane();
+  zoomToIsolate(entity);
+  dom.listPanel.classList.remove('open');
   render();
 }
 
@@ -366,7 +378,7 @@ function renderListPanel() {
     row.type = 'button';
     row.className = 'timeline-row';
     if (entity.id === selectedId) row.classList.add('active');
-    row.addEventListener('click', function () { openEntityInPanel(entity.id); });
+    row.addEventListener('click', function () { selectFromList(entity.id); });
 
     const dateSpan = document.createElement('span');
     dateSpan.className = 'timeline-row-date';
@@ -449,8 +461,8 @@ function updateWellGradient() {
 }
 
 // --- Clustering: bucket nodes whose screen distance < threshold ------
+const CLUSTER_THRESHOLD_PX = 34; // shared with zoomToIsolate's "own dot" scale calc below
 function computeLayout(dim) {
-  const threshold = 34; // px
   const positioned = dated.map(function (d) { return { entity: d, t: tOf(d), px: (tOf(d) - offset) * scale }; })
     .filter(function (d) { return d.px > -60 && d.px < dim + 60; })
     .sort(function (a, b) { return a.px - b.px; });
@@ -458,7 +470,7 @@ function computeLayout(dim) {
   const clusters = [];
   positioned.forEach(function (d) {
     const last = clusters[clusters.length - 1];
-    if (last && (d.px - last.items[last.items.length - 1].px) < threshold) {
+    if (last && (d.px - last.items[last.items.length - 1].px) < CLUSTER_THRESHOLD_PX) {
       last.items.push(d);
       last.px = last.items.reduce(function (s, i) { return s + i.px; }, 0) / last.items.length;
     } else {
@@ -466,6 +478,31 @@ function computeLayout(dim) {
     }
   });
   return clusters;
+}
+
+// Used when selecting an entity from the Event/Scene list drawer: zoom
+// to the WIDEST view (smallest scale, maximum surrounding context)
+// that still keeps this entity clear of the clustering threshold from
+// its single nearest neighbor in time -- not an arbitrarily tight
+// zoom-in, which would lose context for no benefit once it's already
+// un-clustered. If it shares the exact same instant as another entity
+// (gap=0), no scale can separate a true tie -- leave scale alone and
+// just center (the cluster-picker, not this function, is what handles
+// that case when tapping the resulting cluster dot).
+function zoomToIsolate(entity) {
+  const rect = dom.svg.getBoundingClientRect();
+  const dim = rect.height || 400;
+  const t = tOf(entity);
+  const gaps = dated
+    .filter(function (e) { return e.id !== entity.id; })
+    .map(function (e) { return Math.abs(tOf(e) - t); })
+    .filter(function (g) { return g > 0; });
+  if (gaps.length) {
+    const minGap = Math.min.apply(null, gaps);
+    const MARGIN_PX = 6; // small buffer past the exact clustering boundary
+    scale = (CLUSTER_THRESHOLD_PX + MARGIN_PX) / minGap;
+  }
+  offset = t - (dim / 2) / scale;
 }
 
 function niceTicks() {
@@ -555,8 +592,6 @@ function render() {
       dot.setAttribute('data-role', 'node');
       dot.dataset.entityId = d.entity.id;
       if (d.entity.id === selectedId) dot.classList.add('selected');
-      dot.addEventListener('pointerenter', function (e) { if (e.pointerType === 'mouse') showPreview(d.entity, dot); });
-      dot.addEventListener('pointerleave', function (e) { if (e.pointerType === 'mouse') hidePreview(); });
       dom.svg.appendChild(dot);
 
       // Truncate against the ACTUAL available width (measured via
@@ -594,21 +629,6 @@ function render() {
     }
   });
 }
-
-function showPreview(entity, el) {
-  const gmView = isGmView();
-  const rect = el.getBoundingClientRect();
-  const wrapRect = dom.wellWrap.getBoundingClientRect();
-  dom.preview.innerHTML = '';
-  dom.preview.appendChild(buildEntityPreviewCard(entity, gmView));
-  let left = rect.left - wrapRect.left + 16;
-  const top = rect.top - wrapRect.top - 10;
-  if (left > wrapRect.width - 260) left = rect.left - wrapRect.left - 276;
-  dom.preview.style.left = Math.max(8, left) + 'px';
-  dom.preview.style.top = Math.max(8, top) + 'px';
-  dom.preview.classList.add('show');
-}
-function hidePreview() { dom.preview.classList.remove('show'); }
 
 // --- Interaction: wheel zoom, drag pan, pinch, tap. See mockup-session
 // notes -- calling render() on any pointermove (even sub-pixel tap
@@ -652,7 +672,6 @@ function attachStageInteraction() {
       if (dist < TAP_THRESHOLD) return;
       isPanning = true;
       svg.classList.add('grabbing');
-      hidePreview();
       hideClusterPicker();
       try { svg.setPointerCapture(e.pointerId); } catch (err) { /* no-op */ }
     }
