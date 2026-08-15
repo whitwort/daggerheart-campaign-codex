@@ -953,6 +953,20 @@ function saveEntityEdit(entity) {
       return;
     }
     dateSort = parsed.offsetSeconds;
+    // Warn (don't block -- an exact tie is legal data, the Timeline
+    // well's cluster-picker exists precisely to handle it) if another
+    // Scene/Event already resolves to this exact instant, so an
+    // accidental typo/copy-paste date gets caught at save time instead
+    // of only showing up as an unexpected cluster on the Timeline later.
+    const dup = state.allEntities.find(function (e) {
+      return e.id !== entity.id && (e.category === 'Scene' || e.category === 'Event') && e.dateSort === dateSort;
+    });
+    if (dup) {
+      const proceed = window.confirm(
+        'Another ' + dup.category + ' ("' + dup.name + '") already has this exact date/time (' + dateStr + '). Save anyway?'
+      );
+      if (!proceed) return;
+    }
   }
   const subtype = draftSubtype(draft);
   // useTemplate only sticks if a template schema still applies to the

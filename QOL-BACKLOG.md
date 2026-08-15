@@ -315,16 +315,14 @@ bar/span glyph rather than a single node dot, plus clustering logic
 that currently assumes point data). Not started.
 
 ## Future: warn on duplicate exact Scene/Event date
-Warn the GM at save time if a Scene/Event's date resolves to the exact
-same `dateSort` as another existing Scene/Event -- surfaced during
-Timeline testing, where an exact-tie cluster needed a picker fallback
-(see the Timeline cluster-picker work) since two entities at the same
-instant can never be told apart by the well alone. A save-time warning
-would catch the likely case (typo/copy-paste date) before it needs
-that fallback UI at all. Not a hard block -- ties are a legitimate
-data state (the picker exists precisely because they're allowed) --
-just a confirm-style nudge. Touches wherever entity save happens for
-Scene/Event category (codex.js `saveEntityEdit`, and SRD import/
-admin-db-import writes if those can produce dated entities too). Not
-started.
+Interactive edit path done (see saveEntityEdit in codex.js -- warns via
+confirm() when a Scene/Event's date resolves to the exact same
+`dateSort` as another existing Scene/Event; doesn't block, since exact
+ties are legal data the Timeline's cluster-picker already handles).
+Still outstanding: the bulk Admin JSON import path (`import.js`) can
+also write dated Scene/Event entities and has no equivalent check --
+a per-row blocking confirm() would be disruptive for a multi-entity
+import, so this needs a different UX (e.g. a summary of duplicate-date
+warnings shown once at the end of the import) rather than reusing the
+interactive path's confirm() directly. Not started.
 
