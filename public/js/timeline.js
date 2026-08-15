@@ -662,11 +662,25 @@ function attachStageInteraction() {
     }
   }
 
-  window.addEventListener('resize', function () { if (built) { fitLayoutHeight(); render(); } });
+  window.addEventListener('resize', function () {
+    if (!built || !panelEl.classList.contains('active')) return;
+    fitLayoutHeight();
+    render();
+  });
 }
 
 function renderTimeline() {
   if (!built) return; // lazy: don't build DOM until the tab is first opened
+  // notifyVisibilityChange() fires on every Firestore entity update
+  // regardless of which tab is active -- e.g. saving from the "Edit in
+  // Codex" flow fires it while #timeline-panel is display:none. A
+  // hidden element's getBoundingClientRect() is all zeros, so
+  // fitLayoutHeight() would compute a garbage height from that and
+  // write it as inline style while hidden. Skipping entirely while not
+  // the active tab avoids that; ensureTimelineTabReady() already does
+  // a full refresh() on every re-open, so nothing is lost by not
+  // keeping hidden-tab data live.
+  if (!panelEl.classList.contains('active')) return;
   refresh();
 }
 
