@@ -978,9 +978,11 @@ button:disabled:hover { border-color: var(--void-line); }
 .timeline-intro { margin-top: 0; margin-bottom: 0.75rem; }
 
 .timeline-layout { display: flex; align-items: stretch; gap: 1.25rem; }
+.timeline-well-col { display: flex; flex-direction: column; flex: 1 1 45%; min-width: 0; }
+.timeline-well-actions { display: flex; justify-content: flex-start; gap: 0.5rem; margin-top: 0.6rem; }
 
 .timeline-well-wrap {
-  position: relative; flex: 1 1 45%; min-width: 0; min-height: 60vh;
+  position: relative; flex: 1; min-width: 0; min-height: 60vh;
   border: 1px solid var(--void-line); border-radius: 14px; overflow: hidden;
   background: var(--void-raised); /* replaced per-render by the fear/hope gradient */
 }
@@ -1062,22 +1064,31 @@ button:disabled:hover { border-color: var(--void-line); }
   width: 1.8rem; min-width: 1.8rem; height: 1.8rem; padding: 0; border-radius: 50%;
   background: var(--void); color: var(--parchment); border: 1px solid var(--void-line); box-shadow: none; font-size: 1.1rem; line-height: 1;
 }
-#timeline-list { display: flex; flex-direction: column; gap: 0.4rem; padding: 0.8rem; }
-.timeline-row.active { border-color: var(--fear); }
-/* Exception (QOL-BACKLOG #11): full-width flat row buttons, not fixed-width
-   action buttons -- same width:auto/min-width:0 override pattern as
-   .related-chip above, needed because the base button rule is width:13rem. */
+#timeline-list { display: flex; flex-direction: column; padding: 0.4rem 0.8rem 0.8rem; }
+.timeline-row.active { background: rgba(255,255,255,0.06); }
+/* Exception (QOL-BACKLOG #11): full-width flat row, not a fixed-width
+   action button -- width:auto/min-width:0 override, same pattern as
+   .related-chip, needed because the base button rule is width:13rem.
+   Flat list-row look (no card/pill background, bottom-border divider
+   between rows) rather than the earlier pill-card treatment -- Gregg's
+   preferred direction from the mockup session. */
 .timeline-row,
 .timeline-row:active,
 .timeline-row:focus {
-  display: flex; align-items: baseline; gap: 0.75rem; width: 100%; min-width: 0;
-  text-align: left; background: rgba(94,130,150,0.10); border: 1px solid transparent;
-  border-radius: 6px; padding: 0.5rem 0.75rem; cursor: pointer; box-shadow: none; outline: none;
+  display: flex; align-items: baseline; gap: 0.6rem; width: 100%; min-width: 0;
+  text-align: left; background: none; border: none; border-bottom: 1px solid var(--void-line);
+  border-radius: 0; padding: 0.55rem 0.4rem; cursor: pointer; box-shadow: none; outline: none;
+  color: var(--parchment);
 }
-.timeline-row:hover { background: rgba(94,130,150,0.18); border-color: rgba(61,84,100,0.3); }
-.timeline-row-date { font-family: 'Comfortaa', sans-serif; font-size: 0.8rem; color: var(--ink-soft); min-width: 8rem; flex-shrink: 0; }
-.timeline-row-name { font-weight: 600; flex-grow: 1; }
-.timeline-row-cat { font-size: 0.75rem; color: var(--ink-soft); font-style: italic; }
+.timeline-row:last-child { border-bottom: none; }
+.timeline-row:hover { background: rgba(255,255,255,0.04); }
+.timeline-row-date { font-size: 0.72rem; color: rgba(233,221,194,0.55); min-width: 4.5rem; flex-shrink: 0; }
+.timeline-row-name { font-size: 0.85rem; flex: 1; }
+.timeline-row-cat {
+  font-size: 0.65rem; padding: 0.1rem 0.45rem; border-radius: 4px; color: #fff; flex-shrink: 0;
+}
+.timeline-row-cat.cat-event { background: var(--cat-event); }
+.timeline-row-cat.cat-scene { background: var(--cat-scene); }
 
 
 /* --- Sources: GM-defined attribution list, shown as a subtle lower-left
