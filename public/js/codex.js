@@ -10,8 +10,8 @@ import { renderAdminRootEntitySelect, renderAdminPlayersList } from './admin.js'
 import { parseDateSpec, formatDateSegments } from './dates.js';
 import { buildSourceSelect, renderSourceLabel, registerSourcesChangeHandler, confirmRevealWithoutSource, sortedSources } from './sources.js';
 import {
-  uploadEntityMapImage, deleteEntityMapImage,
-  uploadEntityGalleryImage, deleteEntityGalleryImage, setGalleryImageVisibility, setGalleryImageSource, setEntityPortrait
+  uploadEntityGalleryImage, deleteEntityGalleryImage, setGalleryImageVisibility, setGalleryImageSource,
+  setEntityPortrait, setEntityMap, clearEntityMap, migrateLegacyMapImageIfNeeded
 } from './images.js';
 import { getTemplateSchema, normalizeSearchTerm, computeSearchIndex } from './templates.js';
 
@@ -188,6 +188,13 @@ function setEntityImagesTarget(entityId) {
       snapshot.forEach(function (docSnap) {
         state.currentEntityImages.push(Object.assign({ id: docSnap.id }, docSnap.data()));
       });
+      // One-time, idempotent: an entity's old standalone map image
+      // (pre-Gallery-tab-Set-map) becomes a normal gallery image with
+      // isMap:true. GM-only (write access), no-op once already migrated
+      // — see migrateLegacyMapImageIfNeeded's own comment (images.js).
+      if (state.currentRole === 'gm') {
+        migrateLegacyMapImageIfNeeded(entityId, state.currentEntityImages);
+      }
       renderDetailForSelected();
     }),
     function (err) {
@@ -1198,71 +1205,6 @@ function buildRelatedEditor(entityId, draft) {
   return wrap;
 }
 
-function buildMapImageEditSection(entity) {
-  const wrap = document.createElement('div');
-  wrap.className = 'entity-edit-field';
-  const label = document.createElement('label');
-  label.textContent = 'Map image';
-  wrap.appendChild(label);
-  const mapImg = state.currentEntityImages.find(function (img) {
-    return img.ownerId === entity.id && img.role === 'map';
-  });
-  const statusEl = document.createElement('span');
-  statusEl.className = 'image-edit-status';
-  statusEl.textContent = mapImg
-    ? 'Map image set (' + mapImg.width + 'x' + mapImg.height + ', ' + Math.round(mapImg.sizeBytes / 1024) + 'KB).'
-    : 'No map image.';
-  wrap.appendChild(statusEl);
-
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = 'image/*';
-  input.addEventListener('change', function () {
-    const file = input.files[0];
-    if (!file) return;
-    if (mapImg) {
-      const pinCount = state.allPins.filter(function (p) { return p.mapEntityId === entity.id; }).length;
-      if (pinCount > 0 && !window.confirm(
-        'This location already has a map image with ' + pinCount + ' pin' + (pinCount === 1 ? '' : 's') +
-        ' on it. Replacing the image may leave existing pins misaligned, since pin positions are stored ' +
-        'relative to the old image. Continue?'
-      )) {
-        input.value = '';
-        return;
-      }
-    }
-    input.disabled = true;
-    uploadEntityMapImage(entity.id, file, {
-      onStatus: function (text) { statusEl.textContent = text; }
-    }).catch(function (err) {
-      statusEl.textContent = err.message;
-    }).finally(function () {
-      input.disabled = false;
-      input.value = '';
-    });
-  });
-  wrap.appendChild(input);
-
-  if (mapImg) {
-    const delBtn = document.createElement('button');
-    delBtn.type = 'button';
-    delBtn.textContent = 'Delete map image';
-    delBtn.addEventListener('click', function () {
-      const pinCount = state.allPins.filter(function (p) { return p.mapEntityId === entity.id; }).length;
-      const warning = pinCount > 0
-        ? 'Delete this location\u2019s map image? It has ' + pinCount + ' pin' + (pinCount === 1 ? '' : 's') +
-          ' on it, which will be unreachable until a new image is set.'
-        : 'Delete this location\u2019s map image?';
-      if (!window.confirm(warning)) return;
-      deleteEntityMapImage(entity.id).catch(function (err) {
-        window.alert('Delete failed: ' + err.message);
-      });
-    });
-    wrap.appendChild(delBtn);
-  }
-  return wrap;
-}
-
 // Structured stat-block editor (Weapons/Armor/Abilities pilot): only
 // rendered when a template schema applies to the draft's current
 // category/subtype (see templates.js). The "Use structured template"
@@ -1425,9 +1367,6 @@ function renderEntityEditBlock(container, entity, draft) {
   sourceWrap.appendChild(sourceLabel);
   sourceWrap.appendChild(buildSourceSelect(draft.sourceId, function (v) { draft.sourceId = v; }));
   container.appendChild(sourceWrap);
-  if (draft.category === 'Location') {
-    container.appendChild(buildMapImageEditSection(entity));
-  }
 
   const actions = document.createElement('div');
   actions.className = 'actions-row';
@@ -2234,6 +2173,89 @@ function openSetPortraitDialog(entity, images) {
   buildStageA();
 }
 
+// --- Set map dialog ----------------------------------------------------
+// Much simpler than Set portrait -- no crop/zoom to configure, just
+// which gallery image (if any) is this Location's map. Plain modal
+// (not the docked drag-panel Set portrait uses), since there's no live
+// card preview to keep visible underneath while picking.
+function openSetMapDialog(entity, images) {
+  if (document.querySelector('.map-picker-overlay')) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay map-picker-overlay open';
+  const box = document.createElement('div');
+  box.className = 'modal-box modal-box-wide';
+  overlay.appendChild(box);
+
+  const h3 = document.createElement('h3');
+  h3.textContent = 'Set map \u2014 ' + entity.name;
+  box.appendChild(h3);
+
+  const hint = document.createElement('p');
+  hint.className = 'image-edit-status';
+  hint.textContent = 'Choose which gallery image is this location\u2019s map. An image can be both the portrait and the map.';
+  box.appendChild(hint);
+
+  const currentMap = images.find(function (img) { return img.isMap; });
+
+  function close() { overlay.remove(); }
+
+  function pinWarning(actionLabel) {
+    const pinCount = state.allPins.filter(function (p) { return p.mapEntityId === entity.id; }).length;
+    if (!pinCount) return true;
+    return window.confirm(
+      'This location already has a map image with ' + pinCount + ' pin' + (pinCount === 1 ? '' : 's') +
+      ' on it. ' + actionLabel + ' may leave existing pins misaligned, since pin positions are stored ' +
+      'relative to the image. Continue?'
+    );
+  }
+
+  const grid = document.createElement('div');
+  grid.className = 'map-picker-grid';
+  images.forEach(function (img) {
+    const isCurrent = !!currentMap && img.id === currentMap.id;
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'map-picker-item' + (isCurrent ? ' active' : '');
+    const imgEl = document.createElement('img');
+    imgEl.src = img.data;
+    imgEl.alt = entity.name;
+    item.appendChild(imgEl);
+    item.addEventListener('click', function () {
+      if (isCurrent) { close(); return; }
+      if (currentMap && !pinWarning('Replacing the map image')) return;
+      setEntityMap(entity.id, img.id).then(close).catch(function (err) {
+        window.alert('Set map failed: ' + err.message);
+      });
+    });
+    grid.appendChild(item);
+  });
+  box.appendChild(grid);
+
+  const actions = document.createElement('div');
+  actions.className = 'modal-actions';
+  if (currentMap) {
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.textContent = 'Remove map image';
+    removeBtn.addEventListener('click', function () {
+      if (!pinWarning('Removing the map designation')) return;
+      clearEntityMap(entity.id).then(close).catch(function (err) {
+        window.alert('Remove failed: ' + err.message);
+      });
+    });
+    actions.appendChild(removeBtn);
+  }
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', close);
+  actions.appendChild(cancelBtn);
+  box.appendChild(actions);
+
+  overlay.addEventListener('click', function (ev) { if (ev.target === overlay) close(); });
+  document.body.appendChild(overlay);
+}
+
 // --- Gallery tab -----------------------------------------------------------
 // Unlike Lore items, gallery images have no separate edit-mode UI on the
 // Entry Card itself — all image management (visibility, delete, add) lives
@@ -2351,6 +2373,8 @@ function openGalleryUploadModal(entity) {
 function renderGalleryTab(container, entity, gmView, readOnly) {
   const galleryImages = galleryImagesFor(entity.id, gmView);
   const currentPortrait = portraitImageFor(entity, gmView);
+  const isLocation = entity.category === 'Location';
+  const currentMapImg = isLocation ? galleryImages.find(function (img) { return img.isMap; }) : null;
   const showChrome = gmView && !readOnly;
 
   if (showChrome && galleryImages.length) {
@@ -2358,7 +2382,9 @@ function renderGalleryTab(container, entity, gmView, readOnly) {
     hintBox.className = 'gallery-hint-box';
     const hint = document.createElement('p');
     hint.className = 'image-edit-status';
-    hint.textContent = 'Drag images to reorder them. The portrait-marked image is used for the entry card\u2019s hero header.';
+    hint.textContent = isLocation
+      ? 'Drag images to reorder them. The portrait-marked image is used for the entry card\u2019s hero header; the map-marked image is used on the Map tab. An image can be both.'
+      : 'Drag images to reorder them. The portrait-marked image is used for the entry card\u2019s hero header.';
     hintBox.appendChild(hint);
     container.appendChild(hintBox);
   }
@@ -2368,6 +2394,7 @@ function renderGalleryTab(container, entity, gmView, readOnly) {
     galleryDiv.className = 'codex-gallery';
     galleryImages.forEach(function (img) {
       const isCurrentPortrait = !!currentPortrait && img.id === currentPortrait.id;
+      const isCurrentMap = !!currentMapImg && img.id === currentMapImg.id;
       const figDiv = document.createElement('div');
       figDiv.className = 'gallery-item ' + (img.visibility === 'all-players' ? 'vis-visible' : 'vis-hidden');
       figDiv.dataset.imageId = img.id;
@@ -2382,16 +2409,29 @@ function renderGalleryTab(container, entity, gmView, readOnly) {
 
       // Explicitly requested exception to the "only add icons when asked"
       // rule — small partially-transparent indicator over whichever
-      // thumbnail is currently the portrait. Don't extrapolate from this
-      // to add icons elsewhere. Aligned to the image's own top-right
-      // corner (imgWrap, not figDiv, so it isn't thrown off by figDiv's
-      // padding).
+      // thumbnail is currently the portrait and/or map (an image can be
+      // both at once, so these are independent badges, not a single
+      // either/or one). Don't extrapolate from this to add icons
+      // elsewhere. Aligned to the image's own top-right corner (imgWrap,
+      // not figDiv, so it isn't thrown off by figDiv's padding).
       if (isCurrentPortrait) {
         const indicator = document.createElement('span');
         indicator.className = 'gallery-portrait-indicator';
         indicator.title = 'Current portrait';
         indicator.textContent = '\u2605';
         imgWrap.appendChild(indicator);
+      }
+      if (isCurrentMap) {
+        // Deliberately a different glyph from the portrait star (per
+        // Gregg's ask) -- reuses CONFIG.icons.map, the same map emoji
+        // already used for the "open map" link elsewhere on this card,
+        // so it reads as "this is the map" rather than needing a new
+        // one-off symbol.
+        const mapIndicator = document.createElement('span');
+        mapIndicator.className = 'gallery-map-indicator' + (isCurrentPortrait ? ' stacked' : '');
+        mapIndicator.title = 'Current map image';
+        mapIndicator.textContent = CONFIG.icons.map;
+        imgWrap.appendChild(mapIndicator);
       }
       figDiv.appendChild(imgWrap);
 
@@ -2438,7 +2478,17 @@ function renderGalleryTab(container, entity, gmView, readOnly) {
         delBtn.className = 'action-btn-compact';
         delBtn.textContent = 'Delete';
         delBtn.addEventListener('click', function () {
-          if (!window.confirm('Delete this gallery image?')) return;
+          // Same pin-misalignment warning the old standalone map-image
+          // delete used to show, now scoped to "is THIS gallery image
+          // currently the map" rather than a separate delete flow.
+          const pinCount = img.isMap
+            ? state.allPins.filter(function (p) { return p.mapEntityId === entity.id; }).length
+            : 0;
+          const warning = pinCount > 0
+            ? 'Delete this gallery image? It\u2019s the current map image and has ' + pinCount +
+              ' pin' + (pinCount === 1 ? '' : 's') + ' on it, which will be unreachable until a new map image is set.'
+            : 'Delete this gallery image?';
+          if (!window.confirm(warning)) return;
           deleteEntityGalleryImage(img.id).catch(function (err) { window.alert('Delete failed: ' + err.message); });
         });
         barDiv.appendChild(delBtn);
@@ -2494,6 +2544,14 @@ function renderGalleryTab(container, entity, gmView, readOnly) {
       portraitBtn.textContent = 'Set portrait';
       portraitBtn.addEventListener('click', function () { openSetPortraitDialog(entity, galleryImages); });
       right.appendChild(portraitBtn);
+      if (isLocation) {
+        const mapBtn = document.createElement('button');
+        mapBtn.type = 'button';
+        mapBtn.className = 'action-btn-compact';
+        mapBtn.textContent = 'Set map';
+        mapBtn.addEventListener('click', function () { openSetMapDialog(entity, galleryImages); });
+        right.appendChild(mapBtn);
+      }
     }
     actions.appendChild(right);
     container.appendChild(actions);

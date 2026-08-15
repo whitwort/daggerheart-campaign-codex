@@ -1,5 +1,5 @@
 import {
-  getFirestore, doc, collection, setDoc, addDoc, deleteDoc, updateDoc,
+  getFirestore, doc, collection, addDoc, deleteDoc, updateDoc,
   writeBatch, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp } from './firebase.js';
@@ -114,60 +114,6 @@ const IMAGE_CACHE_STORE = 'images';
       });
     }
 
-    function entityMapImageDocId(entityId) {
-      return 'entity_' + entityId + '_map';
-    }
-
-    // Upload a map image for a Location entity. Deterministic doc ID:
-    // overwriting it IS "replace this entity's map image" — idempotent,
-    // no orphans. Also maintains the entity's hasMapImage flag (used for
-    // synchronous circle-vs-marker pin rendering) — skipped when
-    // opts.entityDocExists is false (New Entity form: the entity doc isn't
-    // written until Save; the form sets the flag in its own save payload).
-    function uploadEntityMapImage(entityId, file, opts) {
-      const onStatus = opts && opts.onStatus;
-      const entityDocExists = !opts || opts.entityDocExists !== false;
-      return processImageFile(file, onStatus).then(function (processed) {
-        if (onStatus) onStatus('Uploading...');
-        const imageDocId = entityMapImageDocId(entityId);
-        const imageData = {
-          ownerType: 'entity',
-          ownerId: entityId,
-          role: 'map',
-          data: processed.dataUrl,
-          contentType: 'image/webp',
-          width: processed.width,
-          height: processed.height,
-          sizeBytes: processed.sizeBytes,
-          uploadedAt: serverTimestamp()
-        };
-        if (entityDocExists) {
-          const batch = writeBatch(db);
-          batch.set(doc(db, 'images', imageDocId), imageData);
-          batch.update(doc(db, 'entities', entityId), {
-            hasMapImage: true, updatedAt: serverTimestamp()
-          });
-          return batch.commit().then(function () { return imageDocId; });
-        }
-        return setDoc(doc(db, 'images', imageDocId), imageData)
-          .then(function () { return imageDocId; });
-      });
-    }
-
-    function deleteEntityMapImage(entityId, opts) {
-      const entityDocExists = !opts || opts.entityDocExists !== false;
-      const imageDocId = entityMapImageDocId(entityId);
-      if (entityDocExists) {
-        const batch = writeBatch(db);
-        batch.delete(doc(db, 'images', imageDocId));
-        batch.update(doc(db, 'entities', entityId), {
-          hasMapImage: false, updatedAt: serverTimestamp()
-        });
-        return batch.commit();
-      }
-      return deleteDoc(doc(db, 'images', imageDocId));
-    }
-
     // Gallery images: 0+ per entity, auto-ID docs (content entities, not
     // structural singletons), each with its own gm-only/all-players
     // visibility like loreItems. New uploads start hidden.
@@ -211,7 +157,18 @@ const IMAGE_CACHE_STORE = 'images';
       });
     }
 
+    // Deleting the gallery image currently flagged isMap must also clear
+    // the owning entity's hasMapImage -- otherwise map.js's synchronous
+    // marker-vs-circle pin decision (isMapEntity) keeps treating this
+    // Location as having a map after the image backing it is gone.
     function deleteEntityGalleryImage(imageDocId) {
+      const img = state.currentEntityImages.find(function (i) { return i.id === imageDocId; });
+      if (img && img.isMap) {
+        const batch = writeBatch(db);
+        batch.delete(doc(db, 'images', imageDocId));
+        batch.update(doc(db, 'entities', img.ownerId), { hasMapImage: false, updatedAt: serverTimestamp() });
+        return batch.commit();
+      }
       return deleteDoc(doc(db, 'images', imageDocId));
     }
 
@@ -234,6 +191,84 @@ const IMAGE_CACHE_STORE = 'images';
       });
       batch.update(doc(db, 'images', imageDocId), Object.assign({ isPortrait: true }, cropState));
       return batch.commit();
+    }
+
+    // Map designation (Phase 13+ rework -- replaces the old standalone
+    // Map image upload/delete UI): isMap on a gallery image, same
+    // pattern as isPortrait -- at most one true per entity, cleared on
+    // any previous holder in the same batch. entities.hasMapImage stays
+    // in sync in the same batch too -- map.js's marker-vs-circle pin
+    // decision (isMapEntity) needs it synchronously for every entity
+    // with a pin on the current map, not just the one entity whose
+    // images happen to be live-loaded (the per-entity images listener
+    // only ever covers the currently-selected Codex entity).
+    function setEntityMap(entityId, imageDocId) {
+      const batch = writeBatch(db);
+      state.currentEntityImages.forEach(function (img) {
+        if (img.ownerId === entityId && img.role === 'gallery' && img.isMap && img.id !== imageDocId) {
+          batch.update(doc(db, 'images', img.id), { isMap: false });
+        }
+      });
+      batch.update(doc(db, 'images', imageDocId), { isMap: true });
+      batch.update(doc(db, 'entities', entityId), { hasMapImage: true, updatedAt: serverTimestamp() });
+      return batch.commit();
+    }
+
+    // Unlike portrait (always resolves to SOME image once a gallery is
+    // non-empty), a Location can legitimately have no map image at all
+    // -- this clears the designation entirely rather than reassigning
+    // it, for whichever image currently holds it.
+    function clearEntityMap(entityId) {
+      const batch = writeBatch(db);
+      state.currentEntityImages.forEach(function (img) {
+        if (img.ownerId === entityId && img.role === 'gallery' && img.isMap) {
+          batch.update(doc(db, 'images', img.id), { isMap: false });
+        }
+      });
+      batch.update(doc(db, 'entities', entityId), { hasMapImage: false, updatedAt: serverTimestamp() });
+      return batch.commit();
+    }
+
+    // One-time, idempotent migration: an entity's OLD standalone map
+    // image (role:'map', deterministic doc ID entity_{id}_map, from
+    // before the Gallery's Set map button existed) becomes a normal
+    // gallery image with isMap:true instead. Safe to call repeatedly --
+    // once the legacy doc is gone, legacyDoc won't be found again and
+    // this is a no-op. Triggered from codex.js's setEntityImagesTarget
+    // whenever that entity's images are loaded (i.e. its Codex card is
+    // opened) and a legacy doc is present with no gallery image already
+    // holding isMap -- NOT run proactively for every entity, so an
+    // entity whose Codex card is never opened keeps working via
+    // map.js's own legacy-doc fallback read until it happens to migrate.
+    function migrateLegacyMapImageIfNeeded(entityId, images) {
+      const legacyDoc = images.find(function (img) { return img.ownerId === entityId && img.role === 'map'; });
+      if (!legacyDoc) return;
+      const alreadyHasNewMap = images.some(function (img) {
+        return img.ownerId === entityId && img.role === 'gallery' && img.isMap;
+      });
+      if (alreadyHasNewMap) return;
+      const newRef = doc(collection(db, 'images'));
+      const batch = writeBatch(db);
+      batch.set(newRef, {
+        ownerType: 'entity',
+        ownerId: entityId,
+        role: 'gallery',
+        visibility: 'gm-only',
+        sourceId: (sortedSources()[0] && sortedSources()[0].id) || null,
+        isMap: true,
+        data: legacyDoc.data,
+        contentType: legacyDoc.contentType,
+        width: legacyDoc.width,
+        height: legacyDoc.height,
+        sizeBytes: legacyDoc.sizeBytes,
+        uploadedAt: legacyDoc.uploadedAt || serverTimestamp()
+      });
+      batch.delete(doc(db, 'images', legacyDoc.id));
+      // hasMapImage is already true (that's how the legacy doc got
+      // created in the first place) -- no entity update needed.
+      batch.commit().catch(function (err) {
+        console.error('[images] legacy map image migration failed:', err.message);
+      });
     }
 
 
@@ -286,8 +321,7 @@ const IMAGE_CACHE_STORE = 'images';
 
 
 export {
-  entityMapImageDocId,
-  uploadEntityMapImage, deleteEntityMapImage,
-  uploadEntityGalleryImage, deleteEntityGalleryImage, setGalleryImageVisibility, setGalleryImageSource, setEntityPortrait,
+  uploadEntityGalleryImage, deleteEntityGalleryImage, setGalleryImageVisibility, setGalleryImageSource,
+  setEntityPortrait, setEntityMap, clearEntityMap, migrateLegacyMapImageIfNeeded,
   getCachedImage, putCachedImage
 };
