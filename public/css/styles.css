@@ -480,9 +480,19 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 }
 .pane-filters { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
 .pane-filters select, .pane-filters input { padding: 0.35rem; font-size: 0.9rem; flex: 1; }
+/* #codex-filters stacks the search-tips row above the search box
+   instead of sitting inline inside it (Gregg's ask -- the "i" button
+   was crowding the input). id-scoped override, not a change to
+   .pane-filters itself, since that class is shared elsewhere (Timeline
+   list drawer). */
+#codex-filters { flex-direction: column; gap: 0; }
+.search-help-row { display: flex; justify-content: flex-end; margin-bottom: 0.35rem; }
 .search-box-wrap { position: relative; flex: 1; display: flex; align-items: center; }
 .search-box-wrap input { flex: 1; padding-right: 1.7rem; }
-.search-help-wrap { position: absolute; right: 0.4rem; top: 50%; transform: translateY(-50%); }
+/* Positioned relative now (was absolute, when this lived inside
+   .search-box-wrap) -- sits in normal flow in .search-help-row above;
+   still the positioning context for .search-help-popup below it. */
+.search-help-wrap { position: relative; }
 .search-help-btn {
   position: relative;
   width: 1.15rem;
@@ -523,6 +533,16 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 .search-help-popup ul { margin: 0; padding-left: 1.1rem; }
 .search-help-popup li { margin-bottom: 0.15rem; }
 .search-help-popup code { font-size: 0.78rem; }
+/* Clear ("x") button, in the search-tips button's old spot inside the
+   input -- shown only when there's a query (toggled in codex.js). */
+.search-clear-btn {
+  position: absolute; right: 0.4rem; top: 50%; transform: translateY(-50%);
+  width: 1.3rem; min-width: 1.3rem; height: 1.3rem; padding: 0;
+  border-radius: 50%; background: transparent; color: var(--ink-soft);
+  border: none; box-shadow: none; font-size: 1.1rem; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.search-clear-btn:hover { color: var(--ink); }
 #codex-list-actions { flex: 0 0 auto; display: flex; justify-content: flex-end; margin-top: 0.5rem; }
 #codex-new-btn { padding: 0.4rem 0.8rem; cursor: pointer; width: auto; min-width: 0; }
 
