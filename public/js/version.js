@@ -28,6 +28,7 @@ import {
 import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
+import { hasPendingWrites } from './connectivity.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -42,6 +43,11 @@ const RETRY_INTERVAL_MS = 4000;
 // in-progress data cleanup work" rather than trying to enumerate every
 // possible open control app-wide.
 function hasUnsavedEditInProgress() {
+  // A write already in flight is the more important of the two checks --
+  // even with no edit form open (Save just closed it optimistically),
+  // reloading here could abort the network request before it reaches
+  // Firestore. See connectivity.js's trackWrite comment.
+  if (hasPendingWrites()) return true;
   if (state.detailEditMode) return true;
   if (state.loreEdit) return true;
   if (state.pinDraft) return true;

@@ -12,6 +12,7 @@ import {
 import { renderAdminRootEntitySelect, renderAdminCampaignTypeSelect, renderAdminSrdRepo } from './admin.js';
 import { getCachedImage, putCachedImage } from './images.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
+import { trackWrite } from './connectivity.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -233,6 +234,12 @@ window.addEventListener('resize', fitMapTabLayoutIfActive);
 // enough at initial load.
 if (window.visualViewport) {
   window.visualViewport.addEventListener('resize', fitMapTabLayoutIfActive);
+}
+// Also same as codex.js's font-swap fix -- a font-driven reflow of
+// the header/nav this tab's height is measured against fires neither
+// a window resize nor a visualViewport resize.
+if (window.document && document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(fitMapTabLayoutIfActive);
 }
 
 function renderMapCardPane() {
@@ -742,8 +749,8 @@ pinPanelSaveBtn.addEventListener('click', function () {
   // offline, which defeats the point of offline editing. Close/reset
   // mode immediately; catch() only surfaces an eventual failure.
   (draft.id
-    ? updateDoc(doc(db, 'pins', draft.id), pinData)
-    : addDoc(collection(db, 'pins'), pinData)
+    ? trackWrite(updateDoc(doc(db, 'pins', draft.id), pinData), 'Saving pin')
+    : trackWrite(addDoc(collection(db, 'pins'), pinData), 'Saving pin')
   ).catch(function (err) {
     window.alert('Pin save failed: ' + err.message);
   });

@@ -4,6 +4,7 @@ import {
 import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
+import { trackWrite } from './connectivity.js';
 import { runSrdImport } from './srd-import.js';
 import { renderMarkdownInto } from './markdown.js';
 import { addSource, updateSource, deleteSource, reorderSources, sortedSources, registerSourcesChangeHandler } from './sources.js';
@@ -281,7 +282,7 @@ const adminSourceErrorEl = document.getElementById('admin-source-error');
             // joinRequests snapshot, so gating the close on the write
             // Promise left a stale enabled Save button re-appearing
             // while offline, same duplicate-submission risk.
-            setDoc(doc(db, 'players', p.id), { displayName: state.adminPlayerEditDraft.trim() }, { merge: true }).catch(function (err) {
+            trackWrite(setDoc(doc(db, 'players', p.id), { displayName: state.adminPlayerEditDraft.trim() }, { merge: true }), 'Saving player').catch(function (err) {
               alert('Save failed: ' + err.message);
             });
             state.adminPlayerEditId = null;
@@ -423,7 +424,7 @@ function renderAdminSourcesList() {
           if (!text) { window.alert('Source text is required.'); return; }
           // Phase 13: optimistic close -- see saveEntityEdit's comment
           // in codex.js.
-          updateSource(s.id, text).catch(function (err) { window.alert('Save failed: ' + err.message); });
+          trackWrite(updateSource(s.id, text), 'Saving source').catch(function (err) { window.alert('Save failed: ' + err.message); });
           state.adminSourceEditId = null;
           renderAdminSourcesList();
         });
@@ -526,7 +527,7 @@ adminSourceSaveBtn.addEventListener('click', function () {
   // wasn't at risk of the duplicate-submission variant of the bug, but
   // gating the close on the write Promise left it stuck open until
   // reconnect while offline.
-  addSource(text).catch(function (err) {
+  trackWrite(addSource(text), 'Saving source').catch(function (err) {
     window.alert('Add failed: ' + err.message);
   });
   adminSourceSaveBtn.disabled = false;
