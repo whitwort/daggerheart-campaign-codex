@@ -6,7 +6,8 @@ import { state } from './state.js';
 import {
   renderList, renderDetailForSelected, isEntityPlayerVisible,
   registerVisibilityChangeHandler, registerMapNavigationHandler, clearCodexSearchInput,
-  buildEntityPreviewCard, categoryGroupLabel, entityMatchesQuery
+  buildEntityPreviewCard, categoryGroupLabel, entityMatchesQuery,
+  renderEntityViewCard, enterEntityEditMode
 } from './codex.js';
 import { renderAdminRootEntitySelect, renderAdminCampaignTypeSelect, renderAdminSrdRepo } from './admin.js';
 import { entityMapImageDocId, getCachedImage, putCachedImage } from './images.js';
@@ -172,17 +173,80 @@ function navigateToMapForEntity(entityId) {
 }
 registerMapNavigationHandler(navigateToMapForEntity);
 
-function switchToCodexEntity(entityId) {
-  state.selectedId = entityId;
-  clearCodexSearchInput();
-  renderList();
-  renderDetailForSelected();
+// --- Pin-click entity card, below the map -- same read-only-card
+// pattern as Timeline's card pane (renderEntityViewCard, allowEdit:
+// false), replacing the old switchToCodexEntity tab-jump. Own local
+// selected-entity/tab state, independent of the Codex tab's own
+// state.selectedId/detailActiveTab (same reasoning as Timeline's).
+const mapCardPaneEl = document.getElementById('map-entity-card-pane');
+let mapCardSelectedId = null;
+let mapCardActiveTab = 'lore';
 
-  document.querySelectorAll('nav#tabs button').forEach(function (b) { b.classList.remove('active'); });
-  document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
-  document.getElementById('tab-btn-codex').classList.add('active');
-  document.getElementById('codex-panel').classList.add('active');
+function renderMapCardPane() {
+  const gmView = state.currentRole === 'gm' && !state.gmPreviewAsPlayer;
+  mapCardPaneEl.innerHTML = '';
+  const entity = mapCardSelectedId ? state.allEntities.find(function (e) { return e.id === mapCardSelectedId; }) : null;
+  if (!entity || (!gmView && !isEntityPlayerVisible(entity.id))) {
+    mapCardSelectedId = null;
+    const emptyP = document.createElement('p');
+    emptyP.className = 'lore-empty map-card-empty';
+    emptyP.textContent = 'Tap a pin to read more.';
+    mapCardPaneEl.appendChild(emptyP);
+    return;
+  }
+  const card = document.createElement('div');
+  card.className = 'codex-entity-card';
+  mapCardPaneEl.appendChild(card);
+  let headingRightExtra = null;
+  if (gmView) {
+    headingRightExtra = document.createElement('button');
+    headingRightExtra.type = 'button';
+    headingRightExtra.className = 'entity-map-link timeline-edit-in-codex-link';
+    headingRightExtra.title = 'Edit in Codex';
+    headingRightExtra.textContent = 'Edit in Codex';
+    headingRightExtra.addEventListener('click', function () {
+      state.selectedId = entity.id;
+      clearCodexSearchInput();
+      renderList();
+      renderDetailForSelected();
+      document.querySelectorAll('nav#tabs button').forEach(function (b) { b.classList.remove('active'); });
+      document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
+      document.getElementById('tab-btn-codex').classList.add('active');
+      document.getElementById('codex-panel').classList.add('active');
+      enterEntityEditMode(entity);
+    });
+  }
+  renderEntityViewCard(card, entity, gmView, {
+    allowEdit: false,
+    activeTab: mapCardActiveTab,
+    onTabChange: function (tabKey) { mapCardActiveTab = tabKey; renderMapCardPane(); },
+    onRelatedClick: function (id) { openEntityInMapCard(id); },
+    headingRightExtra: headingRightExtra
+  });
 }
+
+// Opens a non-map entity (a plain marker pin, a breadcrumb ancestor
+// without its own map, or a wiki-link inside a pin preview popup) in
+// the card pane below the map, instead of switching to the Codex tab.
+// Locations WITH a map image are a different interaction entirely
+// (navigateToMapForEntity zooms into that location's own sub-map) and
+// never go through here.
+function openEntityInMapCard(entityId) {
+  mapCardSelectedId = entityId;
+  mapCardActiveTab = 'lore';
+  renderMapCardPane();
+  mapCardPaneEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Delegated wiki-link handler for the card pane itself: opens the
+// linked entity in the SAME pane (stays on the Map tab) rather than
+// switching to Codex, same pattern as Timeline's card pane.
+mapCardPaneEl.addEventListener('click', function (ev) {
+  const a = ev.target.closest ? ev.target.closest('a.wiki-link') : null;
+  if (!a) return;
+  ev.preventDefault();
+  openEntityInMapCard(a.dataset.entityId);
+});
 
 // --- Breadcrumb: walks entity.parentId from the current map entity up
 // to the top of the tree (structural hierarchy, not navigation history —
@@ -225,7 +289,7 @@ function renderBreadcrumb() {
       if (isMapEntity(entity)) {
         navigateToMapForEntity(entity.id);
       } else {
-        switchToCodexEntity(entity.id);
+        openEntityInMapCard(entity.id);
       }
     });
     breadcrumbEl.appendChild(link);
@@ -271,7 +335,7 @@ document.getElementById('map-container').addEventListener('click', function (ev)
   if (isMapEntity(entity)) {
     navigateToMapForEntity(entityId);
   } else {
-    switchToCodexEntity(entityId);
+    openEntityInMapCard(entityId);
   }
 });
 
@@ -675,11 +739,12 @@ function renderPins() {
     }
 
     // Any other entity (or a location without a map image yet): a small
-    // colored marker (color = entry type) that jumps to the codex detail.
+    // colored marker (color = entry type) that opens the entity's card
+    // below the map (openEntityInMapCard).
     const marker = L.marker([lat, pin.x], { icon: pinDivIcon(entity ? entity.category : null), interactive: !state.pinDraft });
     if (!state.pinDraft) {
       if (entity) {
-        bindPinPreviewPopup(marker, entity, gmView, handleClick, function () { switchToCodexEntity(entity.id); });
+        bindPinPreviewPopup(marker, entity, gmView, handleClick, function () { openEntityInMapCard(entity.id); });
       } else {
         marker.bindTooltip('(unlinked pin)');
         marker.on('click', function () { handleClick(); });
@@ -805,8 +870,10 @@ function ensureMapTabReady() {
     state.leafletMap.invalidateSize({ animate: false });
     renderPins();
     renderBreadcrumb();
+    renderMapCardPane();
     return;
   }
+  renderMapCardPane();
   loadMap(state.currentMapEntityId);
 }
 
@@ -820,6 +887,7 @@ registerVisibilityChangeHandler(function () {
   }
   renderPins();
   renderBreadcrumb();
+  renderMapCardPane();
 });
 
 // Extracted so sign-out can also fully tear down the map view (not just

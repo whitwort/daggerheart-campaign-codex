@@ -233,6 +233,15 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 .map-breadcrumb-link { background: none; border: none; padding: 0; cursor: pointer; color: var(--fear); text-decoration: underline dotted; font-size: inherit; width: auto; min-width: 0; text-align: left; box-shadow: none; }
 .map-breadcrumb-link:hover { text-decoration: underline; }
 .map-breadcrumb-link.current { color: var(--parchment); text-decoration: none; cursor: default; font-weight: bold; }
+
+/* Pin-click entry card, below the map -- same pattern as Timeline's
+   card pane (renderEntityViewCard, allowEdit:false), replacing the
+   old switchToCodexEntity tab-jump for plain entity markers. Location-
+   with-map-image pins (the zoom-into-submap circles) are unaffected --
+   that's a different interaction entirely, not a card view. */
+#map-entity-card-pane { margin-top: 1rem; }
+#map-entity-card-pane:empty { display: none; }
+.map-card-empty { padding: 1.5rem 0; text-align: center; }
 .map-breadcrumb-icon { margin-right: 0.3rem; }
 .map-breadcrumb-sep { color: var(--ink-soft); }
 
