@@ -97,7 +97,22 @@
       <div id="codex-list-pane">
         <h3 class="pane-title">Table of contents</h3>
         <div id="codex-filters" class="pane-filters">
-          <input id="codex-search" type="text" placeholder="Search name/tags...">
+          <div class="search-box-wrap">
+            <input id="codex-search" type="text" placeholder="Search name/tags...">
+            <span id="codex-search-help-wrap" class="search-help-wrap">
+              <button id="codex-search-help-btn" class="search-help-btn" type="button" aria-label="Search tips">i</button>
+              <div id="codex-search-help-popup" class="search-help-popup" hidden>
+                <p><strong>Comma-separate terms to combine them (all must match).</strong></p>
+                <p>Weapons, Armor, and Abilities also match their stats and features -- try:</p>
+                <ul>
+                  <li><code>Bow, Tier 1</code></li>
+                  <li><code>Armor, Flexible</code></li>
+                  <li><code>Finesse</code></li>
+                  <li><code>Domain Arcana</code></li>
+                </ul>
+              </div>
+            </span>
+          </div>
         </div>
         <div id="codex-entities"></div>
         <div id="codex-list-actions">
