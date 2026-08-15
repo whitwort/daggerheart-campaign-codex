@@ -822,11 +822,18 @@ function attachStageInteraction() {
     }
   }
 
-  window.addEventListener('resize', function () {
+  function refit() {
     if (!built || !panelEl.classList.contains('active')) return;
     fitLayoutHeight();
     render();
-  });
+  }
+  window.addEventListener('resize', refit);
+  // Same iOS Safari dynamic-toolbar fix as Codex's fitCodexTabHeight --
+  // see that comment (codex.js) for why plain window resize alone
+  // isn't always enough.
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', refit);
+  }
 }
 
 function renderTimeline() {
