@@ -303,16 +303,15 @@ it) is done and verified. Next up: Phase 13.
   portrait-picker-style floating draggable panel pattern) rather than
   reinventing them.
 
-## Future: time-range Scenes (start-end, not just a single point)
-Some Scenes might be better modeled with a date RANGE (start/end) than
-a single `date`/`dateSort` point -- e.g. a scene spanning several
-in-fiction days. Raised during the Timeline rebuild session; explicitly
-deferred ("once we get the basics down") rather than folded into that
-work. Touches: `dates.js` parsing (a second date field, or a
-start/end pair sharing one parser call), the entity schema + edit UI
-date field, and the Timeline well's rendering (a range would need a
-bar/span glyph rather than a single node dot, plus clustering logic
-that currently assumes point data). Not started.
+## Time-range Scenes/Events (start-end, not just a single point) -- done
+Implemented: optional `dateEnd`/`dateEndSort` alongside the existing
+`date`/`dateSort`, edit UI field, meta-line range display, and a span
+bar + end-cap on the Timeline well. Known limitation carried forward:
+clustering and off-screen culling still key off the start point only
+-- an entity's end never affects whether it's grouped into a cluster,
+and a very long span scrolled so only its start is off-screen could
+disappear early. Bulk Admin JSON import doesn't support setting a
+range yet (import.js untouched).
 
 ## Duplicate exact Scene/Event date warning -- interactive path only
 Done for the interactive edit path (see saveEntityEdit in codex.js --
