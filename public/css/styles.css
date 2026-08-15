@@ -288,7 +288,7 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
    pane (no chrome of its own) needs the offset to put the card's
    border at that same Y rather than indented by plain padding. */
 #map-card-well {
-  overflow-y: auto; padding: 0.65rem 1rem 1rem; margin-top: -0.65rem;
+  overflow-y: auto; padding: 0.65rem 1rem 1rem; margin-top: -0.45rem;
 }
 #map-tab-placeholder { color: var(--ink-soft); margin-top: 0; }
 #map-image-wrap { display: flex; align-items: center; justify-content: center; margin-top: 0.75rem; }
@@ -527,7 +527,7 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
    width; still comfortably more than the glow's own reach. */
 #codex-detail-pane {
   flex: 1; min-width: 0; overflow-y: auto; min-height: 0;
-  padding: 0.65rem 1rem 1rem; margin-top: -0.65rem;
+  padding: 0.65rem 1rem 1rem; margin-top: -0.45rem;
 }
 .pane-title {
   margin: 0 0 0.75rem; font-size: 0.8rem; color: var(--ink-soft); font-family: var(--font-display), sans-serif;
