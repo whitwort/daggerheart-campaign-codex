@@ -1077,6 +1077,7 @@ button:disabled:hover { border-color: var(--void-line); }
 
 .timeline-card-pane { flex: 1 1 55%; min-width: 0; height: 100%; overflow-y: auto; }
 .timeline-card-empty { padding: 1.5rem 0; text-align: center; }
+.timeline-edit-in-codex-link { font-size: 0.8rem; }
 
 /* List drawer: same dark floating-panel idiom as #pin-panel/
    .portrait-picker-panel (touchstones for this pattern), anchored
