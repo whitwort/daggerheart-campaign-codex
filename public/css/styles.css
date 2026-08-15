@@ -35,6 +35,32 @@
 
 * { box-sizing: border-box; }
 
+/* Custom scrollbars: browser defaults (a bulky light-gray box
+   scrollbar, most noticeable on Chrome desktop) clash hard against
+   this dark theme -- iOS/macOS's thin auto-hiding overlay scrollbars
+   mostly hid this, so it went untested until Chrome desktop. Dark
+   void-line/void-raised is the global default (covers the wells,
+   panels, and lists that make up almost everything); parchment
+   surfaces (modals) get their own lighter variant below instead of
+   inheriting a dark scrollbar that wouldn't match their background.
+   scrollbar-color is Firefox's mechanism; the ::-webkit-scrollbar-*
+   pseudo-elements are Chrome/Edge/Safari's. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--void-line) var(--void-raised);
+}
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: var(--void-raised); }
+*::-webkit-scrollbar-thumb { background: var(--void-line); border-radius: 6px; border: 2px solid var(--void-raised); }
+*::-webkit-scrollbar-thumb:hover { background: var(--fear); }
+
+.modal-box {
+  scrollbar-color: var(--parchment-edge) var(--parchment);
+}
+.modal-box::-webkit-scrollbar-track { background: var(--parchment); }
+.modal-box::-webkit-scrollbar-thumb { background: var(--parchment-edge); border-color: var(--parchment); }
+.modal-box::-webkit-scrollbar-thumb:hover { background: var(--ink-soft); }
+
 body {
   font-family: var(--font-body), sans-serif;
   color: var(--parchment);
