@@ -700,6 +700,15 @@ function attachStageInteraction() {
 
   svg.addEventListener('pointerdown', function (e) {
     if (e.pointerType === 'touch' && e.isPrimary === false) return;
+    // preventDefault here mainly guards trackpad/mouse input: without
+    // it, a click-drag starting on the SVG's <text> tick labels can be
+    // read as a native text-selection drag instead of our pan gesture
+    // (touch-action:none doesn't cover selection, only scroll/zoom) --
+    // browsers auto-scroll the page during a selection drag that nears
+    // the viewport edge, which is what "drag moves the window instead
+    // of the timeline" looks like. user-select:none (styles.css) is
+    // the primary fix; this is a second layer.
+    e.preventDefault();
     panPointerId = e.pointerId;
     isPanning = false;
     downX = e.clientX; downY = e.clientY;
@@ -709,6 +718,7 @@ function attachStageInteraction() {
 
   svg.addEventListener('pointermove', function (e) {
     if (e.pointerId !== panPointerId) return;
+    e.preventDefault();
     const dist = Math.hypot(e.clientX - downX, e.clientY - downY);
     if (!isPanning) {
       if (dist < TAP_THRESHOLD) return;
@@ -739,8 +749,20 @@ function attachStageInteraction() {
 
   let pinchStartDist = null;
   let pinchStartScale = 1;
+  // passive:false + preventDefault here matter specifically for pinch:
+  // Safari's native pinch-to-zoom is notoriously NOT fully suppressed
+  // by touch-action:none alone in every version (a long-documented
+  // WebKit gap for pinch specifically, unlike single-finger pan/scroll,
+  // which touch-action does reliably cover) -- an active preventDefault
+  // on touchmove is the second, more forceful layer needed to stop the
+  // page from also pinch-zooming while our own two-finger handling
+  // drives the timeline's scale instead. These were previously
+  // registered passive:true, which made any preventDefault call here a
+  // silent no-op -- that's the direct, identifiable cause of "pinch
+  // zooms the page, not the timeline."
   svg.addEventListener('touchstart', function (e) {
     if (e.touches.length === 2) {
+      e.preventDefault();
       panPointerId = null;
       isPanning = false;
       svg.classList.remove('grabbing');
@@ -749,16 +771,17 @@ function attachStageInteraction() {
       pinchStartDist = Math.hypot(dx, dy);
       pinchStartScale = scale;
     }
-  }, { passive: true });
+  }, { passive: false });
   svg.addEventListener('touchmove', function (e) {
     if (e.touches.length === 2 && pinchStartDist) {
+      e.preventDefault();
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       const dist = Math.hypot(dx, dy);
       scale = pinchStartScale * (dist / pinchStartDist);
       render();
     }
-  }, { passive: true });
+  }, { passive: false });
   svg.addEventListener('touchend', function (e) { if (e.touches.length < 2) pinchStartDist = null; });
 
   function handleTap(target) {
