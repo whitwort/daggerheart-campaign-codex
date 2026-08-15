@@ -4,6 +4,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
+import { sortedSources } from './sources.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -197,7 +198,7 @@ const IMAGE_CACHE_STORE = 'images';
           ownerId: entityId,
           role: 'gallery',
           visibility: 'gm-only',
-          sourceId: null,
+          sourceId: (sortedSources()[0] && sortedSources()[0].id) || null,
           data: processed.dataUrl,
           contentType: 'image/webp',
           width: processed.width,
