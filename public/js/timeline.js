@@ -55,6 +55,9 @@ let fitted = false;
 let lastClusters = []; // populated by render(), read by handleTap for the tap-vs-zoom decision
 
 function tOf(entity) { return entity.dateSort / YEAR_SECONDS; }
+// Time-range Scenes/Events: null when the entity is a single point in
+// time (the vast majority) rather than a span.
+function tEndOf(entity) { return (entity.dateEndSort === null || entity.dateEndSort === undefined) ? null : entity.dateEndSort / YEAR_SECONDS; }
 
 // Zoom-adaptive tick labels: coarsest granularity (years only) when
 // zoomed out, adding day then hour precision as ticks get closer
@@ -249,7 +252,7 @@ function showClusterPicker(items, anchorEl) {
     row.addEventListener('click', function () { hideClusterPicker(); openEntityInPanel(d.entity.id); });
     const dateSpan = document.createElement('span');
     dateSpan.className = 'timeline-row-date';
-    appendDateSegments(dateSpan, d.entity.date || '');
+    appendEntityDateRange(dateSpan, d.entity);
     const nameSpan = document.createElement('span');
     nameSpan.className = 'timeline-row-name';
     nameSpan.textContent = d.entity.name;
@@ -382,7 +385,7 @@ function renderListPanel() {
 
     const dateSpan = document.createElement('span');
     dateSpan.className = 'timeline-row-date';
-    appendDateSegments(dateSpan, entity.date || '');
+    appendEntityDateRange(dateSpan, entity);
     row.appendChild(dateSpan);
 
     const nameSpan = document.createElement('span');
@@ -412,7 +415,14 @@ function fitToView() {
   // with refresh()'s isFinite(dateSort) filter, this should be
   // airtight regardless -- but airtight framing math is cheap
   // insurance either way.
-  const ts = dated.map(tOf);
+  // Include end times for ranged Scenes/Events too, so a long span's
+  // end isn't cut off the initial framing.
+  const ts = dated.reduce(function (acc, e) {
+    acc.push(tOf(e));
+    const end = tEndOf(e);
+    if (end !== null) acc.push(end);
+    return acc;
+  }, []);
   const tMin = Math.min.apply(null, ts);
   const tMax = Math.max.apply(null, ts);
   const span = (tMax - tMin) || 1;
@@ -535,6 +545,17 @@ function appendDateTspans(textEl, raw) {
   });
 }
 
+// Shared "start [– end]" HTML renderer for the list drawer and cluster
+// picker rows -- appendDateSegments only knows about a single date
+// string, so this layers the optional range on top of it.
+function appendEntityDateRange(container, entity) {
+  appendDateSegments(container, entity.date || '');
+  if (entity.dateEnd) {
+    container.appendChild(document.createTextNode(' \u2013 '));
+    appendDateSegments(container, entity.dateEnd);
+  }
+}
+
 function render() {
   hideClusterPicker();
   const rect = dom.svg.getBoundingClientRect();
@@ -588,6 +609,21 @@ function render() {
     if (cl.items.length === 1) {
       const d = cl.items[0];
       const cx = spineCross, cy = px;
+      const tEnd = tEndOf(d.entity);
+
+      // Time-range Scenes/Events: a thin span bar from start to end,
+      // behind the dot (appended first, dot appended after so it
+      // stacks on top), plus a smaller end-cap marker. Clustering
+      // still keys off the start point only -- the bar is purely a
+      // display addition, doesn't participate in the threshold check.
+      if (tEnd !== null) {
+        const endPx = (tEnd - offset) * scale;
+        const bar = mk('line', { class: 'timeline-node-span ' + catClass(d.entity.category), x1: cx, y1: cy, x2: cx, y2: endPx });
+        dom.svg.appendChild(bar);
+        const endCap = mk('circle', { class: 'timeline-node-endcap ' + catClass(d.entity.category), cx: cx, cy: endPx, r: 4 });
+        dom.svg.appendChild(endCap);
+      }
+
       const dot = mk('circle', { class: 'timeline-node-dot ' + catClass(d.entity.category), cx: cx, cy: cy, r: 6 });
       dot.setAttribute('data-role', 'node');
       dot.dataset.entityId = d.entity.id;
@@ -615,6 +651,12 @@ function render() {
 
       const dateLbl = mk('text', { class: 'timeline-node-date', x: spineCross + 14, y: cy + 12 });
       appendDateTspans(dateLbl, d.entity.date || '');
+      if (d.entity.dateEnd) {
+        const dashTspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+        dashTspan.textContent = ' \u2013 '; // en dash, "to"
+        dateLbl.appendChild(dashTspan);
+        appendDateTspans(dateLbl, d.entity.dateEnd);
+      }
       dom.svg.appendChild(dateLbl);
     } else {
       const cx = spineCross, cy = px;
