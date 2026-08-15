@@ -468,11 +468,20 @@ function loreItemsForEntity(entityId, gmView) {
 // fresh on every render, so editing details/features or re-running SRD
 // import is reflected immediately with no lore item migration needed.
 function buildDetailsMarkdown(entity) {
-  const keys = Object.keys(entity.details || {});
-  if (!keys.length) return '';
-  const lines = ['### Details'];
-  keys.forEach(function (k) { lines.push('- **' + humanizeKey(k) + ':** ' + entity.details[k]); });
-  return lines.join('\n');
+  const schema = getTemplateSchema(entity.category, entity.subtype);
+  const details = entity.details || {};
+  // Iterate the schema's fixed detailKeys order (same order the edit form
+  // uses), not Object.keys(details) -- Firestore/JSON key order isn't
+  // guaranteed consistent across entities, which was producing different
+  // Details orderings entry to entry.
+  const orderedKeys = schema ? schema.detailKeys.map(function (d) { return d.key; }) : Object.keys(details);
+  const lines = [];
+  orderedKeys.forEach(function (k) {
+    if (details[k] === undefined || details[k] === null || details[k] === '') return;
+    lines.push('- **' + humanizeKey(k) + ':** ' + details[k]);
+  });
+  if (!lines.length) return '';
+  return ['### Details'].concat(lines).join('\n');
 }
 function buildFeaturesMarkdown(entity) {
   const feats = entity.features || [];
