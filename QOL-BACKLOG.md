@@ -314,15 +314,11 @@ date field, and the Timeline well's rendering (a range would need a
 bar/span glyph rather than a single node dot, plus clustering logic
 that currently assumes point data). Not started.
 
-## Future: warn on duplicate exact Scene/Event date
-Interactive edit path done (see saveEntityEdit in codex.js -- warns via
-confirm() when a Scene/Event's date resolves to the exact same
-`dateSort` as another existing Scene/Event; doesn't block, since exact
-ties are legal data the Timeline's cluster-picker already handles).
-Still outstanding: the bulk Admin JSON import path (`import.js`) can
-also write dated Scene/Event entities and has no equivalent check --
-a per-row blocking confirm() would be disruptive for a multi-entity
-import, so this needs a different UX (e.g. a summary of duplicate-date
-warnings shown once at the end of the import) rather than reusing the
-interactive path's confirm() directly. Not started.
+## Duplicate exact Scene/Event date warning -- interactive path only
+Done for the interactive edit path (see saveEntityEdit in codex.js --
+warns via confirm() when a Scene/Event's date resolves to the exact
+same `dateSort` as another existing Scene/Event; doesn't block, since
+exact ties are legal data the Timeline's cluster-picker already
+handles). The bulk Admin JSON import equivalent is explicitly OUT OF
+SCOPE (Gregg's call) -- not planned.
 
