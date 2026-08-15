@@ -1053,7 +1053,7 @@ button:disabled:hover { border-color: var(--void-line); }
    rule's comment for why. */
 .timeline-preview-popup {
   position: absolute; max-width: 260px; max-height: 50vh; overflow-y: auto;
-  background: var(--parchment); border-radius: 10px; padding: 0.85rem 1rem;
+  background: var(--parchment); color: var(--ink); border-radius: 10px; padding: 0.85rem 1rem;
   box-shadow: 0 4px 20px rgba(0,0,0,0.35); pointer-events: none; z-index: 10;
   opacity: 0; transition: opacity 0.1s ease;
 }
