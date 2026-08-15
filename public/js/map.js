@@ -6,7 +6,7 @@ import { state } from './state.js';
 import {
   renderList, renderDetailForSelected, isEntityPlayerVisible,
   registerVisibilityChangeHandler, registerMapNavigationHandler, clearCodexSearchInput,
-  buildEntityPreviewCard, categoryGroupLabel
+  buildEntityPreviewCard, categoryGroupLabel, entityMatchesQuery
 } from './codex.js';
 import { renderAdminRootEntitySelect, renderAdminCampaignTypeSelect, renderAdminSrdRepo } from './admin.js';
 import { entityMapImageDocId, getCachedImage, putCachedImage } from './images.js';
@@ -392,15 +392,12 @@ function isMetaCategory(category) {
 function renderPinPickerEntityList() {
   pinPanelEntityListEl.innerHTML = '';
   const draft = state.pinDraft;
-  const q = pinPanelSearchEl.value.trim().toLowerCase();
+  const q = pinPanelSearchEl.value;
 
   const candidates = state.allEntities
     .filter(function (e) { return e.id !== state.currentMapEntityId; }) // no self-pin
     .filter(function (e) { return !isMetaCategory(e.category); }) // Meta types never get a pin
-    .filter(function (e) {
-      if (!q) return true;
-      return (e.name || '').toLowerCase().indexOf(q) !== -1;
-    })
+    .filter(function (e) { return entityMatchesQuery(e, q); })
     .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
 
   const byCategory = {};
