@@ -276,12 +276,16 @@ const adminSourceErrorEl = document.getElementById('admin-source-error');
           const saveBtn = document.createElement('button');
           saveBtn.textContent = 'Save';
           saveBtn.addEventListener('click', function () {
-            setDoc(doc(db, 'players', p.id), { displayName: state.adminPlayerEditDraft.trim() }, { merge: true }).then(function () {
-              state.adminPlayerEditId = null;
-              renderAdminPlayersList();
-            }).catch(function (err) {
+            // Phase 13: optimistic close -- see saveEntityEdit's comment
+            // in codex.js. This row is rebuilt on every players/
+            // joinRequests snapshot, so gating the close on the write
+            // Promise left a stale enabled Save button re-appearing
+            // while offline, same duplicate-submission risk.
+            setDoc(doc(db, 'players', p.id), { displayName: state.adminPlayerEditDraft.trim() }, { merge: true }).catch(function (err) {
               alert('Save failed: ' + err.message);
             });
+            state.adminPlayerEditId = null;
+            renderAdminPlayersList();
           });
           const cancelBtn = document.createElement('button');
           cancelBtn.textContent = 'Cancel';
@@ -417,9 +421,11 @@ function renderAdminSourcesList() {
         saveBtn.addEventListener('click', function () {
           const text = state.adminSourceEditDraft.trim();
           if (!text) { window.alert('Source text is required.'); return; }
-          updateSource(s.id, text).then(function () {
-            state.adminSourceEditId = null;
-          }).catch(function (err) { window.alert('Save failed: ' + err.message); });
+          // Phase 13: optimistic close -- see saveEntityEdit's comment
+          // in codex.js.
+          updateSource(s.id, text).catch(function (err) { window.alert('Save failed: ' + err.message); });
+          state.adminSourceEditId = null;
+          renderAdminSourcesList();
         });
         const cancelBtn = document.createElement('button');
         cancelBtn.className = 'action-btn-compact';
@@ -515,14 +521,17 @@ adminSourceSaveBtn.addEventListener('click', function () {
     return;
   }
   adminSourceSaveBtn.disabled = true;
-  addSource(text).then(function () {
-    adminSourceSaveBtn.disabled = false;
-    adminNewSourceFormEl.style.display = 'none';
-    adminNewSourceTextEl.value = '';
-  }).catch(function (err) {
-    adminSourceSaveBtn.disabled = false;
-    adminSourceErrorEl.textContent = 'Add failed: ' + err.message;
+  // Phase 13: optimistic close -- see saveEntityEdit's comment in
+  // codex.js. This form is persistent (not rebuilt per render) so it
+  // wasn't at risk of the duplicate-submission variant of the bug, but
+  // gating the close on the write Promise left it stuck open until
+  // reconnect while offline.
+  addSource(text).catch(function (err) {
+    window.alert('Add failed: ' + err.message);
   });
+  adminSourceSaveBtn.disabled = false;
+  adminNewSourceFormEl.style.display = 'none';
+  adminNewSourceTextEl.value = '';
 });
 
 // --- Database subsection: Import | Export sub-tabs ------------------------

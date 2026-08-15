@@ -1060,7 +1060,7 @@ button:disabled:hover { border-color: var(--void-line); }
    the well's edge. (Originally added to fix a hover-preview popup that
    has since been removed -- kept unclipped anyway since the cluster
    picker has the same escape-the-corner-clip need.) */
-.timeline-well-wrap { position: relative; flex: 1; min-width: 0; }
+.timeline-well-wrap { position: relative; flex: 1; min-width: 0; overscroll-behavior: contain; }
 .timeline-well-inner {
   position: absolute; inset: 0; overflow: hidden;
   border: 1px solid var(--void-line); border-radius: 14px;
@@ -1068,7 +1068,7 @@ button:disabled:hover { border-color: var(--void-line); }
 }
 .timeline-well-empty .timeline-well-inner { display: flex; align-items: center; justify-content: center; }
 .timeline-well-empty .timeline-well-inner::after { content: '(no dated Scenes or Events yet)'; color: rgba(233,221,194,0.5); }
-.timeline-svg { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+.timeline-svg { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; overscroll-behavior: contain; }
 .timeline-svg.grabbing { cursor: grabbing; }
 
 .timeline-spine { stroke: rgba(9,10,18,0.55); stroke-width: 2; }
