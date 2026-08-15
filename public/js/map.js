@@ -131,7 +131,7 @@ let mapCardActiveTab = 'lore';
 // resize, and whenever the row/column split toggles (that changes
 // #map-image-wrap's own box).
 const mapLayoutEl = document.getElementById('map-layout');
-const mapImageWrapEl = document.getElementById('map-image-wrap');
+const mapWellEl = document.getElementById('map-well');
 
 function fitMapTabLayoutHeight() {
   if (!mapLayoutEl) return;
@@ -147,6 +147,9 @@ function fitMapTabLayoutHeight() {
 // WITHIN the map well, via fitMapContainerSize below; conflating the
 // two was this layout's previous mistake). ~820px = iPad portrait.
 const MAP_SPLIT_BREAKPOINT = 820;
+// Row-mode width budget for #map-well -- keep in sync with
+// ".split-row #map-well { max-width: 68%; }" in styles.css.
+const MAP_WELL_WIDTH_SHARE = 0.68;
 function updateMapSplitClass() {
   if (!mapLayoutEl) return;
   const wide = window.innerWidth >= MAP_SPLIT_BREAKPOINT;
@@ -154,25 +157,45 @@ function updateMapSplitClass() {
   mapLayoutEl.classList.toggle('split-col', !wide);
 }
 
-// Exact "contain" fit for #map-container within #map-image-wrap's
-// actual available box (its clientWidth/clientHeight already exclude
-// the breadcrumb/controls chrome above/below it, via flexbox -- no
-// manual chrome-height subtraction needed). Whichever dimension binds
-// is derived from the image's own natural aspect ratio; the other is
-// computed to match exactly, so Leaflet's container is ALWAYS the same
-// shape as the image -- no letterboxing, since fitBounds() then never
-// needs to pad with void-colored map background to reconcile a
-// mismatched container shape (that mismatch was the actual cause of
-// the previously-reported black bars: CSS aspect-ratio and a separate
-// max-width/max-height cap could disagree on the container's shape).
+// #map-well shrink-wraps to its content (Gregg's ask: margins on top/
+// left/right that already looked right, PLUS a matching margin below
+// the pin controls instead of the well stretching to fill the row's
+// full height and leaving dead void-colored space down there). That
+// means #map-image-wrap no longer has a pre-established box to read a
+// "clientWidth/clientHeight" available-space measurement from (the old
+// approach) -- the well's eventual height is a RESULT of the image's
+// size, not the other way around. So the available box for the image
+// is computed independently instead: width from #map-layout's own
+// width times the same share the CSS caps the well at, height from
+// #map-layout's own JS-measured total height minus the breadcrumb's
+// and pin-controls' actual rendered heights (measured directly, not
+// assumed) and the well's own padding. Whichever of width/height binds
+// is still derived from the image's own aspect ratio, so the container
+// is always exactly the image's shape -- same "no letterboxing" fix as
+// before, just computed against a real, independent budget instead of
+// a box that would otherwise be circular (can't read a size from
+// something whose size depends on this calculation's own result).
 function fitMapContainerSize() {
   const containerEl = document.getElementById('map-container');
-  if (!mapImageWrapEl || !containerEl) return;
+  if (!mapLayoutEl || !mapWellEl || !containerEl) return;
   if (containerEl.style.display === 'none') return;
   if (!state.mapImgWidth || !state.mapImgHeight) return;
-  const availW = mapImageWrapEl.clientWidth;
-  const availH = mapImageWrapEl.clientHeight;
-  if (!availW || !availH) return;
+
+  const layoutRect = mapLayoutEl.getBoundingClientRect();
+  const isRow = mapLayoutEl.classList.contains('split-row');
+  const wellStyle = window.getComputedStyle(mapWellEl);
+  const wellPadX = parseFloat(wellStyle.paddingLeft) + parseFloat(wellStyle.paddingRight);
+  const wellPadY = parseFloat(wellStyle.paddingTop) + parseFloat(wellStyle.paddingBottom);
+
+  const outerW = isRow ? layoutRect.width * MAP_WELL_WIDTH_SHARE : layoutRect.width;
+  const availW = outerW - wellPadX;
+
+  const breadcrumbH = breadcrumbEl.offsetHeight;
+  const controlsH = mapGmControlsEl.offsetHeight;
+  const imageWrapMarginTop = 12; // matches #map-image-wrap's margin-top: 0.75rem
+  const availH = layoutRect.height - wellPadY - breadcrumbH - controlsH - imageWrapMarginTop - 8;
+  if (!availW || availH <= 0) return;
+
   const aspect = state.mapImgWidth / state.mapImgHeight;
   let w, h;
   if (availW / availH > aspect) {
@@ -190,10 +213,17 @@ function fitMapTabLayout() {
   fitMapTabLayoutHeight();
   fitMapContainerSize();
 }
-window.addEventListener('resize', function () {
+function fitMapTabLayoutIfActive() {
   if (!document.getElementById('map-panel').classList.contains('active')) return;
   fitMapTabLayout();
-});
+}
+window.addEventListener('resize', fitMapTabLayoutIfActive);
+// Same iOS Safari dynamic-toolbar fix as Codex's fitCodexTabHeight --
+// see that comment (codex.js) for why plain window resize alone isn't
+// enough at initial load.
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', fitMapTabLayoutIfActive);
+}
 
 function renderMapCardPane() {
   const gmView = state.currentRole === 'gm' && !state.gmPreviewAsPlayer;
@@ -226,23 +256,27 @@ function renderMapCardPane() {
   card.className = 'codex-entity-card';
   mapCardPaneEl.appendChild(card);
 
-  const extras = [];
+  let topLeftExtra = null;
   if (showingPin) {
     const closeBtn = document.createElement('button');
     closeBtn.type = 'button';
-    closeBtn.className = 'entity-map-link map-card-close-btn';
+    closeBtn.className = 'map-card-close-btn';
     closeBtn.title = 'Close';
     closeBtn.textContent = '\u2715';
-    closeBtn.addEventListener('click', closeMapCardPin);
-    extras.push(closeBtn);
+    closeBtn.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      closeMapCardPin();
+    });
+    topLeftExtra = closeBtn;
   }
+  let headingRightExtra = null;
   if (gmView) {
-    const editBtn = document.createElement('button');
-    editBtn.type = 'button';
-    editBtn.className = 'entity-map-link timeline-edit-in-codex-link';
-    editBtn.title = 'Edit in Codex';
-    editBtn.textContent = 'Edit in Codex';
-    editBtn.addEventListener('click', function () {
+    headingRightExtra = document.createElement('button');
+    headingRightExtra.type = 'button';
+    headingRightExtra.className = 'entity-map-link timeline-edit-in-codex-link';
+    headingRightExtra.title = 'Edit in Codex';
+    headingRightExtra.textContent = 'Edit in Codex';
+    headingRightExtra.addEventListener('click', function () {
       state.selectedId = entity.id;
       clearCodexSearchInput();
       renderList();
@@ -253,13 +287,6 @@ function renderMapCardPane() {
       document.getElementById('codex-panel').classList.add('active');
       enterEntityEditMode(entity);
     });
-    extras.push(editBtn);
-  }
-  let headingRightExtra = null;
-  if (extras.length) {
-    headingRightExtra = document.createElement('div');
-    headingRightExtra.className = 'map-card-heading-extra';
-    extras.forEach(function (el) { headingRightExtra.appendChild(el); });
   }
 
   renderEntityViewCard(card, entity, gmView, {
@@ -267,7 +294,8 @@ function renderMapCardPane() {
     activeTab: mapCardActiveTab,
     onTabChange: function (tabKey) { mapCardActiveTab = tabKey; renderMapCardPane(); },
     onRelatedClick: function (id) { openEntityInMapCard(id); },
-    headingRightExtra: headingRightExtra
+    headingRightExtra: headingRightExtra,
+    topLeftExtra: topLeftExtra
   });
 }
 
@@ -1157,10 +1185,17 @@ function renderMapImage(mapEntityId, imageDoc) {
         state.loadedMapId = mapEntityId;
 
         map.on('click', function (e) {
-          if (state.mapMode !== 'add' || state.currentRole !== 'gm') return;
-          const x = e.latlng.lng;
-          const y = state.mapImgHeight - e.latlng.lat;
-          openPinPanel(null, { x: x, y: y });
+          if (state.mapMode === 'add' && state.currentRole === 'gm') {
+            const x = e.latlng.lng;
+            const y = state.mapImgHeight - e.latlng.lat;
+            openPinPanel(null, { x: x, y: y });
+            return;
+          }
+          // Clicking empty map (not a pin -- Leaflet doesn't bubble a
+          // pin's own click up to the map) closes Well C back to Well
+          // B, same as the card's own close button or re-tapping the
+          // open pin.
+          if (mapCardPinEntityId) closeMapCardPin();
         });
 
         setTimeout(function () {

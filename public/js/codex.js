@@ -50,6 +50,19 @@ function fitCodexTabHeight() {
   codexTabEl.style.height = Math.max(320, h) + 'px';
 }
 window.addEventListener('resize', fitCodexTabHeight);
+// iOS Safari's dynamic toolbar (address bar) hasn't necessarily
+// settled to its final collapsed/expanded height at initial page
+// load -- window.innerHeight read right away can be off, which is why
+// this was sizing wrong on first load and only correcting itself once
+// something (e.g. a scroll, which forces the toolbar to settle) fired
+// a plain 'resize'. window.visualViewport's own 'resize' event fires
+// specifically on toolbar collapse/expand, which plain window resize
+// doesn't reliably catch; the one-shot delayed re-check covers browsers
+// without visualViewport support as a fallback.
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', fitCodexTabHeight);
+}
+setTimeout(fitCodexTabHeight, 300);
 
 // slug: human-readable debugging/import aid, NOT the canonical key (auto
 // doc ID is). Regenerated from name on every save; uniqueness is only
@@ -2805,6 +2818,16 @@ function renderEntityViewCard(container, entity, gmView, opts) {
 
   container.classList.remove('vis-hidden', 'vis-visible');
   container.classList.add(entity.visibility === 'all-players' ? 'vis-visible' : 'vis-hidden');
+
+  // Absolutely-positioned overlay in the card's top-left corner (e.g.
+  // Map's Well-C close button) -- separate from the heading row's own
+  // right-side controls, since this needs to sit at the card's own
+  // corner regardless of hero-band/heading layout. .codex-entity-card
+  // is already position:relative (hero-band background layer), so no
+  // extra positioning context needed here.
+  if (opts.topLeftExtra) {
+    container.appendChild(opts.topLeftExtra);
+  }
 
   const portrait = portraitImageFor(entity, gmView);
   container.classList.toggle('has-hero', !!portrait);

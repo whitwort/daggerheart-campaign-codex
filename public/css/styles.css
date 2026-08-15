@@ -50,6 +50,7 @@ body {
   padding: 1.5rem var(--page-pad-x);
   margin: 0;
   min-height: 100vh;
+  overscroll-behavior: none;
 }
 
 header { display: flex; align-items: flex-end; gap: 1rem; margin-bottom: 1.25rem; }
@@ -233,24 +234,34 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
    ratio, and Leaflet's fitBounds() then padded with void-colored map
    background to compensate -- exactly the "black bars" reported. */
 #map-layout { display: flex; gap: 1rem; min-height: 0; margin-top: 1rem; }
-#map-layout.split-row { flex-direction: row; align-items: stretch; }
+#map-layout.split-row { flex-direction: row; align-items: flex-start; }
 #map-layout.split-col { flex-direction: column; }
-.split-row #map-well { flex: 2 1 0; min-width: 0; }
-.split-row #map-card-well { flex: 1 1 0; min-width: 0; }
-.split-col #map-well { flex: 1 1 60%; min-height: 0; }
+/* #map-well shrink-wraps to its content (breadcrumb + image sized by
+   fitMapContainerSize + controls), it does NOT stretch to fill the
+   row/column's full height -- that was leaving dead void-colored space
+   below the pin controls whenever the image's best-fit size didn't
+   need the whole available height. max-width in row mode is the width
+   BUDGET fitMapContainerSize (map.js) sizes the image against; keep
+   MAP_WELL_WIDTH_SHARE in map.js in sync with this number. */
+.split-row #map-well { flex: 0 0 auto; max-width: 68%; }
+.split-row #map-card-well { flex: 1 1 0; min-width: 0; align-self: stretch; }
+.split-col #map-well { flex: 0 0 auto; }
 .split-col #map-card-well { flex: 1 1 auto; min-height: 0; }
 #map-well {
   background: var(--void-raised); border: 1px solid var(--void-line);
   border-radius: 14px; padding: 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-  display: flex; flex-direction: column; min-height: 0;
+  display: flex; flex-direction: column;
 }
-#map-card-well {
-  background: var(--void-raised); border: 1px solid var(--void-line);
-  border-radius: 14px; padding: 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-  overflow-y: auto;
-}
+/* No box chrome here, deliberately -- .codex-entity-card (appended
+   inside) already carries its own border/background/shadow, exactly
+   matching how it looks on the Codex tab. Wrapping it in a second
+   void-raised box here just double-boxed the same content. Padding
+   (not the well's own box) gives the vis-hidden/vis-visible glow ring
+   room to render before hitting this pane's overflow clip -- same fix
+   as #codex-detail-pane. */
+#map-card-well { overflow-y: auto; padding: 0.5rem 1.5rem 1.5rem; }
 #map-tab-placeholder { color: var(--ink-soft); margin-top: 0; }
-#map-image-wrap { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+#map-image-wrap { display: flex; align-items: center; justify-content: center; margin-top: 0.75rem; }
 #map-container {
   background: var(--void);
   border-radius: 8px;
@@ -258,9 +269,9 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
   /* width/height set directly in px by fitMapContainerSize() (map.js) */
 }
 /* GM pin controls: below the map, right-aligned (actions-row-right
-   already handles the alignment) -- inside the map well's own flex
-   column, so they get their natural height and #map-image-wrap above
-   claims everything else via flex:1. */
+   already handles the alignment), margin-top matching the breadcrumb's
+   own spacing above the image for a consistent rhythm -- this is the
+   "similar margin" at the bottom Gregg asked for. */
 #map-gm-controls { display: none; margin-top: 0.75rem; flex-shrink: 0; }
 #map-mode-hint { font-size: 0.85rem; color: var(--ink-soft); }
 #map-gm-controls button.active-mode { outline: 2px solid var(--fear); }
@@ -279,8 +290,13 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
    card pane (renderEntityViewCard, allowEdit:false). */
 #map-entity-card-pane:empty { display: none; }
 .map-card-empty { padding: 1.5rem 0; text-align: center; }
-.map-card-heading-extra { display: flex; gap: 0.5rem; align-items: center; }
-.map-card-close-btn { width: auto; min-width: 0; padding: 0.3rem 0.6rem; font-size: 0.9rem; }
+.map-card-close-btn {
+  position: absolute; top: 0.6rem; left: 0.6rem; z-index: 2;
+  width: 1.8rem; min-width: 1.8rem; height: 1.8rem; padding: 0;
+  border-radius: 50%; background: var(--parchment); color: var(--ink);
+  border: 1px solid var(--parchment-edge); font-size: 0.85rem; line-height: 1;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
 .map-breadcrumb-icon { margin-right: 0.3rem; }
 .map-breadcrumb-sep { color: var(--ink-soft); }
 
