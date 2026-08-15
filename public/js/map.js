@@ -158,8 +158,11 @@ function fitMapTabLayoutHeight() {
 // two was this layout's previous mistake). ~820px = iPad portrait.
 const MAP_SPLIT_BREAKPOINT = 820;
 // Row-mode width budget for #map-well -- keep in sync with
-// ".split-row #map-well { max-width: 68%; }" in styles.css.
-const MAP_WELL_WIDTH_SHARE = 0.68;
+// ".split-row #map-well { max-width: 60%; }" in styles.css. (Reduced
+// from 68% to give #map-card-well's column more room -- it was too
+// narrow for its own heading row, see #map-card-well's padding
+// comment in styles.css.)
+const MAP_WELL_WIDTH_SHARE = 0.60;
 function updateMapSplitClass() {
   if (!mapLayoutEl) return;
   const wide = window.innerWidth >= MAP_SPLIT_BREAKPOINT;
