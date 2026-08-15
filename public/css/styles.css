@@ -1037,21 +1037,25 @@ button:disabled:hover { border-color: var(--void-line); }
   fill: var(--parchment); text-anchor: middle; dominant-baseline: central; pointer-events: none;
 }
 
-/* Zoom control: same stacked +/- affordance as Leaflet's default map
-   zoom control (Map tab), reused here for visual consistency across
-   the two zoomable-canvas features in the app. */
+/* Zoom control: same stacked +/- affordance AND color treatment as
+   Leaflet's actual default map zoom control (Map tab, .leaflet-
+   control-zoom) -- parchment buttons/ink icons, not a bespoke dark
+   recreation, so it visually matches rather than just rhymes.
+   Upper-left (not upper-right) so it doesn't compete for space with
+   the axis tick labels, which grow rightward from the (now
+   right-shifted) spine toward the well's right edge. */
 .timeline-zoom-controls {
-  position: absolute; top: 0.6rem; right: 0.6rem; display: flex; flex-direction: column;
+  position: absolute; top: 0.6rem; left: 0.6rem; display: flex; flex-direction: column;
   border-radius: 8px; overflow: hidden; border: 1px solid var(--void-line);
   box-shadow: 0 2px 10px rgba(0,0,0,0.4); z-index: 5;
 }
 .timeline-zoom-controls button {
   width: 2.1rem; min-width: 2.1rem; height: 2.1rem; padding: 0;
-  background: var(--void-raised); color: var(--parchment); border: none;
-  border-bottom: 1px solid var(--void-line); font-size: 1.05rem; box-shadow: none;
+  background: var(--parchment); color: var(--ink); border: none;
+  border-bottom: 1px solid var(--parchment-edge); font-size: 1.05rem; box-shadow: none;
 }
 .timeline-zoom-controls button:last-child { border-bottom: none; }
-.timeline-zoom-controls button:hover { border-color: var(--void-line); }
+.timeline-zoom-controls button:hover { background: var(--parchment-edge); }
 
 /* Hover preview: mouse-only (pointerType-gated, same as map pin popups
    and the search-help popover), same .entity-preview-card content
