@@ -5,6 +5,7 @@ import {
 import { firebaseApp, CONFIG } from './firebase.js';
 import { state } from './state.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
+import { trackWrite } from './connectivity.js';
 import { renderMarkdownInto } from './markdown.js';
 import { renderAdminRootEntitySelect, renderAdminPlayersList } from './admin.js';
 import { parseDateSpec, formatDateSegments } from './dates.js';
@@ -76,6 +77,21 @@ if (window.visualViewport) {
   window.visualViewport.addEventListener('resize', fitCodexTabHeight);
 }
 setTimeout(fitCodexTabHeight, 300);
+// Second, later one-shot: 300ms wasn't always enough margin for iOS
+// Safari's toolbar to finish settling on a fresh cold load (reported
+// as "still needs a manual nudge" even with the 300ms check in
+// place) -- cheap insurance, not a fix in itself.
+setTimeout(fitCodexTabHeight, 1000);
+// Distinct failure mode from toolbar-settling: web font swap
+// (Comfortaa/Inter loading in) reflows the header/nav this pane's
+// height is measured against (rect.top in fitCodexTabHeight), AFTER
+// the timeouts above may have already fired and measured the
+// pre-swap layout -- neither a window resize nor a visualViewport
+// resize fires for a font-driven reflow, so it was invisible to both
+// existing listeners. document.fonts.ready catches this directly.
+if (window.document && document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(fitCodexTabHeight);
+}
 
 // slug: human-readable debugging/import aid, NOT the canonical key (auto
 // doc ID is). Regenerated from name on every save; uniqueness is only
@@ -1093,7 +1109,7 @@ function saveEntityEdit(entity) {
   // listener's own optimistic local update re-renders almost
   // immediately, which was leaving the edit form open with a duplicate-
   // submission risk on every field, not just new entities).
-  updateDoc(doc(db, 'entities', entity.id), entityData).catch(function (err) {
+  trackWrite(updateDoc(doc(db, 'entities', entity.id), entityData), 'Saving entity').catch(function (err) {
     window.alert('Save failed: ' + err.message);
   });
   state.detailEditMode = false;
@@ -1464,7 +1480,7 @@ function saveNewEntity() {
   // second click that created a duplicate entity. Close/open optimistically;
   // .catch() below only surfaces an eventual failure, it doesn't try to
   // reopen state that's already moved on.
-  setDoc(doc(db, 'entities', newId), entityData).catch(function (err) {
+  trackWrite(setDoc(doc(db, 'entities', newId), entityData), 'Saving entity').catch(function (err) {
     window.alert('Save failed: ' + err.message);
   });
   entityNewSaveBtn.disabled = false;
@@ -1561,7 +1577,7 @@ function saveLoreEdit(entity, editState, isNew, saveBtn) {
     let maxOrder = siblings.reduce(function (acc, it) { return Math.max(acc, it.order || 0); }, 0);
     items.forEach(function (c) {
       maxOrder += 1;
-      addDoc(collection(db, 'loreItems'), {
+      trackWrite(addDoc(collection(db, 'loreItems'), {
         entityId: entity.id,
         kind: 'gm-note',
         authorId: null,
@@ -1573,16 +1589,16 @@ function saveLoreEdit(entity, editState, isNew, saveBtn) {
         order: maxOrder,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
-      }).catch(fail);
+      }), 'Saving lore').catch(fail);
     });
   } else {
-    updateDoc(doc(db, 'loreItems', editState.id), {
+    trackWrite(updateDoc(doc(db, 'loreItems', editState.id), {
       content: content,
       visibility: editState.visibility,
       meta: editState.meta || null,
       sourceId: editState.sourceId || null,
       updatedAt: serverTimestamp()
-    }).catch(fail);
+    }), 'Saving lore').catch(fail);
   }
   state.loreEdit = null;
   renderDetailForSelected();
