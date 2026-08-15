@@ -314,3 +314,17 @@ date field, and the Timeline well's rendering (a range would need a
 bar/span glyph rather than a single node dot, plus clustering logic
 that currently assumes point data). Not started.
 
+## Future: warn on duplicate exact Scene/Event date
+Warn the GM at save time if a Scene/Event's date resolves to the exact
+same `dateSort` as another existing Scene/Event -- surfaced during
+Timeline testing, where an exact-tie cluster needed a picker fallback
+(see the Timeline cluster-picker work) since two entities at the same
+instant can never be told apart by the well alone. A save-time warning
+would catch the likely case (typo/copy-paste date) before it needs
+that fallback UI at all. Not a hard block -- ties are a legitimate
+data state (the picker exists precisely because they're allowed) --
+just a confirm-style nudge. Touches wherever entity save happens for
+Scene/Event category (codex.js `saveEntityEdit`, and SRD import/
+admin-db-import writes if those can produce dated entities too). Not
+started.
+

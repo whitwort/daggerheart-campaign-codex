@@ -2,7 +2,7 @@ import { state } from './state.js';
 import {
   registerVisibilityChangeHandler, isEntityPlayerVisible,
   renderList, renderDetailForSelected, clearCodexSearchInput,
-  renderEntityViewCard, buildEntityPreviewCard
+  renderEntityViewCard, buildEntityPreviewCard, enterEntityEditMode
 } from './codex.js';
 
 const panelEl = document.getElementById('timeline-panel');
@@ -271,11 +271,24 @@ function renderCardPane() {
   const card = document.createElement('div');
   card.className = 'codex-entity-card';
   dom.cardPane.appendChild(card);
+  let headingRightExtra = null;
+  if (gmView) {
+    headingRightExtra = document.createElement('button');
+    headingRightExtra.type = 'button';
+    headingRightExtra.className = 'entity-map-link timeline-edit-in-codex-link';
+    headingRightExtra.title = 'Edit in Codex';
+    headingRightExtra.textContent = 'Edit in Codex';
+    headingRightExtra.addEventListener('click', function () {
+      switchToCodexEntity(entity.id);
+      enterEntityEditMode(entity);
+    });
+  }
   renderEntityViewCard(card, entity, gmView, {
     allowEdit: false,
     activeTab: activeTab,
     onTabChange: function (tabKey) { activeTab = tabKey; renderCardPane(); },
-    onRelatedClick: function (id) { openEntityInPanel(id); }
+    onRelatedClick: function (id) { openEntityInPanel(id); },
+    headingRightExtra: headingRightExtra
   });
 }
 
