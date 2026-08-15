@@ -972,7 +972,15 @@ button:disabled:hover { border-color: var(--void-line); }
 .portrait-fade-row input[type="range"] { width: 100%; accent-color: var(--hope); }
 .portrait-fade-value { text-align: right; color: rgba(233,221,194,0.65); }
 
-#timeline-panel { padding: 1rem 1.5rem; display: flex; flex-direction: column; }
+#timeline-panel { padding: 1rem 1.5rem; }
+/* display:flex must be scoped to .active -- a bare #timeline-panel
+   rule setting display would beat .tab-panel's display:none (ID
+   specificity always wins over class, regardless of source order),
+   permanently overriding the tab-hide mechanism and leaving this
+   panel visible in normal document flow on every other tab, stacked
+   above or below whichever tab's content happened to sit next to it
+   in the HTML. This was a real, live bug -- not a hypothetical. */
+#timeline-panel.active { display: flex; flex-direction: column; }
 
 .timeline-intro { margin-top: 0; margin-bottom: 0.75rem; flex-shrink: 0; }
 
