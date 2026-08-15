@@ -539,25 +539,31 @@ select {
 /* Codex page: parchment content card. Hope/Fear glow rings applied via
    .vis-hidden / .vis-visible per the duality convention (Hope = warm
    gold = hidden/GM-only, Fear = cool blue-violet = visible to players). */
-#codex-detail {
+#codex-detail-pane.empty .codex-entity-card { border: none; background: none; box-shadow: none; padding: 0; min-height: 0; }
+/* Shared read-only/GM entity-card visual identity -- class-scoped (not
+   id-scoped like the pre-refactor #codex-detail) because this can now
+   render into more than one container in the DOM at once: the Codex
+   tab's own #codex-detail (which also carries this class) plus
+   Timeline's/Map's read-only entry-card panels. See codex.js
+   renderEntityViewCard. */
+.codex-entity-card {
   position: relative; /* containing block for the .codex-card-hero-band background layer */
   border: 1px solid var(--parchment-edge); background: var(--parchment); color: var(--ink);
   padding: 1.5rem 1.75rem; min-height: 200px; border-radius: 14px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.35);
 }
-#codex-detail.vis-hidden { box-shadow: 0 0 0 2px var(--hope), 0 0 1.5rem var(--hope-glow); }
-#codex-detail.vis-visible { box-shadow: 0 0 0 3px var(--fear), 0 0 2.5rem 0.5rem var(--fear-glow); }
-#codex-detail-pane.empty #codex-detail { border: none; background: none; box-shadow: none; padding: 0; min-height: 0; }
-#codex-detail h2 { margin-top: 0; font-size: 1.6rem; font-family: var(--font-display), sans-serif; font-weight: 400; }
-#codex-card-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
-#codex-card-heading h2 { margin: 0; }
-#codex-card-heading-left { flex: 1; min-width: 0; }
-#codex-card-heading-right {
+.codex-entity-card.vis-hidden { box-shadow: 0 0 0 2px var(--hope), 0 0 1.5rem var(--hope-glow); }
+.codex-entity-card.vis-visible { box-shadow: 0 0 0 3px var(--fear), 0 0 2.5rem 0.5rem var(--fear-glow); }
+.codex-entity-card h2 { margin-top: 0; font-size: 1.6rem; font-family: var(--font-display), sans-serif; font-weight: 400; }
+.codex-card-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
+.codex-card-heading h2 { margin: 0; }
+.codex-card-heading-left { flex: 1; min-width: 0; }
+.codex-card-heading-right {
   display: flex; flex-direction: column; align-items: flex-end; gap: 0.3rem; flex-shrink: 0;
 }
-#codex-tags { margin-top: 0.5rem; }
-#codex-tags span { display: inline-block; background: var(--parchment-edge); color: var(--ink); border-radius: 3px; padding: 0.1rem 0.4rem; font-size: 0.75rem; margin-right: 0.25rem; }
-#codex-empty { color: var(--ink-soft); }
+.codex-tags { margin-top: 0.5rem; }
+.codex-tags span { display: inline-block; background: var(--parchment-edge); color: var(--ink); border-radius: 3px; padding: 0.1rem 0.4rem; font-size: 0.75rem; margin-right: 0.25rem; }
+.codex-empty { color: var(--ink-soft); }
 
 /* Generic action-row placement: gm buttons bottom-right of the
    element they affect; player/gm (shared) buttons/text bottom-left. */
@@ -568,14 +574,14 @@ select {
 .actions-row button { padding: 0.3rem 0.7rem; cursor: pointer; }
 
 /* Entry Card tab box: Lore | Notes */
-#codex-detail-tabs { display: flex; gap: 0.25rem; margin-top: 0.75rem; border-bottom: 1px solid var(--parchment-edge); }
-#codex-detail-tabs button {
+.codex-detail-tabs { display: flex; gap: 0.25rem; margin-top: 0.75rem; border-bottom: 1px solid var(--parchment-edge); }
+.codex-detail-tabs button {
   padding: 0.4rem 0.9rem; cursor: pointer; background: none; border: none; border-radius: 0; box-shadow: none;
   border-bottom: 3px solid transparent; font-size: 0.9rem; color: var(--ink-soft);
   font-family: var(--font-display), sans-serif; font-weight: 400;
 }
-#codex-detail-tabs button.active { border-bottom-color: var(--hope); color: var(--ink); }
-#codex-detail-tab-panel { padding-top: 0.75rem; }
+.codex-detail-tabs button.active { border-bottom-color: var(--hope); color: var(--ink); }
+.codex-detail-tab-panel { padding-top: 0.75rem; }
 
 /* Entry Card + Lore item buttons: "torn-edge collar" style (current).
    Confirmed direction (option B of 4 mockup candidates) — a thick
@@ -584,31 +590,31 @@ select {
    top of the surface (the failure mode of the other 3 candidates:
    gradients/outer-glow read as "object sitting above the page", which
    is the opposite of the intended "reaches down into the Void" theme).
-   Scoped to #codex-detail via ID so it beats the generic dark `button`
-   rule; the exceptions below (tab buttons, map-link icon, related-chip
-   tags) are restated at higher specificity so they're immune to
-   source order.
+   Scoped to .codex-entity-card via class so it beats the generic dark
+   `button` rule; the exceptions below (tab buttons, map-link icon,
+   related-chip tags) are restated at higher specificity so they're
+   immune to source order.
 
    BOOKMARK — previous "light style" (parchment-edge fill, ink-toned
    shadow, matching the warm paper surface) is tagged in git as
    `button-style-light`. Previous "fade to Void" gradient attempt is
    tagged `button-style-fade-to-void`. */
-#codex-detail button {
+.codex-entity-card button {
   background: #000000;
   color: var(--parchment);
   border: 3px solid var(--parchment-edge);
   border-radius: 8px;
   box-shadow: inset 0 0 10px 2px rgba(0,0,0,0.9);
 }
-#codex-detail button:hover { border-color: var(--hope); }
-#codex-detail button:active { box-shadow: inset 0 0 14px 3px rgba(0,0,0,0.95); }
-#codex-detail #codex-detail-tabs button {
+.codex-entity-card button:hover { border-color: var(--hope); }
+.codex-entity-card button:active { box-shadow: inset 0 0 14px 3px rgba(0,0,0,0.95); }
+.codex-entity-card .codex-detail-tabs button {
   background: none; border: none; box-shadow: none; border-radius: 0;
   border-bottom: 3px solid transparent; color: var(--ink-soft);
   width: auto; min-width: 0; text-align: left;
 }
-#codex-detail #codex-detail-tabs button.active { border-bottom-color: var(--hope); color: var(--ink); }
-#codex-detail .entity-map-link {
+.codex-entity-card .codex-detail-tabs button.active { border-bottom-color: var(--hope); color: var(--ink); }
+.codex-entity-card .entity-map-link {
   background: none; border: none; box-shadow: none; color: var(--fear);
   font-size: 1rem; line-height: 1; text-decoration: none; cursor: pointer; padding: 0;
   width: auto; min-width: 0; text-align: left;
@@ -633,24 +639,23 @@ select {
 .toggle-switch-label.state-visible { color: var(--fear); font-weight: 500; }
 .entity-visibility-toggle-row { display: flex; align-items: center; gap: 0.3rem; background: rgba(233,221,194,0.75); border-radius: 8px; padding: 0.4rem 0.6rem; }
 
-#codex-related { margin-top: 1rem; }
-#codex-related-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-/* Specificity note: #codex-related-chips prefix (not just .related-chip)
-   keeps this beating the blanket #codex-detail button rule regardless
-   of source order — chips are tags/links, not buttons. All interaction
-   states restated identically so hover/active/focus can't pick up the
-   button rule's press/glow effects (those match on id+element, which
-   otherwise outranks a bare id+class rule on :hover/:active). min-width
-   and text-align reset since the button rule's equal-width sizing
+.codex-related { margin-top: 1rem; }
+.codex-related-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+/* Specificity note: .codex-related-chips prefix (not just .related-chip)
+   keeps this beating the blanket .codex-entity-card button rule
+   regardless of source order — chips are tags/links, not buttons. All
+   interaction states restated identically so hover/active/focus can't
+   pick up the button rule's press/glow effects. min-width and
+   text-align reset since the button rule's equal-width sizing
    shouldn't apply to tag pills. */
-#codex-related-chips .related-chip,
-#codex-related-chips .related-chip:active,
-#codex-related-chips .related-chip:focus {
+.codex-related-chips .related-chip,
+.codex-related-chips .related-chip:active,
+.codex-related-chips .related-chip:focus {
   display: inline-block; background: rgba(94,130,150,0.18); color: #3D5464; border-radius: 16px;
   padding: 0.3125rem 0.75rem; font-size: 0.8125rem; cursor: pointer; border: 1px solid transparent; box-shadow: none; outline: none; transition: none;
   width: auto; min-width: 0; text-align: left;
 }
-#codex-related-chips .related-chip:hover {
+.codex-related-chips .related-chip:hover {
   display: inline-block; background: rgba(94,130,150,0.18); color: #3D5464; border-radius: 16px;
   padding: 0.3125rem 0.75rem; font-size: 0.8125rem; cursor: pointer; border: 1px solid rgba(61,84,100,0.4); box-shadow: none; outline: none; transition: none;
   width: auto; min-width: 0; text-align: left;
@@ -711,7 +716,7 @@ select {
 /* Lore items (Phase 8). Darker parchment-edge fill + left color strip
    (inset box-shadow) indicating GM-only (Hope) vs player-visible (Fear),
    matching the locked mockup. */
-#codex-lore-list { margin-top: 0.75rem; }
+.codex-lore-list { margin-top: 0.75rem; }
 .lore-item { background: var(--parchment-edge); border-radius: 8px; padding: 0.75rem 0.9rem; margin-bottom: 0.6rem; }
 .lore-item.vis-hidden { box-shadow: inset 3px 0 0 var(--hope); }
 .lore-item.vis-visible { box-shadow: inset 3px 0 0 var(--fear); }
@@ -780,7 +785,7 @@ select {
 /* Admin create-map + entity hidden badge (Phase 8) */
 
 /* Entity images (Phase 8) */
-#codex-gallery { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.75rem; }
+.codex-gallery { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.75rem; }
 .gallery-item { max-width: 300px; background: var(--parchment-edge); padding: 0.75rem 0.9rem; border-radius: 8px; min-width: 0; }
 .gallery-item.vis-hidden { box-shadow: inset 3px 0 0 var(--hope); }
 .gallery-item.vis-visible { box-shadow: inset 3px 0 0 var(--fear); }
@@ -1062,11 +1067,11 @@ button:disabled:hover { border-color: var(--void-line); }
    (Tags, .lore-vis-badge) — solid background, small radius, no
    uppercase/pill treatment — rather than the low-contrast
    dark-text-on-tinted-background version from the first pass.
-   #codex-tags .meta-tag (not just .meta-tag) needed: #codex-tags span's
-   ID-based selector otherwise outranks a bare class selector and would
+   .codex-tags .meta-tag (not just .meta-tag) needed: .codex-tags span's
+   selector otherwise outranks a bare class selector and would
    win with its parchment/ink styling regardless of source order. */
 .meta-tag,
-#codex-tags .meta-tag {
+.codex-tags .meta-tag {
   display: inline-block;
   font-size: 0.7rem;
   font-weight: 600;
