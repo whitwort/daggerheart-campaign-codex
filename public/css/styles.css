@@ -524,7 +524,7 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 /* Shares a row with the search-tips (i) button on the Codex tab
    (id-scoped, not a change to .pane-title itself -- Timeline's list
    drawer heading uses that class too and has no button to share with). */
-.pane-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
+.pane-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.75rem; }
 .pane-title-row .pane-title { margin-bottom: 0; }
 .pane-filters { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
 .pane-filters select, .pane-filters input { padding: 0.35rem; font-size: 0.9rem; flex: 1; }
