@@ -2749,7 +2749,42 @@ function renderDetailForSelected() {
   }
 
   if (draft.category === 'Character') {
-    leftCol.appendChild(makeEditField('Ancestry', draft.ancestry, function (v) { draft.ancestry = v; }));
+    // Dropdown, not free text -- lists every Ancestry-category entity's
+    // name (stored as plain text on draft.ancestry, same as before;
+    // wiki-link resolution already matches by name, so this doesn't
+    // change how that works, just constrains entry to real Ancestries
+    // instead of allowing typos/drift). A legacy value that doesn't
+    // match any current Ancestry entity is kept as its own option
+    // rather than silently dropped -- reopening for edit shouldn't
+    // blank a field the GM didn't touch.
+    const ancestryWrap = document.createElement('div');
+    ancestryWrap.className = 'entity-edit-field';
+    const ancestryLabel = document.createElement('label');
+    ancestryLabel.textContent = 'Ancestry';
+    ancestryWrap.appendChild(ancestryLabel);
+    const ancestrySelect = document.createElement('select');
+    const ancestryNoneOpt = document.createElement('option');
+    ancestryNoneOpt.value = '';
+    ancestryNoneOpt.textContent = '-- none --';
+    ancestrySelect.appendChild(ancestryNoneOpt);
+    const ancestryNames = state.allEntities
+      .filter(function (e) { return e.category === 'Ancestry'; })
+      .map(function (e) { return e.name; })
+      .sort(function (a, b) { return a.localeCompare(b); });
+    if (draft.ancestry && ancestryNames.indexOf(draft.ancestry) === -1) {
+      ancestryNames.unshift(draft.ancestry);
+    }
+    ancestryNames.forEach(function (name) {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      ancestrySelect.appendChild(opt);
+    });
+    ancestrySelect.value = draft.ancestry || '';
+    ancestrySelect.addEventListener('change', function () { draft.ancestry = ancestrySelect.value; });
+    ancestryWrap.appendChild(ancestrySelect);
+    leftCol.appendChild(ancestryWrap);
+
     leftCol.appendChild(makeEditField('Aliases (comma-separated)', draft.aliases, function (v) { draft.aliases = v; }));
     const ownerWrap = document.createElement('div');
     ownerWrap.className = 'entity-edit-field';
