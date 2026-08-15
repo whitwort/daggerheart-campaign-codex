@@ -336,7 +336,17 @@ function portraitRenderInto(imgEl, hWrapEl, vWrapEl, containerEl, img) {
 // CSS-only (styles.css) on .codex-card-hero — this only sizes/positions
 // the <img> inside it.
 let cardHeroState = null; // { imgEl, hWrapEl, vWrapEl, containerEl, portrait } | null
-function buildCardHero(entity, portrait) {
+// live=false (used by read-only cards rendered outside the Codex tab, e.g.
+// Timeline/Map entry-card panels) skips the shared cardHeroState/
+// ResizeObserver singleton entirely -- that machinery assumes exactly one
+// hero exists at a time (portraitObserveContainer unobserves whichever
+// element it last tracked), so a second simultaneously-rendered hero would
+// steal live resize-tracking away from the real Codex tab card. Read-only
+// cards don't need it (no portrait-editing entry point in read-only mode)
+// -- they still get one correctly-sized initial layout via the
+// requestAnimationFrame call below, just no ongoing resize tracking.
+function buildCardHero(entity, portrait, live) {
+  if (live === undefined) live = true;
   const heroWrap = document.createElement('div');
   heroWrap.className = 'codex-card-hero';
   const hWrap = document.createElement('div');
@@ -350,8 +360,10 @@ function buildCardHero(entity, portrait) {
   vWrap.appendChild(imgEl);
   hWrap.appendChild(vWrap);
   heroWrap.appendChild(hWrap);
-  cardHeroState = { imgEl: imgEl, hWrapEl: hWrap, vWrapEl: vWrap, containerEl: heroWrap, portrait: portrait };
-  portraitObserveContainer(heroWrap);
+  if (live) {
+    cardHeroState = { imgEl: imgEl, hWrapEl: hWrap, vWrapEl: vWrap, containerEl: heroWrap, portrait: portrait };
+    portraitObserveContainer(heroWrap);
+  }
   requestAnimationFrame(function () { portraitRenderInto(imgEl, hWrap, vWrap, heroWrap, portrait); });
   return heroWrap;
 }
@@ -1645,10 +1657,10 @@ function buildLoreEditBox(entity, editState, isNew) {
 // view: each item is a small card — a reveal/hide toggle switch
 // top-right (live, one-tap), Edit/Delete bottom-right; Edit swaps
 // the card into buildLoreEditBox() in place.
-function renderLoreTab(container, entity, gmView) {
+function renderLoreTab(container, entity, gmView, readOnly) {
   const items = loreItemsForEntity(entity.id, gmView);
 
-  if (!gmView) {
+  if (!gmView || readOnly) {
     if (items.length === 0) {
       const emptyP = document.createElement('p');
       emptyP.className = 'lore-empty';
@@ -1657,10 +1669,14 @@ function renderLoreTab(container, entity, gmView) {
       return;
     }
     const loreListDiv = document.createElement('div');
-    loreListDiv.id = 'codex-lore-list';
+    loreListDiv.className = 'codex-lore-list';
     items.forEach(function (item) {
       const itemDiv = document.createElement('div');
-      itemDiv.className = 'lore-item vis-visible';
+      // GM-readOnly can include gm-only items mixed with all-players
+      // ones (real player view never does, since loreItemsForEntity
+      // already filtered to all-players-only when !gmView) -- reflect
+      // actual per-item visibility rather than assuming all-visible.
+      itemDiv.className = 'lore-item ' + (item.visibility === 'all-players' ? 'vis-visible' : 'vis-hidden');
       const bodyDiv = document.createElement('div');
       bodyDiv.className = 'lore-item-body';
       renderMarkdownInto(bodyDiv, resolveLoreItemMarkdown(entity, item, items)).then(function () {
@@ -1680,7 +1696,7 @@ function renderLoreTab(container, entity, gmView) {
   const activeEdit = state.loreEdit && state.loreEdit.entityId === entity.id ? state.loreEdit : null;
 
   const loreListDiv = document.createElement('div');
-  loreListDiv.id = 'codex-lore-list';
+  loreListDiv.className = 'codex-lore-list';
 
   if (items.length === 0 && !(activeEdit && activeEdit.id === null)) {
     const emptyP = document.createElement('p');
@@ -2170,11 +2186,12 @@ function openGalleryUploadModal(entity) {
   document.body.appendChild(overlay);
 }
 
-function renderGalleryTab(container, entity, gmView) {
+function renderGalleryTab(container, entity, gmView, readOnly) {
   const galleryImages = galleryImagesFor(entity.id, gmView);
   const currentPortrait = portraitImageFor(entity, gmView);
+  const showChrome = gmView && !readOnly;
 
-  if (gmView && galleryImages.length) {
+  if (showChrome && galleryImages.length) {
     const hintBox = document.createElement('div');
     hintBox.className = 'gallery-hint-box';
     const hint = document.createElement('p');
@@ -2186,7 +2203,7 @@ function renderGalleryTab(container, entity, gmView) {
 
   if (galleryImages.length) {
     const galleryDiv = document.createElement('div');
-    galleryDiv.id = 'codex-gallery';
+    galleryDiv.className = 'codex-gallery';
     galleryImages.forEach(function (img) {
       const isCurrentPortrait = !!currentPortrait && img.id === currentPortrait.id;
       const figDiv = document.createElement('div');
@@ -2221,7 +2238,7 @@ function renderGalleryTab(container, entity, gmView) {
       renderSourceLabel(sourceLabelDiv, img.sourceId, entity.sourceId);
       figDiv.appendChild(sourceLabelDiv);
 
-      if (gmView) {
+      if (showChrome) {
         const barDiv = document.createElement('div');
         barDiv.className = 'gallery-item-bar';
         const visible = img.visibility === 'all-players';
@@ -2269,7 +2286,7 @@ function renderGalleryTab(container, entity, gmView) {
     });
     container.appendChild(galleryDiv);
 
-    if (gmView && galleryImages.length > 1) {
+    if (showChrome && galleryImages.length > 1) {
       loadSortable().then(function (Sortable) {
         // eslint-disable-next-line no-new
         new Sortable(galleryDiv, {
@@ -2289,7 +2306,7 @@ function renderGalleryTab(container, entity, gmView) {
     container.appendChild(emptyP);
   }
 
-  if (gmView) {
+  if (showChrome) {
     const actions = document.createElement('div');
     actions.className = 'actions-row';
     const right = document.createElement('div');
@@ -2407,7 +2424,7 @@ function renderDetailForSelected() {
   if (!entity || (!gmView && !isEntityPlayerVisible(entity.id))) {
     detailPaneEl.classList.add('empty');
     detailEl.classList.remove('vis-hidden', 'vis-visible');
-    detailEl.innerHTML = '<p id="codex-empty">What would you like to read? Make a selection from your Table of Contents.</p>';
+    detailEl.innerHTML = '<p class="codex-empty">What would you like to read? Make a selection from your Table of Contents.</p>';
     return;
   }
   detailPaneEl.classList.remove('empty');
@@ -2420,164 +2437,225 @@ function renderDetailForSelected() {
 
   detailEl.innerHTML = '';
 
-  // Gallery hero — view mode only (skipped while editing, to avoid any
-  // layering/interaction conflict with the edit fields). BACKGROUND
-  // LAYER MODEL: the hero is an absolutely-positioned layer behind the
-  // card content (z-index 0 vs content's 1), taking NO layout space —
-  // UI element placement is identical with or without a portrait, at
-  // any portrait size. Its height is set by portraitRenderInto to the
-  // image's visible extent; the heading and everything else stay in the
-  // normal content flow, rendered over the image.
-  const portrait = !editing ? portraitImageFor(entity, gmView) : null;
-  detailEl.classList.toggle('has-hero', !!portrait);
-  if (portrait) {
-    const band = document.createElement('div');
-    band.className = 'codex-card-hero-band';
-    band.appendChild(buildCardHero(entity, portrait));
-    detailEl.appendChild(band);
-  } else {
-    cardHeroState = null;
+  if (!editing) {
+    renderEntityViewCard(detailEl, entity, gmView, {
+      allowEdit: true,
+      activeTab: state.detailActiveTab,
+      onTabChange: function (tabKey) { state.detailActiveTab = tabKey; renderDetailForSelected(); },
+      onRelatedClick: function (id) { selectEntity(id, true); }
+    });
+    return;
   }
+
+  // --- Edit mode: no hero (avoids layering/interaction conflict with the
+  // edit fields), no tabs/related/footer -- tags/related/delete are all
+  // edited inline via renderEntityEditBlock instead. Kept as its own path
+  // (rather than folded into renderEntityViewCard) since editing UI has no
+  // read-only analog to share. ---
+  detailEl.classList.remove('has-hero');
+  cardHeroState = null;
+
   const contentWrap = document.createElement('div');
   contentWrap.className = 'codex-card-content';
   detailEl.appendChild(contentWrap);
-  const headingTarget = contentWrap;
 
-  // --- Heading: name + entry type + category-specific fields (left);
-  // GM/Player badge, visibility toggle, map link (upper-right stack) ---
   const headingRow = document.createElement('div');
-  headingRow.id = 'codex-card-heading';
+  headingRow.className = 'codex-card-heading';
 
   const leftCol = document.createElement('div');
-  leftCol.id = 'codex-card-heading-left';
+  leftCol.className = 'codex-card-heading-left';
 
-  if (editing) {
-    const nameField = makeEditField('Name', draft.name, function (v) { draft.name = v; });
-    nameField.classList.add('entity-name-field');
-    leftCol.appendChild(nameField);
-    const catWrap = document.createElement('div');
-    catWrap.className = 'entity-edit-field';
-    const catLabel = document.createElement('label');
-    catLabel.textContent = 'Entry type';
-    catWrap.appendChild(catLabel);
-    const catSelect = document.createElement('select');
-    CONFIG.categories.forEach(function (c) {
+  const nameField = makeEditField('Name', draft.name, function (v) { draft.name = v; });
+  nameField.classList.add('entity-name-field');
+  leftCol.appendChild(nameField);
+  const catWrap = document.createElement('div');
+  catWrap.className = 'entity-edit-field';
+  const catLabel = document.createElement('label');
+  catLabel.textContent = 'Entry type';
+  catWrap.appendChild(catLabel);
+  const catSelect = document.createElement('select');
+  CONFIG.categories.forEach(function (c) {
+    const opt = document.createElement('option');
+    opt.value = c;
+    opt.textContent = c;
+    catSelect.appendChild(opt);
+  });
+  catSelect.value = draft.category;
+  catSelect.addEventListener('change', function () {
+    draft.category = catSelect.value;
+    renderDetailForSelected();
+  });
+  catWrap.appendChild(catSelect);
+  leftCol.appendChild(catWrap);
+
+  if ((CONFIG.subtypesByCategory[draft.category] || []).length) {
+    const subtypeWrap = document.createElement('div');
+    subtypeWrap.className = 'entity-edit-field';
+    const subtypeLabelEl = document.createElement('label');
+    subtypeLabelEl.textContent = 'Subtype';
+    subtypeWrap.appendChild(subtypeLabelEl);
+    const subtypeSelect = document.createElement('select');
+    const noneOpt = document.createElement('option');
+    noneOpt.value = '';
+    noneOpt.textContent = '-- none --';
+    subtypeSelect.appendChild(noneOpt);
+    CONFIG.subtypesByCategory[draft.category].forEach(function (st) {
       const opt = document.createElement('option');
-      opt.value = c;
-      opt.textContent = c;
-      catSelect.appendChild(opt);
+      opt.value = st;
+      opt.textContent = subtypeLabel(st);
+      subtypeSelect.appendChild(opt);
     });
-    catSelect.value = draft.category;
-    catSelect.addEventListener('change', function () {
-      draft.category = catSelect.value;
-      renderDetailForSelected();
+    subtypeSelect.value = draft.subtype || '';
+    subtypeSelect.addEventListener('change', function () { draft.subtype = subtypeSelect.value; });
+    subtypeWrap.appendChild(subtypeSelect);
+    leftCol.appendChild(subtypeWrap);
+  }
+
+  if (draft.category === 'Character') {
+    leftCol.appendChild(makeEditField('Ancestry', draft.ancestry, function (v) { draft.ancestry = v; }));
+    leftCol.appendChild(makeEditField('Aliases (comma-separated)', draft.aliases, function (v) { draft.aliases = v; }));
+    const ownerWrap = document.createElement('div');
+    ownerWrap.className = 'entity-edit-field';
+    const ownerLabel = document.createElement('label');
+    ownerLabel.textContent = 'Owned by party member';
+    ownerWrap.appendChild(ownerLabel);
+    const ownerSelect = document.createElement('select');
+    const noneOpt = document.createElement('option');
+    noneOpt.value = '';
+    noneOpt.textContent = '-- unassigned --';
+    ownerSelect.appendChild(noneOpt);
+    (state.allPlayers || []).slice().sort(function (a, b) { return a.id.localeCompare(b.id); }).forEach(function (p) {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.displayName ? (p.displayName + ' (' + p.id + ')') : p.id;
+      ownerSelect.appendChild(opt);
     });
-    catWrap.appendChild(catSelect);
-    leftCol.appendChild(catWrap);
-
-    if ((CONFIG.subtypesByCategory[draft.category] || []).length) {
-      const subtypeWrap = document.createElement('div');
-      subtypeWrap.className = 'entity-edit-field';
-      const subtypeLabelEl = document.createElement('label');
-      subtypeLabelEl.textContent = 'Subtype';
-      subtypeWrap.appendChild(subtypeLabelEl);
-      const subtypeSelect = document.createElement('select');
-      const noneOpt = document.createElement('option');
-      noneOpt.value = '';
-      noneOpt.textContent = '-- none --';
-      subtypeSelect.appendChild(noneOpt);
-      CONFIG.subtypesByCategory[draft.category].forEach(function (st) {
-        const opt = document.createElement('option');
-        opt.value = st;
-        opt.textContent = subtypeLabel(st);
-        subtypeSelect.appendChild(opt);
-      });
-      subtypeSelect.value = draft.subtype || '';
-      subtypeSelect.addEventListener('change', function () { draft.subtype = subtypeSelect.value; });
-      subtypeWrap.appendChild(subtypeSelect);
-      leftCol.appendChild(subtypeWrap);
-    }
-
-    if (draft.category === 'Character') {
-      leftCol.appendChild(makeEditField('Ancestry', draft.ancestry, function (v) { draft.ancestry = v; }));
-      leftCol.appendChild(makeEditField('Aliases (comma-separated)', draft.aliases, function (v) { draft.aliases = v; }));
-      const ownerWrap = document.createElement('div');
-      ownerWrap.className = 'entity-edit-field';
-      const ownerLabel = document.createElement('label');
-      ownerLabel.textContent = 'Owned by party member';
-      ownerWrap.appendChild(ownerLabel);
-      const ownerSelect = document.createElement('select');
-      const noneOpt = document.createElement('option');
-      noneOpt.value = '';
-      noneOpt.textContent = '-- unassigned --';
-      ownerSelect.appendChild(noneOpt);
-      (state.allPlayers || []).slice().sort(function (a, b) { return a.id.localeCompare(b.id); }).forEach(function (p) {
-        const opt = document.createElement('option');
-        opt.value = p.id;
-        opt.textContent = p.displayName ? (p.displayName + ' (' + p.id + ')') : p.id;
-        ownerSelect.appendChild(opt);
-      });
-      ownerSelect.value = draft.ownerId;
-      ownerSelect.addEventListener('change', function () { draft.ownerId = ownerSelect.value; });
-      ownerWrap.appendChild(ownerSelect);
-      leftCol.appendChild(ownerWrap);
-    }
-    if (draft.category === 'Scene' || draft.category === 'Event') {
-      leftCol.appendChild(makeEditField('Date', draft.date, function (v) { draft.date = v; }, { placeholder: 'e.g. 12d, 45y   or   3500ya' }));
-    }
-  } else {
-    const heading = document.createElement('h2');
-    heading.textContent = entity.name;
-    leftCol.appendChild(heading);
-
-    const catP = document.createElement('p');
-    catP.className = 'entity-type-line';
-    const catEm = document.createElement('em');
-    catEm.textContent = entity.category || '';
-    catP.appendChild(catEm);
-    if (entity.ancestry) {
-      catP.appendChild(document.createTextNode(' \u2014 '));
-      const ancestrySpan = document.createElement('span');
-      ancestrySpan.textContent = entity.ancestry;
-      catP.appendChild(ancestrySpan);
-      applyWikiLinks(ancestrySpan, entity.id, gmView);
-    }
-    if (entity.subtype) {
-      catP.appendChild(document.createTextNode(' \u2014 ' + entity.subtype));
-    }
-    leftCol.appendChild(catP);
-
-    const metaBits = [];
-    if (entity.aliases && entity.aliases.length) metaBits.push('Also known as: ' + entity.aliases.join(', '));
-    if (entity.date) metaBits.push('Date: ' + entity.date);
-    if (entity.ownerId && gmView) metaBits.push('Owned by: ' + entity.ownerId);
-    if (metaBits.length) {
-      const metaDiv = document.createElement('div');
-      metaDiv.className = 'entity-meta-line';
-      metaDiv.textContent = metaBits.join(' \u00b7 ');
-      leftCol.appendChild(metaDiv);
-    }
-
-    // Structured details/features render as a display-time merge into the
-    // entity's lore items (first 'meta-details'/'meta-features' item) --
-    // see renderLoreList -- not as a standalone block here.
-
-    if (entity.tags && entity.tags.length) {
-      const tagsDiv = document.createElement('div');
-      tagsDiv.id = 'codex-tags';
-      (entity.tags || []).forEach(function (t) {
-        const span = document.createElement('span');
-        span.textContent = t;
-        tagsDiv.appendChild(span);
-      });
-      leftCol.appendChild(tagsDiv);
-    }
+    ownerSelect.value = draft.ownerId;
+    ownerSelect.addEventListener('change', function () { draft.ownerId = ownerSelect.value; });
+    ownerWrap.appendChild(ownerSelect);
+    leftCol.appendChild(ownerWrap);
+  }
+  if (draft.category === 'Scene' || draft.category === 'Event') {
+    leftCol.appendChild(makeEditField('Date', draft.date, function (v) { draft.date = v; }, { placeholder: 'e.g. 12d, 45y   or   3500ya' }));
   }
   headingRow.appendChild(leftCol);
 
   const rightCol = document.createElement('div');
-  rightCol.id = 'codex-card-heading-right';
-  if (gmView) {
+  rightCol.className = 'codex-card-heading-right';
+  rightCol.appendChild(buildEntityVisibilityToggle(entity)); // editing implies gmView
+  if (entity.category === 'Location' && entity.hasMapImage) {
+    const mapLink = document.createElement('button');
+    mapLink.type = 'button';
+    mapLink.className = 'entity-map-link';
+    mapLink.title = 'Open map';
+    mapLink.textContent = CONFIG.icons.map;
+    mapLink.addEventListener('click', function () {
+      if (mapNavigationHandler) mapNavigationHandler(entity.id);
+    });
+    rightCol.appendChild(mapLink);
+  }
+  headingRow.appendChild(rightCol);
+  contentWrap.appendChild(headingRow);
+
+  const editBlock = document.createElement('div');
+  editBlock.className = 'entity-edit-block';
+  renderEntityEditBlock(editBlock, entity, draft);
+  contentWrap.appendChild(editBlock);
+}
+
+// Shared read-only entity card renderer -- hero, heading, meta/tags,
+// Lore/Gallery/Notes tabs, related chips, source label. Used by the Codex
+// tab's own view-mode display (opts.allowEdit:true unlocks the visibility
+// toggle and GM Edit/Delete actions row) AND by read-only side panels
+// (Timeline's entry-card panel now; Map's planned back-port later) with
+// opts.allowEdit:false -- same rendering, no GM controls or clutter,
+// regardless of the viewer's actual role. Content visibility (which lore
+// items/gallery images are included) still follows the real gmView passed
+// in; only editing/toggle CHROME is gated by allowEdit. Structural element
+// ids from the pre-refactor single-instance version are now classes,
+// since this can render into more than one container in the DOM at once
+// (Codex tab + Timeline panel simultaneously) -- ids must stay
+// document-unique, same reasoning as buildEntityPreviewCard's existing
+// class-not-id comment.
+function renderEntityViewCard(container, entity, gmView, opts) {
+  opts = opts || {};
+  const allowEdit = !!opts.allowEdit;
+
+  container.classList.remove('vis-hidden', 'vis-visible');
+  container.classList.add(entity.visibility === 'all-players' ? 'vis-visible' : 'vis-hidden');
+
+  const portrait = portraitImageFor(entity, gmView);
+  container.classList.toggle('has-hero', !!portrait);
+  if (portrait) {
+    const band = document.createElement('div');
+    band.className = 'codex-card-hero-band';
+    band.appendChild(buildCardHero(entity, portrait, allowEdit));
+    container.appendChild(band);
+  } else if (allowEdit) {
+    cardHeroState = null;
+  }
+
+  const contentWrap = document.createElement('div');
+  contentWrap.className = 'codex-card-content';
+  container.appendChild(contentWrap);
+
+  const headingRow = document.createElement('div');
+  headingRow.className = 'codex-card-heading';
+
+  const leftCol = document.createElement('div');
+  leftCol.className = 'codex-card-heading-left';
+
+  const heading = document.createElement('h2');
+  heading.textContent = entity.name;
+  leftCol.appendChild(heading);
+
+  const catP = document.createElement('p');
+  catP.className = 'entity-type-line';
+  const catEm = document.createElement('em');
+  catEm.textContent = entity.category || '';
+  catP.appendChild(catEm);
+  if (entity.ancestry) {
+    catP.appendChild(document.createTextNode(' \u2014 '));
+    const ancestrySpan = document.createElement('span');
+    ancestrySpan.textContent = entity.ancestry;
+    catP.appendChild(ancestrySpan);
+    applyWikiLinks(ancestrySpan, entity.id, gmView);
+  }
+  if (entity.subtype) {
+    catP.appendChild(document.createTextNode(' \u2014 ' + entity.subtype));
+  }
+  leftCol.appendChild(catP);
+
+  const metaBits = [];
+  if (entity.aliases && entity.aliases.length) metaBits.push('Also known as: ' + entity.aliases.join(', '));
+  if (entity.date) metaBits.push('Date: ' + entity.date);
+  if (entity.ownerId && gmView) metaBits.push('Owned by: ' + entity.ownerId);
+  if (metaBits.length) {
+    const metaDiv = document.createElement('div');
+    metaDiv.className = 'entity-meta-line';
+    metaDiv.textContent = metaBits.join(' \u00b7 ');
+    leftCol.appendChild(metaDiv);
+  }
+
+  // Structured details/features render as a display-time merge into the
+  // entity's lore items (first 'meta-details'/'meta-features' item) --
+  // see resolveLoreItemMarkdown -- not as a standalone block here.
+
+  if (entity.tags && entity.tags.length) {
+    const tagsDiv = document.createElement('div');
+    tagsDiv.className = 'codex-tags';
+    (entity.tags || []).forEach(function (t) {
+      const span = document.createElement('span');
+      span.textContent = t;
+      tagsDiv.appendChild(span);
+    });
+    leftCol.appendChild(tagsDiv);
+  }
+  headingRow.appendChild(leftCol);
+
+  const rightCol = document.createElement('div');
+  rightCol.className = 'codex-card-heading-right';
+  if (gmView && allowEdit) {
     rightCol.appendChild(buildEntityVisibilityToggle(entity));
   }
   if (entity.category === 'Location' && entity.hasMapImage) {
@@ -2592,51 +2670,38 @@ function renderDetailForSelected() {
     rightCol.appendChild(mapLink);
   }
   headingRow.appendChild(rightCol);
-  headingTarget.appendChild(headingRow);
+  contentWrap.appendChild(headingRow);
 
-  if (editing) {
-    const editBlock = document.createElement('div');
-    editBlock.className = 'entity-edit-block';
-    renderEntityEditBlock(editBlock, entity, draft);
-    contentWrap.appendChild(editBlock);
-  }
-
-  // --- Lore / Gallery / Notes tab box (view mode only — hidden while
-  // editing; tags/related/delete are edited inline above instead) ---
-  if (!editing) {
-    const tabsRow = document.createElement('div');
-    tabsRow.id = 'codex-detail-tabs';
-    [['lore', 'Lore'], ['gallery', 'Gallery'], ['notes', 'Notes']].forEach(function (pair) {
-      const tabKey = pair[0];
-      const tabBtn = document.createElement('button');
-      tabBtn.type = 'button';
-      tabBtn.textContent = pair[1];
-      if (state.detailActiveTab === tabKey) tabBtn.classList.add('active');
-      tabBtn.addEventListener('click', function () {
-        state.detailActiveTab = tabKey;
-        renderDetailForSelected();
-      });
-      tabsRow.appendChild(tabBtn);
+  const tabsRow = document.createElement('div');
+  tabsRow.className = 'codex-detail-tabs';
+  const activeTab = opts.activeTab || 'lore';
+  [['lore', 'Lore'], ['gallery', 'Gallery'], ['notes', 'Notes']].forEach(function (pair) {
+    const tabKey = pair[0];
+    const tabBtn = document.createElement('button');
+    tabBtn.type = 'button';
+    tabBtn.textContent = pair[1];
+    if (activeTab === tabKey) tabBtn.classList.add('active');
+    tabBtn.addEventListener('click', function () {
+      if (opts.onTabChange) opts.onTabChange(tabKey);
     });
-    contentWrap.appendChild(tabsRow);
+    tabsRow.appendChild(tabBtn);
+  });
+  contentWrap.appendChild(tabsRow);
 
-    const tabPanel = document.createElement('div');
-    tabPanel.id = 'codex-detail-tab-panel';
-    contentWrap.appendChild(tabPanel);
+  const tabPanel = document.createElement('div');
+  tabPanel.className = 'codex-detail-tab-panel';
+  contentWrap.appendChild(tabPanel);
 
-    if (state.detailActiveTab === 'notes') {
-      const notesEmptyP = document.createElement('p');
-      notesEmptyP.className = 'lore-empty';
-      notesEmptyP.textContent = 'Notes are coming in a future update.';
-      tabPanel.appendChild(notesEmptyP);
-    } else if (state.detailActiveTab === 'gallery') {
-      renderGalleryTab(tabPanel, entity, gmView);
-    } else {
-      renderLoreTab(tabPanel, entity, gmView);
-    }
+  if (activeTab === 'notes') {
+    const notesEmptyP = document.createElement('p');
+    notesEmptyP.className = 'lore-empty';
+    notesEmptyP.textContent = 'Notes are coming in a future update.';
+    tabPanel.appendChild(notesEmptyP);
+  } else if (activeTab === 'gallery') {
+    renderGalleryTab(tabPanel, entity, gmView, !allowEdit);
+  } else {
+    renderLoreTab(tabPanel, entity, gmView, !allowEdit);
   }
-
-  if (editing) return; // tags/gallery/related/delete are edited inline above; card ends here
 
   // --- Related entities ---
   // Relatedness is enforced symmetric at display time: A -> B always
@@ -2659,15 +2724,17 @@ function renderDetailForSelected() {
 
     if (visibleRelated.length) {
       const relatedDiv = document.createElement('div');
-      relatedDiv.id = 'codex-related';
+      relatedDiv.className = 'codex-related';
       const chipsDiv = document.createElement('div');
-      chipsDiv.id = 'codex-related-chips';
+      chipsDiv.className = 'codex-related-chips';
       visibleRelated.forEach(function (target) {
         const chip = document.createElement('button');
         chip.type = 'button';
         chip.className = 'related-chip';
         chip.textContent = target.name;
-        chip.addEventListener('click', function () { selectEntity(target.id, true); });
+        chip.addEventListener('click', function () {
+          if (opts.onRelatedClick) opts.onRelatedClick(target.id);
+        });
         chipsDiv.appendChild(chip);
       });
       relatedDiv.appendChild(chipsDiv);
@@ -2676,10 +2743,9 @@ function renderDetailForSelected() {
   }
 
   // --- GM Edit/Delete actions (lower-right), then source attribution
-  // (lower-left) on its own row below them, for GM view. Players never
-  // see the actions row, so the source label just ends up at the
-  // bottom either way. ---
-  if (gmView) {
+  // (lower-left) on its own row below them. Only in allowEdit mode --
+  // read-only panels never show these regardless of gmView. ---
+  if (gmView && allowEdit) {
     const cardActions = document.createElement('div');
     cardActions.className = 'actions-row codex-card-bottom-actions';
     const right = document.createElement('div');
@@ -2740,5 +2806,6 @@ if (searchHelpBtn && searchHelpPopup && searchHelpWrap) {
 export {
   attachCodexListeners, detachCodexListeners, renderList, renderDetailForSelected,
   isEntityPlayerVisible, registerVisibilityChangeHandler, registerMapNavigationHandler,
-  clearCodexSearchInput, buildEntityPreviewCard, categoryGroupLabel, entityMatchesQuery
+  clearCodexSearchInput, buildEntityPreviewCard, categoryGroupLabel, entityMatchesQuery,
+  renderEntityViewCard, applyWikiLinks
 };
