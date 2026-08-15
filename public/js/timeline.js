@@ -52,12 +52,19 @@ let fitted = false;
 function tOf(entity) { return entity.dateSort / YEAR_SECONDS; }
 
 function fmtYears(t) {
-  if (Math.abs(t) < 1 / 365) {
+  // Strict zero check -- "Epoch" must label exactly one tick. The old
+  // Math.round(t)===0 check matched anything in [-0.5, 0.5) years, so
+  // whenever ticks were closer than a year apart (any time you're
+  // zoomed in near day/month scale) MULTIPLE adjacent ticks all
+  // rounded to 0 and all rendered "Epoch".
+  if (t === 0) return 'Epoch';
+  if (Math.abs(t) < 1) {
     const days = Math.round(t * 365);
-    return days === 0 ? 'epoch' : (days > 0 ? days + 'd' : Math.abs(days) + 'd ago');
+    if (days === 0) return 'Epoch';
+    return days > 0 ? days + 'd' : Math.abs(days) + 'da';
   }
   const y = Math.round(t);
-  return y === 0 ? 'epoch' : (y > 0 ? y + 'y' : Math.abs(y) + 'ya');
+  return y === 0 ? 'Epoch' : (y > 0 ? y + 'y' : Math.abs(y) + 'ya');
 }
 
 // --- Build the static shell once (toolbar, well+svg+zoom controls+
@@ -65,25 +72,6 @@ function fmtYears(t) {
 // into it by refresh() on every visibility/data change. ---
 function buildShell() {
   panelEl.innerHTML = '';
-
-  const toolbar = document.createElement('div');
-  toolbar.className = 'timeline-toolbar';
-
-  const listToggleBtn = document.createElement('button');
-  listToggleBtn.type = 'button';
-  listToggleBtn.className = 'action-btn-compact';
-  listToggleBtn.textContent = 'Event / Scene list';
-  listToggleBtn.addEventListener('click', function () {
-    listPanel.classList.toggle('open');
-  });
-  toolbar.appendChild(listToggleBtn);
-
-  const fitBtn = document.createElement('button');
-  fitBtn.type = 'button';
-  fitBtn.className = 'action-btn-compact';
-  fitBtn.textContent = 'Fit all';
-  fitBtn.addEventListener('click', function () { fitToView(); render(); });
-  toolbar.appendChild(fitBtn);
 
   const introP = document.createElement('p');
   introP.className = 'admin-hint timeline-intro';
@@ -104,12 +92,13 @@ function buildShell() {
     introP.appendChild(document.createTextNode('\u201cDates and Times\u201d (Game Mechanics)'));
   }
   introP.appendChild(document.createTextNode(' for the full explanation.'));
-
-  panelEl.appendChild(toolbar);
   panelEl.appendChild(introP);
 
   const layout = document.createElement('div');
   layout.className = 'timeline-layout';
+
+  const wellCol = document.createElement('div');
+  wellCol.className = 'timeline-well-col';
 
   const wellWrap = document.createElement('div');
   wellWrap.className = 'timeline-well-wrap';
@@ -136,7 +125,27 @@ function buildShell() {
   preview.className = 'timeline-preview-popup';
   wellWrap.appendChild(preview);
 
-  layout.appendChild(wellWrap);
+  wellCol.appendChild(wellWrap);
+
+  const wellActions = document.createElement('div');
+  wellActions.className = 'timeline-well-actions';
+  const listToggleBtn = document.createElement('button');
+  listToggleBtn.type = 'button';
+  listToggleBtn.className = 'action-btn-compact';
+  listToggleBtn.textContent = 'List all';
+  listToggleBtn.addEventListener('click', function () {
+    listPanel.classList.toggle('open');
+  });
+  wellActions.appendChild(listToggleBtn);
+  const fitBtn = document.createElement('button');
+  fitBtn.type = 'button';
+  fitBtn.className = 'action-btn-compact';
+  fitBtn.textContent = 'Fit all';
+  fitBtn.addEventListener('click', function () { fitToView(); render(); });
+  wellActions.appendChild(fitBtn);
+  wellCol.appendChild(wellActions);
+
+  layout.appendChild(wellCol);
 
   const cardPane = document.createElement('div');
   cardPane.className = 'timeline-card-pane';
@@ -264,7 +273,7 @@ function renderListPanel() {
     row.appendChild(nameSpan);
 
     const catSpan = document.createElement('span');
-    catSpan.className = 'timeline-row-cat';
+    catSpan.className = 'timeline-row-cat ' + catClass(entity.category);
     catSpan.textContent = entity.category;
     row.appendChild(catSpan);
 
@@ -371,8 +380,15 @@ function render() {
   dom.svg.appendChild(mk('line', { class: 'timeline-spine', x1: spineCross, y1: 0, x2: spineCross, y2: dim }));
 
   const step = niceTicks();
-  const startTick = Math.floor(offset / step) * step;
-  for (let t = startTick; (t - offset) * scale < dim + step * scale; t += step) {
+  // Integer multiples of step, not accumulated t += step -- floating
+  // point drift from repeated addition meant t was rarely EXACTLY 0
+  // even when a tick should land precisely on epoch, and combined with
+  // fmtYears' old rounding-based "epoch" check, produced multiple
+  // mislabeled ticks near epoch. n * step is exact at n=0.
+  const nStart = Math.ceil((offset - step) / step);
+  const nEnd = Math.floor((offset + dim / scale + step) / step);
+  for (let n = nStart; n <= nEnd; n++) {
+    const t = n * step;
     const px = (t - offset) * scale;
     if (px < -20 || px > dim + 20) continue;
     const g = mk('g', { class: 'timeline-axis-tick' });
@@ -529,11 +545,18 @@ function attachStageInteraction() {
     if (el.dataset.role === 'node') {
       openEntityInPanel(el.dataset.entityId);
     } else if (el.dataset.role === 'cluster') {
+      // "Zoom to bounds": stretch the cluster's own t-span to occupy a
+      // generous portion of the viewport, same idea as Leaflet marker
+      // clusters zooming to fit their members. Re-clusters and can be
+      // tapped again for dense sub-clusters, same as Leaflet's.
       const tMin = parseFloat(el.dataset.tMin), tMax = parseFloat(el.dataset.tMax);
       const targetT = tMin + (tMax - tMin) / 2;
-      const cy = parseFloat(el.dataset.cy);
-      scale *= 4;
-      offset = targetT - (cy / scale);
+      const rect = svg.getBoundingClientRect();
+      const dim = rect.height || 400;
+      const span = tMax - tMin;
+      const targetScale = span > 0 ? (dim * 0.6) / span : scale * 6;
+      scale = Math.max(targetScale, scale * 1.5); // always zoom in, never out
+      offset = targetT - (dim / 2) / scale;
       render();
     }
   }
