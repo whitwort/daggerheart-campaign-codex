@@ -201,7 +201,7 @@ function buildShell() {
     openEntityInPanel(a.dataset.entityId);
   });
 
-  dom = { layout: layout, svg: svg, wellWrap: wellWrap, preview: preview, clusterPicker: clusterPicker, cardPane: cardPane, listPanel: listPanel, listBody: listBody };
+  dom = { layout: layout, svg: svg, wellWrap: wellWrap, wellInner: wellInner, preview: preview, clusterPicker: clusterPicker, cardPane: cardPane, listPanel: listPanel, listBody: listBody };
   attachStageInteraction();
   fitLayoutHeight();
 
@@ -386,7 +386,13 @@ function updateWellGradient() {
   const epochPx = (0 - offset) * scale;
   const epochFrac = Math.max(0, Math.min(1, epochPx / dim));
   const blend = mixHex(fear, hope, 0.5);
-  dom.wellWrap.style.background =
+  // The gradient must be set on the INNER div, not the outer wrap --
+  // .timeline-well-inner carries its own opaque background (needed as
+  // a pre-first-render fallback) that fully covers whatever's behind
+  // it, so setting this on wellWrap (the outer, unclipped div added
+  // for the popup-clipping fix) silently obscured the gradient
+  // entirely behind the inner div's solid color.
+  dom.wellInner.style.background =
     'linear-gradient(to bottom, ' +
     fear + ' 0%, ' + blend + ' ' + (epochFrac * 100).toFixed(1) + '%, ' + hope + ' 100%)';
 }
