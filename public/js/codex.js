@@ -477,7 +477,7 @@ function buildDetailsMarkdown(entity) {
 function buildFeaturesMarkdown(entity) {
   const feats = entity.features || [];
   if (!feats.length) return '';
-  const lines = ['### Feature'];
+  const lines = ['### Features'];
   feats.forEach(function (f) { lines.push('**' + f.name + '.** ' + f.text, ''); });
   return lines.join('\n').trim();
 }
@@ -487,7 +487,14 @@ function resolveLoreItemMarkdown(entity, item, items) {
     const first = items.find(function (it) { return it.meta === item.meta; });
     if (first && first.id === item.id) {
       const synthesized = item.meta === 'meta-details' ? buildDetailsMarkdown(entity) : buildFeaturesMarkdown(entity);
-      if (synthesized) return item.content ? synthesized + '\n\n' + item.content : synthesized;
+      if (!synthesized) return item.content;
+      if (!item.content) return synthesized;
+      // 'meta-details' leftover content is itself more bullets (e.g.
+      // weapon Damage, armor Base Score) -- join with a single newline so
+      // it reads as one continuous list, matching the original single-blob
+      // markdown's formatting, not two visually separated lists.
+      const joiner = item.meta === 'meta-details' ? '\n' : '\n\n';
+      return synthesized + joiner + item.content;
     }
   }
   return item.content;
@@ -2471,19 +2478,9 @@ function renderDetailForSelected() {
     // entity's lore items (first 'meta-details'/'meta-features' item) --
     // see renderLoreList -- not as a standalone block here.
 
-    // Meta badge: derived from category membership in CONFIG.metaCategories,
-    // not a per-entity toggle (removed -- was a lingering oversight; an
-    // entry's meta-ness is entirely a function of its type).
-    const isMetaCategory = CONFIG.metaCategories.indexOf(entity.category) !== -1;
-    if (entity.tags && entity.tags.length || isMetaCategory) {
+    if (entity.tags && entity.tags.length) {
       const tagsDiv = document.createElement('div');
       tagsDiv.id = 'codex-tags';
-      if (isMetaCategory) {
-        const metaTag = document.createElement('span');
-        metaTag.className = 'meta-tag';
-        metaTag.textContent = 'Meta';
-        tagsDiv.appendChild(metaTag);
-      }
       (entity.tags || []).forEach(function (t) {
         const span = document.createElement('span');
         span.textContent = t;
