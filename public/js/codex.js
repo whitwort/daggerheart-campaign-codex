@@ -518,12 +518,13 @@ function isEntityPlayerVisible(entityId) {
 
 // --- List pane (Table of Contents) ---------------------------------------
 
-function matchesFilters(entity) {
-  const raw = searchEl.value.trim().toLowerCase();
+// Shared by the main Entry Browser search box and the map pin panel's
+// entity picker search (map.js) -- comma-separated terms AND together;
+// each term OR-matches name/tags/aliases substring plus the hidden
+// searchIndex (template Details/Features whitelist, see templates.js).
+function entityMatchesQuery(entity, rawQuery) {
+  const raw = (rawQuery || '').trim().toLowerCase();
   if (!raw) return true;
-  // Comma-separated terms are AND'd ("Bow, Tier 1" -> name/tag/alias
-  // contains "bow" AND name/tag/alias contains "tier 1"); each term still
-  // OR-matches across name/tags/aliases individually, same as before.
   const terms = raw.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
   if (!terms.length) return true;
   return terms.every(function (q) {
@@ -540,6 +541,9 @@ function matchesFilters(entity) {
     });
     return nameMatch || tagMatch || aliasMatch || indexMatch;
   });
+}
+function matchesFilters(entity) {
+  return entityMatchesQuery(entity, searchEl.value);
 }
 
 // Selecting a new entity always lands back on the Lore tab, out of edit
@@ -2646,5 +2650,5 @@ searchEl.addEventListener('input', renderList);
 export {
   attachCodexListeners, detachCodexListeners, renderList, renderDetailForSelected,
   isEntityPlayerVisible, registerVisibilityChangeHandler, registerMapNavigationHandler,
-  clearCodexSearchInput, buildEntityPreviewCard, categoryGroupLabel
+  clearCodexSearchInput, buildEntityPreviewCard, categoryGroupLabel, entityMatchesQuery
 };
