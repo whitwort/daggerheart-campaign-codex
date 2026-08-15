@@ -3001,6 +3001,9 @@ function renderEntityViewCard(container, entity, gmView, opts) {
   }
 
   // --- Related entities ---
+  // Lore-tab only (intended design) -- these chips are about the
+  // entity's in-fiction connections, which belongs with its lore
+  // content, not floating under Gallery/Notes too.
   // Relatedness is enforced symmetric at display time: A -> B always
   // implies B -> A, even if only one side's relatedIds array actually
   // stores the link (e.g. a link added before this rule existed, or an
@@ -3009,33 +3012,35 @@ function renderEntityViewCard(container, entity, gmView, opts) {
   // of which entity's data is stale.
   // Player view only links to targets that are themselves player-visible;
   // dangling IDs (deleted target) silently skipped.
-  const reverseRelatedIds = state.allEntities
-    .filter(function (e) { return e.id !== entity.id && (e.relatedIds || []).indexOf(entity.id) !== -1; })
-    .map(function (e) { return e.id; });
-  const relatedIds = (entity.relatedIds || []).concat(reverseRelatedIds)
-    .filter(function (id, idx, arr) { return arr.indexOf(id) === idx; });
-  if (relatedIds.length) {
-    const visibleRelated = relatedIds
-      .map(function (id) { return state.allEntities.find(function (e) { return e.id === id; }); })
-      .filter(function (target) { return target && (gmView || isEntityPlayerVisible(target.id)); });
+  if (activeTab === 'lore') {
+    const reverseRelatedIds = state.allEntities
+      .filter(function (e) { return e.id !== entity.id && (e.relatedIds || []).indexOf(entity.id) !== -1; })
+      .map(function (e) { return e.id; });
+    const relatedIds = (entity.relatedIds || []).concat(reverseRelatedIds)
+      .filter(function (id, idx, arr) { return arr.indexOf(id) === idx; });
+    if (relatedIds.length) {
+      const visibleRelated = relatedIds
+        .map(function (id) { return state.allEntities.find(function (e) { return e.id === id; }); })
+        .filter(function (target) { return target && (gmView || isEntityPlayerVisible(target.id)); });
 
-    if (visibleRelated.length) {
-      const relatedDiv = document.createElement('div');
-      relatedDiv.className = 'codex-related';
-      const chipsDiv = document.createElement('div');
-      chipsDiv.className = 'codex-related-chips';
-      visibleRelated.forEach(function (target) {
-        const chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'related-chip';
-        chip.textContent = target.name;
-        chip.addEventListener('click', function () {
-          if (opts.onRelatedClick) opts.onRelatedClick(target.id);
+      if (visibleRelated.length) {
+        const relatedDiv = document.createElement('div');
+        relatedDiv.className = 'codex-related';
+        const chipsDiv = document.createElement('div');
+        chipsDiv.className = 'codex-related-chips';
+        visibleRelated.forEach(function (target) {
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'related-chip';
+          chip.textContent = target.name;
+          chip.addEventListener('click', function () {
+            if (opts.onRelatedClick) opts.onRelatedClick(target.id);
+          });
+          chipsDiv.appendChild(chip);
         });
-        chipsDiv.appendChild(chip);
-      });
-      relatedDiv.appendChild(chipsDiv);
-      contentWrap.appendChild(relatedDiv);
+        relatedDiv.appendChild(chipsDiv);
+        contentWrap.appendChild(relatedDiv);
+      }
     }
   }
 
