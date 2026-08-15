@@ -5,8 +5,11 @@
 //
 // Format: comma-separated tokens, largest unit first, each token
 // "<int><unit>[a]" where unit is one of y/d/h/m (no seconds, no months
-// in user-facing dates). Epoch (offset 0) is 1y,1d,1h,1m — the sunset
-// ending the Prologue's last day. Counting is 1-indexed ("1y" = within
+// in user-facing dates). Whitespace is allowed and ignored between the
+// number, unit, and trailing "a" (e.g. "250 ya" and "250ya" parse
+// identically) -- GMs naturally type it either way, and a silently
+// unparseable date is worse than being lenient here. Epoch (offset 0)
+// is 1y,1d,1h,1m — the sunset ending the Prologue's last day. Counting is 1-indexed ("1y" = within
 // the first year), so a token WITHOUT the trailing "a" contributes
 // (value - 1) units, added toward the present. A token WITH "a" ("ago")
 // contributes its literal value, subtracted toward the past — no -1,
@@ -41,7 +44,7 @@ function parseDateSpec(raw) {
   let coarsestHasA = null;
 
   for (let i = 0; i < tokens.length; i++) {
-    const m = tokens[i].match(/^(\d+)(y|d|h|m)(a)?$/i);
+    const m = tokens[i].match(/^(\d+)\s*(y|d|h|m)\s*(a)?$/i);
     if (!m) {
       return { ok: false, error: 'Bad token "' + tokens[i] + '" — expected e.g. "12d" or "45ya".' };
     }

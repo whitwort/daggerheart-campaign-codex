@@ -87,8 +87,8 @@ function fmtTick(offsetSeconds, granularity) {
   // zoomed out to year-level ticks), fall back to a distinct "<1"
   // label rather than "Epoch" -- reusing "Epoch" here would reproduce
   // the exact duplicate-Epoch bug fixed earlier this session.
-  const parts = tokens.filter(function (t) { return t[1] !== 0; }).map(function (t) { return t[1] + t[0] + suffix; });
-  if (!parts.length) return isPast ? '<1ya' : '<1y';
+  const parts = tokens.filter(function (t) { return t[1] !== 0; }).map(function (t) { return t[1] + ' ' + t[0] + suffix; });
+  if (!parts.length) return isPast ? '<1 ya' : '<1 y';
   return parts.join(', ');
 }
 
