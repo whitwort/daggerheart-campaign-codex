@@ -154,17 +154,26 @@ function buildTemplateData(rec, schema) {
 
   let features = [];
   if (schema.hasFeatures) {
-    usedKeys.feature = true;
-    if (Array.isArray(rec.feature)) {
-      features = rec.feature.map(function (f) { return { name: f.name, text: f.text }; });
-    }
-    // Classes: hope_feature_name/hope_feature_text is a single extra
-    // feature, not a separate mechanism -- appended to the same
-    // structured features list rather than modeled as its own field.
-    usedKeys.hope_feature_name = true;
-    usedKeys.hope_feature_text = true;
-    if (rec.hope_feature_name && rec.hope_feature_text) {
-      features.push({ name: rec.hope_feature_name, text: rec.hope_feature_text });
+    if (schema.featureGroups) {
+      schema.featureGroups.forEach(function (g) {
+        usedKeys[g.key] = true;
+        if (Array.isArray(rec[g.key])) {
+          rec[g.key].forEach(function (f) { features.push({ name: f.name, text: f.text, group: g.key }); });
+        }
+      });
+    } else {
+      usedKeys.feature = true;
+      if (Array.isArray(rec.feature)) {
+        features = rec.feature.map(function (f) { return { name: f.name, text: f.text }; });
+      }
+      // Classes: hope_feature_name/hope_feature_text is a single extra
+      // feature, not a separate mechanism -- appended to the same
+      // structured features list rather than modeled as its own field.
+      usedKeys.hope_feature_name = true;
+      usedKeys.hope_feature_text = true;
+      if (rec.hope_feature_name && rec.hope_feature_text) {
+        features.push({ name: rec.hope_feature_name, text: rec.hope_feature_text });
+      }
     }
   }
 

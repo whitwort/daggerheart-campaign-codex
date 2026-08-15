@@ -98,6 +98,27 @@ const TEMPLATE_SCHEMAS = {
       { key: 'hp', standalone: false, searchable: true }
     ],
     hasFeatures: true
+  },
+  'Game Mechanics/subclasses': {
+    // Three tiers players advance through (Foundation -> Mastery ->
+    // Specialization), each with its own feature(s) -- unlike every
+    // other templated type, `features` isn't one flat list. Each
+    // feature item carries a `group` (matching a featureGroups[].key)
+    // so storage stays a single flat {name,text,group}[] array (no
+    // rules/schema change needed for nested structure) while display
+    // and the edit UI render three separate sections. Phase 14's
+    // character "card" tracking will read `group` to present each
+    // tier as its own card -- this is why grouping is modeled at all
+    // rather than flattened with prefixed names.
+    detailKeys: [
+      { key: 'spellcast_trait', standalone: true, searchable: true }
+    ],
+    hasFeatures: true,
+    featureGroups: [
+      { key: 'foundation', label: 'Foundation' },
+      { key: 'mastery', label: 'Mastery' },
+      { key: 'specialization', label: 'Specialization' }
+    ]
   }
 };
 
