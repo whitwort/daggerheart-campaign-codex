@@ -275,7 +275,16 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 .split-col #map-card-well { flex: 1 1 auto; min-height: 0; }
 #map-well {
   background: var(--void-raised); border: 1px solid var(--void-line);
-  border-radius: 14px; padding: 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  border-radius: 14px; padding: 1rem;
+  /* padding-top matches #map-card-well's 3rem glow clearance (below)
+     so the leaflet map and the entity card start at the same Y
+     position -- same alignment fix as #codex-list-pane/#codex-detail-
+     pane. fitMapContainerSize (map.js) reads this pane's padding via
+     getComputedStyle already, so the extra top padding is
+     automatically accounted for in the image's available-height
+     budget -- no JS change needed here. */
+  padding-top: 3rem;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
   display: flex; flex-direction: column;
 }
 /* No box chrome here, deliberately -- .codex-entity-card (appended
@@ -500,7 +509,14 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
    supposed to make unnecessary. */
 #codex-list-pane {
   flex: 0 0 320px; background: var(--void-raised); border: 1px solid var(--void-line);
-  border-radius: 14px; padding: 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  border-radius: 14px; padding: 1rem;
+  /* padding-top matches #codex-detail-pane's 3rem glow clearance
+     (below) so the two panes' CONTENT starts at the same Y position --
+     without this, the detail card's top sat noticeably lower than the
+     Table of Contents' own top once that pane needed real clearance
+     for the vis-hidden/vis-visible glow to not get hard-clipped. */
+  padding-top: 3rem;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
   display: flex; flex-direction: column; min-height: 0;
 }
 /* Phase 13: this pane clips overflow now (viewport-fit rework), which
