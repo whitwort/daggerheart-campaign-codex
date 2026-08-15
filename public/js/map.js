@@ -100,7 +100,15 @@ function navigateToMapForEntity(entityId) {
   if (mapTabBtn && !document.getElementById('map-panel').classList.contains('active')) {
     mapTabBtn.click();
   } else {
-    loadMap(entityId);
+    // Already on the Map tab (e.g. clicking a circle pin to zoom into
+    // its sub-map) -- ensureMapTabReady() (not a bare loadMap() call)
+    // so the Well B entity card gets its renderMapCardPane() too. A
+    // direct loadMap(entityId) here was the bug: it loads the new
+    // map's image/pins correctly but never re-renders the card, so it
+    // kept showing the PREVIOUS map's entity. Tab-switch navigation
+    // (the if-branch above) was never affected -- the tab click
+    // handler's own ensureMapTabReady() call already covered it.
+    ensureMapTabReady();
   }
 }
 registerMapNavigationHandler(navigateToMapForEntity);
