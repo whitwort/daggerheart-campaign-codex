@@ -452,9 +452,9 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 
 /* Pin panel: docked to the side (not a full-screen modal) so the map
    stays visible/clickable while placing or editing a pin. Same
-   look/interaction pattern as the portrait picker panel (dark
+   look/interaction pattern as the gallery picker panel (dark
    semi-transparent well, draggable header) — see
-   .portrait-picker-panel/.portrait-picker-header for the touchstone. */
+   .gallery-picker-panel/.gallery-picker-header for the touchstone. */
 #pin-panel {
   display: none; position: fixed; top: 5rem; right: 1rem; width: 300px;
   max-height: 80vh; overflow-y: auto; background: rgba(26,31,40,0.94); color: var(--parchment);
@@ -1130,59 +1130,62 @@ button:disabled:hover { border-color: var(--void-line); }
 }
 .gallery-map-indicator.stacked { right: 2rem; }
 
-/* Set map dialog — plain modal (no crop/zoom to configure, unlike Set
-   portrait's docked panel), just a grid of gallery thumbnails to pick
-   from. */
-.map-picker-grid { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.75rem; }
-.map-picker-item {
-  width: 6rem; min-width: 6rem; height: 6rem; padding: 0; overflow: hidden;
-  border-radius: 6px; border: 2px solid var(--parchment-edge); box-shadow: none;
-  background: var(--parchment-edge);
-}
-.map-picker-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.map-picker-item.active { border-color: var(--fear); }
-.map-picker-item:hover { border-color: var(--hope); }
+/* Gallery-item "pick mode" affordance: while a gallery-picker panel
+   (Set portrait / Set map, Stage A) is open, gallery images become
+   clickable targets instead of opening the lightbox. Hope-colored
+   outline on hover signals "click to select" without duplicating a
+   second thumbnail grid inside the panel itself. */
+.gallery-item-pickable .gallery-item-image-wrap { cursor: pointer; }
+.gallery-item-pickable .gallery-item-image-wrap img { outline: 2px solid transparent; outline-offset: 2px; border-radius: 4px; }
+.gallery-item-pickable .gallery-item-image-wrap:hover img { outline-color: var(--hope); }
 
 /* Gallery tab hint box — stateless (no vis-hidden/vis-visible left
    stripe), otherwise matches the lore-item box treatment. */
 .gallery-hint-box { background: var(--parchment-edge); border-radius: 8px; padding: 0.75rem 0.9rem; margin-bottom: 0.6rem; }
 .gallery-hint-box .image-edit-status { margin: 0; }
 
-/* Set portrait picker — small drag-to-move floating panel (not a
-   full-screen modal), so the entry card stays visible/interactive
-   underneath. Stage A: pick a gallery image. Stage B: Zoom/fade
-   controls; the live preview + drag-to-reposition happen on the card
-   itself via portraitPreviewOverride, not in a box inside the panel. */
-.portrait-picker-panel {
+/* Gallery picker panel — small drag-to-move floating panel (not a
+   full-screen modal), so the entry card / gallery stays visible and
+   clickable underneath. Shared by both Set portrait and Set map:
+   Stage A ("Select image") asks the user to click a card directly in
+   the gallery below rather than duplicating a thumbnail grid in the
+   panel; Stage B holds each workflow's own follow-up (portrait:
+   zoom/fade sliders with live drag-to-reposition on the card itself
+   via portraitPreviewOverride; map: a small preview + Save/Remove/
+   Cancel). Same look as the Map tab's #pin-panel (dark
+   semi-transparent well, draggable header) -- see that rule's comment
+   for the other half of this shared pattern. */
+.gallery-picker-panel {
   position: fixed; top: 6rem; right: 2rem; width: 20rem; z-index: 500;
   background: rgba(26,31,40,0.94); border: 1px solid var(--void-line);
   border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,0.55);
 }
-.portrait-picker-header {
+.gallery-picker-header {
   cursor: grab; padding: 0.6rem 0.8rem; user-select: none; -webkit-user-select: none;
   touch-action: none; -webkit-touch-callout: none;
   font-family: var(--font-display), sans-serif; font-weight: 400; font-size: 0.95rem;
   border-bottom: 1px solid var(--void-line);
 }
-.portrait-picker-header:active { cursor: grabbing; }
-.portrait-picker-body { padding: 0.8rem; }
+.gallery-picker-header:active { cursor: grabbing; }
+.gallery-picker-body { padding: 0.8rem; }
 /* 5th button-width exception (see QOL-BACKLOG.md standing rule): the
-   panel is only 15rem wide, too narrow for the base 13rem fixed-width
+   panel is only 20rem wide, too narrow for the base 13rem fixed-width
    button, let alone two side by side. */
-.portrait-picker-body button { width: auto; min-width: 0; text-align: center; padding: 0.4rem 0.9rem; }
+.gallery-picker-body button { width: auto; min-width: 0; text-align: center; padding: 0.4rem 0.9rem; }
 #admin-players-table button { width: 6rem; min-width: 6rem; text-align: center; padding: 0.4rem 0.9rem; }
-.portrait-picker-body .modal-actions { margin-top: 0.9rem; }
+.gallery-picker-body .modal-actions { margin-top: 0.9rem; }
 /* .image-edit-status defaults to --ink-soft (dark brown, for the light
    parchment card) — unreadable on this dark panel; override to a muted
    light tone. */
-.portrait-picker-body .image-edit-status { color: rgba(233,221,194,0.65); }
+.gallery-picker-body .image-edit-status { color: rgba(233,221,194,0.65); }
 
-.portrait-thumb-row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-.portrait-thumb {
-  padding: 0; width: 3.4rem; min-width: 3.4rem; height: 3.4rem; border-radius: 6px;
-  overflow: hidden; border: 2px solid var(--void-line); box-shadow: none;
+/* Set map Stage B: small preview of the just-picked image above the
+   Save/Remove/Cancel actions, so the panel confirms what was clicked
+   without needing to duplicate the gallery. */
+.gallery-picker-preview {
+  width: 100%; border-radius: 6px; overflow: hidden; border: 1px solid var(--void-line);
 }
-.portrait-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gallery-picker-preview img { width: 100%; height: auto; display: block; }
 
 /* Card hero, while the picker's Stage B is open: draggable directly on
    the live card. The heading text normally sits above the hero (z-index)
@@ -1339,7 +1342,7 @@ button:disabled:hover { border-color: var(--void-line); }
 .timeline-edit-in-codex-link { font-size: 0.8rem; }
 
 /* List drawer: same dark floating-panel idiom as #pin-panel/
-   .portrait-picker-panel (touchstones for this pattern), anchored
+   .gallery-picker-panel (touchstones for this pattern), anchored
    top-left instead of top-right so it doesn't collide with the
    well's own zoom controls. Popup/expandable per Gregg's ask, not an
    always-open sidebar -- default closed, toggled from the toolbar. */

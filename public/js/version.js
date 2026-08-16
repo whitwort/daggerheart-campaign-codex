@@ -54,7 +54,7 @@ function hasUnsavedEditInProgress() {
   if (state.adminSourceEditId) return true;
   if (state.adminPlayerEditId) return true;
   if (document.querySelector('.modal-overlay.open')) return true;
-  if (document.querySelector('.portrait-picker-panel')) return true;
+  if (document.querySelector('.gallery-picker-panel')) return true;
   return false;
 }
 
