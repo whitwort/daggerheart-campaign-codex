@@ -125,15 +125,20 @@ function buildSourceSelect(currentSourceId, onChange) {
 // "Source: " (plain text, not part of the GM-authored Markdown) followed
 // by the source's Markdown content. Hides el and returns false if
 // there's no resolvable source (empty sourceId, or a dangling id from a
-// deleted source) so callers can collapse the label's layout space.
+// deleted source) so callers can collapse the label's layout space --
+// UNLESS alwaysShow is true, in which case it renders "Source: none"
+// instead of hiding.
 // containingEntitySourceId (optional): the entity/entry this item lives
 // under. If the item's own source is the SAME as the entity's, the
 // label is suppressed as redundant — but the item's sourceId is left
 // untouched in the database either way; this only affects display.
-function renderSourceLabel(el, sourceId, containingEntitySourceId) {
+// Ignored when alwaysShow is true (Gallery tab image cards and the Map
+// tab's map-image label always show their own source regardless of the
+// owning entity's, per Gregg's call).
+function renderSourceLabel(el, sourceId, containingEntitySourceId, alwaysShow) {
   const source = sourceById(sourceId);
-  const redundant = containingEntitySourceId != null && sourceId === containingEntitySourceId;
-  if (!source || redundant) {
+  const redundant = !alwaysShow && containingEntitySourceId != null && sourceId === containingEntitySourceId;
+  if ((!source && !alwaysShow) || redundant) {
     el.style.display = 'none';
     return false;
   }
@@ -142,7 +147,11 @@ function renderSourceLabel(el, sourceId, containingEntitySourceId) {
   el.appendChild(document.createTextNode('Source: '));
   const contentSpan = document.createElement('span');
   el.appendChild(contentSpan);
-  renderMarkdownInto(contentSpan, source.text);
+  if (source) {
+    renderMarkdownInto(contentSpan, source.text);
+  } else {
+    contentSpan.textContent = 'none';
+  }
   return true;
 }
 

@@ -2372,13 +2372,17 @@ function openSetMapDialog(entity, images) {
 // Entry Card itself — all image management (visibility, delete, add) lives
 // here in the Gallery tab, GM view only.
 
-function openImageLightbox(src, alt) {
+// images: array of gallery image docs (already visibility-filtered,
+// order-sorted -- same array renderGalleryTab iterates to build the
+// thumbnails). startIndex: which one to open first. altBase: entity
+// name, used as the alt text base for every image in the set.
+function openImageLightbox(images, startIndex, altBase) {
+  let index = startIndex;
   const overlay = document.createElement('div');
   overlay.className = 'image-lightbox-overlay';
   const img = document.createElement('img');
-  img.src = src;
-  img.alt = alt || '';
   overlay.appendChild(img);
+
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.className = 'image-lightbox-close';
@@ -2386,15 +2390,73 @@ function openImageLightbox(src, alt) {
   closeBtn.textContent = '\u2715';
   overlay.appendChild(closeBtn);
 
+  const multi = images.length > 1;
+  let prevBtn = null;
+  let nextBtn = null;
+  if (multi) {
+    prevBtn = document.createElement('button');
+    prevBtn.type = 'button';
+    prevBtn.className = 'image-lightbox-nav image-lightbox-prev';
+    prevBtn.setAttribute('aria-label', 'Previous image');
+    prevBtn.textContent = '\u2039';
+    overlay.appendChild(prevBtn);
+
+    nextBtn = document.createElement('button');
+    nextBtn.type = 'button';
+    nextBtn.className = 'image-lightbox-nav image-lightbox-next';
+    nextBtn.setAttribute('aria-label', 'Next image');
+    nextBtn.textContent = '\u203a';
+    overlay.appendChild(nextBtn);
+  }
+
+  function showIndex(i) {
+    index = (i + images.length) % images.length; // wraps both directions
+    img.src = images[index].data;
+    img.alt = altBase || '';
+  }
+  function showPrev() { showIndex(index - 1); }
+  function showNext() { showIndex(index + 1); }
+
   function close() {
     overlay.remove();
     document.removeEventListener('keydown', onKey);
   }
-  function onKey(ev) { if (ev.key === 'Escape') close(); }
+  function onKey(ev) {
+    if (ev.key === 'Escape') { close(); return; }
+    if (!multi) return;
+    if (ev.key === 'ArrowLeft') showPrev();
+    else if (ev.key === 'ArrowRight') showNext();
+  }
   overlay.addEventListener('click', function (ev) { if (ev.target === overlay) close(); });
   closeBtn.addEventListener('click', close);
+  if (multi) {
+    prevBtn.addEventListener('click', function (ev) { ev.stopPropagation(); showPrev(); });
+    nextBtn.addEventListener('click', function (ev) { ev.stopPropagation(); showNext(); });
+
+    // Touch swipe: horizontal drag past a small threshold switches
+    // image; a short/near-vertical drag is treated as a tap/scroll
+    // attempt and ignored, not a swipe.
+    let touchStartX = null;
+    let touchStartY = null;
+    overlay.addEventListener('touchstart', function (ev) {
+      if (ev.touches.length !== 1) return;
+      touchStartX = ev.touches[0].clientX;
+      touchStartY = ev.touches[0].clientY;
+    }, { passive: true });
+    overlay.addEventListener('touchend', function (ev) {
+      if (touchStartX === null) return;
+      const touch = ev.changedTouches[0];
+      const dx = touch.clientX - touchStartX;
+      const dy = touch.clientY - touchStartY;
+      touchStartX = null;
+      touchStartY = null;
+      if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
+      if (dx < 0) showNext(); else showPrev();
+    });
+  }
   document.addEventListener('keydown', onKey);
   document.body.appendChild(overlay);
+  showIndex(index);
 }
 
 // Lazy-loads SortableJS (same lazy-CDN pattern as marked/DOMPurify/
@@ -2517,7 +2579,7 @@ function renderGalleryTab(container, entity, gmView, readOnly) {
     const galleryDiv = document.createElement('div');
     galleryDiv.className = 'codex-gallery';
     const picking = !!galleryPickMode && galleryPickMode.entityId === entity.id;
-    galleryImages.forEach(function (img) {
+    galleryImages.forEach(function (img, imgIndex) {
       const isCurrentPortrait = !!currentPortrait && img.id === currentPortrait.id;
       const isCurrentMap = !!currentMapImg && img.id === currentMapImg.id;
       const figDiv = document.createElement('div');
@@ -2532,7 +2594,7 @@ function renderGalleryTab(container, entity, gmView, readOnly) {
       imgEl.alt = entity.name;
       imgEl.addEventListener('click', function () {
         if (picking && galleryPickMode) { galleryPickMode.onPick(img); return; }
-        openImageLightbox(img.data, entity.name);
+        openImageLightbox(galleryImages, imgIndex, entity.name);
       });
       imgWrap.appendChild(imgEl);
 
@@ -2566,7 +2628,7 @@ function renderGalleryTab(container, entity, gmView, readOnly) {
 
       const sourceLabelDiv = document.createElement('div');
       sourceLabelDiv.className = 'source-label';
-      renderSourceLabel(sourceLabelDiv, img.sourceId, entity.sourceId);
+      renderSourceLabel(sourceLabelDiv, img.sourceId, entity.sourceId, true);
       figDiv.appendChild(sourceLabelDiv);
 
       if (showChrome) {

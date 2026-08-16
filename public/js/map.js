@@ -13,6 +13,7 @@ import { renderAdminRootEntitySelect, renderAdminCampaignTypeSelect, renderAdmin
 import { getCachedImage, putCachedImage } from './images.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
 import { trackWrite } from './connectivity.js';
+import { renderSourceLabel } from './sources.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -901,6 +902,22 @@ function addLegendControl(map) {
   legend.addTo(map);
 }
 
+// Small "Source: ..." label, bottom-left, same lower-left convention as
+// entity/lore/gallery source labels elsewhere -- always shown (per
+// Gregg's call), no containing-entity redundancy suppression, since a
+// map image's attribution is its own thing regardless of what its
+// owning Location entity's sourceId happens to be.
+function addSourceLabelControl(map, sourceId) {
+  const control = L.control({ position: 'bottomleft' });
+  control.onAdd = function () {
+    const div = L.DomUtil.create('div', 'map-source-label');
+    L.DomEvent.disableClickPropagation(div);
+    renderSourceLabel(div, sourceId, null, true);
+    return div;
+  };
+  control.addTo(map);
+}
+
 // Rebuild the legend's rows from a Set of category names. Called at the
 // end of every renderPins() so the legend tracks live pin/visibility
 // changes (GM reveal, preview toggle, add/remove pin), not just the
@@ -1243,6 +1260,7 @@ function renderMapImage(mapEntityId, imageDoc) {
         });
         L.imageOverlay(imageDoc.data, bounds).addTo(map);
         addLegendControl(map);
+        addSourceLabelControl(map, imageDoc.sourceId);
         state.leafletMap = map;
         state.loadedMapId = mapEntityId;
 
