@@ -1977,15 +1977,17 @@ function renderLoreTab(container, entity, gmView, readOnly) {
 // --- Gallery picker panel: shared by Set portrait and Set map --------------
 // Redesigned UX (locked): a small drag-to-move, semi-transparent floating
 // panel rather than a full-screen modal, so the actual entry card / gallery
-// stays visible and interactive underneath.
-//   Stage A ("Select image"): the panel just gives instructions; the user
-//   clicks a card directly in the (already-visible) Gallery tab below,
-//   rather than picking from a duplicate thumbnail grid inside the panel.
-//   Stage B: each workflow's own follow-up -- portrait shows Zoom + H/V
-//   fade sliders with the live preview/drag-to-reposition happening
-//   directly on the entry card (via portraitPreviewOverride); map shows a
-//   small preview of the picked image plus Save/Remove/Cancel.
-// Cancel (either stage) and Esc close without saving.
+// stays visible and interactive underneath. Both workflows share the same
+// "Select image" step: the panel just gives instructions; the user clicks
+// a card directly in the (already-visible) Gallery tab below, rather than
+// picking from a duplicate thumbnail grid inside the panel.
+//   Portrait: picking an image moves to a Stage B with Zoom + H/V fade
+//   sliders and live preview/drag-to-reposition directly on the entry
+//   card (via portraitPreviewOverride), then Save/Cancel.
+//   Map: single-step -- picking an image saves it as the map immediately,
+//   no confirmation stage (Gregg's call: map has no adjustments to make,
+//   so a second dialog is pointless friction).
+// Cancel and Esc close without saving.
 
 // Set while a Stage-A panel is open: { entityId, onPick(img) }. Read by
 // renderGalleryTab's image click handler so clicking a gallery card picks
@@ -2244,11 +2246,11 @@ function openSetPortraitDialog(entity, images) {
 
 // --- Set map dialog ----------------------------------------------------
 // Same docked gallery-picker-panel pattern as Set portrait (see that
-// section's comment). Simpler than portrait -- no crop/zoom, so Stage B
-// is just a preview of the picked image plus Save/Cancel. "Remove map
-// image" isn't a picked-image action (it doesn't involve clicking any
-// gallery card), so it lives on Stage A instead, alongside the
-// instructions, whenever a map image is already set.
+// section's comment), but single-step -- unlike portrait (which needs
+// a Stage B for zoom/fade adjustments), clicking a gallery image here
+// sets it as the map immediately, no confirmation step. "Remove map
+// image" lives alongside the instructions, shown whenever a map image
+// is already set.
 function openSetMapDialog(entity, images) {
   if (document.querySelector('.gallery-picker-panel')) return;
   const previousTab = state.detailActiveTab;
@@ -2258,7 +2260,6 @@ function openSetMapDialog(entity, images) {
   const body = built.body;
 
   const currentMap = images.find(function (img) { return img.isMap; });
-  let pickedImg = null;
 
   function onKeydown(ev) { if (ev.key === 'Escape') close(); }
   document.addEventListener('keydown', onKeydown);
@@ -2281,80 +2282,45 @@ function openSetMapDialog(entity, images) {
     );
   }
 
-  function buildStageA() {
-    header.textContent = 'Select image';
-    body.innerHTML = '';
-    const instructions = document.createElement('p');
-    instructions.className = 'image-edit-status';
-    instructions.textContent = 'Click an image in the gallery below to use as the map.';
-    body.appendChild(instructions);
-
-    const actions = document.createElement('div');
-    actions.className = 'modal-actions';
-    if (currentMap) {
-      const removeBtn = document.createElement('button');
-      removeBtn.type = 'button';
-      removeBtn.textContent = 'Remove map image';
-      removeBtn.addEventListener('click', function () {
-        if (!pinWarning('Removing the map designation')) return;
-        clearEntityMap(entity.id).then(close).catch(function (err) {
-          window.alert('Remove failed: ' + err.message);
-        });
-      });
-      actions.appendChild(removeBtn);
-    }
-    const cancelBtn = document.createElement('button');
-    cancelBtn.type = 'button';
-    cancelBtn.textContent = 'Cancel';
-    cancelBtn.addEventListener('click', close);
-    actions.appendChild(cancelBtn);
-    body.appendChild(actions);
-
-    galleryPickMode = { entityId: entity.id, onPick: enterStageB };
-    renderDetailForSelected(); // re-render so the gallery cards pick up pick-mode styling/handlers
-  }
-
-  function enterStageB(img) {
-    pickedImg = img;
+  function onPick(img) {
+    if (currentMap && currentMap.id === img.id) { close(); return; }
+    if (currentMap && !pinWarning('Replacing the map image')) return;
     galleryPickMode = null;
-    buildStageB();
+    setEntityMap(entity.id, img.id).then(close).catch(function (err) {
+      window.alert('Set map failed: ' + err.message);
+      galleryPickMode = { entityId: entity.id, onPick: onPick };
+    });
   }
 
-  function buildStageB() {
-    header.textContent = 'Set map \u2014 ' + entity.name;
-    body.innerHTML = '';
+  header.textContent = 'Select image';
+  const instructions = document.createElement('p');
+  instructions.className = 'image-edit-status';
+  instructions.textContent = 'Click an image in the gallery below to use as the map.';
+  body.appendChild(instructions);
 
-    const preview = document.createElement('div');
-    preview.className = 'gallery-picker-preview';
-    const previewImg = document.createElement('img');
-    previewImg.src = pickedImg.data;
-    previewImg.alt = entity.name;
-    preview.appendChild(previewImg);
-    body.appendChild(preview);
-
-    const actions = document.createElement('div');
-    actions.className = 'modal-actions';
-    const saveBtn = document.createElement('button');
-    saveBtn.type = 'button';
-    saveBtn.textContent = 'Save';
-    saveBtn.addEventListener('click', function () {
-      if (currentMap && currentMap.id !== pickedImg.id && !pinWarning('Replacing the map image')) return;
-      saveBtn.disabled = true;
-      setEntityMap(entity.id, pickedImg.id).then(close).catch(function (err) {
-        window.alert('Set map failed: ' + err.message);
-        saveBtn.disabled = false;
+  const actions = document.createElement('div');
+  actions.className = 'modal-actions';
+  if (currentMap) {
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.textContent = 'Remove map image';
+    removeBtn.addEventListener('click', function () {
+      if (!pinWarning('Removing the map designation')) return;
+      clearEntityMap(entity.id).then(close).catch(function (err) {
+        window.alert('Remove failed: ' + err.message);
       });
     });
-    const cancelBtn = document.createElement('button');
-    cancelBtn.type = 'button';
-    cancelBtn.textContent = 'Cancel';
-    cancelBtn.addEventListener('click', close);
-    actions.appendChild(saveBtn);
-    actions.appendChild(cancelBtn);
-    body.appendChild(actions);
+    actions.appendChild(removeBtn);
   }
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', close);
+  actions.appendChild(cancelBtn);
+  body.appendChild(actions);
 
-  buildStageA();
+  galleryPickMode = { entityId: entity.id, onPick: onPick };
+  renderDetailForSelected(); // re-render so the gallery cards pick up pick-mode styling/handlers
 }
 
 // --- Gallery tab -----------------------------------------------------------
@@ -2508,7 +2474,7 @@ function renderGalleryTab(container, entity, gmView, readOnly) {
       imgEl.src = img.data;
       imgEl.alt = entity.name;
       imgEl.addEventListener('click', function () {
-        if (picking) { galleryPickMode.onPick(img); return; }
+        if (picking && galleryPickMode) { galleryPickMode.onPick(img); return; }
         openImageLightbox(img.data, entity.name);
       });
       imgWrap.appendChild(imgEl);
