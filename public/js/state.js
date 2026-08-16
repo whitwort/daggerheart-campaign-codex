@@ -29,7 +29,7 @@ export const state = {
   allEntities: [],
   allLoreItems: [],
   selectedId: null,
-  gmPreviewAsPlayer: false,
+  gmPreview: null,  // null | {playerEmail: string|null, activeCharacterId: string|null} -- Phase 14 S3, replaces the old bare-bool gmPreviewAsPlayer (see phase-14-design.md §5.3). S3 only ever sets {playerEmail:null, activeCharacterId:null} (no specific-player picker yet -- Characters tab flipper is S5).
   categoryCollapse: {},  // Entry Browser accordion: category -> collapsed(bool); default COLLAPSED (only explicit `false` expands)
   subtypeCollapse: {},   // Entry Browser accordion, nested level: 'category|subtype' -> collapsed(bool); same default-collapsed convention
   detailActiveTab: 'lore',  // Entry Card tab box: 'lore' | 'notes'; resets to 'lore' on selection change
