@@ -17,10 +17,10 @@ import {
 import { getTemplateSchema, normalizeSearchTerm, computeSearchIndex } from './templates.js';
 import {
   canSee, viewerContext, visibilityBadge, isShareableToWholeParty, visibilityStateClass,
-  hasFullAuthority, isSharedWithActiveCharacter
+  hasFullAuthority, isSharedWithActiveCharacter, isNoteAuthor, belongsOnLoreSurface
 } from './visibility.js';
 import { shareEntityVisibility, shareLoreItemVisibility, shareImageVisibility } from './sharing.js';
-import { buildVisibilityControl, buildSharedToggle } from './visibility-ui.js';
+import { buildVisibilityControl, buildSharedToggle, buildNoteToggle, buildCharacterBadge } from './visibility-ui.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -602,8 +602,18 @@ gmViewSelect.addEventListener('change', function () {
 // authoring character's owner, not the item itself. (This resolution now
 // lives in visibility.js's canSee() -- see its author-only case.)
 function loreItemsForEntity(entityId, ctx) {
+  // Phase 14 S4: notes (kind:'note') only join Lore-tab-style surfaces
+  // (this function's callers: renderLoreTab, buildEntityPreviewCard) once
+  // canonized (visibility:'all-players'). A still-private note passes
+  // canSee for its own author (that's the whole point of author-only),
+  // but that's an access decision, not a tab-placement one -- without
+  // this extra filter, an author's own unpublished note would leak into
+  // these general-lore surfaces too, duplicating its correct home on the
+  // Notes tab (renderNotesTab queries state.allLoreItems directly, not
+  // through this function, precisely so it isn't affected by this rule).
   return state.allLoreItems
     .filter(function (item) { return item.entityId === entityId; })
+    .filter(belongsOnLoreSurface)
     .filter(function (item) { return canSee(item, ctx); })
     .sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
 }
@@ -741,6 +751,7 @@ function selectEntity(entityId, clearSearch) {
   state.detailEditMode = false;
   state.detailEditDraft = null;
   state.loreEdit = null;
+  state.noteEdit = null;
   if (clearSearch) searchEl.value = '';
   renderList();
   renderDetailForSelected();
@@ -1581,6 +1592,7 @@ function saveNewEntity() {
   state.selectedId = newId;
   state.detailActiveTab = 'lore';
   state.loreEdit = null;
+  state.noteEdit = null;
   state.detailEditMode = true;
   state.detailEditDraft = buildEntityDraft({ name: name, category: cat, ancestry: '', aliases: [], date: '', parentId: null, tags: [], relatedIds: [] });
   renderList();
@@ -1712,6 +1724,50 @@ function deleteLoreItem(item) {
   deleteDoc(doc(db, 'loreItems', item.id)).catch(function (err) {
     window.alert('Delete failed: ' + err.message);
   });
+}
+
+// Phase 14 S4 (§6.3): Notes-tab / cannon-note-on-Lore-tab save. A note
+// never has meta/sourceId/characterId/characterShared (§3.2 -- those
+// keys are simply omitted from the doc, not set to null) and, unlike
+// saveLoreEdit, is never split on Markdown list boundaries
+// (splitUnorderedListContent is a GM-lore-dump convenience; a note is
+// one personal entry). Content and the binary visibility ("Just for
+// me"/"Make it cannon!") save together in one write, same
+// combined-write reasoning as saveLoreEdit.
+function saveNoteEdit(entity, editState, isNew, saveBtn) {
+  const content = editState.content;
+  if (!content.trim()) {
+    window.alert('Content is required.');
+    return;
+  }
+  saveBtn.disabled = true;
+
+  function fail(err) {
+    window.alert('Save failed: ' + err.message);
+  }
+
+  if (isNew) {
+    const siblings = state.allLoreItems.filter(function (it) { return it.entityId === entity.id; });
+    const maxOrder = siblings.reduce(function (acc, it) { return Math.max(acc, it.order || 0); }, 0);
+    trackWrite(addDoc(collection(db, 'loreItems'), {
+      entityId: entity.id,
+      kind: 'note',
+      authorId: editState.authorId,
+      authorType: editState.authorType,
+      visibility: editState.visibility,
+      content: content,
+      order: maxOrder + 1,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }), 'Saving note').catch(fail);
+  } else {
+    trackWrite(shareLoreItemVisibility(editState.id, {
+      content: content,
+      visibility: editState.visibility
+    }), 'Saving note').catch(fail);
+  }
+  state.noteEdit = null;
+  renderDetailForSelected();
 }
 
 // Phase 14 S3 (§6.2): the player's edit path on a loreItem the GM shared
@@ -1923,6 +1979,89 @@ function buildSharedLoreEditBox(editState) {
   return box;
 }
 
+// Phase 14 S4 (§6.3): note edit box -- content + binary "Just for me"/
+// "Make it cannon!" toggle only, no source/meta rows (notes don't carry
+// either) and no kebab (D6: binary visibility, never 3-state). Reachable
+// from both the Notes tab (own private notes) and the Lore tab (editing
+// an already-cannon note you authored, or -- for the entity's owner/GM --
+// any cannon note filed under it). Same conflict-banner pattern as
+// buildLoreEditBox.
+function buildNoteEditBox(entity, editState, isNew) {
+  const box = document.createElement('div');
+  box.className = 'lore-item';
+
+  if (!isNew) {
+    const liveItem = state.allLoreItems.find(function (li) { return li.id === editState.id; });
+    const liveUpdatedAtMs = liveItem ? updatedAtMs(liveItem) : null;
+    const hasConflict = editState.baseUpdatedAtMs != null &&
+      liveUpdatedAtMs != null &&
+      liveUpdatedAtMs !== editState.baseUpdatedAtMs &&
+      liveUpdatedAtMs !== editState.conflictDismissedAtMs;
+    if (hasConflict) {
+      const conflictBanner = document.createElement('div');
+      conflictBanner.className = 'edit-conflict-banner';
+      const conflictMsg = document.createElement('p');
+      conflictMsg.textContent = 'This note was saved elsewhere while you were editing.';
+      conflictBanner.appendChild(conflictMsg);
+      const conflictActions = document.createElement('div');
+      conflictActions.className = 'edit-conflict-actions';
+      const keepBtn = document.createElement('button');
+      keepBtn.textContent = 'Keep my edits';
+      keepBtn.addEventListener('click', function () {
+        editState.conflictDismissedAtMs = liveUpdatedAtMs;
+        renderDetailForSelected();
+      });
+      const reloadBtn = document.createElement('button');
+      reloadBtn.textContent = 'Reload latest';
+      reloadBtn.addEventListener('click', function () {
+        editState.content = liveItem.content;
+        editState.visibility = liveItem.visibility;
+        editState.baseUpdatedAtMs = liveUpdatedAtMs;
+        editState.conflictDismissedAtMs = null;
+        renderDetailForSelected();
+      });
+      conflictActions.appendChild(keepBtn);
+      conflictActions.appendChild(reloadBtn);
+      conflictBanner.appendChild(conflictActions);
+      box.appendChild(conflictBanner);
+    }
+  }
+
+  const toggleRow = document.createElement('div');
+  toggleRow.className = 'lore-item-toggle-row';
+  toggleRow.appendChild(buildNoteToggle({
+    getVisibility: function () { return editState.visibility; },
+    onToggle: function (newVisibility) { editState.visibility = newVisibility; }
+  }));
+  box.appendChild(toggleRow);
+
+  const textarea = document.createElement('textarea');
+  textarea.className = 'lore-edit-textarea';
+  textarea.value = editState.content;
+  textarea.addEventListener('input', function () { editState.content = textarea.value; });
+  box.appendChild(textarea);
+
+  const bottomRow = document.createElement('div');
+  bottomRow.className = 'actions-row';
+  const right = document.createElement('div');
+  right.className = 'actions-row-right';
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'lore-item-btn';
+  saveBtn.textContent = 'Save';
+  saveBtn.addEventListener('click', function () { saveNoteEdit(entity, editState, isNew, saveBtn); });
+  right.appendChild(saveBtn);
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'lore-item-btn';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', function () { state.noteEdit = null; renderDetailForSelected(); });
+  right.appendChild(cancelBtn);
+  bottomRow.appendChild(right);
+
+  box.appendChild(bottomRow);
+  textarea.focus();
+  return box;
+}
+
 // Lore tab content. Player view: each item its own well, styled
 // identically to the GM view's card (parchment-edge fill, fear left
 // strip — every item shown to a player is by definition
@@ -1944,15 +2083,33 @@ function buildSharedLoreEditBox(editState) {
 //      Delete, no kebab.
 //   3. read-only -- everything else, unchanged visual (meta tag + body +
 //      source label, no controls).
+// Phase 14 S4 addendum: cannon notes (kind:'note', visibility:'all-players'
+// -- "Make it cannon!" flipped from the Notes tab) join this same list via
+// loreItemsForEntity (which now special-cases kind:'note' to only pass
+// through once cannon -- see that function's own comment; a still-private
+// note stays exclusive to the Notes tab even for its own author) --
+// pure render-time projection, no data movement — §6.3. They never use
+// the general entityAuthority-tier 3-state kebab (D6: notes are
+// binary-visibility only) -- instead, note-specific chrome (the "Just for
+// me"/"Make it cannon!" toggle + Edit/Delete) is gated on noteChrome, which
+// is TRUE for either (a) entityAuthority (GM, or the owner of the Character
+// entity this note is filed under -- mirrors the rules' general
+// ownsCharacter(entityId) grant, which is not kind-restricted) or (b)
+// isNoteAuthor (the viewer wrote this specific note, regardless of which
+// entity it's filed under -- mirrors the rules' ownsCharacter(authorId)
+// grant). A non-author, non-owning viewer sees a cannon note exactly like
+// any other published lore item: read-only.
 function renderLoreTab(container, entity, ctx, readOnly) {
   const items = loreItemsForEntity(entity.id, ctx);
   const entityAuthority = !readOnly && hasFullAuthority(entity, ctx);
-  const activeEdit = state.loreEdit && state.loreEdit.entityId === entity.id ? state.loreEdit : null;
+  const activeLoreEdit = state.loreEdit && state.loreEdit.entityId === entity.id ? state.loreEdit : null;
+  const activeNoteEdit = state.noteEdit && state.noteEdit.entityId === entity.id ? state.noteEdit : null;
+  const anyActiveEdit = activeLoreEdit || activeNoteEdit;
 
   const loreListDiv = document.createElement('div');
   loreListDiv.className = 'codex-lore-list';
 
-  if (items.length === 0 && !(activeEdit && activeEdit.id === null)) {
+  if (items.length === 0 && !(activeLoreEdit && activeLoreEdit.id === null)) {
     const emptyP = document.createElement('p');
     emptyP.className = 'lore-empty';
     emptyP.textContent = '(no lore for this view)';
@@ -1960,23 +2117,30 @@ function renderLoreTab(container, entity, ctx, readOnly) {
   }
 
   items.forEach(function (item) {
-    if (activeEdit && activeEdit.id === item.id) {
-      loreListDiv.appendChild(activeEdit.limited ? buildSharedLoreEditBox(activeEdit) : buildLoreEditBox(entity, activeEdit, false));
+    if (activeLoreEdit && activeLoreEdit.id === item.id) {
+      loreListDiv.appendChild(activeLoreEdit.limited ? buildSharedLoreEditBox(activeLoreEdit) : buildLoreEditBox(entity, activeLoreEdit, false));
+      return;
+    }
+    if (activeNoteEdit && activeNoteEdit.id === item.id) {
+      loreListDiv.appendChild(buildNoteEditBox(entity, activeNoteEdit, false));
       return;
     }
 
-    const itemShared = !entityAuthority && !readOnly && isSharedWithActiveCharacter(item, ctx);
+    const isNote = item.kind === 'note';
+    const itemShared = !entityAuthority && !readOnly && !isNote && isSharedWithActiveCharacter(item, ctx);
+    const noteChrome = isNote && !readOnly && (entityAuthority || isNoteAuthor(item, ctx));
+    const hasChrome = (entityAuthority && !isNote) || itemShared || noteChrome;
 
     const itemDiv = document.createElement('div');
     itemDiv.className = 'lore-item ' + visibilityStateClass(item);
     itemDiv.dataset.itemId = item.id;
 
-    if (entityAuthority || itemShared) {
+    if (hasChrome) {
       const toggleRow = document.createElement('div');
       toggleRow.className = 'lore-item-toggle-row';
       const toggleRowLeft = document.createElement('div');
       toggleRowLeft.className = 'lore-item-toggle-row-left';
-      if (entityAuthority && !activeEdit && items.length > 1) {
+      if (entityAuthority && !isNote && !anyActiveEdit && items.length > 1) {
         const dragHandle = document.createElement('span');
         dragHandle.className = 'lore-item-drag-handle';
         dragHandle.title = 'Drag to reorder';
@@ -1992,7 +2156,16 @@ function renderLoreTab(container, entity, ctx, readOnly) {
       toggleRow.appendChild(toggleRowLeft);
       const toggleRowRight = document.createElement('div');
       toggleRowRight.className = 'lore-item-toggle-row-right';
-      if (entityAuthority) {
+      if (noteChrome) {
+        toggleRowRight.appendChild(buildNoteToggle({
+          getVisibility: function () { return item.visibility; },
+          onToggle: function (newVisibility) {
+            shareLoreItemVisibility(item.id, { visibility: newVisibility }).catch(function (err) {
+              window.alert('Visibility change failed: ' + err.message);
+            });
+          }
+        }));
+      } else if (entityAuthority) {
         toggleRowRight.appendChild(buildVisibilityControl({
           getVisibility: function () { return item.visibility; },
           getCharacterId: function () { return item.characterId; },
@@ -2033,20 +2206,24 @@ function renderLoreTab(container, entity, ctx, readOnly) {
     // Hide Edit/Delete on other items while one item (or a new draft) is
     // already being edited — forces finishing that edit first, rather
     // than silently discarding it by switching targets.
-    if (!activeEdit && (entityAuthority || itemShared)) {
+    if (!anyActiveEdit && hasChrome) {
       const actionsRow = document.createElement('div');
       actionsRow.className = 'lore-item-actions-row';
       const editBtn = document.createElement('button');
       editBtn.className = 'lore-item-btn';
       editBtn.textContent = 'Edit';
       editBtn.addEventListener('click', function () {
-        state.loreEdit = entityAuthority
-          ? { entityId: entity.id, id: item.id, content: item.content, visibility: item.visibility, characterId: item.characterId || null, characterShared: !!item.characterShared, meta: normalizeMetaForEdit(item.meta), sourceId: item.sourceId || null, baseUpdatedAtMs: updatedAtMs(item), conflictDismissedAtMs: null }
-          : { entityId: entity.id, id: item.id, content: item.content, sourceId: item.sourceId || null, limited: true };
+        if (isNote) {
+          state.noteEdit = { entityId: entity.id, id: item.id, content: item.content, visibility: item.visibility, authorType: item.authorType, authorId: item.authorId || null, baseUpdatedAtMs: updatedAtMs(item), conflictDismissedAtMs: null };
+        } else {
+          state.loreEdit = entityAuthority
+            ? { entityId: entity.id, id: item.id, content: item.content, visibility: item.visibility, characterId: item.characterId || null, characterShared: !!item.characterShared, meta: normalizeMetaForEdit(item.meta), sourceId: item.sourceId || null, baseUpdatedAtMs: updatedAtMs(item), conflictDismissedAtMs: null }
+            : { entityId: entity.id, id: item.id, content: item.content, sourceId: item.sourceId || null, limited: true };
+        }
         renderDetailForSelected();
       });
       actionsRow.appendChild(editBtn);
-      if (entityAuthority) {
+      if (entityAuthority || noteChrome) {
         const delBtn = document.createElement('button');
         delBtn.className = 'lore-item-btn';
         delBtn.textContent = 'Delete';
@@ -2059,18 +2236,29 @@ function renderLoreTab(container, entity, ctx, readOnly) {
     const sourceLabelDiv = document.createElement('div');
     sourceLabelDiv.className = 'source-label';
     renderSourceLabel(sourceLabelDiv, item.sourceId, entity.sourceId);
+    // Character badge (D3/§6.3): renders for a characterShared element or
+    // a character-authored cannon note -- i.e. anything the party is
+    // seeing because a PLAYER chose to share it, never a GM-set state.
+    // Lives in the same row as the source label (right of it, or in
+    // place of it when there's no source) since both are small
+    // attribution-style footers on the item.
+    const badge = visibilityBadge(item, ctx);
+    if (badge) {
+      sourceLabelDiv.style.display = '';
+      sourceLabelDiv.appendChild(buildCharacterBadge(badge.characterId));
+    }
     itemDiv.appendChild(sourceLabelDiv);
 
     loreListDiv.appendChild(itemDiv);
   });
 
-  if (activeEdit && activeEdit.id === null) {
-    loreListDiv.appendChild(buildLoreEditBox(entity, activeEdit, true));
+  if (activeLoreEdit && activeLoreEdit.id === null) {
+    loreListDiv.appendChild(buildLoreEditBox(entity, activeLoreEdit, true));
   }
 
   container.appendChild(loreListDiv);
 
-  if (entityAuthority && !activeEdit && items.length > 1) {
+  if (entityAuthority && !anyActiveEdit && items.length > 1) {
     loadSortable().then(function (Sortable) {
       // eslint-disable-next-line no-new
       new Sortable(loreListDiv, {
@@ -2085,14 +2273,14 @@ function renderLoreTab(container, entity, ctx, readOnly) {
         onEnd: function () {
           const orderedIds = Array.prototype.slice.call(loreListDiv.children)
             .map(function (el) { return el.dataset.itemId; })
-            .filter(Boolean); // defensive: skip any non-item child (shouldn't occur while !activeEdit)
+            .filter(Boolean); // defensive: skip any non-item child (shouldn't occur while !anyActiveEdit)
           persistLoreOrder(entity.id, orderedIds);
         }
       });
     }).catch(function () { /* drag-reorder unavailable; edit/delete still work */ });
   }
 
-  if (entityAuthority && !activeEdit) {
+  if (entityAuthority && !anyActiveEdit) {
     const loreTabActions = document.createElement('div');
     loreTabActions.className = 'actions-row';
     const right = document.createElement('div');
@@ -2114,6 +2302,114 @@ function renderLoreTab(container, entity, ctx, readOnly) {
     right.appendChild(newLoreBtn);
     loreTabActions.appendChild(right);
     container.appendChild(loreTabActions);
+  }
+}
+
+// Notes tab content (§6.3). Lists only the viewer's own private notes for
+// this entity -- kind:'note' && visibility=='author-only', filtered
+// through canSee (whose author-only branch, by construction, is true
+// exactly when the viewer is the note's author -- see visibility.js --
+// so no separate ownership check is needed here). Cannon notes
+// (visibility:'all-players') are deliberately NOT listed here; they
+// render on the Lore tab instead, alongside everything else the party
+// can see (pure render-time projection -- see renderLoreTab's Phase 14
+// S4 addendum). "+ New Note" needs an author identity to attach the note
+// to: always available to the GM, available to a player only once
+// they've picked an active character (nav dropdown, Phase 14 S3).
+function renderNotesTab(container, entity, ctx, readOnly) {
+  const canAuthor = !readOnly && (ctx.gmView || !!ctx.activeCharacterId);
+  const items = state.allLoreItems
+    .filter(function (item) { return item.entityId === entity.id && item.kind === 'note' && item.visibility === 'author-only'; })
+    .filter(function (item) { return canSee(item, ctx); })
+    .sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+  const activeNoteEdit = state.noteEdit && state.noteEdit.entityId === entity.id ? state.noteEdit : null;
+
+  const listDiv = document.createElement('div');
+  listDiv.className = 'codex-lore-list';
+
+  if (items.length === 0 && !(activeNoteEdit && activeNoteEdit.id === null)) {
+    const emptyP = document.createElement('p');
+    emptyP.className = 'lore-empty';
+    emptyP.textContent = '(no private notes for this view)';
+    listDiv.appendChild(emptyP);
+  }
+
+  items.forEach(function (item) {
+    if (activeNoteEdit && activeNoteEdit.id === item.id) {
+      listDiv.appendChild(buildNoteEditBox(entity, activeNoteEdit, false));
+      return;
+    }
+
+    const itemDiv = document.createElement('div');
+    itemDiv.className = 'lore-item ' + visibilityStateClass(item);
+    itemDiv.dataset.itemId = item.id;
+
+    if (!readOnly) {
+      const toggleRow = document.createElement('div');
+      toggleRow.className = 'lore-item-toggle-row';
+      toggleRow.appendChild(buildNoteToggle({
+        getVisibility: function () { return item.visibility; },
+        onToggle: function (newVisibility) {
+          shareLoreItemVisibility(item.id, { visibility: newVisibility }).catch(function (err) {
+            window.alert('Visibility change failed: ' + err.message);
+          });
+        }
+      }));
+      itemDiv.appendChild(toggleRow);
+    }
+
+    const bodyDiv = document.createElement('div');
+    bodyDiv.className = 'lore-item-body';
+    renderMarkdownInto(bodyDiv, item.content).then(function () {
+      applyWikiLinks(bodyDiv, entity.id, ctx);
+    });
+    itemDiv.appendChild(bodyDiv);
+
+    if (!readOnly && !activeNoteEdit) {
+      const actionsRow = document.createElement('div');
+      actionsRow.className = 'lore-item-actions-row';
+      const editBtn = document.createElement('button');
+      editBtn.className = 'lore-item-btn';
+      editBtn.textContent = 'Edit';
+      editBtn.addEventListener('click', function () {
+        state.noteEdit = { entityId: entity.id, id: item.id, content: item.content, visibility: item.visibility, authorType: item.authorType, authorId: item.authorId || null, baseUpdatedAtMs: updatedAtMs(item), conflictDismissedAtMs: null };
+        renderDetailForSelected();
+      });
+      actionsRow.appendChild(editBtn);
+      const delBtn = document.createElement('button');
+      delBtn.className = 'lore-item-btn';
+      delBtn.textContent = 'Delete';
+      delBtn.addEventListener('click', function () { deleteLoreItem(item); });
+      actionsRow.appendChild(delBtn);
+      itemDiv.appendChild(actionsRow);
+    }
+
+    listDiv.appendChild(itemDiv);
+  });
+
+  if (activeNoteEdit && activeNoteEdit.id === null) {
+    listDiv.appendChild(buildNoteEditBox(entity, activeNoteEdit, true));
+  }
+
+  container.appendChild(listDiv);
+
+  if (canAuthor && !activeNoteEdit) {
+    const notesTabActions = document.createElement('div');
+    notesTabActions.className = 'actions-row';
+    const right = document.createElement('div');
+    right.className = 'actions-row-right';
+    const newNoteBtn = document.createElement('button');
+    newNoteBtn.className = 'action-btn-compact';
+    newNoteBtn.textContent = '+ New Note';
+    newNoteBtn.addEventListener('click', function () {
+      state.noteEdit = ctx.gmView
+        ? { entityId: entity.id, id: null, content: '', visibility: 'author-only', authorType: 'gm', authorId: null }
+        : { entityId: entity.id, id: null, content: '', visibility: 'author-only', authorType: 'character', authorId: ctx.activeCharacterId };
+      renderDetailForSelected();
+    });
+    right.appendChild(newNoteBtn);
+    notesTabActions.appendChild(right);
+    container.appendChild(notesTabActions);
   }
 }
 
@@ -3415,10 +3711,7 @@ function renderEntityViewCard(container, entity, ctx, opts) {
   contentWrap.appendChild(tabPanel);
 
   if (activeTab === 'notes') {
-    const notesEmptyP = document.createElement('p');
-    notesEmptyP.className = 'lore-empty';
-    notesEmptyP.textContent = 'Notes are coming in a future update.';
-    tabPanel.appendChild(notesEmptyP);
+    renderNotesTab(tabPanel, entity, ctx, !allowEdit);
   } else if (activeTab === 'gallery') {
     renderGalleryTab(tabPanel, entity, ctx, !allowEdit);
   } else {

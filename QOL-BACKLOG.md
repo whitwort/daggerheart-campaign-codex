@@ -65,13 +65,9 @@ longer uses the default width at all) — 12rem was sized to still fit
  them without wrapping. Flag if those two should also get
 their own narrower exception or shortened text.
 
-## Future: Notes tab "+ New Note" button
-Add a "+ New Note" button to the Notes tab, styled with the
-`.action-btn-compact` class (exception 8 above) so it matches the
-lore/gallery/entity-card action buttons. Not yet implemented — no
-"add a note" flow exists on that tab yet. Explicitly deferred to
-Phase 14 (that's when the Notes tab itself gets built out as part of
-player-facing contribution features) rather than done standalone now.
+## Notes tab "+ New Note" button -- DONE (Phase 14 S4)
+Implemented as part of the Notes tab build-out: `.action-btn-compact`
+(exception 8 above), matching lore/gallery/entity-card action buttons.
 
 This was corrected piecemeal across many earlier Phase 11 sessions
 (gallery Delete, lore Edit/Delete, admin buttons/dropdowns, map pin
