@@ -73,7 +73,13 @@ function fitCodexTabHeight() {
   // working if that CSS value ever changes.
   const detailPane = document.getElementById('codex-detail-pane');
   const poke = detailPane ? Math.abs(Math.min(0, parseFloat(window.getComputedStyle(detailPane).marginTop) || 0)) : 0;
-  const h = window.innerHeight - rect.top - 16 - footerReserve() - poke;
+  // +2px safety margin: 0.45rem doesn't convert to a whole px, and
+  // Chrome/Firefox can round that math slightly differently -- without
+  // this, Chrome was still showing a stray 1-2px vertical scrollbar
+  // (Firefox happened to round the other way and didn't). A couple
+  // extra px of unused space at the bottom is imperceptible; a
+  // pointless scrollbar isn't.
+  const h = window.innerHeight - rect.top - 16 - footerReserve() - poke - 2;
   codexTabEl.style.height = Math.max(320, h) + 'px';
 }
 window.addEventListener('resize', fitCodexTabHeight);
