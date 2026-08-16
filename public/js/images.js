@@ -117,29 +117,14 @@ const IMAGE_CACHE_STORE = 'images';
     // Gallery images: 0+ per entity, auto-ID docs (content entities, not
     // structural singletons), each with its own gm-only/all-players
     // visibility like loreItems. New uploads start hidden.
-    // Default portrait crop state, applied when a gallery's first image is
-    // auto-promoted to portrait (see below) and as the dialog's starting
-    // point for any image that has none saved yet. Matches
-    // portrait-picker-dialog-mockup-v6.
-    const DEFAULT_PORTRAIT_CROP = {
-      portraitZoomStep: 0,
-      portraitOffsetXFrac: 0,
-      portraitOffsetYFrac: 0,
-      portraitFadeH: 12,
-      portraitFadeV: 12
-    };
 
     function uploadEntityGalleryImage(entityId, file, opts) {
       const onStatus = opts && opts.onStatus;
       return processImageFile(file, onStatus).then(function (processed) {
         if (onStatus) onStatus('Uploading...');
-        // Auto-migrate/default: if this entity's gallery is currently empty,
-        // this image becomes the portrait automatically (default crop),
-        // no explicit "Set portrait" click needed for the common case.
-        const hasExistingGalleryImage = state.currentEntityImages.some(function (img) {
-          return img.ownerId === entityId && img.role === 'gallery';
-        });
-        const doc_ = Object.assign({
+        // Portrait is explicit only (Set portrait) -- no auto-promotion
+        // of an entity's first upload, even into an empty gallery.
+        const doc_ = {
           ownerType: 'entity',
           ownerId: entityId,
           role: 'gallery',
@@ -151,8 +136,8 @@ const IMAGE_CACHE_STORE = 'images';
           height: processed.height,
           sizeBytes: processed.sizeBytes,
           uploadedAt: serverTimestamp(),
-          isPortrait: !hasExistingGalleryImage
-        }, !hasExistingGalleryImage ? DEFAULT_PORTRAIT_CROP : {});
+          isPortrait: false
+        };
         return addDoc(collection(db, 'images'), doc_).then(function (ref) { return ref.id; });
       });
     }
@@ -166,13 +151,30 @@ const IMAGE_CACHE_STORE = 'images';
       if (img && img.isMap) {
         const batch = writeBatch(db);
         batch.delete(doc(db, 'images', imageDocId));
-        batch.update(doc(db, 'entities', img.ownerId), { hasMapImage: false, updatedAt: serverTimestamp() });
+        batch.update(doc(db, 'entities', img.ownerId), {
+          hasMapImage: false, mapImageVisibleToPlayers: false, updatedAt: serverTimestamp()
+        });
         return batch.commit();
       }
       return deleteDoc(doc(db, 'images', imageDocId));
     }
 
+    // If the image being toggled is the entity's current map image,
+    // keep entities.mapImageVisibleToPlayers in sync in the same batch
+    // -- map.js/codex.js's entry-browser and card map-icon visibility
+    // gating reads that denormalized field rather than loading every
+    // entity's images (same reasoning as hasMapImage -- see setEntityMap
+    // below).
     function setGalleryImageVisibility(imageDocId, visibility) {
+      const img = state.currentEntityImages.find(function (i) { return i.id === imageDocId; });
+      if (img && img.isMap) {
+        const batch = writeBatch(db);
+        batch.update(doc(db, 'images', imageDocId), { visibility: visibility });
+        batch.update(doc(db, 'entities', img.ownerId), {
+          mapImageVisibleToPlayers: visibility === 'all-players', updatedAt: serverTimestamp()
+        });
+        return batch.commit();
+      }
       return updateDoc(doc(db, 'images', imageDocId), { visibility: visibility });
     }
 
@@ -196,21 +198,27 @@ const IMAGE_CACHE_STORE = 'images';
     // Map designation (Phase 13+ rework -- replaces the old standalone
     // Map image upload/delete UI): isMap on a gallery image, same
     // pattern as isPortrait -- at most one true per entity, cleared on
-    // any previous holder in the same batch. entities.hasMapImage stays
-    // in sync in the same batch too -- map.js's marker-vs-circle pin
-    // decision (isMapEntity) needs it synchronously for every entity
-    // with a pin on the current map, not just the one entity whose
-    // images happen to be live-loaded (the per-entity images listener
-    // only ever covers the currently-selected Codex entity).
+    // any previous holder in the same batch. entities.hasMapImage and
+    // entities.mapImageVisibleToPlayers stay in sync in the same batch
+    // too -- map.js's marker-vs-circle pin decision (isMapEntity) and
+    // the player-visibility gating on the map icon both need this
+    // synchronously for every entity with a pin/list row on screen, not
+    // just the one entity whose images happen to be live-loaded (the
+    // per-entity images listener only ever covers the currently-selected
+    // Codex entity).
     function setEntityMap(entityId, imageDocId) {
       const batch = writeBatch(db);
+      let pickedVisibility = 'gm-only';
       state.currentEntityImages.forEach(function (img) {
         if (img.ownerId === entityId && img.role === 'gallery' && img.isMap && img.id !== imageDocId) {
           batch.update(doc(db, 'images', img.id), { isMap: false });
         }
+        if (img.id === imageDocId) pickedVisibility = img.visibility;
       });
       batch.update(doc(db, 'images', imageDocId), { isMap: true });
-      batch.update(doc(db, 'entities', entityId), { hasMapImage: true, updatedAt: serverTimestamp() });
+      batch.update(doc(db, 'entities', entityId), {
+        hasMapImage: true, mapImageVisibleToPlayers: pickedVisibility === 'all-players', updatedAt: serverTimestamp()
+      });
       return batch.commit();
     }
 
@@ -225,7 +233,7 @@ const IMAGE_CACHE_STORE = 'images';
           batch.update(doc(db, 'images', img.id), { isMap: false });
         }
       });
-      batch.update(doc(db, 'entities', entityId), { hasMapImage: false, updatedAt: serverTimestamp() });
+      batch.update(doc(db, 'entities', entityId), { hasMapImage: false, mapImageVisibleToPlayers: false, updatedAt: serverTimestamp() });
       return batch.commit();
     }
 
@@ -265,7 +273,11 @@ const IMAGE_CACHE_STORE = 'images';
       });
       batch.delete(doc(db, 'images', legacyDoc.id));
       // hasMapImage is already true (that's how the legacy doc got
-      // created in the first place) -- no entity update needed.
+      // created in the first place) -- but mapImageVisibleToPlayers may
+      // not exist yet on an entity doc this old, and the migrated image
+      // is always gm-only (see visibility above), so set it explicitly
+      // rather than leaving it absent.
+      batch.update(doc(db, 'entities', entityId), { mapImageVisibleToPlayers: false });
       batch.commit().catch(function (err) {
         console.error('[images] legacy map image migration failed:', err.message);
       });

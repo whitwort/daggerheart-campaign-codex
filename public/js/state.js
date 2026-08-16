@@ -39,6 +39,7 @@ export const state = {
   loreEdit: null,          // { entityId, id: existingLoreId|null, content, visibility } — in-progress lore item edit/create; id===null means a brand-new (unsaved) item
   leafletMap: null,
   loadedMapId: null,
+  loadedMapGmView: null,  // gmView the currently-loaded map's image was filtered/rendered for; a role/preview-toggle mismatch against a fresh gmView forces ensureMapTabReady to reload rather than shortcut
   mapImgHeight: 0,
   mapImgWidth: 0,
   mapBounds: null,
