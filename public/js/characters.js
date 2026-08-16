@@ -41,7 +41,7 @@ import { attachListener, detachListener, safeSnapshotHandler } from './listeners
 import { trackWrite } from './connectivity.js';
 import { canSee, viewerContext, hasFullAuthority, belongsOnLoreSurface } from './visibility.js';
 import { switchToCodexTabForEntity, applyWikiLinks } from './codex.js';
-import { getTemplateSchema, humanizeKey } from './templates.js';
+import { getTemplateSchema } from './templates.js';
 import { renderMarkdownInto } from './markdown.js';
 
 const db = getFirestore(firebaseApp);
@@ -55,6 +55,15 @@ function slugify(name) {
 }
 
 function byName(a, b) { return (a.name || '').localeCompare(b.name || ''); }
+
+// Kept in sync with the copies in codex.js/templates.js/srd-import.js --
+// templates.js's own humanizeKey is internal-only (not exported; only
+// getTemplateSchema/computeSearchIndex etc. are), same reasoning as
+// slugify above for not splitting out a shared-utils module over one
+// small function repeated a few places.
+function humanizeKey(key) {
+  return key.replace(/_/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+}
 
 const charactersGmViewEl = document.getElementById('characters-gm-view');
 const charactersPlayerViewEl = document.getElementById('characters-player-view');
