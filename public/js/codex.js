@@ -1974,30 +1974,32 @@ function renderLoreTab(container, entity, gmView, readOnly) {
   }
 }
 
-// --- Set portrait dialog -----------------------------------------------
+// --- Gallery picker panel: shared by Set portrait and Set map --------------
 // Redesigned UX (locked): a small drag-to-move, semi-transparent floating
-// panel rather than a full-screen modal, so the actual entry card stays
-// visible and interactive underneath.
-//   Stage A ("Select a gallery image"): click a gallery thumbnail.
-//   Stage B: panel shows Zoom + H/V fade sliders + Save/Cancel; the live
-//   preview and drag-to-reposition happen directly on the entry card
-//   itself (via portraitPreviewOverride), not in a box inside the panel.
+// panel rather than a full-screen modal, so the actual entry card / gallery
+// stays visible and interactive underneath.
+//   Stage A ("Select image"): the panel just gives instructions; the user
+//   clicks a card directly in the (already-visible) Gallery tab below,
+//   rather than picking from a duplicate thumbnail grid inside the panel.
+//   Stage B: each workflow's own follow-up -- portrait shows Zoom + H/V
+//   fade sliders with the live preview/drag-to-reposition happening
+//   directly on the entry card (via portraitPreviewOverride); map shows a
+//   small preview of the picked image plus Save/Remove/Cancel.
 // Cancel (either stage) and Esc close without saving.
-function openSetPortraitDialog(entity, images) {
-  // Guard against a second panel: no early-return here previously, so
-  // a repeat click (or a click landing while a re-render is briefly
-  // mid-flight) could append a duplicate panel on top of an already-
-  // open one instead of doing nothing.
-  if (document.querySelector('.portrait-picker-panel')) return;
-  const previousTab = state.detailActiveTab;
+
+// Set while a Stage-A panel is open: { entityId, onPick(img) }. Read by
+// renderGalleryTab's image click handler so clicking a gallery card picks
+// an image instead of opening the lightbox. Null the rest of the time.
+let galleryPickMode = null;
+
+function buildGalleryPickerPanel() {
   const panel = document.createElement('div');
-  panel.className = 'portrait-picker-panel';
+  panel.className = 'gallery-picker-panel';
   const header = document.createElement('div');
-  header.className = 'portrait-picker-header';
-  header.textContent = 'Select a gallery image';
+  header.className = 'gallery-picker-header';
   panel.appendChild(header);
   const body = document.createElement('div');
-  body.className = 'portrait-picker-body';
+  body.className = 'gallery-picker-body';
   panel.appendChild(body);
   document.body.appendChild(panel);
 
@@ -2019,6 +2021,21 @@ function openSetPortraitDialog(entity, images) {
   function endPanelDrag() { panelDrag = null; }
   header.addEventListener('pointerup', endPanelDrag);
   header.addEventListener('pointercancel', endPanelDrag);
+
+  return { panel: panel, header: header, body: body };
+}
+
+function openSetPortraitDialog(entity, images) {
+  // Guard against a second panel: no early-return here previously, so
+  // a repeat click (or a click landing while a re-render is briefly
+  // mid-flight) could append a duplicate panel on top of an already-
+  // open one instead of doing nothing.
+  if (document.querySelector('.gallery-picker-panel')) return;
+  const previousTab = state.detailActiveTab;
+  const built = buildGalleryPickerPanel();
+  const panel = built.panel;
+  const header = built.header;
+  const body = built.body;
 
   // Card drag handlers (Stage B only) — attached to the live card's hero
   // wrapper, not a preview box. Cleared on close/stage change.
@@ -2073,6 +2090,7 @@ function openSetPortraitDialog(entity, images) {
   function close() {
     if (cardDragCleanup) { cardDragCleanup(); cardDragCleanup = null; }
     portraitPreviewOverride = null;
+    galleryPickMode = null;
     document.removeEventListener('keydown', onKeydown);
     panel.remove();
     state.detailActiveTab = previousTab;
@@ -2080,22 +2098,12 @@ function openSetPortraitDialog(entity, images) {
   }
 
   function buildStageA() {
-    header.textContent = 'Select a gallery image';
+    header.textContent = 'Select image';
     body.innerHTML = '';
-    const grid = document.createElement('div');
-    grid.className = 'portrait-thumb-row';
-    images.forEach(function (img) {
-      const thumb = document.createElement('button');
-      thumb.type = 'button';
-      thumb.className = 'portrait-thumb';
-      const thumbImg = document.createElement('img');
-      thumbImg.src = img.data;
-      thumbImg.alt = '';
-      thumb.appendChild(thumbImg);
-      thumb.addEventListener('click', function () { enterStageB(img); });
-      grid.appendChild(thumb);
-    });
-    body.appendChild(grid);
+    const instructions = document.createElement('p');
+    instructions.className = 'image-edit-status';
+    instructions.textContent = 'Click an image in the gallery below to use as the portrait.';
+    body.appendChild(instructions);
     const actions = document.createElement('div');
     actions.className = 'modal-actions';
     const cancelBtn = document.createElement('button');
@@ -2104,6 +2112,9 @@ function openSetPortraitDialog(entity, images) {
     cancelBtn.addEventListener('click', close);
     actions.appendChild(cancelBtn);
     body.appendChild(actions);
+
+    galleryPickMode = { entityId: entity.id, onPick: enterStageB };
+    renderDetailForSelected(); // re-render so the gallery cards pick up pick-mode styling/handlers
   }
 
   function enterStageB(img) {
@@ -2117,6 +2128,7 @@ function openSetPortraitDialog(entity, images) {
       portraitFadeV: typeof img.portraitFadeV === 'number' ? img.portraitFadeV : 12
     };
     portraitPreviewOverride = { entityId: entity.id, img: workingImg };
+    galleryPickMode = null;
     state.detailActiveTab = 'lore';
     renderDetailForSelected(); // rebuilds the card's hero from the override
     attachCardDrag();
@@ -2231,30 +2243,33 @@ function openSetPortraitDialog(entity, images) {
 }
 
 // --- Set map dialog ----------------------------------------------------
-// Much simpler than Set portrait -- no crop/zoom to configure, just
-// which gallery image (if any) is this Location's map. Plain modal
-// (not the docked drag-panel Set portrait uses), since there's no live
-// card preview to keep visible underneath while picking.
+// Same docked gallery-picker-panel pattern as Set portrait (see that
+// section's comment). Simpler than portrait -- no crop/zoom, so Stage B
+// is just a preview of the picked image plus Save/Cancel. "Remove map
+// image" isn't a picked-image action (it doesn't involve clicking any
+// gallery card), so it lives on Stage A instead, alongside the
+// instructions, whenever a map image is already set.
 function openSetMapDialog(entity, images) {
-  if (document.querySelector('.map-picker-overlay')) return;
-  const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay map-picker-overlay open';
-  const box = document.createElement('div');
-  box.className = 'modal-box modal-box-wide';
-  overlay.appendChild(box);
-
-  const h3 = document.createElement('h3');
-  h3.textContent = 'Set map \u2014 ' + entity.name;
-  box.appendChild(h3);
-
-  const hint = document.createElement('p');
-  hint.className = 'image-edit-status';
-  hint.textContent = 'Choose which gallery image is this location\u2019s map. An image can be both the portrait and the map.';
-  box.appendChild(hint);
+  if (document.querySelector('.gallery-picker-panel')) return;
+  const previousTab = state.detailActiveTab;
+  const built = buildGalleryPickerPanel();
+  const panel = built.panel;
+  const header = built.header;
+  const body = built.body;
 
   const currentMap = images.find(function (img) { return img.isMap; });
+  let pickedImg = null;
 
-  function close() { overlay.remove(); }
+  function onKeydown(ev) { if (ev.key === 'Escape') close(); }
+  document.addEventListener('keydown', onKeydown);
+
+  function close() {
+    galleryPickMode = null;
+    document.removeEventListener('keydown', onKeydown);
+    panel.remove();
+    state.detailActiveTab = previousTab;
+    renderDetailForSelected();
+  }
 
   function pinWarning(actionLabel) {
     const pinCount = state.allPins.filter(function (p) { return p.mapEntityId === entity.id; }).length;
@@ -2266,51 +2281,80 @@ function openSetMapDialog(entity, images) {
     );
   }
 
-  const grid = document.createElement('div');
-  grid.className = 'map-picker-grid';
-  images.forEach(function (img) {
-    const isCurrent = !!currentMap && img.id === currentMap.id;
-    const item = document.createElement('button');
-    item.type = 'button';
-    item.className = 'map-picker-item' + (isCurrent ? ' active' : '');
-    const imgEl = document.createElement('img');
-    imgEl.src = img.data;
-    imgEl.alt = entity.name;
-    item.appendChild(imgEl);
-    item.addEventListener('click', function () {
-      if (isCurrent) { close(); return; }
-      if (currentMap && !pinWarning('Replacing the map image')) return;
-      setEntityMap(entity.id, img.id).then(close).catch(function (err) {
-        window.alert('Set map failed: ' + err.message);
-      });
-    });
-    grid.appendChild(item);
-  });
-  box.appendChild(grid);
+  function buildStageA() {
+    header.textContent = 'Select image';
+    body.innerHTML = '';
+    const instructions = document.createElement('p');
+    instructions.className = 'image-edit-status';
+    instructions.textContent = 'Click an image in the gallery below to use as the map.';
+    body.appendChild(instructions);
 
-  const actions = document.createElement('div');
-  actions.className = 'modal-actions';
-  if (currentMap) {
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.textContent = 'Remove map image';
-    removeBtn.addEventListener('click', function () {
-      if (!pinWarning('Removing the map designation')) return;
-      clearEntityMap(entity.id).then(close).catch(function (err) {
-        window.alert('Remove failed: ' + err.message);
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    if (currentMap) {
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.textContent = 'Remove map image';
+      removeBtn.addEventListener('click', function () {
+        if (!pinWarning('Removing the map designation')) return;
+        clearEntityMap(entity.id).then(close).catch(function (err) {
+          window.alert('Remove failed: ' + err.message);
+        });
       });
-    });
-    actions.appendChild(removeBtn);
+      actions.appendChild(removeBtn);
+    }
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', close);
+    actions.appendChild(cancelBtn);
+    body.appendChild(actions);
+
+    galleryPickMode = { entityId: entity.id, onPick: enterStageB };
+    renderDetailForSelected(); // re-render so the gallery cards pick up pick-mode styling/handlers
   }
-  const cancelBtn = document.createElement('button');
-  cancelBtn.type = 'button';
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.addEventListener('click', close);
-  actions.appendChild(cancelBtn);
-  box.appendChild(actions);
 
-  overlay.addEventListener('click', function (ev) { if (ev.target === overlay) close(); });
-  document.body.appendChild(overlay);
+  function enterStageB(img) {
+    pickedImg = img;
+    galleryPickMode = null;
+    buildStageB();
+  }
+
+  function buildStageB() {
+    header.textContent = 'Set map \u2014 ' + entity.name;
+    body.innerHTML = '';
+
+    const preview = document.createElement('div');
+    preview.className = 'gallery-picker-preview';
+    const previewImg = document.createElement('img');
+    previewImg.src = pickedImg.data;
+    previewImg.alt = entity.name;
+    preview.appendChild(previewImg);
+    body.appendChild(preview);
+
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.textContent = 'Save';
+    saveBtn.addEventListener('click', function () {
+      if (currentMap && currentMap.id !== pickedImg.id && !pinWarning('Replacing the map image')) return;
+      saveBtn.disabled = true;
+      setEntityMap(entity.id, pickedImg.id).then(close).catch(function (err) {
+        window.alert('Set map failed: ' + err.message);
+        saveBtn.disabled = false;
+      });
+    });
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', close);
+    actions.appendChild(saveBtn);
+    actions.appendChild(cancelBtn);
+    body.appendChild(actions);
+  }
+
+  buildStageA();
 }
 
 // --- Gallery tab -----------------------------------------------------------
@@ -2449,11 +2493,13 @@ function renderGalleryTab(container, entity, gmView, readOnly) {
   if (galleryImages.length) {
     const galleryDiv = document.createElement('div');
     galleryDiv.className = 'codex-gallery';
+    const picking = !!galleryPickMode && galleryPickMode.entityId === entity.id;
     galleryImages.forEach(function (img) {
       const isCurrentPortrait = !!currentPortrait && img.id === currentPortrait.id;
       const isCurrentMap = !!currentMapImg && img.id === currentMapImg.id;
       const figDiv = document.createElement('div');
-      figDiv.className = 'gallery-item ' + (img.visibility === 'all-players' ? 'vis-visible' : 'vis-hidden');
+      figDiv.className = 'gallery-item ' + (img.visibility === 'all-players' ? 'vis-visible' : 'vis-hidden') +
+        (picking ? ' gallery-item-pickable' : '');
       figDiv.dataset.imageId = img.id;
 
       const imgWrap = document.createElement('div');
@@ -2461,7 +2507,10 @@ function renderGalleryTab(container, entity, gmView, readOnly) {
       const imgEl = document.createElement('img');
       imgEl.src = img.data;
       imgEl.alt = entity.name;
-      imgEl.addEventListener('click', function () { openImageLightbox(img.data, entity.name); });
+      imgEl.addEventListener('click', function () {
+        if (picking) { galleryPickMode.onPick(img); return; }
+        openImageLightbox(img.data, entity.name);
+      });
       imgWrap.appendChild(imgEl);
 
       // Explicitly requested exception to the "only add icons when asked"
