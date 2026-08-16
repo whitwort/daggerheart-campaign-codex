@@ -23,7 +23,9 @@ height, with NO per-context exceptions, except:**
    `.map-breadcrumb-link`, `.collapse-toggle`.
 4. Small icon-only circular buttons — `.image-lightbox-close`.
 5. Buttons inside a small floating panel too narrow for the fixed
-   13rem width — `.portrait-picker-body button` (Set portrait picker).
+   13rem width — `.gallery-picker-body button` (Set portrait / Set map
+   picker panel — shared by both since they were unified onto one
+   panel pattern).
 6. Buttons inside a narrow table cell too narrow for the fixed 13rem
    width — `#admin-players-table button` (Edit/Remove/Save/Cancel in
    the Manage Party row-actions column; two 13rem buttons overflowed
@@ -294,6 +296,20 @@ it) is done and verified. Next up: Phase 13.
   pattern harder than normal live use does, so this phase should
   budget time for listener/render resilience, not just connectivity
   detection and caching.
+- **Phase 13 — Offline / degraded connectivity — CLOSED, dev-verified only.**
+  Core work (persistentLocalCache, connectivity.js, header status pill,
+  entity-edit conflict banner) done in earlier sessions (handoff 18 and
+  prior). This session's work was mostly QOL/bugfix/polish, not phase
+  work, but touched adjacent surfaces: Set portrait/Set map UX unified
+  onto one shared docked-panel pattern (was two different UIs), a real
+  player map-visibility leak fixed (loadMap querying images with no
+  visibility check at all, independent of any UI-level icon gating),
+  the "Map container already initialized" Leaflet race, and a stale-
+  cache role-namespacing gap that could repaint a GM's own cached
+  gm-only map image when toggling Preview-as-player. **Prod persistence
+  rollout is still pending** — everything above has only ever run
+  against the dev Firebase project; needs an explicit go/no-go before
+  Phase 14 work lands on top of it.
 - **Phase 14 — Player-facing contribution features.** Character
   management, in-app GM messaging at the table, codex-unlock
   notifications, and other ways players contribute directly rather than
