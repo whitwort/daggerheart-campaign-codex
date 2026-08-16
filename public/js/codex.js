@@ -1813,6 +1813,12 @@ function renderLoreTab(container, entity, gmView, readOnly) {
       // already filtered to all-players-only when !gmView) -- reflect
       // actual per-item visibility rather than assuming all-visible.
       itemDiv.className = 'lore-item ' + (item.visibility === 'all-players' ? 'vis-visible' : 'vis-hidden');
+      if (metaBadgeLabel(item.meta)) {
+        const metaTag = document.createElement('span');
+        metaTag.className = 'meta-tag';
+        metaTag.textContent = metaBadgeLabel(item.meta);
+        itemDiv.appendChild(metaTag);
+      }
       const bodyDiv = document.createElement('div');
       bodyDiv.className = 'lore-item-body';
       renderMarkdownInto(bodyDiv, resolveLoreItemMarkdown(entity, item, items)).then(function () {
@@ -2527,7 +2533,7 @@ function renderGalleryTab(container, entity, gmView, readOnly) {
           deleteEntityGalleryImage(img.id).catch(function (err) { window.alert('Delete failed: ' + err.message); });
         });
         barDiv.appendChild(delBtn);
-        figDiv.appendChild(barDiv);
+        figDiv.insertBefore(barDiv, imgWrap);
       }
       galleryDiv.appendChild(figDiv);
     });
@@ -3167,6 +3173,19 @@ function renderEntityViewCard(container, entity, gmView, opts) {
 searchEl.addEventListener('input', function () {
   updateSearchClearBtnVisibility();
   renderList();
+});
+
+searchEl.addEventListener('keydown', function (ev) {
+  if (ev.key !== 'Enter') return;
+  ev.preventDefault();
+  const gmView = isGmView();
+  const filtered = state.allEntities
+    .filter(matchesFilters)
+    .filter(function (e) { return gmView || isEntityPlayerVisible(e.id); })
+    .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+  if (filtered.length > 0) {
+    selectEntity(filtered[0].id, true);
+  }
 });
 
 const searchClearBtn = document.getElementById('codex-search-clear-btn');
