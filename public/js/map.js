@@ -1240,6 +1240,12 @@ function renderMapImage(mapEntityId, imageDoc) {
     const img = new Image();
     img.onload = function () {
       try {
+        // Stale-call guard: loadMap() may have moved on to a different
+        // entity (or torn everything down) while this image was still
+        // loading -- don't render the wrong entity's map, and don't
+        // touch a container a newer call may already be using.
+        if (state.loadingMapId !== mapEntityId) return;
+
         placeholderEl.style.display = 'none';
         containerEl.style.display = 'block';
 
@@ -1251,6 +1257,19 @@ function renderMapImage(mapEntityId, imageDoc) {
         // size are both computed here, before Leaflet ever measures the
         // container -- see fitMapTabLayout/fitMapContainerSize above.
         fitMapTabLayout();
+
+        // Defensive removal: a concurrent renderMapImage() call for this
+        // same entity (two Firestore snapshots landing close together,
+        // each starting their own async image load before either one's
+        // onload had fired) can otherwise reach here twice, and Leaflet
+        // throws "Map container is already initialized" on the second
+        // L.map() call rather than replacing the first.
+        if (state.leafletMap) {
+          state.leafletMap.remove();
+          state.leafletMap = null;
+          state.pinLayer = null;
+          state.mapLegendDiv = null;
+        }
 
         const bounds = [[0, 0], [img.naturalHeight, img.naturalWidth]];
         state.mapBounds = bounds;
