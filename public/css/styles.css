@@ -661,7 +661,7 @@ select {
 .entity-group-list li.active { background: var(--hope-glow); }
 .entity-group-list .entity-name { min-width: 0; }
 .entity-group-list .entity-right-col {
-  display: flex; flex-direction: column; align-items: flex-end; gap: 0.2rem; flex-shrink: 0;
+  display: flex; flex-direction: row; align-items: center; gap: 0.3rem; flex-shrink: 0;
 }
 /* Subtype sub-groups (Phase 12b, SRD import): nested one level under a
    category's list (e.g. Equipment > Weapons). The wrapping <li> is a
@@ -690,6 +690,7 @@ select {
   background: var(--hope-glow); color: var(--hope); border: 1px solid var(--hope);
 }
 .entity-map-link {
+  width: auto; min-width: 0; text-align: left;
   font-size: 1rem; line-height: 1; color: var(--fear); text-decoration: none;
   cursor: pointer; background: none; border: none; padding: 0; box-shadow: none;
 }
@@ -967,7 +968,7 @@ select {
 .gallery-item.vis-hidden { box-shadow: inset 3px 0 0 var(--hope); }
 .gallery-item.vis-visible { box-shadow: inset 3px 0 0 var(--fear); }
 .gallery-item img { width: 100%; height: auto; display: block; border-radius: 4px; cursor: pointer; }
-.gallery-item-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.25rem; }
+.gallery-item-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.5rem; }
 .gallery-item-bar button { margin-left: auto; }
 
 /* Gallery image lightbox: full-screen, transparent darkened backdrop,
