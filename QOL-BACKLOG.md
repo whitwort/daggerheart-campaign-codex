@@ -21,7 +21,9 @@ height, with NO per-context exceptions, except:**
 3. Inline text-link-style buttons — no border, no background, styled
    as a link: `.related-chip`, `.entity-map-link`,
    `.map-breadcrumb-link`, `.collapse-toggle`.
-4. Small icon-only circular buttons — `.image-lightbox-close`.
+4. Small icon-only circular buttons — `.image-lightbox-close`,
+   `.vis-kebab-btn` (Phase 14 S2, the GM 3-state visibility control's
+   "..." menu).
 5. Buttons inside a small floating panel too narrow for the fixed
    13rem width — `.gallery-picker-body button` (Set portrait / Set map
    picker panel — shared by both since they were unified onto one
