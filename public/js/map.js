@@ -4,10 +4,10 @@ import {
 import { firebaseApp, CONFIG } from './firebase.js';
 import { state } from './state.js';
 import {
-  renderList, renderDetailForSelected, isEntityPlayerVisible,
-  registerVisibilityChangeHandler, registerMapNavigationHandler, clearCodexSearchInput,
+  isEntityPlayerVisible,
+  registerVisibilityChangeHandler, registerMapNavigationHandler,
   categoryGroupLabel, entityMatchesQuery,
-  renderEntityViewCard, enterEntityEditMode, footerReserve
+  renderEntityViewCard, enterEntityEditMode, footerReserve, switchToCodexTabForEntity
 } from './codex.js';
 import { renderAdminRootEntitySelect, renderAdminCampaignTypeSelect, renderAdminSrdRepo } from './admin.js';
 import { getCachedImage, putCachedImage } from './images.js';
@@ -299,14 +299,7 @@ function renderMapCardPane() {
     headingRightExtra.title = 'Edit in Codex';
     headingRightExtra.textContent = 'Edit in Codex';
     headingRightExtra.addEventListener('click', function () {
-      state.selectedId = entity.id;
-      clearCodexSearchInput();
-      renderList();
-      renderDetailForSelected();
-      document.querySelectorAll('nav#tabs button').forEach(function (b) { b.classList.remove('active'); });
-      document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
-      document.getElementById('tab-btn-codex').classList.add('active');
-      document.getElementById('codex-panel').classList.add('active');
+      switchToCodexTabForEntity(entity.id);
       enterEntityEditMode(entity);
     });
   }
@@ -317,7 +310,10 @@ function renderMapCardPane() {
     onTabChange: function (tabKey) { mapCardActiveTab = tabKey; renderMapCardPane(); },
     onRelatedClick: function (id) { openEntityInMapCard(id); },
     headingRightExtra: headingRightExtra,
-    topLeftExtra: topLeftExtra
+    topLeftExtra: topLeftExtra,
+    // Any view mode (GM or player) -- distinct from the GM-only "Edit
+    // in Codex" button above, which also enters edit mode.
+    onOpenInCodex: function () { switchToCodexTabForEntity(entity.id); }
   });
 }
 
