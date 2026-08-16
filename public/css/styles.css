@@ -905,6 +905,12 @@ select {
 .lore-item.vis-visible { box-shadow: inset 3px 0 0 var(--fear); }
 .lore-item-toggle-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; gap: 0.5rem; }
 .lore-item-toggle-row-left { display: flex; align-items: center; }
+.lore-item-drag-handle {
+  cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
+  -webkit-touch-callout: none; color: var(--ink-soft); font-size: 0.9rem; line-height: 1;
+  margin-right: 0.5rem; letter-spacing: -0.15em;
+}
+.lore-item-drag-handle:active { cursor: grabbing; }
 .lore-item-toggle-row-right { display: flex; align-items: center; }
 .lore-item-meta-row { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.4rem; }
 .lore-item-actions-row { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.4rem; margin-top: 0.4rem; }
@@ -1143,6 +1149,11 @@ button:disabled:hover { border-color: var(--void-line); }
    stripe), otherwise matches the lore-item box treatment. */
 .gallery-hint-box { background: var(--parchment-edge); border-radius: 8px; padding: 0.75rem 0.9rem; margin-bottom: 0.6rem; }
 .gallery-hint-box .image-edit-status { margin: 0; }
+.inline-help-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 0.85em; height: 0.85em; vertical-align: -0.1em; color: currentColor;
+}
+.inline-help-icon svg { width: 100%; height: 100%; display: block; }
 
 /* Gallery picker panel — small drag-to-move floating panel (not a
    full-screen modal), so the entry card / gallery stays visible and

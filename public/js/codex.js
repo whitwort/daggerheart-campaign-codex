@@ -1885,11 +1885,19 @@ function renderLoreTab(container, entity, gmView, readOnly) {
 
     const itemDiv = document.createElement('div');
     itemDiv.className = 'lore-item ' + (item.visibility === 'all-players' ? 'vis-visible' : 'vis-hidden');
+    itemDiv.dataset.itemId = item.id;
 
     const toggleRow = document.createElement('div');
     toggleRow.className = 'lore-item-toggle-row';
     const toggleRowLeft = document.createElement('div');
     toggleRowLeft.className = 'lore-item-toggle-row-left';
+    if (!activeEdit && items.length > 1) {
+      const dragHandle = document.createElement('span');
+      dragHandle.className = 'lore-item-drag-handle';
+      dragHandle.title = 'Drag to reorder';
+      dragHandle.textContent = '\u22ee\u22ee';
+      toggleRowLeft.appendChild(dragHandle);
+    }
     if (metaBadgeLabel(item.meta)) {
       const metaTag = document.createElement('span');
       metaTag.className = 'meta-tag';
@@ -1969,6 +1977,28 @@ function renderLoreTab(container, entity, gmView, readOnly) {
   }
 
   container.appendChild(loreListDiv);
+
+  if (!activeEdit && items.length > 1) {
+    loadSortable().then(function (Sortable) {
+      // eslint-disable-next-line no-new
+      new Sortable(loreListDiv, {
+        handle: '.lore-item-drag-handle',
+        // forceFallback: same reason as the Gallery tab's drag-reorder
+        // (see persistGalleryOrder's call site) -- native HTML5 DnD
+        // doesn't reliably initiate from trackpad-as-mouse input in
+        // Safari, so force SortableJS's own JS-simulated drag for
+        // consistent mouse/trackpad/touch behavior.
+        forceFallback: true,
+        animation: 150,
+        onEnd: function () {
+          const orderedIds = Array.prototype.slice.call(loreListDiv.children)
+            .map(function (el) { return el.dataset.itemId; })
+            .filter(Boolean); // defensive: skip any non-item child (shouldn't occur while !activeEdit)
+          persistLoreOrder(entity.id, orderedIds);
+        }
+      });
+    }).catch(function () { /* drag-reorder unavailable; edit/delete still work */ });
+  }
 
   if (!activeEdit) {
     const loreTabActions = document.createElement('div');
@@ -2390,6 +2420,17 @@ function persistGalleryOrder(entityId, orderedIds) {
   });
 }
 
+function persistLoreOrder(entityId, orderedIds) {
+  const batch = writeBatch(db);
+  orderedIds.forEach(function (id, idx) {
+    batch.update(doc(db, 'loreItems', id), { order: idx });
+  });
+  batch.commit().catch(function (err) {
+    window.alert('Reorder failed: ' + err.message);
+    renderDetailForSelected();
+  });
+}
+
 function openGalleryUploadModal(entity) {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay open';
@@ -2463,9 +2504,11 @@ function renderGalleryTab(container, entity, gmView, readOnly) {
     hintBox.className = 'gallery-hint-box';
     const hint = document.createElement('p');
     hint.className = 'image-edit-status';
-    hint.textContent = isLocation
-      ? 'Drag images to reorder them. The portrait-marked image is used for the entry card\u2019s hero header; the map-marked image is used on the Map tab. An image can be both.'
-      : 'Drag images to reorder them. The portrait-marked image is used for the entry card\u2019s hero header.';
+    const portraitIconHtml = '<span class="inline-help-icon">' + CONFIG.icons.portrait + '</span>';
+    const mapIconHtml = '<span class="inline-help-icon">' + CONFIG.icons.map + '</span>';
+    hint.innerHTML = isLocation
+      ? 'Drag images to reorder them. The ' + portraitIconHtml + ' portrait-marked image is used for the entry card\u2019s hero header; the ' + mapIconHtml + ' map-marked image is used on the Map tab. An image can be both.'
+      : 'Drag images to reorder them. The ' + portraitIconHtml + ' portrait-marked image is used for the entry card\u2019s hero header.';
     hintBox.appendChild(hint);
     container.appendChild(hintBox);
   }
