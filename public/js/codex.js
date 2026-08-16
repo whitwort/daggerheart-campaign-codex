@@ -797,12 +797,6 @@ function renderList() {
 
       const rightCol = document.createElement('div');
       rightCol.className = 'entity-right-col';
-      if (gmView && entity.visibility !== 'all-players') {
-        const hiddenSpan = document.createElement('span');
-        hiddenSpan.className = 'entity-hidden-badge';
-        hiddenSpan.textContent = 'hidden';
-        rightCol.appendChild(hiddenSpan);
-      }
       if (entity.category === 'Location' && entity.hasMapImage) {
         const mapLink = document.createElement('button');
         mapLink.type = 'button';
@@ -814,6 +808,12 @@ function renderList() {
           if (mapNavigationHandler) mapNavigationHandler(entity.id);
         });
         rightCol.appendChild(mapLink);
+      }
+      if (gmView && entity.visibility !== 'all-players') {
+        const hiddenSpan = document.createElement('span');
+        hiddenSpan.className = 'entity-hidden-badge';
+        hiddenSpan.textContent = 'hidden';
+        rightCol.appendChild(hiddenSpan);
       }
       if (rightCol.children.length) li.appendChild(rightCol);
 
@@ -2482,13 +2482,13 @@ function renderGalleryTab(container, entity, gmView, readOnly) {
       figDiv.appendChild(sourceLabelDiv);
 
       if (showChrome) {
-        const barDiv = document.createElement('div');
-        barDiv.className = 'gallery-item-bar';
+        const toggleBarDiv = document.createElement('div');
+        toggleBarDiv.className = 'gallery-item-bar';
         const visible = img.visibility === 'all-players';
         const toggleLabel = document.createElement('span');
         toggleLabel.className = 'toggle-switch-label ' + (visible ? 'state-visible' : 'state-hidden');
         toggleLabel.textContent = visible ? 'Visible to party' : 'Hidden from party';
-        barDiv.appendChild(toggleLabel);
+        toggleBarDiv.appendChild(toggleLabel);
         const switchLabel = document.createElement('label');
         switchLabel.className = 'toggle-switch';
         const switchInput = document.createElement('input');
@@ -2506,13 +2506,20 @@ function renderGalleryTab(container, entity, gmView, readOnly) {
         switchSlider.className = 'toggle-slider';
         switchLabel.appendChild(switchInput);
         switchLabel.appendChild(switchSlider);
-        barDiv.appendChild(switchLabel);
+        toggleBarDiv.appendChild(switchLabel);
+        figDiv.insertBefore(toggleBarDiv, imgWrap);
+
+        // Footer: source dropdown then Delete, stacked below the image
+        // (and below the read-only source-label above, if shown) per
+        // Gregg's requested card order: toggle / image / source / delete.
+        const footerDiv = document.createElement('div');
+        footerDiv.className = 'gallery-item-footer';
 
         const sourceSelect = buildSourceSelect(img.sourceId, function (newSourceId) {
           setGalleryImageSource(img.id, newSourceId)
             .catch(function (err) { window.alert('Source change failed: ' + err.message); });
         });
-        barDiv.appendChild(sourceSelect);
+        footerDiv.appendChild(sourceSelect);
 
         const delBtn = document.createElement('button');
         delBtn.type = 'button';
@@ -2532,8 +2539,8 @@ function renderGalleryTab(container, entity, gmView, readOnly) {
           if (!window.confirm(warning)) return;
           deleteEntityGalleryImage(img.id).catch(function (err) { window.alert('Delete failed: ' + err.message); });
         });
-        barDiv.appendChild(delBtn);
-        figDiv.insertBefore(barDiv, imgWrap);
+        footerDiv.appendChild(delBtn);
+        figDiv.appendChild(footerDiv);
       }
       galleryDiv.appendChild(figDiv);
     });
