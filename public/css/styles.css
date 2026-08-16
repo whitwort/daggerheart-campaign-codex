@@ -33,36 +33,22 @@
   --font-body: 'Inter', sans-serif;
 }
 
-/* scrollbar-gutter:stable both-edges (below) reserves a phantom gutter
-   on BOTH viewport edges, whether or not a scrollbar is actually
-   present. That reserved strip sits outside body's own box, so it's
-   never covered by body's own background (gradient or otherwise) --
-   showing raw default canvas underneath instead, which read as a
-   stray dark seam at the page edges. html's own background just needs
-   to match body's base color so nothing shows through; doesn't need
-   the full gradient treatment, this area is a thin sliver at most. */
-html { background-color: #090A12; }
-
-/* Reserves the same gutter width on BOTH edges of the viewport,
-   whether or not a scrollbar is actually needed there -- this is what
-   actually fixes the "card's right margin looks wider than its left"
-   symptom (a real browser behavior: the vertical scrollbar physically
-   consumes space only on the right, on top of body's own symmetric
-   padding). An earlier attempt fixed this by making body's own
-   padding-right smaller (calc(page-pad-x - 10px)) to compensate --
-   that broke nav#tabs' full-bleed math below, which assumes body's
-   padding is symmetric on both sides (its width/margin calc()s
-   reference --page-pad-x directly, not body's actual computed
-   padding), pushing nav ~10px past the viewport's right edge and
-   producing a real, new horizontal (and, as a side effect once that
-   scrollbar ate vertical space at the bottom, vertical) scrollbar on
-   every load, even when nothing is actually overflowing. This
-   approach doesn't touch body's padding at all, so nav's math stays
-   correct -- verify support if this ever needs to work in a browser
-   without scrollbar-gutter (older Safari); it degrades to no-op
-   there, i.e. back to the original slightly-asymmetric-but-harmless
-   look, not a regression. */
-:root { scrollbar-gutter: stable both-edges; }
+/* scrollbar-gutter:stable both-edges was tried here to fix a minor
+   card-margin asymmetry (right margin looked slightly wider than left
+   because the browser's real vertical scrollbar only reserves space
+   on that side). Reverted -- it caused more problems than the
+   original asymmetry: a stray canvas seam at the page edges (fixed
+   attempt), then a page-level vertical scrollbar (fixed attempt), and
+   finally an unavoidable one: on Chrome/Firefox the reserved gutter
+   gets rendered WITH our own custom scrollbar-track styling
+   (*::-webkit-scrollbar-track below) even when nothing is actually
+   scrollable -- a permanently-visible fake scrollbar, which is a
+   worse version of the exact "bars we don't need" problem this was
+   supposed to solve. Not fixable with more CSS; that's what the
+   property does by spec. Reverting to plain, natural behavior: no
+   gutter reservation, symmetric body padding (see below) -- the
+   original minor asymmetry only appears when a real scrollbar is
+   actually present, and comes with none of the above. */
 
 * { box-sizing: border-box; }
 
