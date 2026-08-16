@@ -317,8 +317,7 @@ function renderMapCardPane() {
 
   renderEntityViewCard(card, entity, gmView, {
     allowEdit: false,
-    activeTab: mapCardActiveTab,
-    onTabChange: function (tabKey) { mapCardActiveTab = tabKey; renderMapCardPane(); },
+    hideSubTabs: true,
     onRelatedClick: function (id) { openEntityInMapCard(id); },
     headingRightExtra: headingRightExtra,
     topLeftExtra: topLeftExtra,
