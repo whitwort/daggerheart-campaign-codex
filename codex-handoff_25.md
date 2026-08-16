@@ -309,6 +309,15 @@ the verification gate, not just a one-off script run after the fact.
 
 ## Remaining work
 
+- **Before S6, strongly recommended**: run the S1 rules test matrix
+  (§7). Now deferred five sessions running (handoffs 21-25). Characters
+  tab (S5) finally gives real character-creation/transfer/reassignment
+  flows to test against — the exact trigger condition handoff 24
+  flagged. S6 adds threads/messages/notifications on top — three MORE
+  collections with real write paths, none of them verified either. Risk
+  compounds every session this stays deferred; this is very likely the
+  last reasonable point to catch it before the write surface gets hard
+  to test as a single pass.
 - **S6 next** (per §8: S1 -> S2 -> S3 -> {S4, S5} -> S6 -> S7; both
   parallel-safe sessions are now done): Messages tray + threads/
   notifications collections + fan-out hooks in sharing.js + Campaign tab
@@ -317,9 +326,6 @@ the verification gate, not just a one-off script run after the fact.
   plan; escalate to Fable if fan-out edge cases or the first-
   subcollection listener plumbing (this app's first-ever subcollection)
   bite.
-- **Before S6**: strongly consider finally running the S1 rules test
-  matrix now that Characters tab gives real character-creation/
-  transfer/reassignment flows to test end-to-end, per the note above.
 - S7, rules test matrix, prod persistence rollout, Phase 15 —
   unchanged, still deferred.
 
