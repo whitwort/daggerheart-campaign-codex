@@ -264,4 +264,74 @@ function buildSharedToggle(opts) {
   return wrap;
 }
 
-export { buildVisibilityControl, buildSharedToggle };
+// --- buildNoteToggle (Phase 14 S4) -----------------------------------------
+// The binary visibility control for a note (kind:'note') -- D6: notes have
+// exactly two states (author-only/all-players), never the 3-state kebab.
+// Same toggle-switch styling/DOM shape as buildSharedToggle (reuses the
+// same .toggle-switch/.toggle-slider CSS, no new markup needed), but
+// writes `visibility` directly rather than `characterShared`, and uses
+// the note-specific labels from §6.3 rather than the generic Hidden/
+// Visible pair -- "Just for me" reads as the private state's own label,
+// "Make it cannon!" as the shared state's, matching the design doc's
+// exact wording. Reuses the existing state-hidden(hope)/state-visible
+// (fear) color classes: same hope/fear "held close" vs. "out in the
+// world" association as the GM 3-state control, just with different text.
+// opts:
+//   getVisibility(): () => 'author-only'|'all-players' (current)
+//   onToggle(newVisibility): void
+function buildNoteToggle(opts) {
+  let current = opts.getVisibility();
+
+  const wrap = document.createElement('span');
+  wrap.className = 'vis-control';
+
+  const label = document.createElement('span');
+  wrap.appendChild(label);
+
+  const switchLabel = document.createElement('label');
+  switchLabel.className = 'toggle-switch';
+  const switchInput = document.createElement('input');
+  switchInput.type = 'checkbox';
+  const switchSlider = document.createElement('span');
+  switchSlider.className = 'toggle-slider';
+  switchLabel.appendChild(switchInput);
+  switchLabel.appendChild(switchSlider);
+  wrap.appendChild(switchLabel);
+
+  function refresh() {
+    const cannon = current === 'all-players';
+    label.className = 'toggle-switch-label ' + (cannon ? 'state-visible' : 'state-hidden');
+    label.textContent = cannon ? 'Make it cannon!' : 'Just for me';
+    switchInput.checked = cannon;
+  }
+
+  switchInput.addEventListener('change', function () {
+    current = switchInput.checked ? 'all-players' : 'author-only';
+    refresh();
+    opts.onToggle(current);
+  });
+
+  refresh();
+  return wrap;
+}
+
+// --- buildCharacterBadge (Phase 14 S4) -------------------------------------
+// The small colored badge (D3) marking content the party is seeing
+// because a PLAYER chose to share it -- a characterShared element or a
+// character-authored cannon note -- never a GM-set state. Callers should
+// only call this after visibilityBadge(element, ctx) returned non-null
+// (see visibility.js); this function just renders the {characterId} it
+// returns. Falls back to a neutral seafoam color if the character has no
+// badgeColor set (the owner-picked color swatch is S5's Characters tab --
+// S4 just needs to render whatever's there, including nothing yet).
+function buildCharacterBadge(characterId) {
+  const character = state.allEntities.find(function (e) { return e.id === characterId; });
+  const badge = document.createElement('span');
+  badge.className = 'character-badge';
+  badge.textContent = (character && character.name) || 'Unknown';
+  badge.title = 'What your character would share with the party in casual conversation.';
+  badge.style.setProperty('--badge-color', (character && character.badgeColor) || 'var(--seafoam)');
+  return badge;
+}
+
+export { buildVisibilityControl, buildSharedToggle, buildNoteToggle, buildCharacterBadge };

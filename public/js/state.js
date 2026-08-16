@@ -38,6 +38,7 @@ export const state = {
   detailEditBaseUpdatedAtMs: null,  // entity.updatedAt (ms) captured when edit mode was entered; compared against the live entity on every snapshot to detect someone else saved underneath this edit (Phase 13 conflict warning)
   detailEditConflictDismissedAtMs: null,  // updatedAt (ms) the GM has already acknowledged via "Keep my edits" — suppresses re-showing the same conflict; a further external change (different ms) still re-triggers it
   loreEdit: null,          // { entityId, id: existingLoreId|null, content, visibility } — in-progress lore item edit/create; id===null means a brand-new (unsaved) item
+  noteEdit: null,          // { entityId, id: existingNoteId|null, content, visibility, authorType, authorId } — in-progress note (kind:'note') edit/create, Phase 14 S4; separate from loreEdit so an in-progress note draft on the Notes tab survives a tab switch to Lore (and vice versa) without clobbering the other
   leafletMap: null,
   loadedMapId: null,
   loadedMapGmView: null,  // gmView the currently-loaded map's image was filtered/rendered for; a role/preview-toggle mismatch against a fresh gmView forces ensureMapTabReady to reload rather than shortcut

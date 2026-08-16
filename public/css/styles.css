@@ -1566,3 +1566,23 @@ button:disabled:hover { border-color: var(--void-line); }
   margin-right: 0.35rem;
 }
 .entity-edit-meta-row { display: flex; align-items: center; gap: 0.4rem; margin-top: 1rem; }
+
+/* Character badge (Phase 14 S4, D3): marks content the party sees because
+   a PLAYER chose to share it -- a characterShared element or a cannon
+   note -- never a GM-set state. Color comes from the character's own
+   badgeColor (S5's owner-picked swatch; --badge-color falls back to
+   --seafoam until then, set inline per-badge via buildCharacterBadge).
+   Sits inline with .source-label (right of it, or alone when the item
+   has no source), so it's sized/spaced like that row's other small
+   attribution text rather than like .meta-tag's heavier toggle-state
+   badge. */
+.character-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--badge-color, var(--seafoam));
+  border-radius: 3px;
+  padding: 0.1rem 0.45rem;
+  margin-left: 0.5rem;
+}
