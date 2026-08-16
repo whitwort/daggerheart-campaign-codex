@@ -1,8 +1,8 @@
 # Codex Handoff 23
 
-HEAD at end of session: `4f48b61` (verify against `git log -1` on fresh
+HEAD at end of session: `4e7c14c` (verify against `git log -1` on fresh
 clone). Supersedes `codex-handoff_22.md`. CI: green, deployed to dev
-(confirmed via Actions API poll).
+(confirmed via Actions API poll, both commits below).
 
 ## Session summary
 
@@ -75,6 +75,14 @@ starting any code).
     role checks to begin with). Shared images get a reduced footer
     (characterShared toggle + source select only, no delete).
   - `notifyVisibilityChange` now exported (was module-private).
+- **`firestore.rules` / `codex.js` (follow-up commit `4e7c14c`)** —
+  `kind:'character-lore'` split out as its own enum value for
+  player-authored owned-Character lore, replacing the `gm-note` reuse
+  from the first commit (Gregg's call: that name was actively misleading
+  once a player can author these too). `gm-note` now unambiguously means
+  GM-authored; existing docs untouched, no migration.
+  `phase-14-design.md` §3.2 updated so S4 sees the addition when it
+  re-reads the doc.
 - **`auth.js`** — `playerDocUnsub`'s snapshot handler now calls
   `notifyVisibilityChange()` every time (not just `updateAccessUI`), so
   switching active character live-refilters Map/Timeline too, not only
@@ -106,13 +114,21 @@ starting any code).
 - **S1's rules test matrix is STILL not run** (carried from handoff 21
   and 22 for a third time — no Firestore emulator or live Auth session
   available in this sandbox). Gregg's explicit call this session: proceed
-  without it, defer to a true end-to-end test later. **This is now more
-  urgent than before** — S3 is the first session where the UI actually
-  *drives* the player write paths (owned-Character CRUD, shared-element
-  edits, `activeCharacterId` writes) rather than just having rules that
-  permit them unexercised. Everything is believed correct from a close
-  reading of both the rules and the design doc's own §7 table, but none
-  of it has touched real Firestore with a real player Auth token yet.- **No live-dev smoke test this session** — same sandbox limitation as
+  without it, defer to a true end-to-end test later.
+
+  Correction from my own first draft of this doc: I'd written this up as
+  "more urgent than before" since S3 is the first session where the UI
+  drives the player write paths. Gregg's pushback is right — there's no
+  natural way to exercise most of it yet anyway, since neither GM nor
+  player has a real *character-creation* flow (that's S5). The one path
+  that IS mechanically testable today: a GM can assign a test player as
+  `ownerId` on a Character entity via the existing (pre-S3) "Owned by
+  party member" select in the entity edit form, and that player can then
+  pick it as active via this session's new nav dropdown — from there the
+  owned-Character/shared-element paths are exercisable. Not the flow a
+  real player will use, so waiting for S5's proper creation UI to test
+  naturally is the reasonable call, not an oversight to keep flagging as
+  urgent.- **No live-dev smoke test this session** — same sandbox limitation as
   every prior Phase 14 session. Before trusting this on dev, Gregg should
   manually verify, ideally as part of finally running the rules matrix:
   - A player can create/edit/delete their own Character entity, but
@@ -146,14 +162,11 @@ starting any code).
   skips this. Low-stakes (a player editing a GM-shared item mid-GM-edit
   is an unlikely collision, and the write only touches content/source
   anyway) but noting the asymmetry.
-- **Judgment call, not explicit in the design doc text:** player-authored
-  lore items under an owned Character use `kind:'gm-note'` (the existing
-  "regular content, not imported" enum value) with `authorType:'character'`
-  — there's no more semantically-named `kind` for this in the current
-  schema (`'note'` is reserved for the S4 Notes system with its own
-  author-only-by-default visibility model). Flag if this should get its
-  own `kind` value before S4 locks in, since S4 will be extending the
-  same enum.
+- ~~**Judgment call, not explicit in the design doc text:** player-authored
+  lore items under an owned Character use `kind:'gm-note'`...~~
+  **RESOLVED (follow-up commit `4e7c14c`):** split into its own
+  `kind:'character-lore'` enum value at Gregg's request. See "What
+  landed" above and `phase-14-design.md` §3.2.
 - **Entities shared to a specific character but not owned**: confirmed
   the design's own §7 table restricts this to a `characterShared`-only
   toggle (no content edit) and built it that way, but this is a genuine
@@ -175,9 +188,9 @@ starting any code).
   to something other than null for the first time), player
   list/create/card-slot editor, `transferRequests` + unified Requests
   queue.
-- Rules test matrix (§7) — should run before or early in S4/S5, same
-  standing flag as the last two handoffs, now carrying real exercised
-  write paths instead of just written-but-unused rules.
+- Rules test matrix (§7) — still open, not urgent to force before S4/S5
+  per Gregg's correction above; natural to run once S5 gives a real
+  character-creation flow to test through.
 - S6, S7, prod persistence rollout (Phase 13), Phase 15 — unchanged,
   still deferred.
 - QOL backlog — unchanged from handoff 22, not touched this session.
