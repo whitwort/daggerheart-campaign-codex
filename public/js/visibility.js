@@ -104,6 +104,41 @@ function isSharedWithActiveCharacter(element, ctx) {
     element.visibility === 'character' && element.characterId === ctx.activeCharacterId;
 }
 
+// --- isNoteAuthor (Phase 14 S4) ------------------------------------------
+// Full CRUD authority over a specific note (kind:'note'), independent of
+// entity ownership -- a note's entityId can be ANY entity (e.g. a
+// player's private note about a GM-owned NPC or another player's
+// Character), so hasFullAuthority's entity-ownership check doesn't apply
+// here. Mirrors the ownership half of canSee's 'author-only' case, but
+// (unlike canSee) applies regardless of the note's CURRENT visibility --
+// an author keeps full CRUD after their own note is canonized to
+// all-players (§6.3's "Owner keeps full CRUD after canonization"), which
+// canSee's author-only branch alone wouldn't cover once visibility flips
+// away from 'author-only'.
+function isNoteAuthor(item, ctx) {
+  if (item.kind !== 'note') return false;
+  if (item.authorType === 'gm') return ctx.gmView;
+  if (item.authorType === 'character') {
+    return !!item.authorId && ctx.ownedCharacterIds.indexOf(item.authorId) !== -1;
+  }
+  return false;
+}
+
+// --- belongsOnLoreSurface (Phase 14 S4) -----------------------------------
+// Tab-placement rule, distinct from canSee's access decision: a note
+// (kind:'note') only joins general Lore-tab-style surfaces
+// (loreItemsForEntity's callers -- renderLoreTab, buildEntityPreviewCard)
+// once canonized. A still-private note passes canSee for its own author
+// (that's the whole point of author-only visibility) but should stay
+// exclusive to the Notes tab even then, so it isn't duplicated across both
+// surfaces. This is UI routing, not visibility, but lives here rather
+// than at each call site so the grep-gate's "no surface-local visibility
+// literal outside sharing.js/visibility.js/visibility-ui.js" invariant
+// (§5.1) keeps holding.
+function belongsOnLoreSurface(item) {
+  return item.kind !== 'note' || item.visibility === 'all-players';
+}
+
 // --- canSee -------------------------------------------------------------
 // Truth table per phase-14-design.md §4. `element` is any lore element:
 // an entity, loreItem, or image doc (with its `id` attached, per the
@@ -193,5 +228,5 @@ function visibilityStateClass(element) {
 
 export {
   viewerContext, canSee, visibilityBadge, isShareableToWholeParty, visibilityStateClass,
-  hasFullAuthority, isSharedWithActiveCharacter
+  hasFullAuthority, isSharedWithActiveCharacter, isNoteAuthor, belongsOnLoreSurface
 };
