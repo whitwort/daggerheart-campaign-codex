@@ -1,6 +1,6 @@
 # Codex Handoff 25
 
-HEAD at end of session: `9b21fee` (verify against `git log -1` on fresh
+HEAD at end of session: `021633c` (verify against `git log -1` on fresh
 clone). Supersedes `codex-handoff_24.md`. CI: green, deployed to dev
 (confirmed via Actions API poll, head_sha matches).
 
@@ -224,6 +224,27 @@ Deliberate: kept the largest, highest-risk file out of scope entirely.
   not invalid CSS).
 - CI: polled Actions API post-push, green, deployed to dev, head_sha
   confirmed matching.
+
+## Post-session fix: deploy break
+
+`9b21fee` broke the app on dev entirely (both GM and player views,
+every load): `characters.js` imported `humanizeKey` from `templates.js`,
+which never exported it (templates.js's own copy is internal-only, used
+only by `computeSearchIndex` there). Neither `eslint` nor `node --check`
+catch a bad named import — it's a browser-native ES module resolution
+error, not a syntax error, so it's invisible to the current gate
+entirely. Fixed in `021633c`: a local `humanizeKey` copy in
+characters.js, matching the existing "kept in sync across codex.js/
+templates.js/srd-import.js" convention already documented for this
+exact function. Verified this was the ONLY bad import by cross-checking
+every named import in characters.js against every target module's
+actual export list. CI green, HEAD `021633c` deployed to dev.
+
+**Flag for future sessions**: this bug class (valid syntax, non-existent
+named import) is structurally invisible to the pre-commit gate as it
+currently stands. Worth considering a standing import-cross-check step
+(or an actual headless-browser/module-graph load smoke test) added to
+the verification gate, not just a one-off script run after the fact.
 
 ## NOT done / open gaps
 
