@@ -459,9 +459,9 @@ const pinMoveIndicatorEl = document.getElementById('pin-move-indicator');
 const pinMoveDoneBtn = document.getElementById('pin-move-done-btn');
 
 // Drag-to-move the panel itself, via the header — same pattern as
-// .portrait-picker-header in codex.js. #pin-panel is a static,
-// always-in-DOM element (not recreated per open like the portrait
-// picker), so this is wired once here rather than inside
+// .gallery-picker-header in codex.js. #pin-panel is a static,
+// always-in-DOM element (not recreated per open like the gallery
+// picker panel), so this is wired once here rather than inside
 // openPinPanel; openPinPanel resets the inline position back to the
 // CSS-default docked spot on every open (see below), so a drag in an
 // earlier session doesn't linger into the next one.
