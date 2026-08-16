@@ -1586,3 +1586,67 @@ button:disabled:hover { border-color: var(--void-line); }
   padding: 0.1rem 0.45rem;
   margin-left: 0.5rem;
 }
+
+/* Characters tab (Phase 14 S5). Deliberately NOT the viewport-height-fit
+   flex layout #codex-tab uses (no fitCodexTabHeight-style JS sizing) --
+   this content flows/scrolls with the page naturally, lower risk, and
+   nothing here needs a pinned-height map/canvas well. */
+.characters-layout { display: flex; align-items: flex-start; gap: 1rem; margin-top: 1rem; }
+.characters-list-pane {
+  flex: 0 0 300px; background: var(--void-raised); border: 1px solid var(--void-line);
+  border-radius: 14px; padding: 1.25rem; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  max-height: 34rem; overflow-y: auto;
+}
+.characters-detail-pane { flex: 1; min-width: 0; }
+.characters-flipper-group-label {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--ink-soft); margin: 0.9rem 0 0.3rem; font-family: var(--font-display), sans-serif;
+}
+.characters-flipper-group-label:first-child { margin-top: 0; }
+.characters-flipper-item {
+  display: block; width: 100%; min-width: 0; text-align: left;
+  background: transparent; border: none; box-shadow: none;
+  padding: 0.35rem 0.5rem; border-radius: 6px; color: var(--parchment); cursor: pointer;
+}
+.characters-flipper-item:hover { background: rgba(255,255,255,0.06); }
+.characters-flipper-item.selected { background: rgba(78,168,142,0.18); color: var(--seafoam); }
+.characters-own-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.characters-own-row .related-chip { width: auto; min-width: 0; }
+/* .character-name-chip (Phase 14 S5): a standalone class, NOT a reuse of
+   the existing .related-chip's actual CSS -- that class's real pill
+   styling (including its width:auto override, needed to beat the base
+   `button` rule's width:13rem) lives entirely under a `.codex-related-
+   chips` ANCESTOR selector (see the "Specificity note" above it) so that
+   it can out-specificity `.codex-entity-card button`. Reusing just the
+   bare class name here (no such ancestor exists in the Characters tab)
+   silently got none of that styling and fell through to the default
+   13rem button -- caught before commit. A plain class selector beats a
+   bare `button` element selector on specificity alone, so no container-
+   scoping trick is needed here. */
+.character-name-chip,
+.character-name-chip:active,
+.character-name-chip:focus {
+  display: inline-block; width: auto; min-width: 0; text-align: left;
+  background: rgba(94,130,150,0.18); color: #3D5464; border-radius: 16px;
+  padding: 0.3125rem 0.75rem; font-size: 0.8125rem; cursor: pointer;
+  border: 1px solid transparent; box-shadow: none; outline: none;
+}
+.character-name-chip:hover { border-color: rgba(61,84,100,0.4); }
+.characters-active-label { font-size: 0.72rem; color: var(--hope); font-weight: 600; }
+.character-card-editor { margin-top: 1rem; }
+.character-card-slot { margin: 0.3rem 0 0.9rem; }
+.character-card-slot-body { margin-top: 0.35rem; font-size: 0.88rem; }
+.character-player-eye-view { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--void-line); }
+.character-player-eye-view h4 { margin: 0 0 0.5rem; font-size: 0.85rem; color: var(--ink-soft); }
+/* Badge-color swatch grid -- small icon-only circular buttons, same
+   exception class as .vis-kebab-btn/.image-lightbox-close (QOL-BACKLOG
+   exception 4): needs its OWN width:auto/min-width:0 override, since the
+   base `button` rule's width:13rem otherwise wins via cascade fallthrough
+   regardless of this class existing (documented gotcha, same one the
+   button-width-consistency pass already caught once). */
+.character-badge-swatch-row { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.3rem; }
+.character-badge-swatch {
+  width: 1.6rem; min-width: 1.6rem; height: 1.6rem; padding: 0; border-radius: 50%;
+  border: 2px solid transparent; box-shadow: none; cursor: pointer;
+}
+.character-badge-swatch.selected { border-color: var(--parchment); }
