@@ -1672,7 +1672,13 @@ function saveLoreEdit(entity, editState, isNew, saveBtn) {
       maxOrder += 1;
       trackWrite(addDoc(collection(db, 'loreItems'), {
         entityId: entity.id,
-        kind: 'gm-note',
+        // 'character-lore' (Phase 14 S3): a distinct kind, not a
+        // repurposed 'gm-note', for content a player authors under
+        // their own owned Character -- 'gm-note' now means specifically
+        // GM-authored, matching its name for the first time. Gregg's
+        // call: introduce the enum level rather than let authorType
+        // silently carry the real distinction under a misleading kind.
+        kind: editState.authorType === 'character' ? 'character-lore' : 'gm-note',
         authorId: editState.authorType === 'character' ? editState.authorId : null,
         authorType: editState.authorType || 'gm',
         visibility: editState.visibility,
