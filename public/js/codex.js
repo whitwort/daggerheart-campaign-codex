@@ -3236,19 +3236,21 @@ function renderEntityViewCard(container, entity, gmView, opts) {
 
   const tabsRow = document.createElement('div');
   tabsRow.className = 'codex-detail-tabs';
-  const activeTab = opts.activeTab || 'lore';
-  [['lore', 'Lore'], ['gallery', 'Gallery'], ['notes', 'Notes']].forEach(function (pair) {
-    const tabKey = pair[0];
-    const tabBtn = document.createElement('button');
-    tabBtn.type = 'button';
-    tabBtn.textContent = pair[1];
-    if (activeTab === tabKey) tabBtn.classList.add('active');
-    tabBtn.addEventListener('click', function () {
-      if (opts.onTabChange) opts.onTabChange(tabKey);
+  const activeTab = opts.hideSubTabs ? 'lore' : (opts.activeTab || 'lore');
+  if (!opts.hideSubTabs) {
+    [['lore', 'Lore'], ['gallery', 'Gallery'], ['notes', 'Notes']].forEach(function (pair) {
+      const tabKey = pair[0];
+      const tabBtn = document.createElement('button');
+      tabBtn.type = 'button';
+      tabBtn.textContent = pair[1];
+      if (activeTab === tabKey) tabBtn.classList.add('active');
+      tabBtn.addEventListener('click', function () {
+        if (opts.onTabChange) opts.onTabChange(tabKey);
+      });
+      tabsRow.appendChild(tabBtn);
     });
-    tabsRow.appendChild(tabBtn);
-  });
-  contentWrap.appendChild(tabsRow);
+    contentWrap.appendChild(tabsRow);
+  }
 
   const tabPanel = document.createElement('div');
   tabPanel.className = 'codex-detail-tab-panel';
