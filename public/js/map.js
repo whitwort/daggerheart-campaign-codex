@@ -152,7 +152,8 @@ function fitMapTabLayoutHeight() {
   // fitCodexTabHeight -- see that comment for why this is needed.
   const cardWell = document.getElementById('map-card-well');
   const poke = cardWell ? Math.abs(Math.min(0, parseFloat(window.getComputedStyle(cardWell).marginTop) || 0)) : 0;
-  const h = window.innerHeight - rect.top - 16 - footerReserve() - poke;
+  // +2px safety margin -- see same comment in codex.js's fitCodexTabHeight.
+  const h = window.innerHeight - rect.top - 16 - footerReserve() - poke - 2;
   mapLayoutEl.style.height = Math.max(240, h) + 'px';
 }
 
