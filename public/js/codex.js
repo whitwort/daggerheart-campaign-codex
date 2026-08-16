@@ -15,9 +15,12 @@ import {
   setEntityPortrait, setEntityMap, clearEntityMap, migrateLegacyMapImageIfNeeded
 } from './images.js';
 import { getTemplateSchema, normalizeSearchTerm, computeSearchIndex } from './templates.js';
-import { canSee, viewerContext, visibilityBadge, isShareableToWholeParty, visibilityStateClass } from './visibility.js';
+import {
+  canSee, viewerContext, visibilityBadge, isShareableToWholeParty, visibilityStateClass,
+  hasFullAuthority, isSharedWithActiveCharacter
+} from './visibility.js';
 import { shareEntityVisibility, shareLoreItemVisibility, shareImageVisibility } from './sharing.js';
-import { buildVisibilityControl } from './visibility-ui.js';
+import { buildVisibilityControl, buildSharedToggle } from './visibility-ui.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -514,21 +517,76 @@ function registerMapNavigationHandler(fn) {
 // same way it used to thread a bare `gmView` boolean.
 
 // --- Nav-strip role switcher (global, not per-card) -----------------------
-// GM: "View" dropdown (GM/Player) drives the existing gmPreviewAsPlayer
-// simulation. True player: "Character" dropdown is a placeholder for now
-// (values to be populated in a future phase) — shown but inert.
+// GM: "View" dropdown (GM/Party) drives state.gmPreview (Phase 14 S3 --
+// see phase-14-design.md §5.3; was a bare bool, now null |
+// {playerEmail, activeCharacterId} so S5's Characters-tab flipper can
+// preview a SPECIFIC player/character later without a further state
+// shape change. This toggle itself only ever sets the generic
+// {playerEmail:null, activeCharacterId:null} shape -- no picker UI yet.
+// True player: "Character" dropdown (nav-character-switcher, Phase 14 S3)
+// lists the player's own owned Characters and writes
+// players/{email}.activeCharacterId -- the live playerDocUnsub listener
+// in auth.js delivers the change straight back into state.activeCharacterId
+// and re-renders everywhere via notifyVisibilityChange (D2).
 const navViewSwitcherEl = document.getElementById('nav-view-switcher');
 const navCharacterSwitcherEl = document.getElementById('nav-character-switcher');
 const gmViewSelect = document.getElementById('gm-view-select');
+const playerCharacterSelectEl = document.getElementById('player-character-select');
+
+// Populates the player's own "Character" nav dropdown from their owned
+// Character entities (state.allEntities, category=='Character' &&
+// ownerId==their email) -- called from updateGmToolbar() so it stays in
+// sync with every entities-change/role-change re-render, same cadence as
+// the GM toolbar itself. No-op (and hidden, via updateGmToolbar's own
+// display toggle) for GM/viewer.
+function renderPlayerCharacterSwitcher() {
+  if (state.currentRole !== 'player' || !playerCharacterSelectEl) return;
+  const email = (state.currentUser && state.currentUser.email) || null;
+  const owned = state.allEntities
+    .filter(function (e) { return e.category === 'Character' && e.ownerId === email; })
+    .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+  const prevValue = playerCharacterSelectEl.value;
+  playerCharacterSelectEl.innerHTML = '';
+  const noneOpt = document.createElement('option');
+  noneOpt.value = '';
+  noneOpt.textContent = '\u2014';
+  playerCharacterSelectEl.appendChild(noneOpt);
+  owned.forEach(function (c) {
+    const opt = document.createElement('option');
+    opt.value = c.id;
+    opt.textContent = c.name;
+    playerCharacterSelectEl.appendChild(opt);
+  });
+  // Prefer the live server value (state.activeCharacterId, delivered via
+  // auth.js's playerDocUnsub) over whatever the select last showed --
+  // this is a re-render, not user input in progress, so the live value
+  // always wins; falls back to the just-rebuilt select's previous value
+  // only if the live value hasn't arrived yet (e.g. immediately after
+  // sign-in, one tick before the first players/{email} snapshot).
+  playerCharacterSelectEl.value = state.activeCharacterId || prevValue || '';
+}
+
+playerCharacterSelectEl.addEventListener('change', function () {
+  const email = (state.currentUser && state.currentUser.email) || null;
+  if (!email) return;
+  updateDoc(doc(db, 'players', email), { activeCharacterId: playerCharacterSelectEl.value || null })
+    .catch(function (err) { window.alert('Switch character failed: ' + err.message); });
+  // No optimistic local state.activeCharacterId set here -- the live
+  // playerDocUnsub listener in auth.js is the single source of truth and
+  // fires within one round-trip; setting it here too would just be a
+  // second write to the same value once the snapshot lands.
+});
+
 function updateGmToolbar() {
   navViewSwitcherEl.style.display = (state.currentRole === 'gm') ? '' : 'none';
   navCharacterSwitcherEl.style.display = (state.currentRole === 'player') ? '' : 'none';
   if (state.currentRole === 'gm') {
-    gmViewSelect.value = state.gmPreviewAsPlayer ? 'player' : 'gm';
+    gmViewSelect.value = state.gmPreview ? 'player' : 'gm';
   }
+  renderPlayerCharacterSwitcher();
 }
 gmViewSelect.addEventListener('change', function () {
-  state.gmPreviewAsPlayer = (gmViewSelect.value === 'player');
+  state.gmPreview = (gmViewSelect.value === 'player') ? { playerEmail: null, activeCharacterId: null } : null;
   updateGmToolbar();
   renderList();
   renderDetailForSelected();
@@ -1169,7 +1227,7 @@ function makeEditField(labelText, value, onInput, opts) {
   return wrap;
 }
 
-function buildParentSelect(entityId, currentParentId, onChange) {
+function buildParentSelect(entityId, currentParentId, onChange, ctx) {
   const wrap = document.createElement('div');
   wrap.className = 'entity-edit-field';
   const label = document.createElement('label');
@@ -1181,7 +1239,7 @@ function buildParentSelect(entityId, currentParentId, onChange) {
   noneOpt.textContent = '-- none --';
   select.appendChild(noneOpt);
   state.allEntities
-    .filter(function (e) { return e.id !== entityId; })
+    .filter(function (e) { return e.id !== entityId && (ctx.gmView || canSee(e, ctx)); })
     .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); })
     .forEach(function (e) {
       const opt = document.createElement('option');
@@ -1195,7 +1253,7 @@ function buildParentSelect(entityId, currentParentId, onChange) {
   return wrap;
 }
 
-function buildRelatedEditor(entityId, draft) {
+function buildRelatedEditor(entityId, draft, ctx) {
   const wrap = document.createElement('div');
   wrap.className = 'entity-edit-field';
   const label = document.createElement('label');
@@ -1226,7 +1284,7 @@ function buildRelatedEditor(entityId, draft) {
   addRow.className = 'related-edit-add';
   const select = document.createElement('select');
   const available = state.allEntities
-    .filter(function (e) { return e.id !== entityId && draft.relatedIds.indexOf(e.id) === -1; })
+    .filter(function (e) { return e.id !== entityId && draft.relatedIds.indexOf(e.id) === -1 && (ctx.gmView || canSee(e, ctx)); })
     .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
   if (available.length === 0) {
     const opt = document.createElement('option');
@@ -1403,14 +1461,14 @@ function buildTemplateEditor(draft) {
   return wrap;
 }
 
-function renderEntityEditBlock(container, entity, draft) {
-  container.appendChild(buildParentSelect(entity.id, draft.parentId, function (v) { draft.parentId = v; }));
+function renderEntityEditBlock(container, entity, draft, ctx) {
+  container.appendChild(buildParentSelect(entity.id, draft.parentId, function (v) { draft.parentId = v; }, ctx));
   container.appendChild(makeEditField('Tags (comma-separated)', draft.tags, function (v) { draft.tags = v; }));
 
   const templateEditor = buildTemplateEditor(draft);
   if (templateEditor) container.appendChild(templateEditor);
 
-  container.appendChild(buildRelatedEditor(entity.id, draft));
+  container.appendChild(buildRelatedEditor(entity.id, draft, ctx));
   const sourceWrap = document.createElement('div');
   sourceWrap.className = 'entity-edit-field';
   const sourceLabel = document.createElement('label');
@@ -1615,8 +1673,8 @@ function saveLoreEdit(entity, editState, isNew, saveBtn) {
       trackWrite(addDoc(collection(db, 'loreItems'), {
         entityId: entity.id,
         kind: 'gm-note',
-        authorId: null,
-        authorType: 'gm',
+        authorId: editState.authorType === 'character' ? editState.authorId : null,
+        authorType: editState.authorType || 'gm',
         visibility: editState.visibility,
         characterId: editState.characterId || null,
         characterShared: !!editState.characterShared,
@@ -1648,6 +1706,28 @@ function deleteLoreItem(item) {
   deleteDoc(doc(db, 'loreItems', item.id)).catch(function (err) {
     window.alert('Delete failed: ' + err.message);
   });
+}
+
+// Phase 14 S3 (§6.2): the player's edit path on a loreItem the GM shared
+// with their active character -- content + sourceId only (no visibility/
+// characterId, no meta, no delete; rules enforce the same field set).
+// characterShared has its own separate toggle (buildSharedToggle, live-
+// written immediately on flip) -- not part of this save.
+function saveSharedLoreItem(editState, saveBtn) {
+  const content = editState.content;
+  if (!content.trim()) {
+    window.alert('Content is required.');
+    return;
+  }
+  saveBtn.disabled = true;
+  trackWrite(shareLoreItemVisibility(editState.id, {
+    content: content,
+    sourceId: editState.sourceId || null
+  }), 'Saving lore').catch(function (err) {
+    window.alert('Save failed: ' + err.message);
+  });
+  state.loreEdit = null;
+  renderDetailForSelected();
 }
 
 // One box, used for both editing an existing item (isNew=false) and
@@ -1790,6 +1870,53 @@ function buildLoreEditBox(entity, editState, isNew) {
   return box;
 }
 
+// Phase 14 S3 (§6.2): reduced edit box for a loreItem the GM shared with
+// the player's active character -- content + source only, no kebab (the
+// player never sets visibility/characterId), no meta select (GM
+// bookkeeping, not a player concern), no Delete (rules don't allow it).
+// The characterShared toggle lives on the item's own row, not in here --
+// same live-write-immediately pattern as the GM kebab, not part of this
+// box's Save/Cancel.
+function buildSharedLoreEditBox(editState) {
+  const box = document.createElement('div');
+  box.className = 'lore-item';
+
+  const sourceRow = document.createElement('div');
+  sourceRow.className = 'lore-item-source-row';
+  const sourceRowLabel = document.createElement('span');
+  sourceRowLabel.className = 'toggle-switch-label';
+  sourceRowLabel.textContent = 'Source';
+  sourceRow.appendChild(sourceRowLabel);
+  sourceRow.appendChild(buildSourceSelect(editState.sourceId, function (v) { editState.sourceId = v; }));
+  box.appendChild(sourceRow);
+
+  const textarea = document.createElement('textarea');
+  textarea.className = 'lore-edit-textarea';
+  textarea.value = editState.content;
+  textarea.addEventListener('input', function () { editState.content = textarea.value; });
+  box.appendChild(textarea);
+
+  const bottomRow = document.createElement('div');
+  bottomRow.className = 'actions-row';
+  const right = document.createElement('div');
+  right.className = 'actions-row-right';
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'lore-item-btn';
+  saveBtn.textContent = 'Save';
+  saveBtn.addEventListener('click', function () { saveSharedLoreItem(editState, saveBtn); });
+  right.appendChild(saveBtn);
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'lore-item-btn';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', function () { state.loreEdit = null; renderDetailForSelected(); });
+  right.appendChild(cancelBtn);
+  bottomRow.appendChild(right);
+
+  box.appendChild(bottomRow);
+  textarea.focus();
+  return box;
+}
+
 // Lore tab content. Player view: each item its own well, styled
 // identically to the GM view's card (parchment-edge fill, fear left
 // strip — every item shown to a player is by definition
@@ -1798,48 +1925,22 @@ function buildLoreEditBox(entity, editState, isNew) {
 // view: each item is a small card — a reveal/hide toggle switch
 // top-right (live, one-tap), Edit/Delete bottom-right; Edit swaps
 // the card into buildLoreEditBox() in place.
+// Phase 14 S3: lore tab rendering is now item-tier-aware rather than a
+// single gmView/readOnly branch. Three tiers per item:
+//   1. entityAuthority (GM, or a player who owns this Character entity)
+//      -- full GM-equivalent chrome for EVERY item under this entity:
+//      kebab toggle, drag-reorder, Edit/Delete, "+New lore".
+//   2. itemShared (only reachable when entityAuthority is false) -- a
+//      single item the GM shared with the viewer's active character
+//      (§6.2), even on an entity the player doesn't own at all (e.g. a
+//      GM-owned NPC). Gets Edit (content/source, via
+//      buildSharedLoreEditBox) + a characterShared-only toggle, no
+//      Delete, no kebab.
+//   3. read-only -- everything else, unchanged visual (meta tag + body +
+//      source label, no controls).
 function renderLoreTab(container, entity, ctx, readOnly) {
   const items = loreItemsForEntity(entity.id, ctx);
-
-  if (!ctx.gmView || readOnly) {
-    if (items.length === 0) {
-      const emptyP = document.createElement('p');
-      emptyP.className = 'lore-empty';
-      emptyP.textContent = '(no lore for this view)';
-      container.appendChild(emptyP);
-      return;
-    }
-    const loreListDiv = document.createElement('div');
-    loreListDiv.className = 'codex-lore-list';
-    items.forEach(function (item) {
-      const itemDiv = document.createElement('div');
-      // GM-readOnly can include gm-only items mixed with all-players
-      // ones (real player view never does, since loreItemsForEntity
-      // already filtered to all-players-only when !gmView) -- reflect
-      // actual per-item visibility rather than assuming all-visible.
-      itemDiv.className = 'lore-item ' + visibilityStateClass(item);
-      if (metaBadgeLabel(item.meta)) {
-        const metaTag = document.createElement('span');
-        metaTag.className = 'meta-tag';
-        metaTag.textContent = metaBadgeLabel(item.meta);
-        itemDiv.appendChild(metaTag);
-      }
-      const bodyDiv = document.createElement('div');
-      bodyDiv.className = 'lore-item-body';
-      renderMarkdownInto(bodyDiv, resolveLoreItemMarkdown(entity, item, items)).then(function () {
-        applyWikiLinks(bodyDiv, entity.id, ctx);
-      });
-      itemDiv.appendChild(bodyDiv);
-      const sourceLabelDiv = document.createElement('div');
-      sourceLabelDiv.className = 'source-label';
-      renderSourceLabel(sourceLabelDiv, item.sourceId, entity.sourceId);
-      itemDiv.appendChild(sourceLabelDiv);
-      loreListDiv.appendChild(itemDiv);
-    });
-    container.appendChild(loreListDiv);
-    return;
-  }
-
+  const entityAuthority = !readOnly && hasFullAuthority(entity, ctx);
   const activeEdit = state.loreEdit && state.loreEdit.entityId === entity.id ? state.loreEdit : null;
 
   const loreListDiv = document.createElement('div');
@@ -1854,47 +1955,67 @@ function renderLoreTab(container, entity, ctx, readOnly) {
 
   items.forEach(function (item) {
     if (activeEdit && activeEdit.id === item.id) {
-      loreListDiv.appendChild(buildLoreEditBox(entity, activeEdit, false));
+      loreListDiv.appendChild(activeEdit.limited ? buildSharedLoreEditBox(activeEdit) : buildLoreEditBox(entity, activeEdit, false));
       return;
     }
+
+    const itemShared = !entityAuthority && !readOnly && isSharedWithActiveCharacter(item, ctx);
 
     const itemDiv = document.createElement('div');
     itemDiv.className = 'lore-item ' + visibilityStateClass(item);
     itemDiv.dataset.itemId = item.id;
 
-    const toggleRow = document.createElement('div');
-    toggleRow.className = 'lore-item-toggle-row';
-    const toggleRowLeft = document.createElement('div');
-    toggleRowLeft.className = 'lore-item-toggle-row-left';
-    if (!activeEdit && items.length > 1) {
-      const dragHandle = document.createElement('span');
-      dragHandle.className = 'lore-item-drag-handle';
-      dragHandle.title = 'Drag to reorder';
-      dragHandle.textContent = '\u22ee\u22ee';
-      toggleRowLeft.appendChild(dragHandle);
-    }
-    if (metaBadgeLabel(item.meta)) {
+    if (entityAuthority || itemShared) {
+      const toggleRow = document.createElement('div');
+      toggleRow.className = 'lore-item-toggle-row';
+      const toggleRowLeft = document.createElement('div');
+      toggleRowLeft.className = 'lore-item-toggle-row-left';
+      if (entityAuthority && !activeEdit && items.length > 1) {
+        const dragHandle = document.createElement('span');
+        dragHandle.className = 'lore-item-drag-handle';
+        dragHandle.title = 'Drag to reorder';
+        dragHandle.textContent = '\u22ee\u22ee';
+        toggleRowLeft.appendChild(dragHandle);
+      }
+      if (metaBadgeLabel(item.meta)) {
+        const metaTag = document.createElement('span');
+        metaTag.className = 'meta-tag';
+        metaTag.textContent = metaBadgeLabel(item.meta);
+        toggleRowLeft.appendChild(metaTag);
+      }
+      toggleRow.appendChild(toggleRowLeft);
+      const toggleRowRight = document.createElement('div');
+      toggleRowRight.className = 'lore-item-toggle-row-right';
+      if (entityAuthority) {
+        toggleRowRight.appendChild(buildVisibilityControl({
+          getVisibility: function () { return item.visibility; },
+          getCharacterId: function () { return item.characterId; },
+          sourceId: item.sourceId,
+          confirmReveal: confirmRevealWithoutSource,
+          onApply: function (patch) {
+            shareLoreItemVisibility(item.id, patch).catch(function (err) {
+              window.alert('Visibility change failed: ' + err.message);
+            });
+          }
+        }));
+      } else {
+        toggleRowRight.appendChild(buildSharedToggle({
+          getShared: function () { return !!item.characterShared; },
+          onToggle: function (newShared) {
+            shareLoreItemVisibility(item.id, { characterShared: newShared }).catch(function (err) {
+              window.alert('Visibility change failed: ' + err.message);
+            });
+          }
+        }));
+      }
+      toggleRow.appendChild(toggleRowRight);
+      itemDiv.appendChild(toggleRow);
+    } else if (metaBadgeLabel(item.meta)) {
       const metaTag = document.createElement('span');
       metaTag.className = 'meta-tag';
       metaTag.textContent = metaBadgeLabel(item.meta);
-      toggleRowLeft.appendChild(metaTag);
+      itemDiv.appendChild(metaTag);
     }
-    toggleRow.appendChild(toggleRowLeft);
-    const toggleRowRight = document.createElement('div');
-    toggleRowRight.className = 'lore-item-toggle-row-right';
-    toggleRowRight.appendChild(buildVisibilityControl({
-      getVisibility: function () { return item.visibility; },
-      getCharacterId: function () { return item.characterId; },
-      sourceId: item.sourceId,
-      confirmReveal: confirmRevealWithoutSource,
-      onApply: function (patch) {
-        shareLoreItemVisibility(item.id, patch).catch(function (err) {
-          window.alert('Visibility change failed: ' + err.message);
-        });
-      }
-    }));
-    toggleRow.appendChild(toggleRowRight);
-    itemDiv.appendChild(toggleRow);
 
     const bodyDiv = document.createElement('div');
     bodyDiv.className = 'lore-item-body';
@@ -1906,22 +2027,26 @@ function renderLoreTab(container, entity, ctx, readOnly) {
     // Hide Edit/Delete on other items while one item (or a new draft) is
     // already being edited — forces finishing that edit first, rather
     // than silently discarding it by switching targets.
-    if (!activeEdit) {
+    if (!activeEdit && (entityAuthority || itemShared)) {
       const actionsRow = document.createElement('div');
       actionsRow.className = 'lore-item-actions-row';
       const editBtn = document.createElement('button');
       editBtn.className = 'lore-item-btn';
       editBtn.textContent = 'Edit';
       editBtn.addEventListener('click', function () {
-        state.loreEdit = { entityId: entity.id, id: item.id, content: item.content, visibility: item.visibility, characterId: item.characterId || null, characterShared: !!item.characterShared, meta: normalizeMetaForEdit(item.meta), sourceId: item.sourceId || null, baseUpdatedAtMs: updatedAtMs(item), conflictDismissedAtMs: null };
+        state.loreEdit = entityAuthority
+          ? { entityId: entity.id, id: item.id, content: item.content, visibility: item.visibility, characterId: item.characterId || null, characterShared: !!item.characterShared, meta: normalizeMetaForEdit(item.meta), sourceId: item.sourceId || null, baseUpdatedAtMs: updatedAtMs(item), conflictDismissedAtMs: null }
+          : { entityId: entity.id, id: item.id, content: item.content, sourceId: item.sourceId || null, limited: true };
         renderDetailForSelected();
       });
       actionsRow.appendChild(editBtn);
-      const delBtn = document.createElement('button');
-      delBtn.className = 'lore-item-btn';
-      delBtn.textContent = 'Delete';
-      delBtn.addEventListener('click', function () { deleteLoreItem(item); });
-      actionsRow.appendChild(delBtn);
+      if (entityAuthority) {
+        const delBtn = document.createElement('button');
+        delBtn.className = 'lore-item-btn';
+        delBtn.textContent = 'Delete';
+        delBtn.addEventListener('click', function () { deleteLoreItem(item); });
+        actionsRow.appendChild(delBtn);
+      }
       itemDiv.appendChild(actionsRow);
     }
 
@@ -1939,7 +2064,7 @@ function renderLoreTab(container, entity, ctx, readOnly) {
 
   container.appendChild(loreListDiv);
 
-  if (!activeEdit && items.length > 1) {
+  if (entityAuthority && !activeEdit && items.length > 1) {
     loadSortable().then(function (Sortable) {
       // eslint-disable-next-line no-new
       new Sortable(loreListDiv, {
@@ -1961,7 +2086,7 @@ function renderLoreTab(container, entity, ctx, readOnly) {
     }).catch(function () { /* drag-reorder unavailable; edit/delete still work */ });
   }
 
-  if (!activeEdit) {
+  if (entityAuthority && !activeEdit) {
     const loreTabActions = document.createElement('div');
     loreTabActions.className = 'actions-row';
     const right = document.createElement('div');
@@ -1970,7 +2095,14 @@ function renderLoreTab(container, entity, ctx, readOnly) {
     newLoreBtn.className = 'action-btn-compact';
     newLoreBtn.textContent = '+ New lore';
     newLoreBtn.addEventListener('click', function () {
-      state.loreEdit = { entityId: entity.id, id: null, content: '', visibility: 'gm-only', characterId: null, characterShared: false, meta: '', sourceId: (sortedSources()[0] && sortedSources()[0].id) || null };
+      // authorType/authorId (Phase 14 S3, §5.3's authorship convention):
+      // the GM's "+New lore" authors as GM (authorId null); an owner
+      // adding lore under their OWN Character authors as that character
+      // (authorId = the character's own entity id -- "written by this
+      // PC", not "written by a player").
+      state.loreEdit = ctx.gmView
+        ? { entityId: entity.id, id: null, content: '', visibility: 'gm-only', characterId: null, characterShared: false, meta: '', sourceId: (sortedSources()[0] && sortedSources()[0].id) || null, authorType: 'gm', authorId: null }
+        : { entityId: entity.id, id: null, content: '', visibility: 'gm-only', characterId: null, characterShared: false, meta: '', sourceId: (sortedSources()[0] && sortedSources()[0].id) || null, authorType: 'character', authorId: entity.id };
       renderDetailForSelected();
     });
     right.appendChild(newLoreBtn);
@@ -2520,7 +2652,7 @@ function renderGalleryTab(container, entity, ctx, readOnly) {
   const currentPortrait = portraitImageFor(entity, ctx);
   const isLocation = entity.category === 'Location';
   const currentMapImg = isLocation ? galleryImages.find(function (img) { return img.isMap; }) : null;
-  const showChrome = ctx.gmView && !readOnly;
+  const showChrome = hasFullAuthority(entity, ctx) && !readOnly;
 
   if (showChrome && galleryImages.length) {
     const hintBox = document.createElement('div');
@@ -2639,6 +2771,33 @@ function renderGalleryTab(container, entity, ctx, readOnly) {
           deleteEntityGalleryImage(img.id).catch(function (err) { window.alert('Delete failed: ' + err.message); });
         });
         footerDiv.appendChild(delBtn);
+        figDiv.appendChild(footerDiv);
+      } else if (!readOnly && isSharedWithActiveCharacter(img, ctx)) {
+        // Phase 14 S3 (§6.2): a gallery image the GM shared with the
+        // player's active character -- own characterShared toggle (no
+        // kebab, no delete) + a source-only footer. No content/data
+        // replace here: no "replace image binary" function exists
+        // anywhere in the app yet, GM included (delete+reupload is the
+        // only pattern today) -- deferred, flagged in the handoff.
+        const toggleBarDiv = document.createElement('div');
+        toggleBarDiv.className = 'gallery-item-bar';
+        toggleBarDiv.appendChild(buildSharedToggle({
+          getShared: function () { return !!img.characterShared; },
+          onToggle: function (newShared) {
+            shareImageVisibility(img.id, { characterShared: newShared }).catch(function (err) {
+              window.alert('Visibility change failed: ' + err.message);
+            });
+          }
+        }));
+        figDiv.insertBefore(toggleBarDiv, imgWrap);
+
+        const footerDiv = document.createElement('div');
+        footerDiv.className = 'gallery-item-footer';
+        const sourceSelect = buildSourceSelect(img.sourceId, function (newSourceId) {
+          setGalleryImageSource(img.id, newSourceId)
+            .catch(function (err) { window.alert('Source change failed: ' + err.message); });
+        });
+        footerDiv.appendChild(sourceSelect);
         figDiv.appendChild(footerDiv);
       }
       galleryDiv.appendChild(figDiv);
@@ -2849,7 +3008,7 @@ function renderDetailForSelected() {
   detailEl.classList.remove('vis-hidden', 'vis-visible', 'vis-character');
   detailEl.classList.add(visibilityStateClass(entity));
 
-  const editing = ctx.gmView && state.detailEditMode && state.detailEditDraft;
+  const editing = hasFullAuthority(entity, ctx) && state.detailEditMode && state.detailEditDraft;
   const draft = editing ? state.detailEditDraft : null;
 
   detailEl.innerHTML = '';
@@ -2923,25 +3082,39 @@ function renderDetailForSelected() {
   const nameField = makeEditField('Name', draft.name, function (v) { draft.name = v; });
   nameField.classList.add('entity-name-field');
   leftCol.appendChild(nameField);
-  const catWrap = document.createElement('div');
-  catWrap.className = 'entity-edit-field';
-  const catLabel = document.createElement('label');
-  catLabel.textContent = 'Entry type';
-  catWrap.appendChild(catLabel);
-  const catSelect = document.createElement('select');
-  CONFIG.categories.forEach(function (c) {
-    const opt = document.createElement('option');
-    opt.value = c;
-    opt.textContent = c;
-    catSelect.appendChild(opt);
-  });
-  catSelect.value = draft.category;
-  catSelect.addEventListener('change', function () {
-    draft.category = catSelect.value;
-    renderDetailForSelected();
-  });
-  catWrap.appendChild(catSelect);
-  leftCol.appendChild(catWrap);
+  // Phase 14 S3 (§6.2): category is NOT player-editable, even on an owned
+  // Character -- omit the select entirely for a non-GM editor (rules
+  // enforce this too: entities update path 2 rejects any diff touching
+  // 'category'). Static label instead, so the field isn't just silently
+  // missing with no explanation.
+  if (ctx.gmView) {
+    const catWrap = document.createElement('div');
+    catWrap.className = 'entity-edit-field';
+    const catLabel = document.createElement('label');
+    catLabel.textContent = 'Entry type';
+    catWrap.appendChild(catLabel);
+    const catSelect = document.createElement('select');
+    CONFIG.categories.forEach(function (c) {
+      const opt = document.createElement('option');
+      opt.value = c;
+      opt.textContent = c;
+      catSelect.appendChild(opt);
+    });
+    catSelect.value = draft.category;
+    catSelect.addEventListener('change', function () {
+      draft.category = catSelect.value;
+      renderDetailForSelected();
+    });
+    catWrap.appendChild(catSelect);
+    leftCol.appendChild(catWrap);
+  } else {
+    const catStatic = document.createElement('p');
+    catStatic.className = 'entity-type-line';
+    const catStaticEm = document.createElement('em');
+    catStaticEm.textContent = draft.category;
+    catStatic.appendChild(catStaticEm);
+    leftCol.appendChild(catStatic);
+  }
 
   if ((CONFIG.subtypesByCategory[draft.category] || []).length) {
     const subtypeWrap = document.createElement('div');
@@ -2974,7 +3147,10 @@ function renderDetailForSelected() {
     // instead of allowing typos/drift). A legacy value that doesn't
     // match any current Ancestry entity is kept as its own option
     // rather than silently dropped -- reopening for edit shouldn't
-    // blank a field the GM didn't touch.
+    // blank a field the GM didn't touch. Phase 14 S3: non-GM (owned-
+    // character) editors only see Ancestries they can actually see
+    // (canSee-filtered) -- a hand-added gm-only homebrew Ancestry
+    // shouldn't leak its name into a player's dropdown.
     const ancestryWrap = document.createElement('div');
     ancestryWrap.className = 'entity-edit-field';
     const ancestryLabel = document.createElement('label');
@@ -2986,7 +3162,7 @@ function renderDetailForSelected() {
     ancestryNoneOpt.textContent = '-- none --';
     ancestrySelect.appendChild(ancestryNoneOpt);
     const ancestryNames = state.allEntities
-      .filter(function (e) { return e.category === 'Ancestry'; })
+      .filter(function (e) { return e.category === 'Ancestry' && (ctx.gmView || canSee(e, ctx)); })
       .map(function (e) { return e.name; })
       .sort(function (a, b) { return a.localeCompare(b); });
     if (draft.ancestry && ancestryNames.indexOf(draft.ancestry) === -1) {
@@ -3004,26 +3180,33 @@ function renderDetailForSelected() {
     leftCol.appendChild(ancestryWrap);
 
     leftCol.appendChild(makeEditField('Aliases (comma-separated)', draft.aliases, function (v) { draft.aliases = v; }));
-    const ownerWrap = document.createElement('div');
-    ownerWrap.className = 'entity-edit-field';
-    const ownerLabel = document.createElement('label');
-    ownerLabel.textContent = 'Owned by party member';
-    ownerWrap.appendChild(ownerLabel);
-    const ownerSelect = document.createElement('select');
-    const noneOpt = document.createElement('option');
-    noneOpt.value = '';
-    noneOpt.textContent = '-- unassigned --';
-    ownerSelect.appendChild(noneOpt);
-    (state.allPlayers || []).slice().sort(function (a, b) { return a.id.localeCompare(b.id); }).forEach(function (p) {
-      const opt = document.createElement('option');
-      opt.value = p.id;
-      opt.textContent = p.displayName ? (p.displayName + ' (' + p.id + ')') : p.id;
-      ownerSelect.appendChild(opt);
-    });
-    ownerSelect.value = draft.ownerId;
-    ownerSelect.addEventListener('change', function () { draft.ownerId = ownerSelect.value; });
-    ownerWrap.appendChild(ownerSelect);
-    leftCol.appendChild(ownerWrap);
+
+    // ownerId is NOT player-editable (§6.2/rules, same reasoning as
+    // category above) -- GM-only field, simply omitted for a non-GM
+    // editor rather than shown read-only (nothing useful for a player
+    // to see here about their own character).
+    if (ctx.gmView) {
+      const ownerWrap = document.createElement('div');
+      ownerWrap.className = 'entity-edit-field';
+      const ownerLabel = document.createElement('label');
+      ownerLabel.textContent = 'Owned by party member';
+      ownerWrap.appendChild(ownerLabel);
+      const ownerSelect = document.createElement('select');
+      const noneOpt = document.createElement('option');
+      noneOpt.value = '';
+      noneOpt.textContent = '-- unassigned --';
+      ownerSelect.appendChild(noneOpt);
+      (state.allPlayers || []).slice().sort(function (a, b) { return a.id.localeCompare(b.id); }).forEach(function (p) {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.displayName ? (p.displayName + ' (' + p.id + ')') : p.id;
+        ownerSelect.appendChild(opt);
+      });
+      ownerSelect.value = draft.ownerId;
+      ownerSelect.addEventListener('change', function () { draft.ownerId = ownerSelect.value; });
+      ownerWrap.appendChild(ownerSelect);
+      leftCol.appendChild(ownerWrap);
+    }
   }
   if (draft.category === 'Scene' || draft.category === 'Event') {
     leftCol.appendChild(makeEditField('Date', draft.date, function (v) { draft.date = v; }, { placeholder: 'e.g. 12d, 45y   or   3500ya' }));
@@ -3033,7 +3216,7 @@ function renderDetailForSelected() {
 
   const rightCol = document.createElement('div');
   rightCol.className = 'codex-card-heading-right';
-  rightCol.appendChild(buildEntityVisibilityToggle(entity)); // editing implies gmView
+  rightCol.appendChild(buildEntityVisibilityToggle(entity)); // editing implies hasFullAuthority (GM, or owns this Character -- §6.2 gives full kebab rights on an owned Character)
   if (entity.category === 'Location' && entity.hasMapImage) {
     const mapLink = document.createElement('button');
     mapLink.type = 'button';
@@ -3050,7 +3233,7 @@ function renderDetailForSelected() {
 
   const editBlock = document.createElement('div');
   editBlock.className = 'entity-edit-block';
-  renderEntityEditBlock(editBlock, entity, draft);
+  renderEntityEditBlock(editBlock, entity, draft, ctx);
   contentWrap.appendChild(editBlock);
 }
 
@@ -3148,8 +3331,28 @@ function renderEntityViewCard(container, entity, ctx, opts) {
 
   const rightCol = document.createElement('div');
   rightCol.className = 'codex-card-heading-right';
-  if (ctx.gmView && allowEdit) {
+  if (allowEdit && hasFullAuthority(entity, ctx)) {
+    // GM, or a player editing their own owned Character: the full
+    // GM-equivalent 3-state kebab control (§6.2 -- "the same GM edit
+    // affordances render for players on owned-character entries";
+    // rules give full CRUD, including visibility/characterId/
+    // characterShared, on an owned Character entity).
     rightCol.appendChild(buildEntityVisibilityToggle(entity));
+  } else if (allowEdit && isSharedWithActiveCharacter(entity, ctx)) {
+    // Entity itself shared to this player's active character (a GM-
+    // owned entity, e.g. an NPC, deliberately shown to one PC): the
+    // rules only allow a characterShared flip here, no content edit
+    // (phase-14-design.md §7's entities row is deliberately narrower
+    // than loreItems/images) -- so this gets ONLY the onward-share
+    // toggle, not the full kebab.
+    rightCol.appendChild(buildSharedToggle({
+      getShared: function () { return !!entity.characterShared; },
+      onToggle: function (newShared) {
+        shareEntityVisibility(entity.id, { characterShared: newShared }).catch(function (err) {
+          window.alert('Visibility change failed: ' + err.message);
+        });
+      }
+    }));
   }
   // Read-only panels (Timeline now, Map later) can inject their own
   // heading-right control here -- e.g. Timeline's GM-only "Edit in
@@ -3260,10 +3463,15 @@ function renderEntityViewCard(container, entity, ctx, opts) {
     }
   }
 
-  // --- GM Edit/Delete actions (lower-right), then source attribution
+  // --- Edit/Delete actions (lower-right), then source attribution
   // (lower-left) on its own row below them. Only in allowEdit mode --
-  // read-only panels never show these regardless of gmView. ---
-  if (ctx.gmView && allowEdit) {
+  // read-only panels never show these regardless of authority. Phase 14
+  // S3: gated on hasFullAuthority (GM OR owns this Character), not bare
+  // ctx.gmView -- D4, "players can delete characters they own". A
+  // shared-with-active-character entity (isSharedWithActiveCharacter)
+  // gets NEITHER button, only the characterShared toggle above -- the
+  // rules only allow that one field for that case (§7).
+  if (allowEdit && hasFullAuthority(entity, ctx)) {
     const cardActions = document.createElement('div');
     cardActions.className = 'actions-row codex-card-bottom-actions';
     const right = document.createElement('div');
@@ -3356,5 +3564,5 @@ export {
   isEntityPlayerVisible, registerVisibilityChangeHandler, registerMapNavigationHandler,
   clearCodexSearchInput, buildEntityPreviewCard, categoryGroupLabel, entityMatchesQuery,
   renderEntityViewCard, applyWikiLinks, enterEntityEditMode, appendDateSegments,
-  fitCodexTabHeight, footerReserve, switchToCodexTabForEntity
+  fitCodexTabHeight, footerReserve, switchToCodexTabForEntity, notifyVisibilityChange
 };

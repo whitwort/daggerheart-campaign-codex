@@ -219,4 +219,49 @@ function buildVisibilityControl(opts) {
   return wrap;
 }
 
-export { buildVisibilityControl };
+// --- buildSharedToggle (Phase 14 S3) --------------------------------------
+// The player's own onward-share control on an element the GM has shared
+// with their active character (§6.2) -- same toggle-switch styling as
+// buildVisibilityControl's switch, but no kebab (a player never sets
+// visibility/characterId themselves) and writes ONLY characterShared.
+// opts:
+//   getShared(): () => bool (current characterShared)
+//   onToggle(newShared): void
+// Returns a DOM node (span.vis-control, reusing the same wrapper class so
+// it drops into the same toggle-row layout as the GM control).
+function buildSharedToggle(opts) {
+  let current = !!opts.getShared();
+
+  const wrap = document.createElement('span');
+  wrap.className = 'vis-control';
+
+  const label = document.createElement('span');
+  wrap.appendChild(label);
+
+  const switchLabel = document.createElement('label');
+  switchLabel.className = 'toggle-switch';
+  const switchInput = document.createElement('input');
+  switchInput.type = 'checkbox';
+  const switchSlider = document.createElement('span');
+  switchSlider.className = 'toggle-slider';
+  switchLabel.appendChild(switchInput);
+  switchLabel.appendChild(switchSlider);
+  wrap.appendChild(switchLabel);
+
+  function refresh() {
+    label.className = 'toggle-switch-label ' + (current ? 'state-visible' : 'state-hidden');
+    label.textContent = current ? 'Visible to party' : 'Hidden from party';
+    switchInput.checked = current;
+  }
+
+  switchInput.addEventListener('change', function () {
+    current = switchInput.checked;
+    refresh();
+    opts.onToggle(current);
+  });
+
+  refresh();
+  return wrap;
+}
+
+export { buildVisibilityControl, buildSharedToggle };
