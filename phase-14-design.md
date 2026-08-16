@@ -74,13 +74,21 @@ gate, which becomes canSee-based).
 
 ### 3.2 loreItems
 ```
-kind: 'imported' | 'gm-note' | 'note'      // 'note' is NEW (player+GM notes); 'player-note' enum value RETIRED (never used in data)
+kind: 'imported' | 'gm-note' | 'character-lore' | 'note'      // 'note' is NEW (player+GM notes); 'character-lore' added in S3 (not in original design -- see below); 'player-note' enum value RETIRED (never used in data)
 visibility: 'gm-only' | 'all-players' | 'character' | 'author-only'
              // 'character' NEW (lore items); 'author-only' reserved for kind=='note'
 characterId, characterShared               // NEW, same semantics as entities
 authorType: 'gm' | 'character'             // existing on-record model; rules updated to match (old 'player' path removed)
 authorId: null | <character entity doc id>
 ```
+
+**S3 addition (post-lock, Gregg's call):** `kind:'character-lore'` -- the
+same shape/visibility semantics as `gm-note` (regular 3-state-visibility
+lore content, not a Note), but authored by a player under their own
+owned Character rather than the GM. Split out as its own enum value
+instead of reusing `gm-note` for both, since that name is actively
+misleading once a player can author these too. Existing `gm-note` docs
+are untouched/unmigrated and now unambiguously mean GM-authored.
 
 Notes are loreItems with `kind:'note'`. "Make it cannon!" = flipping the
 note's visibility to `all-players` — it then renders among lore items on the

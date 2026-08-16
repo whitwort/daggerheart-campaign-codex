@@ -335,7 +335,14 @@ service cloud.firestore {
     // never-actually-used 'player-note' kind is retired from the writer's
     // intent but still TOLERATED in the enum below purely as a defensive
     // read-compatibility measure in case any stray test doc used it --
-    // Gregg confirmed no real data does). visibility gains 'character'.
+    // Gregg confirmed no real data does) and 'character-lore' (Phase 14
+    // S3: regular lore content -- same shape/visibility semantics as
+    // 'gm-note' -- authored by a player under their own owned Character,
+    // NOT the GM. Split out as its own enum value rather than reusing
+    // 'gm-note' for both, since that name would be actively misleading
+    // once a player can author these too; existing 'gm-note' docs are
+    // untouched/unmigrated and now unambiguously mean GM-authored).
+    // visibility gains 'character'.
     // characterId/characterShared mirror entities. authorType is now
     // strictly 'gm'|'character' (the old authorType:'player' path below
     // this function -- isOwnPlayerNoteWrite -- is removed wholesale; it
@@ -346,7 +353,7 @@ service cloud.firestore {
           ['entityId', 'kind', 'authorId', 'authorType', 'visibility', 'characterId', 'characterShared',
            'content', 'meta', 'sourceId', 'order', 'createdAt', 'updatedAt'])
         && request.resource.data.entityId is string
-        && request.resource.data.kind in ['imported', 'gm-note', 'note', 'player-note']
+        && request.resource.data.kind in ['imported', 'gm-note', 'character-lore', 'note', 'player-note']
         && request.resource.data.authorType in ['gm', 'character']
         && request.resource.data.visibility in ['gm-only', 'all-players', 'character', 'author-only']
         && request.resource.data.content is string
