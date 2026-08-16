@@ -2,11 +2,21 @@ import { CONFIG } from './firebase.js';
 import { ensureMapTabReady } from './map.js';
 import './auth.js';
 import './admin.js';
-import { fitCodexTabHeight } from './codex.js';
+import { fitCodexTabHeight, registerVisibilityChangeHandler } from './codex.js';
 import './images.js';
 import { ensureImportEditorReady } from './import.js';
 import './backup.js';
 import { ensureTimelineTabReady } from './timeline.js';
+import { ensureCharactersTabReady, renderCharactersTab } from './characters.js';
+
+// Phase 14 S5: registered here (not at characters.js's own top level) --
+// see the NOTE at the bottom of characters.js for why a real import
+// cycle (codex.js -> admin.js -> characters.js -> codex.js) makes this
+// registration unsafe from inside that cycle (TDZ on codex.js's own
+// module-scope state). main.js is the entry point and outside the cycle
+// -- every module's top-level code has fully run by the time main.js's
+// own body executes.
+registerVisibilityChangeHandler(renderCharactersTab);
 
 document.getElementById('campaign-title').textContent = CONFIG.campaignName;
 document.getElementById('tab-btn-codex').textContent = CONFIG.tabs.codex;
@@ -39,6 +49,9 @@ document.getElementById('tab-btn-map').textContent = CONFIG.tabs.map;
         }
         if (btn.dataset.tab === 'timeline-panel') {
           ensureTimelineTabReady();
+        }
+        if (btn.dataset.tab === 'characters-panel') {
+          ensureCharactersTabReady();
         }
       });
     });
