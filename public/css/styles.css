@@ -973,8 +973,10 @@ select {
 .gallery-item.vis-hidden { box-shadow: inset 3px 0 0 var(--hope); }
 .gallery-item.vis-visible { box-shadow: inset 3px 0 0 var(--fear); }
 .gallery-item img { width: 100%; height: auto; display: block; border-radius: 4px; cursor: pointer; }
-.gallery-item-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.5rem; }
-.gallery-item-bar button { margin-left: auto; }
+.gallery-item-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.5rem; justify-content: flex-end; }
+.gallery-item-footer { display: flex; flex-direction: column; align-items: flex-start; gap: 0.4rem; margin-top: 0.5rem; }
+.gallery-item-footer .source-select { width: 100%; }
+.gallery-item-footer .action-btn-compact { align-self: flex-end; }
 
 /* Gallery image lightbox: full-screen, transparent darkened backdrop,
    image letterboxed via object-fit rather than cropped. */
@@ -1109,22 +1111,24 @@ button:disabled:hover { border-color: var(--void-line); }
    star so they don't overlap when both show on the same thumbnail. */
 .gallery-item-image-wrap { position: relative; }
 .gallery-portrait-indicator {
-  position: absolute; top: 0.3rem; right: 0.3rem; color: var(--hope);
-  opacity: 0.75; pointer-events: none;
+  position: absolute; top: 0.35rem; right: 0.35rem; color: var(--hope);
+  background: rgba(13,16,22,0.72); border-radius: 50%;
+  width: 1.6rem; height: 1.6rem; display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
 }
 .gallery-portrait-indicator svg {
-  width: 0.9rem; height: 0.9rem; display: block;
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6));
+  width: 1rem; height: 1rem; display: block;
 }
 .gallery-map-indicator {
-  position: absolute; top: 0.3rem; right: 0.3rem; color: var(--hope);
-  opacity: 0.85; pointer-events: none;
+  position: absolute; top: 0.35rem; right: 0.35rem; color: var(--hope);
+  background: rgba(13,16,22,0.72); border-radius: 50%;
+  width: 1.6rem; height: 1.6rem; display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
 }
 .gallery-map-indicator svg {
-  width: 0.9rem; height: 0.9rem; display: block;
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6));
+  width: 1rem; height: 1rem; display: block;
 }
-.gallery-map-indicator.stacked { right: 1.5rem; }
+.gallery-map-indicator.stacked { right: 2rem; }
 
 /* Set map dialog — plain modal (no crop/zoom to configure, unlike Set
    portrait's docked panel), just a grid of gallery thumbnails to pick
