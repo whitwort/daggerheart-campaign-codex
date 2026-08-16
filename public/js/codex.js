@@ -1024,6 +1024,22 @@ function updatedAtMs(entity) {
   return (t && typeof t.toMillis === 'function') ? t.toMillis() : null;
 }
 
+// Selects entityId in the Codex tab's list/detail and switches the
+// active tab to Codex, without entering edit mode. Shared by: the
+// Map tab's read-only "Open in Codex" icon (any view mode) and the
+// GM-only "Edit in Codex" button (which calls this, then separately
+// calls enterEntityEditMode).
+function switchToCodexTabForEntity(entityId) {
+  state.selectedId = entityId;
+  clearCodexSearchInput();
+  renderList();
+  renderDetailForSelected();
+  document.querySelectorAll('nav#tabs button').forEach(function (b) { b.classList.remove('active'); });
+  document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
+  document.getElementById('tab-btn-codex').classList.add('active');
+  document.getElementById('codex-panel').classList.add('active');
+}
+
 function enterEntityEditMode(entity) {
   state.detailEditMode = true;
   state.detailEditDraft = buildEntityDraft(entity);
@@ -3061,6 +3077,15 @@ function renderEntityViewCard(container, entity, gmView, opts) {
   if (opts.headingRightExtra) {
     rightCol.appendChild(opts.headingRightExtra);
   }
+  if (opts.onOpenInCodex) {
+    const codexLink = document.createElement('button');
+    codexLink.type = 'button';
+    codexLink.className = 'entity-map-link';
+    codexLink.title = 'Open in Codex';
+    codexLink.innerHTML = CONFIG.icons.codex;
+    codexLink.addEventListener('click', function () { opts.onOpenInCodex(); });
+    rightCol.appendChild(codexLink);
+  }
   if (entity.category === 'Location' && entity.hasMapImage) {
     const mapLink = document.createElement('button');
     mapLink.type = 'button';
@@ -3246,5 +3271,5 @@ export {
   isEntityPlayerVisible, registerVisibilityChangeHandler, registerMapNavigationHandler,
   clearCodexSearchInput, buildEntityPreviewCard, categoryGroupLabel, entityMatchesQuery,
   renderEntityViewCard, applyWikiLinks, enterEntityEditMode, appendDateSegments,
-  fitCodexTabHeight, footerReserve
+  fitCodexTabHeight, footerReserve, switchToCodexTabForEntity
 };
