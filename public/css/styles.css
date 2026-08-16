@@ -927,6 +927,13 @@ select {
 .lore-item-body { font-size: 0.906rem; line-height: 1.6; color: var(--ink); font-weight: 400; }
 .lore-item-body > :first-child { margin-top: 0; }
 .lore-item-body > :last-child { margin-bottom: 0; }
+.lore-item-body blockquote {
+  margin: 0.6rem 0; padding: 0.5rem 0.9rem; border-left: 3px solid var(--ink-soft);
+  background: rgba(58,46,34,0.06); font-style: italic; color: var(--ink-soft);
+}
+.lore-item-body blockquote > :first-child { margin-top: 0; }
+.lore-item-body blockquote > :last-child { margin-bottom: 0; }
+.lore-item-body blockquote blockquote { margin: 0.5rem 0 0; } /* nested quotes: no extra top gap stacking against the parent's own padding */
 .lore-empty { color: var(--ink-soft); }
 .lore-edit-textarea { width: 100%; box-sizing: border-box; min-height: 140px; resize: vertical; font-family: inherit; background: #fff; color: var(--ink); border: 1px solid var(--parchment-edge); }
 .lore-edit-hint { font-size: 0.75rem; color: var(--ink-soft); }
