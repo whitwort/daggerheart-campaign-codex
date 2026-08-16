@@ -118,7 +118,7 @@ was caught and fixed. If a 5th exception category becomes necessary,
 add it to this list explicitly rather than leaving it implicit in
 scattered CSS.
 
-## Phase 10 (map improvements) — in progress
+## Phase 10 (map improvements) — CLOSED
 
 - **10a. Map image compression too aggressive — DONE** (`b14a299`).
   Quality-search encode ([95,92,88,85,80,75], keep first fit under
