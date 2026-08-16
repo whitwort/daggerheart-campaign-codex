@@ -148,7 +148,11 @@ function fitMapTabLayoutHeight() {
   const rect = mapLayoutEl.getBoundingClientRect();
   // footerReserve(): leaves room for the #build-version footer -- see
   // that comment in codex.js. Same fix, shared function.
-  const h = window.innerHeight - rect.top - 16 - footerReserve();
+  // Same #map-card-well negative-margin-top compensation as codex.js's
+  // fitCodexTabHeight -- see that comment for why this is needed.
+  const cardWell = document.getElementById('map-card-well');
+  const poke = cardWell ? Math.abs(Math.min(0, parseFloat(window.getComputedStyle(cardWell).marginTop) || 0)) : 0;
+  const h = window.innerHeight - rect.top - 16 - footerReserve() - poke;
   mapLayoutEl.style.height = Math.max(240, h) + 'px';
 }
 

@@ -60,7 +60,20 @@ function fitCodexTabHeight() {
   const panel = document.getElementById('codex-panel');
   if (!panel || !panel.classList.contains('active')) return;
   const rect = codexTabEl.getBoundingClientRect();
-  const h = window.innerHeight - rect.top - 16 - footerReserve();
+  // #codex-detail-pane carries a negative margin-top (flush-align fix,
+  // see styles.css) so its own box pokes above #codex-tab's own top
+  // edge by that amount. That poke isn't clipped by anything and
+  // wasn't accounted for here, so it silently added its full height
+  // to the page's total scrollable content beyond what this function
+  // already budgets for -- exactly enough overflow (a few px) to
+  // trigger an otherwise-pointless page-level vertical scrollbar on
+  // every load. Read the actual live value (matches the "keep in
+  // sync via getComputedStyle" pattern map.js already uses for
+  // #map-well's padding) rather than hardcoding it, so this keeps
+  // working if that CSS value ever changes.
+  const detailPane = document.getElementById('codex-detail-pane');
+  const poke = detailPane ? Math.abs(Math.min(0, parseFloat(window.getComputedStyle(detailPane).marginTop) || 0)) : 0;
+  const h = window.innerHeight - rect.top - 16 - footerReserve() - poke;
   codexTabEl.style.height = Math.max(320, h) + 'px';
 }
 window.addEventListener('resize', fitCodexTabHeight);
