@@ -325,8 +325,7 @@ function renderCardPane() {
   }
   renderEntityViewCard(card, entity, gmView, {
     allowEdit: false,
-    activeTab: activeTab,
-    onTabChange: function (tabKey) { activeTab = tabKey; renderCardPane(); },
+    hideSubTabs: true,
     onRelatedClick: function (id) { openEntityInPanel(id); },
     headingRightExtra: headingRightExtra
   });
