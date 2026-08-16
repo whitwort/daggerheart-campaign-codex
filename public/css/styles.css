@@ -427,7 +427,7 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 .modal-box label { display: block; margin-top: 0.75rem; font-size: 0.85rem; font-weight: bold; }
 .modal-box input[type="text"], .modal-box select, .modal-box textarea, .modal-box input[type="file"] {
   width: 100%; box-sizing: border-box; padding: 0.4rem; font-size: 0.9rem; margin-top: 0.2rem;
-  font-family: inherit; background: #fff; color: var(--ink); border: 1px solid var(--parchment-edge);
+  font-family: inherit; background-color: #fff; color: var(--ink); border: 1px solid var(--parchment-edge);
 }
 /* Native file-input chrome ("Choose File") defaults to opaque OS/dark
    styling that doesn't take the field's own background/color -- style
