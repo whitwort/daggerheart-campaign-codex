@@ -33,6 +33,27 @@
   --font-body: 'Inter', sans-serif;
 }
 
+/* Reserves the same gutter width on BOTH edges of the viewport,
+   whether or not a scrollbar is actually needed there -- this is what
+   actually fixes the "card's right margin looks wider than its left"
+   symptom (a real browser behavior: the vertical scrollbar physically
+   consumes space only on the right, on top of body's own symmetric
+   padding). An earlier attempt fixed this by making body's own
+   padding-right smaller (calc(page-pad-x - 10px)) to compensate --
+   that broke nav#tabs' full-bleed math below, which assumes body's
+   padding is symmetric on both sides (its width/margin calc()s
+   reference --page-pad-x directly, not body's actual computed
+   padding), pushing nav ~10px past the viewport's right edge and
+   producing a real, new horizontal (and, as a side effect once that
+   scrollbar ate vertical space at the bottom, vertical) scrollbar on
+   every load, even when nothing is actually overflowing. This
+   approach doesn't touch body's padding at all, so nav's math stays
+   correct -- verify support if this ever needs to work in a browser
+   without scrollbar-gutter (older Safari); it degrades to no-op
+   there, i.e. back to the original slightly-asymmetric-but-harmless
+   look, not a regression. */
+:root { scrollbar-gutter: stable both-edges; }
+
 * { box-sizing: border-box; }
 
 /* Custom scrollbars: browser defaults (a bulky light-gray box
@@ -72,19 +93,8 @@ body {
     radial-gradient(ellipse 900px 900px at 35% 90%, rgba(60,45,90,0.22), transparent 70%);
   background-attachment: fixed;
   background-repeat: no-repeat;
-  --page-pad-x: 2rem; /* consumed by nav#tabs' full-bleed math -- keep
-    this var itself symmetric, don't fold the scrollbar compensation
-    below into it, or nav#tabs' calc()s (which reference this var
-    directly, not body's own computed padding) go uneven too. */
+  --page-pad-x: 2rem; /* consumed by nav#tabs' full-bleed math */
   padding: 1.5rem var(--page-pad-x);
-  /* Compensates for the page's own vertical scrollbar (10px, see
-     *::-webkit-scrollbar above), which physically reserves space only
-     on the viewport's right edge -- #codex-tab/#codex-detail-pane
-     etc. are already perfectly symmetric on their own (confirmed via
-     inspector: 0 left/right margin, matching padding at every level),
-     the extra right-side whitespace was coming from here, one level
-     up, not from anything in the tab layouts themselves. */
-  padding-right: calc(var(--page-pad-x) - 10px);
   margin: 0;
   min-height: 100vh;
   overscroll-behavior: none;
