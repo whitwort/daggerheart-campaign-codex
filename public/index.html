@@ -156,7 +156,40 @@
   </div>
 
   <div id="characters-panel" class="tab-panel">
-    <p class="lore-empty">Characters coming soon</p>
+    <div id="characters-gm-view" style="display:none;">
+      <div id="characters-layout" class="characters-layout">
+        <div id="characters-list-pane" class="characters-list-pane">
+          <h3 class="pane-title">Party</h3>
+          <div id="characters-flipper-list"></div>
+        </div>
+        <div id="characters-detail-pane" class="characters-detail-pane">
+          <p class="lore-empty">Select a party member's character.</p>
+        </div>
+      </div>
+    </div>
+    <div id="characters-player-view" style="display:none;">
+      <div id="characters-player-own">
+        <h3 class="pane-title">Your characters</h3>
+        <div id="characters-player-own-list"></div>
+        <div class="actions-row">
+          <div class="actions-row-right">
+            <button id="characters-new-btn" class="action-btn-compact">+ New character</button>
+          </div>
+        </div>
+        <div id="characters-new-form" style="display:none;">
+          <input type="text" id="characters-new-name" placeholder="Character name">
+          <button id="characters-new-save-btn" class="action-btn-compact">Save</button>
+          <button id="characters-new-cancel-btn" class="action-btn-compact">Cancel</button>
+        </div>
+        <p id="characters-new-error"></p>
+      </div>
+      <div id="characters-player-selected"></div>
+      <div id="characters-player-available">
+        <h3 class="pane-title">Available characters</h3>
+        <p class="admin-hint">Unowned characters the GM has made visible to the party -- request one to take it over.</p>
+        <div id="characters-player-available-list"></div>
+      </div>
+    </div>
   </div>
 
   <div id="admin-panel" class="tab-panel">
@@ -164,14 +197,14 @@
     <section id="admin-section-players" class="admin-card">
       <h2>Manage Party</h2>
 
-      <h3>Pending join requests</h3>
+      <h3>Requests</h3>
       <div id="admin-join-requests"></div>
 
       <h3>Current party</h3>
       <div class="table-scroll">
       <table id="admin-players-table">
         <thead>
-          <tr><th>Party ID</th><th>Party name</th><th>Characters</th><th></th></tr>
+          <tr><th>Player ID</th><th>Player Name</th><th></th></tr>
         </thead>
         <tbody id="admin-players-tbody"></tbody>
       </table>

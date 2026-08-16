@@ -1,5 +1,5 @@
 import {
-  getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection, serverTimestamp
+  getFirestore, doc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
@@ -8,6 +8,7 @@ import { trackWrite } from './connectivity.js';
 import { runSrdImport } from './srd-import.js';
 import { renderMarkdownInto } from './markdown.js';
 import { addSource, updateSource, deleteSource, reorderSources, sortedSources, registerSourcesChangeHandler } from './sources.js';
+import { renderCharactersTab } from './characters.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -172,27 +173,53 @@ const adminSourceErrorEl = document.getElementById('admin-source-error');
             state.allPlayers.push(Object.assign({ id: docSnap.id }, docSnap.data()));
           });
           renderAdminPlayersList();
+          renderCharactersTab();  // GM flipper groups PCs by player displayName -- needs a re-render on any players change too, not just entities/role (Phase 14 S5)
         }), function (err) {
           console.error('players listener failed:', err.message);
         });
       });
+
+      // Character transfer requests (Phase 14 §3.5/§6.5/§8 D8, S5): GM's
+      // full collection, consolidated with joinRequests into one Requests
+      // section per Gregg's placement call (extend the existing Admin tab
+      // section + nav badge, not a separate nav element).
+      attachListener('transferRequestsUnsub', function () {
+        return onSnapshot(collection(db, 'transferRequests'), safeSnapshotHandler('transferRequests', function (snapshot) {
+          state.allTransferRequests = [];
+          snapshot.forEach(function (docSnap) {
+            state.allTransferRequests.push(Object.assign({ id: docSnap.id }, docSnap.data()));
+          });
+          renderAdminJoinRequests();
+        }), function (err) {
+          console.error('transferRequests listener failed:', err.message);
+        });
+      });
     }
 
+    // Unified Requests queue (D8/§6.5, S5): join requests (existing) +
+    // character transfer requests, one list, one nav badge counting both.
+    // Kept as one function (not split renderers) since Gregg's placement
+    // call was to extend this exact existing section rather than add a
+    // separate surface -- transfer rows reuse the same
+    // .admin-notification/.admin-notification-warning box + Accept/Reject
+    // actions-row pattern as join-request rows, just with different
+    // label/action wiring.
     function renderAdminJoinRequests() {
       adminJoinRequestsEl.innerHTML = '';
-      if (state.allJoinRequests.length === 0) {
+      const totalPending = state.allJoinRequests.length + state.allTransferRequests.length;
+      if (totalPending === 0) {
         adminPendingBadge.style.display = 'none';
         adminPendingBadge.textContent = '';
         return;
       }
       adminPendingBadge.style.display = 'inline';
-      adminPendingBadge.textContent = ' (' + state.allJoinRequests.length + ')';
+      adminPendingBadge.textContent = ' (' + totalPending + ')';
       state.allJoinRequests.forEach(function (req) {
         const box = document.createElement('div');
         box.className = 'admin-notification admin-notification-warning';
         const label = document.createElement('span');
         label.textContent = (req.displayName ? req.displayName + ' — ' : '') + req.email
-          + ' (' + (req.provider || 'unknown') + ')';
+          + ' (' + (req.provider || 'unknown') + ') wants to join';
         box.appendChild(label);
 
         const actions = document.createElement('div');
@@ -208,6 +235,43 @@ const adminSourceErrorEl = document.getElementById('admin-source-error');
         box.appendChild(actions);
 
         adminJoinRequestsEl.appendChild(box);
+      });
+      state.allTransferRequests.forEach(function (req) {
+        const character = state.allEntities.find(function (e) { return e.id === req.characterId; });
+        const requester = state.allPlayers.find(function (p) { return p.id === req.toEmail; });
+        const box = document.createElement('div');
+        box.className = 'admin-notification admin-notification-warning';
+        const label = document.createElement('span');
+        label.textContent = (requester && requester.displayName ? requester.displayName + ' — ' : '') + req.toEmail
+          + ' wants to take over ' + (character ? character.name : '(deleted character)');
+        box.appendChild(label);
+
+        const actions = document.createElement('div');
+        actions.className = 'actions-row-right';
+        const approveBtn = document.createElement('button');
+        approveBtn.textContent = 'Approve';
+        approveBtn.disabled = !character;
+        approveBtn.addEventListener('click', function () { approveTransferRequest(req); });
+        actions.appendChild(approveBtn);
+        const rejectBtn = document.createElement('button');
+        rejectBtn.textContent = 'Reject';
+        rejectBtn.addEventListener('click', function () { rejectTransferRequest(req); });
+        actions.appendChild(rejectBtn);
+        box.appendChild(actions);
+
+        adminJoinRequestsEl.appendChild(box);
+      });
+    }
+
+    function approveTransferRequest(req) {
+      updateDoc(doc(db, 'entities', req.characterId), { ownerId: req.toEmail, updatedAt: serverTimestamp() })
+        .then(function () { return deleteDoc(doc(db, 'transferRequests', req.id)); })
+        .catch(function (err) { alert('Approve failed: ' + err.message); });
+    }
+
+    function rejectTransferRequest(req) {
+      deleteDoc(doc(db, 'transferRequests', req.id)).catch(function (err) {
+        alert('Reject failed: ' + err.message);
       });
     }
 
@@ -228,18 +292,12 @@ const adminSourceErrorEl = document.getElementById('admin-source-error');
       });
     }
 
-    function charactersOwnedBy(email) {
-      return state.allEntities
-        .filter(function (e) { return e.category === 'Character' && e.ownerId === email; })
-        .map(function (e) { return e.name; });
-    }
-
     function renderAdminPlayersList() {
       adminPlayersTbodyEl.innerHTML = '';
       if (state.allPlayers.length === 0) {
         const row = document.createElement('tr');
         const cell = document.createElement('td');
-        cell.colSpan = 4;
+        cell.colSpan = 3;
         cell.className = 'lore-empty';
         cell.textContent = 'No whitelisted party members yet.';
         row.appendChild(cell);
@@ -265,10 +323,6 @@ const adminSourceErrorEl = document.getElementById('admin-source-error');
           nameCell.textContent = p.displayName || '';
         }
         row.appendChild(nameCell);
-
-        const charsCell = document.createElement('td');
-        charsCell.textContent = charactersOwnedBy(p.id).join(', ');
-        row.appendChild(charsCell);
 
         const actionsCell = document.createElement('td');
         const actions = document.createElement('div');
@@ -357,6 +411,7 @@ const adminSourceErrorEl = document.getElementById('admin-source-error');
 function detachAdminListeners() {
   detachListener('joinRequestsUnsub');
   detachListener('playersUnsub');
+  detachListener('transferRequestsUnsub');
 }
 
 // --- Admin: Sources (interjected before Phase 13). GM-only CRUD UI over

@@ -23,6 +23,11 @@ export const state = {
   adminPlayerEditDraft: '',
   allSources: [],
   sourcesUnsub: null,
+  allTransferRequests: [],   // Phase 14 S5 -- GM-only full transferRequests collection (admin.js listener), feeds the unified Admin > Requests queue (join + transfer)
+  transferRequestsUnsub: null,
+  myTransferRequests: [],    // Phase 14 S5 -- any signed-in player's OWN pending transferRequests (where toEmail==self, characters.js listener), used to gray out "Request transfer" once already filed for a character
+  myTransferRequestsUnsub: null,
+  charactersSelectedId: null,     // Phase 14 S5 -- Characters tab's own selection, independent of the Codex tab's state.selectedId: the GM flipper's chosen PC, or a player's chosen own-character for the card-slot editor
   adminSourceEditId: null,
   adminSourceEditDraft: '',
   adminSourceNewDraft: '',

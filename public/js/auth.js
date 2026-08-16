@@ -14,6 +14,7 @@ import { attachAdminListeners, detachAdminListeners } from './admin.js';
 import { attachSourcesListener, detachSourcesListener } from './sources.js';
 import { attachVersionListener, detachVersionListener, initUpdateBanner } from './version.js';
 import { attachConnectivityListener, detachConnectivityListener } from './connectivity.js';
+import { attachCharacterTransferListeners, detachCharacterTransferListeners } from './characters.js';
 
 export const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
@@ -89,6 +90,7 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
       attachPinsListener();
       attachConfigListener();
       attachSourcesListener();
+      attachCharacterTransferListeners();
     }
 
     // Bugfix: attachDataListeners()/attachAdminListeners() only ever ran
@@ -105,6 +107,7 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
       detachMapDataListeners();
       detachAdminListeners();
       detachSourcesListener();
+      detachCharacterTransferListeners();
     }
 
     function updateAccessUI(role) {
