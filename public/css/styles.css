@@ -1431,15 +1431,17 @@ button:disabled:hover { border-color: var(--void-line); }
 }
 .source-label p { margin: 0; display: inline; }
 
-/* Map tab source label: same lower-left convention as .source-label,
-   but styled against the map's own dark-overlay controls (legend,
-   zoom) rather than the parchment card look, since it lives directly
-   on the map image, not a Codex card. */
+/* Map tab source label: lives below the map image (not overlaid on
+   the Leaflet canvas) -- same plain lower-left .source-label
+   convention used on entity/lore/gallery labels (font-size, margin,
+   opacity), just recolored since #map-well's background is dark
+   (var(--void-raised)), not parchment. */
 .map-source-label {
-  background: var(--void-raised); color: rgba(233,221,194,0.7); padding: 0.3rem 0.5rem; border-radius: 4px;
-  border: 1px solid var(--void-line);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.5); font-size: 0.65rem; line-height: 1.4;
-  max-width: 14rem;
+  text-align: left;
+  font-size: 0.7rem;
+  color: rgba(233,221,194,0.65);
+  margin-top: 0.5rem;
+  opacity: 0.8;
 }
 .map-source-label p { margin: 0; display: inline; }
 .lore-item-source-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.3rem; margin-bottom: 0.4rem; min-width: 0; }

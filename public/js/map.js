@@ -902,20 +902,20 @@ function addLegendControl(map) {
   legend.addTo(map);
 }
 
-// Small "Source: ..." label, bottom-left, same lower-left convention as
-// entity/lore/gallery source labels elsewhere -- always shown (per
-// Gregg's call), no containing-entity redundancy suppression, since a
-// map image's attribution is its own thing regardless of what its
-// owning Location entity's sourceId happens to be.
-function addSourceLabelControl(map, sourceId) {
-  const control = L.control({ position: 'bottomleft' });
-  control.onAdd = function () {
-    const div = L.DomUtil.create('div', 'map-source-label');
-    L.DomEvent.disableClickPropagation(div);
-    renderSourceLabel(div, sourceId, null, true);
-    return div;
-  };
-  control.addTo(map);
+// Small "Source: ..." label below the map image (not overlaid on the
+// Leaflet canvas) -- always shown (per Gregg's call) when a map image
+// is loaded, no containing-entity redundancy suppression, since a map
+// image's attribution is its own thing regardless of what its owning
+// Location entity's sourceId happens to be. sourceId null/undefined
+// (no map image loaded at all) hides the label entirely rather than
+// showing "Source: none" -- there's nothing to attribute yet.
+const mapSourceLabelEl = document.getElementById('map-source-label');
+function updateMapSourceLabel(sourceId) {
+  if (sourceId === undefined) {
+    mapSourceLabelEl.style.display = 'none';
+    return;
+  }
+  renderSourceLabel(mapSourceLabelEl, sourceId, null, true);
 }
 
 // Rebuild the legend's rows from a Set of category names. Called at the
@@ -1062,6 +1062,7 @@ function teardownMapRuntime() {
   state.loadedMapId = null;
   state.loadedMapGmView = null;
   state.loadingMapId = null;
+  updateMapSourceLabel();
 }
 
 function loadMap(mapEntityId) {
@@ -1177,10 +1178,12 @@ function loadMap(mapEntityId) {
         placeholderEl.textContent = state.currentRole === 'gm'
           ? 'No map image for "' + (mapEntity.name || 'this location') + '" yet. Set one via its Gallery tab in the Codex (Set map).'
           : 'This map has no image yet — ask your GM.';
+        updateMapSourceLabel();
         return;
       }
       state.currentMapImageDims = { width: chosenData.width, height: chosenData.height };
       renderMapImage(mapEntityId, chosenData);
+      updateMapSourceLabel(chosenData.sourceId);
       // Fire-and-forget cache write; source-of-truth render above never
       // waits on this.
       putCachedImage({
@@ -1260,7 +1263,6 @@ function renderMapImage(mapEntityId, imageDoc) {
         });
         L.imageOverlay(imageDoc.data, bounds).addTo(map);
         addLegendControl(map);
-        addSourceLabelControl(map, imageDoc.sourceId);
         state.leafletMap = map;
         state.loadedMapId = mapEntityId;
 
