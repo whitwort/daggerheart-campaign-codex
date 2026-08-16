@@ -1127,8 +1127,16 @@ function loadMap(mapEntityId) {
   // Cache key is per-ENTITY, not per-image-doc -- the underlying image
   // doc backing "this entity's map" can now change (GM re-picks Set map
   // on a different gallery image) without the cache knowing or caring
-  // which doc it came from.
-  const mapCacheKey = 'map-for-' + mapEntityId;
+  // which doc it came from. Also namespaced by viewer role: GM's cache
+  // legitimately contains gm-only images (GM sees everything), so
+  // without this a GM toggling "Preview as player" would instantly
+  // repaint from their own GM-view cache entry -- bypassing the live
+  // snapshot's visibility filter below for the brief window before that
+  // snapshot arrives and corrects it. A genuine player's own device
+  // never had a GM-role cache entry to begin with, so this only changes
+  // behavior for the GM-preview case, not real players.
+  const gmView = state.currentRole === 'gm' && !state.gmPreviewAsPlayer;
+  const mapCacheKey = 'map-for-' + mapEntityId + '-' + (gmView ? 'gm' : 'player');
 
   // Phase 7c-1: paint instantly from IndexedDB cache (if any) while the
   // listener below does its network round-trip. state.loadedMapId check
