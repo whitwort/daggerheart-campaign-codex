@@ -28,6 +28,15 @@ export const state = {
   myTransferRequests: [],    // Phase 14 S5 -- any signed-in player's OWN pending transferRequests (where toEmail==self, characters.js listener), used to gray out "Request transfer" once already filed for a character
   myTransferRequestsUnsub: null,
   charactersSelectedId: null,     // Phase 14 S5 -- Characters tab's own selection, independent of the Codex tab's state.selectedId: the GM flipper's chosen PC, or a player's chosen own-character for the card-slot editor
+  threadsUnsub: null,        // Phase 14 S6 -- GM: full threads collection; player: own threads/{email} doc (messages.js)
+  allThreads: [],            // thread docs (GM: all; player: at most own), {id: playerEmail, lastMessageAt, lastMessagePreview, gmLastReadAt, playerLastReadAt}
+  threadMessagesUnsub: null, // per-open-thread messages subcollection listener -- manual lifecycle (target changes with the open tab), like entityImagesUnsub; the app's first subcollection listener
+  threadMessages: [],        // message docs for openThreadKey, sorted oldest-first client-side
+  openThreadKey: null,       // playerEmail of the thread the messages listener currently points at
+  notificationsUnsub: null,  // GM: full notifications collection; player: where recipientEmail==self (messages.js)
+  allNotifications: [],      // notification docs per the listener scope above
+  trayExpanded: false,       // Messages tray collapsed strip vs expanded panel
+  trayTab: null,             // open tab: a playerEmail (thread) or 'campaign'
   adminSourceEditId: null,
   adminSourceEditDraft: '',
   adminSourceNewDraft: '',
