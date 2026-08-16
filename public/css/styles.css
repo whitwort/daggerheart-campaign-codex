@@ -900,7 +900,7 @@ select {
    (inset box-shadow) indicating GM-only (Hope) vs player-visible (Fear),
    matching the locked mockup. */
 .codex-lore-list { margin-top: 0.75rem; }
-.lore-item { background: var(--parchment-edge); border-radius: 8px; padding: 0.75rem 0.9rem; margin-bottom: 0.6rem; }
+.lore-item { background: rgba(218,203,166,0.8); border-radius: 8px; padding: 0.75rem 0.9rem; margin-bottom: 0.6rem; }
 .lore-item.vis-hidden { box-shadow: inset 3px 0 0 var(--hope); }
 .lore-item.vis-visible { box-shadow: inset 3px 0 0 var(--fear); }
 .lore-item-toggle-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; gap: 0.5rem; }
