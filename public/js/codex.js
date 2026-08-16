@@ -17,6 +17,7 @@ import {
 import { getTemplateSchema, normalizeSearchTerm, computeSearchIndex } from './templates.js';
 import { canSee, viewerContext, visibilityBadge, isShareableToWholeParty, visibilityStateClass } from './visibility.js';
 import { shareEntityVisibility, shareLoreItemVisibility, shareImageVisibility } from './sharing.js';
+import { buildVisibilityControl } from './visibility-ui.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -978,32 +979,17 @@ detailEl.addEventListener('click', function (ev) {
 function buildEntityVisibilityToggle(entity) {
   const row = document.createElement('div');
   row.className = 'entity-visibility-toggle-row';
-  const label = document.createElement('span');
-  const hidden = !isShareableToWholeParty(entity);
-  label.className = 'toggle-switch-label ' + (hidden ? 'state-hidden' : 'state-visible');
-  label.textContent = hidden ? 'Hidden from party' : 'Visible to party';
-  row.appendChild(label);
-  const switchLabel = document.createElement('label');
-  switchLabel.className = 'toggle-switch';
-  const input = document.createElement('input');
-  input.type = 'checkbox';
-  input.checked = !hidden;
-  input.addEventListener('change', function () {
-    if (input.checked && !confirmRevealWithoutSource(entity.sourceId)) {
-      input.checked = false;
-      return;
+  row.appendChild(buildVisibilityControl({
+    getVisibility: function () { return entity.visibility; },
+    getCharacterId: function () { return entity.characterId; },
+    sourceId: entity.sourceId,
+    confirmReveal: confirmRevealWithoutSource,
+    onApply: function (patch) {
+      shareEntityVisibility(entity.id, patch).catch(function (err) {
+        window.alert('Visibility change failed: ' + err.message);
+      });
     }
-    shareEntityVisibility(entity.id, {
-      visibility: input.checked ? 'all-players' : 'gm-only'
-    }).catch(function (err) {
-      window.alert('Visibility change failed: ' + err.message);
-    });
-  });
-  const slider = document.createElement('span');
-  slider.className = 'toggle-slider';
-  switchLabel.appendChild(input);
-  switchLabel.appendChild(slider);
-  row.appendChild(switchLabel);
+  }));
   return row;
 }
 
@@ -1632,6 +1618,8 @@ function saveLoreEdit(entity, editState, isNew, saveBtn) {
         authorId: null,
         authorType: 'gm',
         visibility: editState.visibility,
+        characterId: editState.characterId || null,
+        characterShared: !!editState.characterShared,
         content: c,
         meta: editState.meta || null,
         sourceId: editState.sourceId || null,
@@ -1644,6 +1632,8 @@ function saveLoreEdit(entity, editState, isNew, saveBtn) {
     trackWrite(shareLoreItemVisibility(editState.id, {
       content: content,
       visibility: editState.visibility,
+      characterId: editState.characterId || null,
+      characterShared: !!editState.characterShared,
       meta: editState.meta || null,
       sourceId: editState.sourceId || null
     }), 'Saving lore').catch(fail);
@@ -1695,6 +1685,8 @@ function buildLoreEditBox(entity, editState, isNew) {
       reloadBtn.addEventListener('click', function () {
         editState.content = liveItem.content;
         editState.visibility = liveItem.visibility;
+        editState.characterId = liveItem.characterId || null;
+        editState.characterShared = !!liveItem.characterShared;
         editState.meta = normalizeMetaForEdit(liveItem.meta);
         editState.sourceId = liveItem.sourceId || null;
         editState.baseUpdatedAtMs = liveUpdatedAtMs;
@@ -1710,33 +1702,17 @@ function buildLoreEditBox(entity, editState, isNew) {
 
   const toggleRow = document.createElement('div');
   toggleRow.className = 'lore-item-toggle-row';
-  const toggleLabel = document.createElement('span');
-  toggleLabel.className = 'toggle-switch-label';
-  function updateToggleLabel() {
-    const visible = isShareableToWholeParty(editState);
-    toggleLabel.textContent = visible ? 'Visible to party' : 'Hidden from party';
-    toggleLabel.className = 'toggle-switch-label ' + (visible ? 'state-visible' : 'state-hidden');
-  }
-  updateToggleLabel();
-  toggleRow.appendChild(toggleLabel);
-  const switchLabel = document.createElement('label');
-  switchLabel.className = 'toggle-switch';
-  const switchInput = document.createElement('input');
-  switchInput.type = 'checkbox';
-  switchInput.checked = isShareableToWholeParty(editState);
-  switchInput.addEventListener('change', function () {
-    if (switchInput.checked && !confirmRevealWithoutSource(editState.sourceId)) {
-      switchInput.checked = false;
-      return;
+  toggleRow.appendChild(buildVisibilityControl({
+    getVisibility: function () { return editState.visibility; },
+    getCharacterId: function () { return editState.characterId; },
+    sourceId: editState.sourceId,
+    confirmReveal: confirmRevealWithoutSource,
+    onApply: function (patch) {
+      editState.visibility = patch.visibility;
+      editState.characterId = patch.characterId;
+      if ('characterShared' in patch) editState.characterShared = patch.characterShared;
     }
-    editState.visibility = switchInput.checked ? 'all-players' : 'gm-only';
-    updateToggleLabel();
-  });
-  const switchSlider = document.createElement('span');
-  switchSlider.className = 'toggle-slider';
-  switchLabel.appendChild(switchInput);
-  switchLabel.appendChild(switchSlider);
-  toggleRow.appendChild(switchLabel);
+  }));
   box.appendChild(toggleRow);
 
   const sourceRow = document.createElement('div');
@@ -1906,30 +1882,17 @@ function renderLoreTab(container, entity, ctx, readOnly) {
     toggleRow.appendChild(toggleRowLeft);
     const toggleRowRight = document.createElement('div');
     toggleRowRight.className = 'lore-item-toggle-row-right';
-    const toggleLabel = document.createElement('span');
-    const itemVisible = isShareableToWholeParty(item);
-    toggleLabel.className = 'toggle-switch-label ' + (itemVisible ? 'state-visible' : 'state-hidden');
-    toggleLabel.textContent = itemVisible ? 'Visible to party' : 'Hidden from party';
-    toggleRowRight.appendChild(toggleLabel);
-    const switchLabel = document.createElement('label');
-    switchLabel.className = 'toggle-switch';
-    const switchInput = document.createElement('input');
-    switchInput.type = 'checkbox';
-    switchInput.checked = itemVisible;
-    switchInput.addEventListener('change', function () {
-      if (switchInput.checked && !confirmRevealWithoutSource(item.sourceId)) {
-        switchInput.checked = false;
-        return;
+    toggleRowRight.appendChild(buildVisibilityControl({
+      getVisibility: function () { return item.visibility; },
+      getCharacterId: function () { return item.characterId; },
+      sourceId: item.sourceId,
+      confirmReveal: confirmRevealWithoutSource,
+      onApply: function (patch) {
+        shareLoreItemVisibility(item.id, patch).catch(function (err) {
+          window.alert('Visibility change failed: ' + err.message);
+        });
       }
-      shareLoreItemVisibility(item.id, {
-        visibility: switchInput.checked ? 'all-players' : 'gm-only'
-      }).catch(function (err) { window.alert('Visibility change failed: ' + err.message); });
-    });
-    const switchSlider = document.createElement('span');
-    switchSlider.className = 'toggle-slider';
-    switchLabel.appendChild(switchInput);
-    switchLabel.appendChild(switchSlider);
-    toggleRowRight.appendChild(switchLabel);
+    }));
     toggleRow.appendChild(toggleRowRight);
     itemDiv.appendChild(toggleRow);
 
@@ -1950,7 +1913,7 @@ function renderLoreTab(container, entity, ctx, readOnly) {
       editBtn.className = 'lore-item-btn';
       editBtn.textContent = 'Edit';
       editBtn.addEventListener('click', function () {
-        state.loreEdit = { entityId: entity.id, id: item.id, content: item.content, visibility: item.visibility, meta: normalizeMetaForEdit(item.meta), sourceId: item.sourceId || null, baseUpdatedAtMs: updatedAtMs(item), conflictDismissedAtMs: null };
+        state.loreEdit = { entityId: entity.id, id: item.id, content: item.content, visibility: item.visibility, characterId: item.characterId || null, characterShared: !!item.characterShared, meta: normalizeMetaForEdit(item.meta), sourceId: item.sourceId || null, baseUpdatedAtMs: updatedAtMs(item), conflictDismissedAtMs: null };
         renderDetailForSelected();
       });
       actionsRow.appendChild(editBtn);
@@ -2007,7 +1970,7 @@ function renderLoreTab(container, entity, ctx, readOnly) {
     newLoreBtn.className = 'action-btn-compact';
     newLoreBtn.textContent = '+ New lore';
     newLoreBtn.addEventListener('click', function () {
-      state.loreEdit = { entityId: entity.id, id: null, content: '', visibility: 'gm-only', meta: '', sourceId: (sortedSources()[0] && sortedSources()[0].id) || null };
+      state.loreEdit = { entityId: entity.id, id: null, content: '', visibility: 'gm-only', characterId: null, characterShared: false, meta: '', sourceId: (sortedSources()[0] && sortedSources()[0].id) || null };
       renderDetailForSelected();
     });
     right.appendChild(newLoreBtn);
@@ -2632,29 +2595,17 @@ function renderGalleryTab(container, entity, ctx, readOnly) {
       if (showChrome) {
         const toggleBarDiv = document.createElement('div');
         toggleBarDiv.className = 'gallery-item-bar';
-        const visible = isShareableToWholeParty(img);
-        const toggleLabel = document.createElement('span');
-        toggleLabel.className = 'toggle-switch-label ' + (visible ? 'state-visible' : 'state-hidden');
-        toggleLabel.textContent = visible ? 'Visible to party' : 'Hidden from party';
-        toggleBarDiv.appendChild(toggleLabel);
-        const switchLabel = document.createElement('label');
-        switchLabel.className = 'toggle-switch';
-        const switchInput = document.createElement('input');
-        switchInput.type = 'checkbox';
-        switchInput.checked = visible;
-        switchInput.addEventListener('change', function () {
-          if (switchInput.checked && !confirmRevealWithoutSource(img.sourceId)) {
-            switchInput.checked = false;
-            return;
+        toggleBarDiv.appendChild(buildVisibilityControl({
+          getVisibility: function () { return img.visibility; },
+          getCharacterId: function () { return img.characterId; },
+          sourceId: img.sourceId,
+          confirmReveal: confirmRevealWithoutSource,
+          onApply: function (patch) {
+            shareImageVisibility(img.id, patch).catch(function (err) {
+              window.alert('Visibility change failed: ' + err.message);
+            });
           }
-          shareImageVisibility(img.id, { visibility: switchInput.checked ? 'all-players' : 'gm-only' })
-            .catch(function (err) { window.alert('Visibility change failed: ' + err.message); });
-        });
-        const switchSlider = document.createElement('span');
-        switchSlider.className = 'toggle-slider';
-        switchLabel.appendChild(switchInput);
-        switchLabel.appendChild(switchSlider);
-        toggleBarDiv.appendChild(switchLabel);
+        }));
         figDiv.insertBefore(toggleBarDiv, imgWrap);
 
         // Footer: source dropdown then Delete, stacked below the image
