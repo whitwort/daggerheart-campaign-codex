@@ -47,7 +47,12 @@ export function renderMarkdownInto(el, mdText) {
   // no intermediate plain-text paint at all.
   if (loadedModules && text) {
     try {
-      el.innerHTML = loadedModules.DOMPurify.sanitize(loadedModules.marked.parse(text));
+      // breaks:true -- a single Enter in the source textarea becomes a
+      // real line break, not a soft break that gets collapsed to a
+      // space. Matters most for blockquotes (poems, in-character
+      // dialogue) and any list/paragraph text typed with one Enter
+      // per line rather than a blank line between each.
+      el.innerHTML = loadedModules.DOMPurify.sanitize(loadedModules.marked.parse(text, { breaks: true }));
       return Promise.resolve();
     } catch (e) {
       // fall through to plain text below
@@ -62,7 +67,7 @@ export function renderMarkdownInto(el, mdText) {
 
   return loadMarkdownModules().then(function (mods) {
     if (!el.isConnected) return;
-    const rawHtml = mods.marked.parse(text);
+    const rawHtml = mods.marked.parse(text, { breaks: true });
     el.innerHTML = mods.DOMPurify.sanitize(rawHtml);
   }).catch(function () {
     // Plain text already painted; nothing to do.
