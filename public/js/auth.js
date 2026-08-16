@@ -15,6 +15,7 @@ import { attachSourcesListener, detachSourcesListener } from './sources.js';
 import { attachVersionListener, detachVersionListener, initUpdateBanner } from './version.js';
 import { attachConnectivityListener, detachConnectivityListener } from './connectivity.js';
 import { attachCharacterTransferListeners, detachCharacterTransferListeners } from './characters.js';
+import { attachMessagesListeners, detachMessagesListeners } from './messages.js';
 
 export const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
@@ -91,6 +92,10 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
       attachConfigListener();
       attachSourcesListener();
       attachCharacterTransferListeners();
+      // Role-aware inside (GM: full collections; player: own-doc/own-query
+      // shapes) -- state.currentRole is already set by updateAccessUI
+      // before attachDataListeners runs.
+      attachMessagesListeners();
     }
 
     // Bugfix: attachDataListeners()/attachAdminListeners() only ever ran
@@ -108,6 +113,7 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
       detachAdminListeners();
       detachSourcesListener();
       detachCharacterTransferListeners();
+      detachMessagesListeners();
     }
 
     function updateAccessUI(role) {

@@ -1,5 +1,5 @@
 import {
-  getFirestore, collection, onSnapshot, doc, setDoc, addDoc, updateDoc, deleteDoc,
+  getFirestore, collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc,
   query, where, writeBatch, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp, CONFIG } from './firebase.js';
@@ -19,7 +19,7 @@ import {
   canSee, viewerContext, visibilityBadge, isShareableToWholeParty, visibilityStateClass,
   hasFullAuthority, isSharedWithActiveCharacter, isNoteAuthor, belongsOnLoreSurface
 } from './visibility.js';
-import { shareEntityVisibility, shareLoreItemVisibility, shareImageVisibility } from './sharing.js';
+import { shareEntityVisibility, shareLoreItemVisibility, shareImageVisibility, createLoreItemShared } from './sharing.js';
 import { buildVisibilityControl, buildSharedToggle, buildNoteToggle, buildCharacterBadge } from './visibility-ui.js';
 
 const db = getFirestore(firebaseApp);
@@ -1682,7 +1682,11 @@ function saveLoreEdit(entity, editState, isNew, saveBtn) {
     let maxOrder = siblings.reduce(function (acc, it) { return Math.max(acc, it.order || 0); }, 0);
     items.forEach(function (c) {
       maxOrder += 1;
-      trackWrite(addDoc(collection(db, 'loreItems'), {
+      // Phase 14 S6: creation routes through sharing.js — the edit box's
+      // visibility control works before first save, so a brand-new item
+      // can be born already shared, which must fan out notifications
+      // like any other share transition (R4).
+      trackWrite(createLoreItemShared({
         entityId: entity.id,
         // 'character-lore' (Phase 14 S3): a distinct kind, not a
         // repurposed 'gm-note', for content a player authors under
@@ -1749,7 +1753,10 @@ function saveNoteEdit(entity, editState, isNew, saveBtn) {
   if (isNew) {
     const siblings = state.allLoreItems.filter(function (it) { return it.entityId === entity.id; });
     const maxOrder = siblings.reduce(function (acc, it) { return Math.max(acc, it.order || 0); }, 0);
-    trackWrite(addDoc(collection(db, 'loreItems'), {
+    // Phase 14 S6: same share-at-create routing as saveLoreEdit above —
+    // a note can be born already cannon ("Make it cannon!" flipped before
+    // first save), which is a share transition that must fan out.
+    trackWrite(createLoreItemShared({
       entityId: entity.id,
       kind: 'note',
       authorId: editState.authorId,

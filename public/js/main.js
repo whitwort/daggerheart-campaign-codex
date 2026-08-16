@@ -8,6 +8,7 @@ import { ensureImportEditorReady } from './import.js';
 import './backup.js';
 import { ensureTimelineTabReady } from './timeline.js';
 import { ensureCharactersTabReady, renderCharactersTab } from './characters.js';
+import { renderMessagesTray } from './messages.js';
 
 // Phase 14 S5: registered here (not at characters.js's own top level) --
 // see the NOTE at the bottom of characters.js for why a real import
@@ -17,6 +18,14 @@ import { ensureCharactersTabReady, renderCharactersTab } from './characters.js';
 // -- every module's top-level code has fully run by the time main.js's
 // own body executes.
 registerVisibilityChangeHandler(renderCharactersTab);
+
+// Phase 14 S6: same outside-the-cycle registration reasoning as
+// renderCharactersTab above -- messages.js imports codex.js
+// (switchToCodexTabForEntity), so registering from messages.js's own top
+// level would be unsafe if that module ever gets pulled into the cycle.
+// The tray re-renders here on role/active-character/visibility changes
+// (badge colors, character names, entity-name visibility in the digest).
+registerVisibilityChangeHandler(renderMessagesTray);
 
 document.getElementById('campaign-title').textContent = CONFIG.campaignName;
 document.getElementById('tab-btn-codex').textContent = CONFIG.tabs.codex;

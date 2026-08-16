@@ -343,8 +343,19 @@
         <p id="admin-srd-update-status"></p>
       </div>
     </section>
+
+    <section id="admin-section-notifications" class="admin-card">
+      <h2>Notifications</h2>
+      <p class="admin-hint">Unlock notifications written when lore is shared (players see them in their Campaign tab). Old ones can be cleaned up here.</p>
+      <div id="admin-notifications-body"></div>
+    </section>
     </div>
   </div>
+
+  <!-- Phase 14 S6: Messages tray -- docked bottom-right, rendered entirely
+       by messages.js. Inside #main-app so the login gate hides it
+       structurally; messages.js also hides it for the viewer role. -->
+  <div id="msg-tray" style="display:none;"></div>
   </div>
 
   <div id="entity-new-overlay" class="modal-overlay">

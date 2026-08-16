@@ -56,6 +56,11 @@ height, with NO per-context exceptions, except:**
     `.action-btn-compact` (exception 8) rather than a new exception;
     the default 12rem width caused two side-by-side buttons to overflow
     the Admin card's `.admin-source-row`.
+13. Messages tray (Phase 14 S6) — `.msg-strip-tab` / `.msg-panel-tab`
+    (tab-style buttons, exception-2-like), `#msg-collapse` (icon-only
+    chevron, exception-4-like), and `#msg-compose button` (Send, inside a
+    24rem floating panel too narrow for 12rem, exception-5-like). All
+    carry the full `width: auto; min-width: 0;` pair.
 
 Base width lowered from 13rem to 12rem as of the "+ New party member"
 → "+ New member" rename (that label no longer defines the floor).
