@@ -808,7 +808,7 @@ function renderList() {
         mapLink.type = 'button';
         mapLink.className = 'entity-map-link';
         mapLink.title = 'Open map';
-        mapLink.textContent = CONFIG.icons.map;
+        mapLink.innerHTML = CONFIG.icons.map;
         mapLink.addEventListener('click', function (ev) {
           ev.stopPropagation();
           if (mapNavigationHandler) mapNavigationHandler(entity.id);
@@ -2459,7 +2459,7 @@ function renderGalleryTab(container, entity, gmView, readOnly) {
         const indicator = document.createElement('span');
         indicator.className = 'gallery-portrait-indicator';
         indicator.title = 'Current portrait';
-        indicator.textContent = '\u2605';
+        indicator.innerHTML = CONFIG.icons.portrait;
         imgWrap.appendChild(indicator);
       }
       if (isCurrentMap) {
@@ -2471,7 +2471,7 @@ function renderGalleryTab(container, entity, gmView, readOnly) {
         const mapIndicator = document.createElement('span');
         mapIndicator.className = 'gallery-map-indicator' + (isCurrentPortrait ? ' stacked' : '');
         mapIndicator.title = 'Current map image';
-        mapIndicator.textContent = CONFIG.icons.map;
+        mapIndicator.innerHTML = CONFIG.icons.map;
         imgWrap.appendChild(mapIndicator);
       }
       figDiv.appendChild(imgWrap);
@@ -2933,7 +2933,7 @@ function renderDetailForSelected() {
     mapLink.type = 'button';
     mapLink.className = 'entity-map-link';
     mapLink.title = 'Open map';
-    mapLink.textContent = CONFIG.icons.map;
+    mapLink.innerHTML = CONFIG.icons.map;
     mapLink.addEventListener('click', function () {
       if (mapNavigationHandler) mapNavigationHandler(entity.id);
     });
@@ -3059,7 +3059,7 @@ function renderEntityViewCard(container, entity, gmView, opts) {
     mapLink.type = 'button';
     mapLink.className = 'entity-map-link';
     mapLink.title = 'Open map';
-    mapLink.textContent = CONFIG.icons.map;
+    mapLink.innerHTML = CONFIG.icons.map;
     mapLink.addEventListener('click', function () {
       if (mapNavigationHandler) mapNavigationHandler(entity.id);
     });
