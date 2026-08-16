@@ -400,7 +400,7 @@ function renderBreadcrumb() {
     breadcrumbEl.appendChild(link);
     const icon = document.createElement('span');
     icon.className = 'map-breadcrumb-icon';
-    icon.textContent = isMapEntity(entity) ? CONFIG.icons.map : CONFIG.icons.codex;
+    icon.innerHTML = isMapEntity(entity) ? CONFIG.icons.map : CONFIG.icons.codex;
     breadcrumbEl.appendChild(icon);
   });
 }
