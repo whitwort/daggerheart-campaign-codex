@@ -33,6 +33,16 @@
   --font-body: 'Inter', sans-serif;
 }
 
+/* scrollbar-gutter:stable both-edges (below) reserves a phantom gutter
+   on BOTH viewport edges, whether or not a scrollbar is actually
+   present. That reserved strip sits outside body's own box, so it's
+   never covered by body's own background (gradient or otherwise) --
+   showing raw default canvas underneath instead, which read as a
+   stray dark seam at the page edges. html's own background just needs
+   to match body's base color so nothing shows through; doesn't need
+   the full gradient treatment, this area is a thin sliver at most. */
+html { background-color: #090A12; }
+
 /* Reserves the same gutter width on BOTH edges of the viewport,
    whether or not a scrollbar is actually needed there -- this is what
    actually fixes the "card's right margin looks wider than its left"
