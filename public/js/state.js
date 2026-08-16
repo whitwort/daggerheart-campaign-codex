@@ -3,6 +3,7 @@
 export const state = {
   currentRole: 'viewer',
   currentUser: null,
+  activeCharacterId: null,  // players/{email}.activeCharacterId, delivered live via the existing player-doc listener in auth.js (Phase 14 S1 schema; wired UI lands in S3). Null for GM/viewer and for a player with none set yet.
   playerDocUnsub: null,
   joinRequestDocUnsub: null,
   entitiesUnsub: null,

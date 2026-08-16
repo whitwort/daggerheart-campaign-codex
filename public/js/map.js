@@ -4,7 +4,6 @@ import {
 import { firebaseApp, CONFIG } from './firebase.js';
 import { state } from './state.js';
 import {
-  isEntityPlayerVisible,
   registerVisibilityChangeHandler, registerMapNavigationHandler,
   categoryGroupLabel, entityMatchesQuery,
   renderEntityViewCard, enterEntityEditMode, footerReserve, switchToCodexTabForEntity
@@ -14,6 +13,7 @@ import { getCachedImage, putCachedImage } from './images.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
 import { trackWrite } from './connectivity.js';
 import { renderSourceLabel } from './sources.js';
+import { canSee, viewerContext } from './visibility.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -42,8 +42,8 @@ function isMapEntity(entity) {
 // wouldn't be shown anything harmful (loadMap's own visibility filter
 // already prevents that), but the affordance itself would be a
 // misleading dead end. GM always gets the full isMapEntity answer.
-function hasVisibleMapImage(entity, gmView) {
-  return isMapEntity(entity) && (gmView || !!entity.mapImageVisibleToPlayers);
+function hasVisibleMapImage(entity, ctx) {
+  return isMapEntity(entity) && (ctx.gmView || !!entity.mapImageVisibleToPlayers);
 }
 
 // "Preview" pin interaction (see phase notes): a pared-down view-only
@@ -259,14 +259,14 @@ if (window.document && document.fonts && document.fonts.ready) {
 }
 
 function renderMapCardPane() {
-  const gmView = state.currentRole === 'gm' && !state.gmPreviewAsPlayer;
+  const ctx = viewerContext();
   mapCardPaneEl.innerHTML = '';
 
   let entity = null;
   let showingPin = false;
   if (mapCardPinEntityId) {
     const pinEntity = state.allEntities.find(function (e) { return e.id === mapCardPinEntityId; });
-    if (pinEntity && (gmView || isEntityPlayerVisible(pinEntity.id))) {
+    if (pinEntity && canSee(pinEntity, ctx)) {
       entity = pinEntity;
       showingPin = true;
     } else {
@@ -275,7 +275,7 @@ function renderMapCardPane() {
   }
   if (!entity) {
     const mapEntity = state.allEntities.find(function (e) { return e.id === state.currentMapEntityId; });
-    if (mapEntity && (gmView || isEntityPlayerVisible(mapEntity.id))) entity = mapEntity;
+    if (mapEntity && canSee(mapEntity, ctx)) entity = mapEntity;
   }
   if (!entity) {
     const emptyP = document.createElement('p');
@@ -303,7 +303,7 @@ function renderMapCardPane() {
     topLeftExtra = closeBtn;
   }
   let headingRightExtra = null;
-  if (gmView) {
+  if (ctx.gmView) {
     headingRightExtra = document.createElement('button');
     headingRightExtra.type = 'button';
     headingRightExtra.className = 'entity-map-link timeline-edit-in-codex-link';
@@ -315,7 +315,7 @@ function renderMapCardPane() {
     });
   }
 
-  renderEntityViewCard(card, entity, gmView, {
+  renderEntityViewCard(card, entity, ctx, {
     allowEdit: false,
     hideSubTabs: true,
     onRelatedClick: function (id) { openEntityInMapCard(id); },
@@ -383,7 +383,7 @@ function renderBreadcrumb() {
     breadcrumbEl.style.display = 'none';
     return;
   }
-  const gmView = state.currentRole === 'gm' && !state.gmPreviewAsPlayer;
+  const ctx = viewerContext();
   breadcrumbEl.style.display = 'flex';
   chain.forEach(function (entity, idx) {
     if (idx > 0) {
@@ -398,7 +398,7 @@ function renderBreadcrumb() {
     link.className = 'map-breadcrumb-link' + (isCurrent ? ' current' : '');
     link.textContent = entity.name;
     link.addEventListener('click', function () {
-      if (hasVisibleMapImage(entity, gmView)) {
+      if (hasVisibleMapImage(entity, ctx)) {
         navigateToMapForEntity(entity.id);
       } else {
         openEntityInMapCard(entity.id);
@@ -407,7 +407,7 @@ function renderBreadcrumb() {
     breadcrumbEl.appendChild(link);
     const icon = document.createElement('span');
     icon.className = 'map-breadcrumb-icon';
-    icon.innerHTML = hasVisibleMapImage(entity, gmView) ? CONFIG.icons.map : CONFIG.icons.codex;
+    icon.innerHTML = hasVisibleMapImage(entity, ctx) ? CONFIG.icons.map : CONFIG.icons.codex;
     breadcrumbEl.appendChild(icon);
   });
 }
@@ -784,7 +784,7 @@ function renderPins() {
     return pin.mapEntityId === state.currentMapEntityId;
   });
 
-  const gmView = state.currentRole === 'gm' && !state.gmPreviewAsPlayer;
+  const ctx = viewerContext();
 
   // The pin being edited is hidden from its static rendering for the
   // whole time the panel is open (not just mid-drag) — otherwise it
@@ -807,23 +807,23 @@ function renderPins() {
 
     // Players don't see pins for hidden entities — a pin whose tooltip
     // names a secret entity is itself a spoiler.
-    if (entity && !gmView && !isEntityPlayerVisible(entity.id)) return;
+    if (entity && !canSee(entity, ctx)) return;
 
     if (entity) categoriesPresent.add(entity.category);
 
     function handleClick() {
-      if (state.mapMode === 'remove' && gmView) {
+      if (state.mapMode === 'remove' && ctx.gmView) {
         removePin(pin);
         return false;
       }
-      if (state.mapMode === 'edit' && gmView) {
+      if (state.mapMode === 'edit' && ctx.gmView) {
         openPinPanel(pin, null);
         return false;
       }
       return true;
     }
 
-    if (hasVisibleMapImage(entity, gmView)) {
+    if (hasVisibleMapImage(entity, ctx)) {
       // Location with a map image: zoom circle. Radius is in map units
       // (this map's own pixel coordinate space), scaling visually with
       // zoom — sized to roughly match the region it zooms into.
@@ -1006,7 +1006,7 @@ function ensureMapTabReady() {
   // steady state (no root configured), not just "not loaded yet" —
   // loadMap(null) tears down any stale map and shows the right
   // placeholder either way.
-  const gmView = state.currentRole === 'gm' && !state.gmPreviewAsPlayer;
+  const gmView = viewerContext().gmView;
   if (state.leafletMap && state.loadedMapId === state.currentMapEntityId && state.loadedMapGmView === gmView) {
     // Tab was hidden (display:none) then shown again: the container's
     // measured size goes stale while hidden, which is what produces the
@@ -1134,7 +1134,7 @@ function loadMap(mapEntityId) {
   // snapshot arrives and corrects it. A genuine player's own device
   // never had a GM-role cache entry to begin with, so this only changes
   // behavior for the GM-preview case, not real players.
-  const gmView = state.currentRole === 'gm' && !state.gmPreviewAsPlayer;
+  const gmView = viewerContext().gmView;
   const mapCacheKey = 'map-for-' + mapEntityId + '-' + (gmView ? 'gm' : 'player');
 
   // Phase 7c-1: paint instantly from IndexedDB cache (if any) while the
@@ -1156,17 +1156,22 @@ function loadMap(mapEntityId) {
       // snapshot (e.g. re-picking Set map) re-evaluates correctly.
       // ensureMapTabReady's reload-on-role-change guard (see below)
       // covers the case where no new snapshot fires at all.
-      const gmView = state.currentRole === 'gm' && !state.gmPreviewAsPlayer;
+      const ctx = viewerContext();
       let chosenData = null;
       let legacyData = null;
       snapshot.forEach(function (docSnap) {
         const d = docSnap.data();
-        if (!gmView && d.visibility !== 'all-players') return; // hide gm-only image data from non-GM viewers
+        // The Phase 13 security fix: pixel-level gate on the actual image
+        // data, now canSee-based (§3.1/§5.1) so a character-shared map
+        // image is visible to that character without needing all-players.
+        // d.ownerType/d.ownerId (always present on an image doc) resolve
+        // the owning entity for canSee's gm-only-owned-character case.
+        if (!canSee(d, ctx)) return;
         if (d.role === 'gallery' && d.isMap) chosenData = d;
         else if (d.role === 'map') legacyData = d;
       });
       if (!chosenData) chosenData = legacyData;
-      state.loadedMapGmView = gmView;
+      state.loadedMapGmView = ctx.gmView;
 
       if (state.loadedMapId === mapEntityId && state.leafletMap) {
         // Already rendered this map; a later snapshot for the same map

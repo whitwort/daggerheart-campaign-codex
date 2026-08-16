@@ -5,6 +5,7 @@ import {
 import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
 import { sortedSources } from './sources.js';
+import { isShareableToWholeParty } from './visibility.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -159,24 +160,12 @@ const IMAGE_CACHE_STORE = 'images';
       return deleteDoc(doc(db, 'images', imageDocId));
     }
 
-    // If the image being toggled is the entity's current map image,
-    // keep entities.mapImageVisibleToPlayers in sync in the same batch
-    // -- map.js/codex.js's entry-browser and card map-icon visibility
-    // gating reads that denormalized field rather than loading every
-    // entity's images (same reasoning as hasMapImage -- see setEntityMap
-    // below).
-    function setGalleryImageVisibility(imageDocId, visibility) {
-      const img = state.currentEntityImages.find(function (i) { return i.id === imageDocId; });
-      if (img && img.isMap) {
-        const batch = writeBatch(db);
-        batch.update(doc(db, 'images', imageDocId), { visibility: visibility });
-        batch.update(doc(db, 'entities', img.ownerId), {
-          mapImageVisibleToPlayers: visibility === 'all-players', updatedAt: serverTimestamp()
-        });
-        return batch.commit();
-      }
-      return updateDoc(doc(db, 'images', imageDocId), { visibility: visibility });
-    }
+    // Gallery image visibility writes (toggle switch, and any future
+    // 3-state control) go through sharing.js's shareImageVisibility --
+    // that's the single write seam S6 hooks notification fan-out into.
+    // The map-sync batch that used to live here (keeping
+    // entities.mapImageVisibleToPlayers in sync when the toggled image is
+    // the entity's current map image) moved there with it, verbatim.
 
     function setGalleryImageSource(imageDocId, sourceId) {
       return updateDoc(doc(db, 'images', imageDocId), { sourceId: sourceId });
@@ -208,16 +197,18 @@ const IMAGE_CACHE_STORE = 'images';
     // Codex entity).
     function setEntityMap(entityId, imageDocId) {
       const batch = writeBatch(db);
-      let pickedVisibility = 'gm-only';
+      let pickedImg = null;
       state.currentEntityImages.forEach(function (img) {
         if (img.ownerId === entityId && img.role === 'gallery' && img.isMap && img.id !== imageDocId) {
           batch.update(doc(db, 'images', img.id), { isMap: false });
         }
-        if (img.id === imageDocId) pickedVisibility = img.visibility;
+        if (img.id === imageDocId) pickedImg = img;
       });
       batch.update(doc(db, 'images', imageDocId), { isMap: true });
       batch.update(doc(db, 'entities', entityId), {
-        hasMapImage: true, mapImageVisibleToPlayers: pickedVisibility === 'all-players', updatedAt: serverTimestamp()
+        hasMapImage: true,
+        mapImageVisibleToPlayers: !!pickedImg && isShareableToWholeParty(pickedImg),
+        updatedAt: serverTimestamp()
       });
       return batch.commit();
     }
@@ -333,7 +324,7 @@ const IMAGE_CACHE_STORE = 'images';
 
 
 export {
-  uploadEntityGalleryImage, deleteEntityGalleryImage, setGalleryImageVisibility, setGalleryImageSource,
+  uploadEntityGalleryImage, deleteEntityGalleryImage, setGalleryImageSource,
   setEntityPortrait, setEntityMap, clearEntityMap, migrateLegacyMapImageIfNeeded,
   getCachedImage, putCachedImage
 };
