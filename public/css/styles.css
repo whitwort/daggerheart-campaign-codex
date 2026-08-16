@@ -995,6 +995,12 @@ select {
   position: absolute; top: 1rem; right: 1rem; width: 2.5rem; height: 2.5rem;
   border-radius: 50%; font-size: 1.1rem; line-height: 1; padding: 0; min-width: 0;
 }
+.image-lightbox-nav {
+  position: absolute; top: 50%; transform: translateY(-50%); width: 3rem; height: 3rem;
+  border-radius: 50%; font-size: 1.8rem; line-height: 1; padding: 0; min-width: 0;
+}
+.image-lightbox-prev { left: 1rem; }
+.image-lightbox-next { right: 1rem; }
 .admin-hint { font-size: 0.85rem; color: var(--ink-soft); }
 
 /* Wiki links: auto-linked entity names inside lore text */
@@ -1417,11 +1423,25 @@ button:disabled:hover { border-color: var(--void-line); }
 .admin-hint a,
 .admin-hint a:visited,
 .lore-edit-hint a,
-.lore-edit-hint a:visited {
+.lore-edit-hint a:visited,
+.map-source-label a,
+.map-source-label a:visited {
   color: inherit;
   text-decoration: underline;
 }
 .source-label p { margin: 0; display: inline; }
+
+/* Map tab source label: same lower-left convention as .source-label,
+   but styled against the map's own dark-overlay controls (legend,
+   zoom) rather than the parchment card look, since it lives directly
+   on the map image, not a Codex card. */
+.map-source-label {
+  background: var(--void-raised); color: rgba(233,221,194,0.7); padding: 0.3rem 0.5rem; border-radius: 4px;
+  border: 1px solid var(--void-line);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.5); font-size: 0.65rem; line-height: 1.4;
+  max-width: 14rem;
+}
+.map-source-label p { margin: 0; display: inline; }
 .lore-item-source-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.3rem; margin-bottom: 0.4rem; min-width: 0; }
 .lore-item-source-row .source-select { flex: 1 1 auto; }
 /* Source dropdowns: option text can run long even truncated
