@@ -284,17 +284,19 @@ const PORTRAIT_MIN_OVERLAP_FRAC = 0.28; // mid-point of mockup's tunable 22-35% 
 let portraitPreviewOverride = null; // { entityId, img } | null
 
 // Returns the entity's current portrait image doc (isPortrait flag), or
-// falls back to the first gallery image in sort order if none is flagged
-// yet (covers pre-portrait-feature galleries without a separate migration
-// step). Respects gmView the same way galleryImagesFor does, so a
-// gm-only portrait never shows to players.
+// null if none is explicitly set. No implicit fallback to the first
+// gallery image -- portrait is deliberately explicit (Set portrait)
+// only, per Gregg's call; an entity with images but no chosen portrait
+// simply has no hero image, same as an entity with no images at all.
+// Respects gmView the same way galleryImagesFor does, so a gm-only
+// portrait never shows to players.
 function portraitImageFor(entity, gmView) {
   if (portraitPreviewOverride && portraitPreviewOverride.entityId === entity.id) {
     return portraitPreviewOverride.img;
   }
   const images = galleryImagesFor(entity.id, gmView);
   if (!images.length) return null;
-  return images.find(function (img) { return img.isPortrait; }) || images[0];
+  return images.find(function (img) { return img.isPortrait; }) || null;
 }
 
 // Scale from band width only — see GROWING BAND MODEL note above.
@@ -628,6 +630,18 @@ function isEntityPlayerVisible(entityId) {
   return !!entity && entity.visibility === 'all-players';
 }
 
+// hasMapImage alone only says "this Location has SOME map image" -- it
+// says nothing about whether that specific image is gm-only or
+// all-players. A player must never see a map icon/route into a map
+// whose image they can't actually see (they'd land on it via
+// mapNavigationHandler and hit map.js's own visibility-filtered "no
+// image" placeholder, but the icon itself already implies access that
+// doesn't exist). GM always sees the icon when hasMapImage is true,
+// regardless of the image's own visibility.
+function entityMapIconVisible(entity, gmView) {
+  return entity.category === 'Location' && !!entity.hasMapImage && (gmView || !!entity.mapImageVisibleToPlayers);
+}
+
 // --- List pane (Table of Contents) ---------------------------------------
 
 // Shared by the main Entry Browser search box and the map pin panel's
@@ -797,7 +811,7 @@ function renderList() {
 
       const rightCol = document.createElement('div');
       rightCol.className = 'entity-right-col';
-      if (entity.category === 'Location' && entity.hasMapImage) {
+      if (entityMapIconVisible(entity, gmView)) {
         const mapLink = document.createElement('button');
         mapLink.type = 'button';
         mapLink.className = 'entity-map-link';
@@ -3101,7 +3115,7 @@ function renderEntityViewCard(container, entity, gmView, opts) {
     codexLink.addEventListener('click', function () { opts.onOpenInCodex(); });
     rightCol.appendChild(codexLink);
   }
-  if (entity.category === 'Location' && entity.hasMapImage) {
+  if (entityMapIconVisible(entity, gmView)) {
     const mapLink = document.createElement('button');
     mapLink.type = 'button';
     mapLink.className = 'entity-map-link';

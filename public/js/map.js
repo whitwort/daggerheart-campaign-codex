@@ -35,6 +35,16 @@ function isMapEntity(entity) {
   return !!entity && entity.category === 'Location' && !!entity.hasMapImage;
 }
 
+// hasMapImage alone doesn't say whether that image is player-visible.
+// A player must never get a "zoom in" affordance (breadcrumb icon,
+// pin-as-circle) for a map whose image they can't actually see -- they
+// wouldn't be shown anything harmful (loadMap's own visibility filter
+// already prevents that), but the affordance itself would be a
+// misleading dead end. GM always gets the full isMapEntity answer.
+function hasVisibleMapImage(entity, gmView) {
+  return isMapEntity(entity) && (gmView || !!entity.mapImageVisibleToPlayers);
+}
+
 // "Preview" pin interaction (see phase notes): a pared-down view-only
 // Codex entry card, opened on hover for mouse and on tap for touch.
 // "Navigate" (click-through to the full entry) is not wired up yet —
@@ -373,6 +383,7 @@ function renderBreadcrumb() {
     breadcrumbEl.style.display = 'none';
     return;
   }
+  const gmView = state.currentRole === 'gm' && !state.gmPreviewAsPlayer;
   breadcrumbEl.style.display = 'flex';
   chain.forEach(function (entity, idx) {
     if (idx > 0) {
@@ -387,7 +398,7 @@ function renderBreadcrumb() {
     link.className = 'map-breadcrumb-link' + (isCurrent ? ' current' : '');
     link.textContent = entity.name;
     link.addEventListener('click', function () {
-      if (isMapEntity(entity)) {
+      if (hasVisibleMapImage(entity, gmView)) {
         navigateToMapForEntity(entity.id);
       } else {
         openEntityInMapCard(entity.id);
@@ -396,7 +407,7 @@ function renderBreadcrumb() {
     breadcrumbEl.appendChild(link);
     const icon = document.createElement('span');
     icon.className = 'map-breadcrumb-icon';
-    icon.innerHTML = isMapEntity(entity) ? CONFIG.icons.map : CONFIG.icons.codex;
+    icon.innerHTML = hasVisibleMapImage(entity, gmView) ? CONFIG.icons.map : CONFIG.icons.codex;
     breadcrumbEl.appendChild(icon);
   });
 }
@@ -812,7 +823,7 @@ function renderPins() {
       return true;
     }
 
-    if (isMapEntity(entity)) {
+    if (hasVisibleMapImage(entity, gmView)) {
       // Location with a map image: zoom circle. Radius is in map units
       // (this map's own pixel coordinate space), scaling visually with
       // zoom — sized to roughly match the region it zooms into.
@@ -979,7 +990,8 @@ function ensureMapTabReady() {
   // steady state (no root configured), not just "not loaded yet" —
   // loadMap(null) tears down any stale map and shows the right
   // placeholder either way.
-  if (state.leafletMap && state.loadedMapId === state.currentMapEntityId) {
+  const gmView = state.currentRole === 'gm' && !state.gmPreviewAsPlayer;
+  if (state.leafletMap && state.loadedMapId === state.currentMapEntityId && state.loadedMapGmView === gmView) {
     // Tab was hidden (display:none) then shown again: the container's
     // measured size goes stale while hidden, which is what produces the
     // "map drifted off-center with grey margins" bug — invalidateSize()
@@ -1031,6 +1043,7 @@ function teardownMapRuntime() {
   }
   state.currentMapImageDims = null;
   state.loadedMapId = null;
+  state.loadedMapGmView = null;
   state.loadingMapId = null;
 }
 
@@ -1113,14 +1126,22 @@ function loadMap(mapEntityId) {
   state.mapImageUnsub = onSnapshot(
     query(collection(db, 'images'), where('ownerId', '==', mapEntityId)),
     safeSnapshotHandler('mapImage', function (snapshot) {
+      // Recomputed per-snapshot (not just once per loadMap call) so a
+      // GM toggling "Preview as player" and then triggering a fresh
+      // snapshot (e.g. re-picking Set map) re-evaluates correctly.
+      // ensureMapTabReady's reload-on-role-change guard (see below)
+      // covers the case where no new snapshot fires at all.
+      const gmView = state.currentRole === 'gm' && !state.gmPreviewAsPlayer;
       let chosenData = null;
       let legacyData = null;
       snapshot.forEach(function (docSnap) {
         const d = docSnap.data();
+        if (!gmView && d.visibility !== 'all-players') return; // hide gm-only image data from non-GM viewers
         if (d.role === 'gallery' && d.isMap) chosenData = d;
         else if (d.role === 'map') legacyData = d;
       });
       if (!chosenData) chosenData = legacyData;
+      state.loadedMapGmView = gmView;
 
       if (state.loadedMapId === mapEntityId && state.leafletMap) {
         // Already rendered this map; a later snapshot for the same map

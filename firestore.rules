@@ -135,10 +135,19 @@ service cloud.firestore {
     // point alongside 'date'/'dateSort' -- same parse/sort-key shape,
     // null on both when the entity is a single point in time (the vast
     // majority). Only meaningful when dateSort is also set.
+    // 'mapImageVisibleToPlayers': denormalized alongside hasMapImage, for
+    // the same reason (map.js/codex.js need a synchronous answer without
+    // loading every entity's images) -- true only when the CURRENT map
+    // image (the one with isMap:true) also has visibility:'all-players'.
+    // Kept in sync at every write site that can change either fact: Set
+    // map, Remove map image, and toggling the map image's own Hidden/
+    // Visible switch in the Gallery tab. Missing/false is the safe
+    // default (no icon/route to players) for docs written before this
+    // field existed.
     function isValidEntity() {
       return request.resource.data.keys().hasOnly(
           ['slug', 'name', 'category', 'subtype', 'parentId', 'relatedIds', 'mapId',
-           'hasMapImage', 'visibility', 'tags', 'createdAt', 'updatedAt',
+           'hasMapImage', 'mapImageVisibleToPlayers', 'visibility', 'tags', 'createdAt', 'updatedAt',
            'ancestry', 'aliases', 'date', 'dateSort', 'dateEnd', 'dateEndSort',
            'ownerId', 'sourceId', 'meta',
            'useTemplate', 'details', 'features', 'searchIndex'])
