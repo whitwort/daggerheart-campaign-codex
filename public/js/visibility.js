@@ -15,34 +15,49 @@ import { state } from './state.js';
 // --- viewerContext ----------------------------------------------------
 // role: 'gm' | 'player' | 'viewer' — state.currentRole, unchanged.
 // gmView: true only for an actual GM NOT currently previewing as player —
-//   same definition as the old isGmView() in codex.js/map.js/timeline.js
-//   (state.currentRole === 'gm' && !state.gmPreviewAsPlayer). Preview-as-
-//   character (S3) will extend gmPreview with a target character identity;
-//   until then, previewing always evaluates as a genuinely characterless
-//   player (activeCharacterId/ownedCharacterIds empty), same as today.
+//   same definition as the old isGmView() in codex.js/map.js/timeline.js,
+//   now keyed off state.gmPreview (Phase 14 S3: null | {playerEmail,
+//   activeCharacterId} — was a bare bool pre-S3). S3's own nav toggle
+//   only ever sets the generic {playerEmail:null, activeCharacterId:null}
+//   shape (no specific-player picker yet — Characters tab flipper is
+//   S5), so previewing still evaluates as a characterless player today;
+//   the shape change lays the groundwork for S5 without altering current
+//   behavior.
 // email: signed-in user's email, or null.
-// activeCharacterId: the viewer's current active character (players/{email}
-//   .activeCharacterId, delivered live via the existing player-doc listener
-//   in auth.js — see state.activeCharacterId). Null for GM (until S3 wires
-//   preview-as-character) and for a player with none set.
+// activeCharacterId: the viewer's current active character. For a real
+//   player: players/{email}.activeCharacterId, delivered live via the
+//   existing player-doc listener in auth.js (state.activeCharacterId).
+//   For a previewing GM: state.gmPreview.activeCharacterId (S3 wiring;
+//   always null until S5 gives the GM a way to set it). Null for gmView
+//   and for a player with none set.
 // ownedCharacterIds: entities.id[] where category=='Character' &&
 //   ownerId==email. Computed uniformly regardless of role — a GM's email
 //   won't normally match any PC's ownerId, so this is naturally empty for
 //   GM unless Gregg owns a test Character himself (harmless either way:
-//   own-PC authority is intentional per D-something in the design doc).
+//   own-PC authority is intentional per D4 in the design doc).
 function viewerContext() {
   const role = state.currentRole;
-  const previewing = role === 'gm' && !!state.gmPreviewAsPlayer;
+  // Phase 14 S3: state.gmPreviewAsPlayer (bool) -> state.gmPreview
+  // (null | {playerEmail, activeCharacterId}) per phase-14-design.md §5.3
+  // -- preview now carries a character identity, not just a generic
+  // "player" simulation. S3 itself only ever sets {playerEmail:null,
+  // activeCharacterId:null} (no picker UI yet -- Characters tab flipper
+  // is S5); this shape change lays the groundwork without behavior
+  // change for the existing nav "View: Party" toggle.
+  const previewing = role === 'gm' && !!state.gmPreview;
   const gmView = role === 'gm' && !previewing;
   const email = (state.currentUser && state.currentUser.email) || null;
   const ownedCharacterIds = state.allEntities
     .filter(function (e) { return e.category === 'Character' && e.ownerId && e.ownerId === email; })
     .map(function (e) { return e.id; });
+  const activeCharacterId = gmView
+    ? null
+    : (previewing ? (state.gmPreview && state.gmPreview.activeCharacterId) : state.activeCharacterId) || null;
   return {
     role: role,
     gmView: gmView,
     email: email,
-    activeCharacterId: (!gmView && state.activeCharacterId) ? state.activeCharacterId : null,
+    activeCharacterId: activeCharacterId,
     ownedCharacterIds: ownedCharacterIds
   };
 }
@@ -65,6 +80,28 @@ function elementParentCharacterId(element) {
 function ownsParentCharacter(element, ctx) {
   const charId = elementParentCharacterId(element);
   return !!charId && ctx.ownedCharacterIds.indexOf(charId) !== -1;
+}
+
+// --- hasFullAuthority / isSharedWithActiveCharacter (Phase 14 S3) --------
+// Edit-AUTHORITY checks, distinct from canSee (read access). Used to gate
+// edit/delete chrome (§6.2): a viewer with hasFullAuthority over an
+// element gets the exact same edit affordances as the GM (create/edit/
+// delete, full visibility control); a viewer for whom only
+// isSharedWithActiveCharacter is true gets edit-but-not-delete on
+// loreItems/images (content/sourceId) plus a characterShared-only toggle
+// -- entities in this state get ONLY the characterShared toggle, no
+// content edit (rules asymmetry, see phase-14-design.md §7's entities row
+// vs. loreItems/images rows). Callers must check hasFullAuthority first;
+// isSharedWithActiveCharacter does not imply the absence of full
+// authority on its own (though in practice an owned Character's own
+// elements are never also `visibility:'character'`-shared to themselves).
+function hasFullAuthority(element, ctx) {
+  return ctx.gmView || ownsParentCharacter(element, ctx);
+}
+
+function isSharedWithActiveCharacter(element, ctx) {
+  return !ctx.gmView && !!ctx.activeCharacterId &&
+    element.visibility === 'character' && element.characterId === ctx.activeCharacterId;
 }
 
 // --- canSee -------------------------------------------------------------
@@ -154,4 +191,7 @@ function visibilityStateClass(element) {
   return 'vis-hidden';
 }
 
-export { viewerContext, canSee, visibilityBadge, isShareableToWholeParty, visibilityStateClass };
+export {
+  viewerContext, canSee, visibilityBadge, isShareableToWholeParty, visibilityStateClass,
+  hasFullAuthority, isSharedWithActiveCharacter
+};

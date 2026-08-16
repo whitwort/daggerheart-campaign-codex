@@ -1136,17 +1136,27 @@ function loadMap(mapEntityId) {
   // behavior for the GM-preview case, not real players.
   const gmView = viewerContext().gmView;
   const mapCacheKey = 'map-for-' + mapEntityId + '-' + (gmView ? 'gm' : 'player');
+  // Phase 14 S3 (§5.3, R5): a GM previewing-as-player bypasses the cache
+  // entirely rather than gaining a character dimension in the key --
+  // simpler, GM-only cost per the design doc's own recommendation. A
+  // real player's own device is never previewing, so this only changes
+  // behavior for the GM-preview case: previewing now always waits on the
+  // live snapshot instead of possibly flashing a stale 'player'-keyed
+  // cache entry from a DIFFERENT previewed character's session.
+  const isGmPreview = state.currentRole === 'gm' && !gmView;
 
   // Phase 7c-1: paint instantly from IndexedDB cache (if any) while the
   // listener below does its network round-trip. state.loadedMapId check
   // guards against the live snapshot having already won the race and
   // rendered first — cache is a fallback, never an override.
-  getCachedImage(mapCacheKey).then(function (cached) {
-    if (cached && state.loadingMapId === mapEntityId && state.loadedMapId !== mapEntityId) {
-      state.currentMapImageDims = { width: cached.width, height: cached.height };
-      renderMapImage(mapEntityId, cached);
-    }
-  });
+  if (!isGmPreview) {
+    getCachedImage(mapCacheKey).then(function (cached) {
+      if (cached && state.loadingMapId === mapEntityId && state.loadedMapId !== mapEntityId) {
+        state.currentMapImageDims = { width: cached.width, height: cached.height };
+        renderMapImage(mapEntityId, cached);
+      }
+    });
+  }
 
   state.mapImageUnsub = onSnapshot(
     query(collection(db, 'images'), where('ownerId', '==', mapEntityId)),
@@ -1197,15 +1207,17 @@ function loadMap(mapEntityId) {
       renderMapImage(mapEntityId, chosenData);
       updateMapSourceLabel(chosenData.sourceId);
       // Fire-and-forget cache write; source-of-truth render above never
-      // waits on this.
-      putCachedImage({
-        docId: mapCacheKey,
-        version: (chosenData.uploadedAt && chosenData.uploadedAt.toMillis) ? chosenData.uploadedAt.toMillis() : Date.now(),
-        data: chosenData.data,
-        width: chosenData.width,
-        height: chosenData.height,
-        contentType: chosenData.contentType
-      });
+      // waits on this. Skipped during GM preview (see isGmPreview above).
+      if (!isGmPreview) {
+        putCachedImage({
+          docId: mapCacheKey,
+          version: (chosenData.uploadedAt && chosenData.uploadedAt.toMillis) ? chosenData.uploadedAt.toMillis() : Date.now(),
+          data: chosenData.data,
+          width: chosenData.width,
+          height: chosenData.height,
+          contentType: chosenData.contentType
+        });
+      }
     }), function (err) {
       placeholderEl.style.display = 'block';
       containerEl.style.display = 'none';

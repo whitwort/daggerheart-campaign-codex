@@ -8,7 +8,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { state } from './state.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
-import { attachCodexListeners, detachCodexListeners, renderList, renderDetailForSelected } from './codex.js';
+import { attachCodexListeners, detachCodexListeners, renderList, renderDetailForSelected, notifyVisibilityChange } from './codex.js';
 import { attachPinsListener, attachConfigListener, detachMapDataListeners } from './map.js';
 import { attachAdminListeners, detachAdminListeners } from './admin.js';
 import { attachSourcesListener, detachSourcesListener } from './sources.js';
@@ -190,6 +190,7 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
           const data = snap.data();
           state.activeCharacterId = (data && data.activeCharacterId) || null;
           updateAccessUI(snap.exists() ? 'player' : 'viewer');
+          notifyVisibilityChange();
         }), function (err) {
           console.error('players doc listener failed:', err.message);
         });
