@@ -1,11 +1,12 @@
 import { state } from './state.js';
 import {
-  registerVisibilityChangeHandler, isEntityPlayerVisible,
+  registerVisibilityChangeHandler,
   renderList, renderDetailForSelected, clearCodexSearchInput,
   renderEntityViewCard, enterEntityEditMode,
   appendDateSegments, footerReserve
 } from './codex.js';
 import { formatDateSegments } from './dates.js';
+import { canSee, viewerContext } from './visibility.js';
 
 const panelEl = document.getElementById('timeline-panel');
 let built = false;
@@ -36,10 +37,6 @@ function switchToCodexEntity(entityId) {
   document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
   document.getElementById('tab-btn-codex').classList.add('active');
   document.getElementById('codex-panel').classList.add('active');
-}
-
-function isGmView() {
-  return state.currentRole === 'gm' && !state.gmPreviewAsPlayer;
 }
 
 // --- Module state (own selection/tab state, deliberately NOT shared with
@@ -109,7 +106,7 @@ function buildShell() {
   const explainerEntity = state.allEntities.find(function (e) {
     return (e.name || '').trim().toLowerCase() === 'dates and times';
   });
-  if (explainerEntity && (isGmView() || isEntityPlayerVisible(explainerEntity.id))) {
+  if (explainerEntity && canSee(explainerEntity, viewerContext())) {
     const link = document.createElement('a');
     link.href = '#';
     link.textContent = '\u201cDates and Times\u201d (' + explainerEntity.category + ')';
@@ -298,7 +295,7 @@ function selectFromList(entityId) {
 }
 
 function renderCardPane() {
-  const gmView = isGmView();
+  const ctx = viewerContext();
   dom.cardPane.innerHTML = '';
   const entity = selectedId ? dated.find(function (e) { return e.id === selectedId; }) : null;
   if (!entity) {
@@ -312,7 +309,7 @@ function renderCardPane() {
   card.className = 'codex-entity-card';
   dom.cardPane.appendChild(card);
   let headingRightExtra = null;
-  if (gmView) {
+  if (ctx.gmView) {
     headingRightExtra = document.createElement('button');
     headingRightExtra.type = 'button';
     headingRightExtra.className = 'entity-map-link timeline-edit-in-codex-link';
@@ -323,7 +320,7 @@ function renderCardPane() {
       enterEntityEditMode(entity);
     });
   }
-  renderEntityViewCard(card, entity, gmView, {
+  renderEntityViewCard(card, entity, ctx, {
     allowEdit: false,
     hideSubTabs: true,
     onRelatedClick: function (id) { openEntityInPanel(id); },
@@ -342,13 +339,13 @@ function fitLayoutHeight() {
 }
 
 function refresh() {
-  const gmView = isGmView();
+  const ctx = viewerContext();
   dated = state.allEntities
     .filter(function (e) {
       return (e.category === 'Scene' || e.category === 'Event')
         && typeof e.dateSort === 'number' && isFinite(e.dateSort);
     })
-    .filter(function (e) { return gmView || isEntityPlayerVisible(e.id); })
+    .filter(function (e) { return canSee(e, ctx); })
     .sort(function (a, b) { return a.dateSort - b.dateSort; });
 
   fitLayoutHeight();

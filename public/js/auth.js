@@ -141,6 +141,7 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
 
     onAuthStateChanged(auth, function (user) {
       state.currentUser = user;
+      state.activeCharacterId = null;  // reset; playerDocUnsub repopulates it for an actual player
       detachLiveRoleListeners();
       detachDataListeners();
       detachVersionListener();
@@ -181,6 +182,13 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
 
       attachListener('playerDocUnsub', function () {
         return onSnapshot(doc(db, 'players', user.email), safeSnapshotHandler('playerDoc', function (snap) {
+          // activeCharacterId (Phase 14 schema): read here for free off the
+          // listener that already exists for role resolution. Re-render on
+          // change so a live switch (nav dropdown/Characters tab, S3)
+          // re-filters the whole UI without a reload -- see
+          // registerVisibilityChangeHandler's fan-out in codex.js.
+          const data = snap.data();
+          state.activeCharacterId = (data && data.activeCharacterId) || null;
           updateAccessUI(snap.exists() ? 'player' : 'viewer');
         }), function (err) {
           console.error('players doc listener failed:', err.message);

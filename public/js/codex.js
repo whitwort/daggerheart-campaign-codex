@@ -11,10 +11,12 @@ import { renderAdminRootEntitySelect, renderAdminPlayersList } from './admin.js'
 import { parseDateSpec, formatDateSegments } from './dates.js';
 import { buildSourceSelect, renderSourceLabel, registerSourcesChangeHandler, confirmRevealWithoutSource, sortedSources } from './sources.js';
 import {
-  uploadEntityGalleryImage, deleteEntityGalleryImage, setGalleryImageVisibility, setGalleryImageSource,
+  uploadEntityGalleryImage, deleteEntityGalleryImage, setGalleryImageSource,
   setEntityPortrait, setEntityMap, clearEntityMap, migrateLegacyMapImageIfNeeded
 } from './images.js';
 import { getTemplateSchema, normalizeSearchTerm, computeSearchIndex } from './templates.js';
+import { canSee, viewerContext, visibilityBadge, isShareableToWholeParty, visibilityStateClass } from './visibility.js';
+import { shareEntityVisibility, shareLoreItemVisibility, shareImageVisibility } from './sharing.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -237,11 +239,10 @@ function setEntityImagesTarget(entityId) {
     });
 }
 
-function galleryImagesFor(entityId, gmView) {
+function galleryImagesFor(entityId, ctx) {
   return state.currentEntityImages
     .filter(function (img) {
-      return img.ownerId === entityId && img.role === 'gallery'
-        && (gmView || img.visibility === 'all-players');
+      return img.ownerId === entityId && img.role === 'gallery' && canSee(img, ctx);
     })
     .sort(function (a, b) {
       const oa = typeof a.sortOrder === 'number' ? a.sortOrder : null;
@@ -288,13 +289,13 @@ let portraitPreviewOverride = null; // { entityId, img } | null
 // gallery image -- portrait is deliberately explicit (Set portrait)
 // only, per Gregg's call; an entity with images but no chosen portrait
 // simply has no hero image, same as an entity with no images at all.
-// Respects gmView the same way galleryImagesFor does, so a gm-only
+// Respects ctx (canSee) the same way galleryImagesFor does, so a gm-only
 // portrait never shows to players.
-function portraitImageFor(entity, gmView) {
+function portraitImageFor(entity, ctx) {
   if (portraitPreviewOverride && portraitPreviewOverride.entityId === entity.id) {
     return portraitPreviewOverride.img;
   }
-  const images = galleryImagesFor(entity.id, gmView);
+  const images = galleryImagesFor(entity.id, ctx);
   if (!images.length) return null;
   return images.find(function (img) { return img.isPortrait; }) || null;
 }
@@ -505,15 +506,11 @@ function registerMapNavigationHandler(fn) {
 }
 
 // --- Visibility model ---------------------------------------------------
-// Entities carry an explicit visibility flag ('gm-only' | 'all-players')
-// controlling whether players see the entity at all (list, pins, related
-// chips). Within a visible entity, loreItems keep their own per-item
-// visibility. All client-side render logic per the locked security model.
-// Docs missing the field (pre-flag test data) are treated as gm-only.
-
-function isGmView() {
-  return state.currentRole === 'gm' && !state.gmPreviewAsPlayer;
-}
+// Effective visibility for any lore element (entities, loreItems, images)
+// is resolved by visibility.js's canSee(element, ctx) -- see that module
+// for the full truth table (phase-14-design.md §4). This file just
+// threads `ctx` (from viewerContext()) through its render functions the
+// same way it used to thread a bare `gmView` boolean.
 
 // --- Nav-strip role switcher (global, not per-card) -----------------------
 // GM: "View" dropdown (GM/Player) drives the existing gmPreviewAsPlayer
@@ -543,19 +540,12 @@ gmViewSelect.addEventListener('change', function () {
 // at the table: a player owns one or more PCs (admin.js players/ +
 // entities.ownerId=email), and a PC's authorship survives the PC's death.
 // So "can this player see an author-only item" resolves through the
-// authoring character's owner, not the item itself.
-function loreItemVisibleToPlayer(item) {
-  if (item.visibility === 'all-players') return true;
-  if (item.visibility !== 'author-only') return false;
-  if (item.authorType !== 'character' || !item.authorId || !state.currentUser) return false;
-  const authorEntity = state.allEntities.find(function (e) { return e.id === item.authorId; });
-  return !!authorEntity && authorEntity.ownerId === state.currentUser.email;
-}
-
-function loreItemsForEntity(entityId, gmView) {
+// authoring character's owner, not the item itself. (This resolution now
+// lives in visibility.js's canSee() -- see its author-only case.)
+function loreItemsForEntity(entityId, ctx) {
   return state.allLoreItems
     .filter(function (item) { return item.entityId === entityId; })
-    .filter(function (item) { return gmView || loreItemVisibleToPlayer(item); })
+    .filter(function (item) { return canSee(item, ctx); })
     .sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
 }
 
@@ -623,11 +613,14 @@ function resolveLoreItemMarkdown(entity, item, items) {
   return item.content;
 }
 
-// Exported for map.js: pins pointing at player-invisible entities are
-// themselves hidden from players.
+// Exported shim for map.js/timeline.js: pins pointing at player-invisible
+// entities are themselves hidden from players. Builds its own ctx via
+// viewerContext() so external callers don't need to -- codex.js's OWN
+// internal call sites call canSee(entity, ctx) directly instead, since
+// they already have ctx in scope (see phase-14-design.md §5.1).
 function isEntityPlayerVisible(entityId) {
   const entity = state.allEntities.find(function (e) { return e.id === entityId; });
-  return !!entity && entity.visibility === 'all-players';
+  return !!entity && canSee(entity, viewerContext());
 }
 
 // hasMapImage alone only says "this Location has SOME map image" -- it
@@ -637,9 +630,13 @@ function isEntityPlayerVisible(entityId) {
 // mapNavigationHandler and hit map.js's own visibility-filtered "no
 // image" placeholder, but the icon itself already implies access that
 // doesn't exist). GM always sees the icon when hasMapImage is true,
-// regardless of the image's own visibility.
-function entityMapIconVisible(entity, gmView) {
-  return entity.category === 'Location' && !!entity.hasMapImage && (gmView || !!entity.mapImageVisibleToPlayers);
+// regardless of the image's own visibility. Stays on the cheap
+// party-wide denormalized flag (not a full canSee) -- a per-character-
+// shared map image doesn't set this flag (see §3.1); that finer-grained
+// case is handled where the actual image doc is loaded (map.js's pixel-
+// level gate), not in this cheap per-row list icon.
+function entityMapIconVisible(entity, ctx) {
+  return entity.category === 'Location' && !!entity.hasMapImage && (ctx.gmView || !!entity.mapImageVisibleToPlayers);
 }
 
 // --- List pane (Table of Contents) ---------------------------------------
@@ -737,10 +734,10 @@ function categoryGroupLabel(cat) {
 // order), each group a collapsible horizontal bar, collapsed by default.
 function renderList() {
   updateGmToolbar();
-  const gmView = isGmView();
+  const ctx = viewerContext();
   const filtered = state.allEntities
     .filter(matchesFilters)
-    .filter(function (e) { return gmView || isEntityPlayerVisible(e.id); })
+    .filter(function (e) { return canSee(e, ctx); })
     .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
 
   listEl.innerHTML = '';
@@ -811,7 +808,7 @@ function renderList() {
 
       const rightCol = document.createElement('div');
       rightCol.className = 'entity-right-col';
-      if (entityMapIconVisible(entity, gmView)) {
+      if (entityMapIconVisible(entity, ctx)) {
         const mapLink = document.createElement('button');
         mapLink.type = 'button';
         mapLink.className = 'entity-map-link';
@@ -823,7 +820,11 @@ function renderList() {
         });
         rightCol.appendChild(mapLink);
       }
-      if (gmView && entity.visibility !== 'all-players') {
+      // Literal-state display (not an access gate) -- the GM is shown
+      // their OWN entity's raw visibility value here, not filtered
+      // per-viewer access, so this stays a direct value comparison
+      // rather than a canSee() call. S2 makes this 3-state-aware.
+      if (ctx.gmView && !isShareableToWholeParty(entity)) {
         const hiddenSpan = document.createElement('span');
         hiddenSpan.className = 'entity-hidden-badge';
         hiddenSpan.textContent = 'hidden';
@@ -905,11 +906,11 @@ function renderList() {
 // would leak their existence). The current entity's own name isn't
 // linked (self-link is noise). Runs on the rendered DOM, walking text
 // nodes and skipping real <a> links from the markdown.
-function applyWikiLinks(rootEl, currentEntityId, gmView) {
+function applyWikiLinks(rootEl, currentEntityId, ctx) {
   const candidates = [];
   state.allEntities.forEach(function (e) {
     if (e.id === currentEntityId || !e.name) return;
-    if (!gmView && !isEntityPlayerVisible(e.id)) return;
+    if (!canSee(e, ctx)) return;
     candidates.push({ name: e.name, id: e.id });
     // Aliases link to the same entity ("Janine Cody" -> Merv).
     (e.aliases || []).forEach(function (a) {
@@ -978,7 +979,7 @@ function buildEntityVisibilityToggle(entity) {
   const row = document.createElement('div');
   row.className = 'entity-visibility-toggle-row';
   const label = document.createElement('span');
-  const hidden = entity.visibility !== 'all-players';
+  const hidden = !isShareableToWholeParty(entity);
   label.className = 'toggle-switch-label ' + (hidden ? 'state-hidden' : 'state-visible');
   label.textContent = hidden ? 'Hidden from party' : 'Visible to party';
   row.appendChild(label);
@@ -992,9 +993,8 @@ function buildEntityVisibilityToggle(entity) {
       input.checked = false;
       return;
     }
-    updateDoc(doc(db, 'entities', entity.id), {
-      visibility: input.checked ? 'all-players' : 'gm-only',
-      updatedAt: serverTimestamp()
+    shareEntityVisibility(entity.id, {
+      visibility: input.checked ? 'all-players' : 'gm-only'
     }).catch(function (err) {
       window.alert('Visibility change failed: ' + err.message);
     });
@@ -1641,12 +1641,11 @@ function saveLoreEdit(entity, editState, isNew, saveBtn) {
       }), 'Saving lore').catch(fail);
     });
   } else {
-    trackWrite(updateDoc(doc(db, 'loreItems', editState.id), {
+    trackWrite(shareLoreItemVisibility(editState.id, {
       content: content,
       visibility: editState.visibility,
       meta: editState.meta || null,
-      sourceId: editState.sourceId || null,
-      updatedAt: serverTimestamp()
+      sourceId: editState.sourceId || null
     }), 'Saving lore').catch(fail);
   }
   state.loreEdit = null;
@@ -1714,7 +1713,7 @@ function buildLoreEditBox(entity, editState, isNew) {
   const toggleLabel = document.createElement('span');
   toggleLabel.className = 'toggle-switch-label';
   function updateToggleLabel() {
-    const visible = editState.visibility === 'all-players';
+    const visible = isShareableToWholeParty(editState);
     toggleLabel.textContent = visible ? 'Visible to party' : 'Hidden from party';
     toggleLabel.className = 'toggle-switch-label ' + (visible ? 'state-visible' : 'state-hidden');
   }
@@ -1724,7 +1723,7 @@ function buildLoreEditBox(entity, editState, isNew) {
   switchLabel.className = 'toggle-switch';
   const switchInput = document.createElement('input');
   switchInput.type = 'checkbox';
-  switchInput.checked = editState.visibility === 'all-players';
+  switchInput.checked = isShareableToWholeParty(editState);
   switchInput.addEventListener('change', function () {
     if (switchInput.checked && !confirmRevealWithoutSource(editState.sourceId)) {
       switchInput.checked = false;
@@ -1823,10 +1822,10 @@ function buildLoreEditBox(entity, editState, isNew) {
 // view: each item is a small card — a reveal/hide toggle switch
 // top-right (live, one-tap), Edit/Delete bottom-right; Edit swaps
 // the card into buildLoreEditBox() in place.
-function renderLoreTab(container, entity, gmView, readOnly) {
-  const items = loreItemsForEntity(entity.id, gmView);
+function renderLoreTab(container, entity, ctx, readOnly) {
+  const items = loreItemsForEntity(entity.id, ctx);
 
-  if (!gmView || readOnly) {
+  if (!ctx.gmView || readOnly) {
     if (items.length === 0) {
       const emptyP = document.createElement('p');
       emptyP.className = 'lore-empty';
@@ -1842,7 +1841,7 @@ function renderLoreTab(container, entity, gmView, readOnly) {
       // ones (real player view never does, since loreItemsForEntity
       // already filtered to all-players-only when !gmView) -- reflect
       // actual per-item visibility rather than assuming all-visible.
-      itemDiv.className = 'lore-item ' + (item.visibility === 'all-players' ? 'vis-visible' : 'vis-hidden');
+      itemDiv.className = 'lore-item ' + visibilityStateClass(item);
       if (metaBadgeLabel(item.meta)) {
         const metaTag = document.createElement('span');
         metaTag.className = 'meta-tag';
@@ -1852,7 +1851,7 @@ function renderLoreTab(container, entity, gmView, readOnly) {
       const bodyDiv = document.createElement('div');
       bodyDiv.className = 'lore-item-body';
       renderMarkdownInto(bodyDiv, resolveLoreItemMarkdown(entity, item, items)).then(function () {
-        applyWikiLinks(bodyDiv, entity.id, gmView);
+        applyWikiLinks(bodyDiv, entity.id, ctx);
       });
       itemDiv.appendChild(bodyDiv);
       const sourceLabelDiv = document.createElement('div');
@@ -1884,7 +1883,7 @@ function renderLoreTab(container, entity, gmView, readOnly) {
     }
 
     const itemDiv = document.createElement('div');
-    itemDiv.className = 'lore-item ' + (item.visibility === 'all-players' ? 'vis-visible' : 'vis-hidden');
+    itemDiv.className = 'lore-item ' + visibilityStateClass(item);
     itemDiv.dataset.itemId = item.id;
 
     const toggleRow = document.createElement('div');
@@ -1908,7 +1907,7 @@ function renderLoreTab(container, entity, gmView, readOnly) {
     const toggleRowRight = document.createElement('div');
     toggleRowRight.className = 'lore-item-toggle-row-right';
     const toggleLabel = document.createElement('span');
-    const itemVisible = item.visibility === 'all-players';
+    const itemVisible = isShareableToWholeParty(item);
     toggleLabel.className = 'toggle-switch-label ' + (itemVisible ? 'state-visible' : 'state-hidden');
     toggleLabel.textContent = itemVisible ? 'Visible to party' : 'Hidden from party';
     toggleRowRight.appendChild(toggleLabel);
@@ -1916,15 +1915,14 @@ function renderLoreTab(container, entity, gmView, readOnly) {
     switchLabel.className = 'toggle-switch';
     const switchInput = document.createElement('input');
     switchInput.type = 'checkbox';
-    switchInput.checked = item.visibility === 'all-players';
+    switchInput.checked = itemVisible;
     switchInput.addEventListener('change', function () {
       if (switchInput.checked && !confirmRevealWithoutSource(item.sourceId)) {
         switchInput.checked = false;
         return;
       }
-      updateDoc(doc(db, 'loreItems', item.id), {
-        visibility: switchInput.checked ? 'all-players' : 'gm-only',
-        updatedAt: serverTimestamp()
+      shareLoreItemVisibility(item.id, {
+        visibility: switchInput.checked ? 'all-players' : 'gm-only'
       }).catch(function (err) { window.alert('Visibility change failed: ' + err.message); });
     });
     const switchSlider = document.createElement('span');
@@ -1938,7 +1936,7 @@ function renderLoreTab(container, entity, gmView, readOnly) {
     const bodyDiv = document.createElement('div');
     bodyDiv.className = 'lore-item-body';
     renderMarkdownInto(bodyDiv, resolveLoreItemMarkdown(entity, item, items)).then(function () {
-      applyWikiLinks(bodyDiv, entity.id, gmView);
+      applyWikiLinks(bodyDiv, entity.id, ctx);
     });
     itemDiv.appendChild(bodyDiv);
 
@@ -2554,12 +2552,12 @@ function openGalleryUploadModal(entity) {
   document.body.appendChild(overlay);
 }
 
-function renderGalleryTab(container, entity, gmView, readOnly) {
-  const galleryImages = galleryImagesFor(entity.id, gmView);
-  const currentPortrait = portraitImageFor(entity, gmView);
+function renderGalleryTab(container, entity, ctx, readOnly) {
+  const galleryImages = galleryImagesFor(entity.id, ctx);
+  const currentPortrait = portraitImageFor(entity, ctx);
   const isLocation = entity.category === 'Location';
   const currentMapImg = isLocation ? galleryImages.find(function (img) { return img.isMap; }) : null;
-  const showChrome = gmView && !readOnly;
+  const showChrome = ctx.gmView && !readOnly;
 
   if (showChrome && galleryImages.length) {
     const hintBox = document.createElement('div');
@@ -2583,7 +2581,7 @@ function renderGalleryTab(container, entity, gmView, readOnly) {
       const isCurrentPortrait = !!currentPortrait && img.id === currentPortrait.id;
       const isCurrentMap = !!currentMapImg && img.id === currentMapImg.id;
       const figDiv = document.createElement('div');
-      figDiv.className = 'gallery-item ' + (img.visibility === 'all-players' ? 'vis-visible' : 'vis-hidden') +
+      figDiv.className = 'gallery-item ' + visibilityStateClass(img) +
         (picking ? ' gallery-item-pickable' : '');
       figDiv.dataset.imageId = img.id;
 
@@ -2634,7 +2632,7 @@ function renderGalleryTab(container, entity, gmView, readOnly) {
       if (showChrome) {
         const toggleBarDiv = document.createElement('div');
         toggleBarDiv.className = 'gallery-item-bar';
-        const visible = img.visibility === 'all-players';
+        const visible = isShareableToWholeParty(img);
         const toggleLabel = document.createElement('span');
         toggleLabel.className = 'toggle-switch-label ' + (visible ? 'state-visible' : 'state-hidden');
         toggleLabel.textContent = visible ? 'Visible to party' : 'Hidden from party';
@@ -2649,7 +2647,7 @@ function renderGalleryTab(container, entity, gmView, readOnly) {
             switchInput.checked = false;
             return;
           }
-          setGalleryImageVisibility(img.id, switchInput.checked ? 'all-players' : 'gm-only')
+          shareImageVisibility(img.id, { visibility: switchInput.checked ? 'all-players' : 'gm-only' })
             .catch(function (err) { window.alert('Visibility change failed: ' + err.message); });
         });
         const switchSlider = document.createElement('span');
@@ -2788,11 +2786,11 @@ function appendDateSegments(container, raw) {
 // date-formatting treatment (spacing + bold "a") only needs applying
 // once. Returns the built <div> (caller appends it), or null if there's
 // nothing to show.
-function buildEntityMetaLine(entity, gmView) {
+function buildEntityMetaLine(entity, ctx) {
   const bits = [];
   if (entity.aliases && entity.aliases.length) bits.push({ kind: 'text', text: 'Also known as: ' + entity.aliases.join(', ') });
   if (entity.date) bits.push({ kind: 'date', label: 'Date: ', date: entity.date, dateEnd: entity.dateEnd || null });
-  if (entity.ownerId && gmView) bits.push({ kind: 'text', text: 'Owned by: ' + entity.ownerId });
+  if (entity.ownerId && ctx.gmView) bits.push({ kind: 'text', text: 'Owned by: ' + entity.ownerId });
   if (!bits.length) return null;
 
   const metaDiv = document.createElement('div');
@@ -2813,7 +2811,7 @@ function buildEntityMetaLine(entity, gmView) {
   return metaDiv;
 }
 
-function buildEntityPreviewCard(entity, gmView) {
+function buildEntityPreviewCard(entity, ctx) {
   const card = document.createElement('div');
   card.className = 'entity-preview-card';
 
@@ -2831,14 +2829,14 @@ function buildEntityPreviewCard(entity, gmView) {
     const ancestrySpan = document.createElement('span');
     ancestrySpan.textContent = entity.ancestry;
     catP.appendChild(ancestrySpan);
-    applyWikiLinks(ancestrySpan, entity.id, gmView);
+    applyWikiLinks(ancestrySpan, entity.id, ctx);
   }
   if (entity.subtype) {
     catP.appendChild(document.createTextNode(' \u2014 ' + entity.subtype));
   }
   card.appendChild(catP);
 
-  const metaLine = buildEntityMetaLine(entity, gmView);
+  const metaLine = buildEntityMetaLine(entity, ctx);
   if (metaLine) card.appendChild(metaLine);
 
   if (entity.tags && entity.tags.length) {
@@ -2855,15 +2853,15 @@ function buildEntityPreviewCard(entity, gmView) {
     card.appendChild(tagsDiv);
   }
 
-  const items = loreItemsForEntity(entity.id, gmView);
+  const items = loreItemsForEntity(entity.id, ctx);
   if (items.length) {
     const first = items[0];
     const itemDiv = document.createElement('div');
-    itemDiv.className = 'lore-item ' + (first.visibility === 'all-players' ? 'vis-visible' : 'vis-hidden');
+    itemDiv.className = 'lore-item ' + visibilityStateClass(first);
     const bodyDiv = document.createElement('div');
     bodyDiv.className = 'lore-item-body';
     renderMarkdownInto(bodyDiv, first.content).then(function () {
-      applyWikiLinks(bodyDiv, entity.id, gmView);
+      applyWikiLinks(bodyDiv, entity.id, ctx);
     });
     itemDiv.appendChild(bodyDiv);
     card.appendChild(itemDiv);
@@ -2885,28 +2883,28 @@ function buildEntityPreviewCard(entity, gmView) {
 
 function renderDetailForSelected() {
   const entity = state.allEntities.find(function (e) { return e.id === state.selectedId; });
-  const gmView = isGmView();
+  const ctx = viewerContext();
 
   setEntityImagesTarget(entity ? entity.id : null);
 
-  if (!entity || (!gmView && !isEntityPlayerVisible(entity.id))) {
+  if (!entity || !canSee(entity, ctx)) {
     detailPaneEl.classList.add('empty');
-    detailEl.classList.remove('vis-hidden', 'vis-visible');
+    detailEl.classList.remove('vis-hidden', 'vis-visible', 'vis-character');
     detailEl.innerHTML = '<p class="codex-empty">What would you like to read? Make a selection from your Table of Contents.</p>';
     return;
   }
   detailPaneEl.classList.remove('empty');
 
-  detailEl.classList.remove('vis-hidden', 'vis-visible');
-  detailEl.classList.add(entity.visibility === 'all-players' ? 'vis-visible' : 'vis-hidden');
+  detailEl.classList.remove('vis-hidden', 'vis-visible', 'vis-character');
+  detailEl.classList.add(visibilityStateClass(entity));
 
-  const editing = gmView && state.detailEditMode && state.detailEditDraft;
+  const editing = ctx.gmView && state.detailEditMode && state.detailEditDraft;
   const draft = editing ? state.detailEditDraft : null;
 
   detailEl.innerHTML = '';
 
   if (!editing) {
-    renderEntityViewCard(detailEl, entity, gmView, {
+    renderEntityViewCard(detailEl, entity, ctx, {
       allowEdit: true,
       activeTab: state.detailActiveTab,
       onTabChange: function (tabKey) { state.detailActiveTab = tabKey; renderDetailForSelected(); },
@@ -3112,19 +3110,19 @@ function renderDetailForSelected() {
 // (Timeline's entry-card panel now; Map's planned back-port later) with
 // opts.allowEdit:false -- same rendering, no GM controls or clutter,
 // regardless of the viewer's actual role. Content visibility (which lore
-// items/gallery images are included) still follows the real gmView passed
+// items/gallery images are included) still follows the real ctx passed
 // in; only editing/toggle CHROME is gated by allowEdit. Structural element
 // ids from the pre-refactor single-instance version are now classes,
 // since this can render into more than one container in the DOM at once
 // (Codex tab + Timeline panel simultaneously) -- ids must stay
 // document-unique, same reasoning as buildEntityPreviewCard's existing
 // class-not-id comment.
-function renderEntityViewCard(container, entity, gmView, opts) {
+function renderEntityViewCard(container, entity, ctx, opts) {
   opts = opts || {};
   const allowEdit = !!opts.allowEdit;
 
-  container.classList.remove('vis-hidden', 'vis-visible');
-  container.classList.add(entity.visibility === 'all-players' ? 'vis-visible' : 'vis-hidden');
+  container.classList.remove('vis-hidden', 'vis-visible', 'vis-character');
+  container.classList.add(visibilityStateClass(entity));
 
   // Absolutely-positioned overlay in the card's top-left corner (e.g.
   // Map's Well-C close button) -- separate from the heading row's own
@@ -3136,7 +3134,7 @@ function renderEntityViewCard(container, entity, gmView, opts) {
     container.appendChild(opts.topLeftExtra);
   }
 
-  const portrait = portraitImageFor(entity, gmView);
+  const portrait = portraitImageFor(entity, ctx);
   container.classList.toggle('has-hero', !!portrait);
   if (portrait) {
     const band = document.createElement('div');
@@ -3171,14 +3169,14 @@ function renderEntityViewCard(container, entity, gmView, opts) {
     const ancestrySpan = document.createElement('span');
     ancestrySpan.textContent = entity.ancestry;
     catP.appendChild(ancestrySpan);
-    applyWikiLinks(ancestrySpan, entity.id, gmView);
+    applyWikiLinks(ancestrySpan, entity.id, ctx);
   }
   if (entity.subtype) {
     catP.appendChild(document.createTextNode(' \u2014 ' + entity.subtype));
   }
   leftCol.appendChild(catP);
 
-  const metaLine = buildEntityMetaLine(entity, gmView);
+  const metaLine = buildEntityMetaLine(entity, ctx);
   if (metaLine) leftCol.appendChild(metaLine);
 
   // Structured details/features render as a display-time merge into the
@@ -3199,7 +3197,7 @@ function renderEntityViewCard(container, entity, gmView, opts) {
 
   const rightCol = document.createElement('div');
   rightCol.className = 'codex-card-heading-right';
-  if (gmView && allowEdit) {
+  if (ctx.gmView && allowEdit) {
     rightCol.appendChild(buildEntityVisibilityToggle(entity));
   }
   // Read-only panels (Timeline now, Map later) can inject their own
@@ -3220,7 +3218,7 @@ function renderEntityViewCard(container, entity, gmView, opts) {
     codexLink.addEventListener('click', function () { opts.onOpenInCodex(); });
     rightCol.appendChild(codexLink);
   }
-  if (entityMapIconVisible(entity, gmView)) {
+  if (entityMapIconVisible(entity, ctx)) {
     const mapLink = document.createElement('button');
     mapLink.type = 'button';
     mapLink.className = 'entity-map-link';
@@ -3262,9 +3260,9 @@ function renderEntityViewCard(container, entity, gmView, opts) {
     notesEmptyP.textContent = 'Notes are coming in a future update.';
     tabPanel.appendChild(notesEmptyP);
   } else if (activeTab === 'gallery') {
-    renderGalleryTab(tabPanel, entity, gmView, !allowEdit);
+    renderGalleryTab(tabPanel, entity, ctx, !allowEdit);
   } else {
-    renderLoreTab(tabPanel, entity, gmView, !allowEdit);
+    renderLoreTab(tabPanel, entity, ctx, !allowEdit);
   }
 
   // --- Related entities ---
@@ -3288,7 +3286,7 @@ function renderEntityViewCard(container, entity, gmView, opts) {
     if (relatedIds.length) {
       const visibleRelated = relatedIds
         .map(function (id) { return state.allEntities.find(function (e) { return e.id === id; }); })
-        .filter(function (target) { return target && (gmView || isEntityPlayerVisible(target.id)); });
+        .filter(function (target) { return target && canSee(target, ctx); });
 
       if (visibleRelated.length) {
         const relatedDiv = document.createElement('div');
@@ -3314,7 +3312,7 @@ function renderEntityViewCard(container, entity, gmView, opts) {
   // --- GM Edit/Delete actions (lower-right), then source attribution
   // (lower-left) on its own row below them. Only in allowEdit mode --
   // read-only panels never show these regardless of gmView. ---
-  if (gmView && allowEdit) {
+  if (ctx.gmView && allowEdit) {
     const cardActions = document.createElement('div');
     cardActions.className = 'actions-row codex-card-bottom-actions';
     const right = document.createElement('div');
@@ -3346,10 +3344,10 @@ searchEl.addEventListener('input', function () {
 searchEl.addEventListener('keydown', function (ev) {
   if (ev.key !== 'Enter') return;
   ev.preventDefault();
-  const gmView = isGmView();
+  const ctx = viewerContext();
   const filtered = state.allEntities
     .filter(matchesFilters)
-    .filter(function (e) { return gmView || isEntityPlayerVisible(e.id); })
+    .filter(function (e) { return canSee(e, ctx); })
     .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
   if (filtered.length > 0) {
     selectEntity(filtered[0].id, true);

@@ -14,6 +14,17 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/players/$(request.auth.token.email));
     }
 
+    // Phase 14 S1: the core new helper. A player has full authority over
+    // any Character entity they own (D4/§6.2) -- every player write path
+    // below routes through this. Costs 1 get() per call; a single write
+    // may evaluate it more than once across multiple `allow` clauses (each
+    // clause is tried independently) -- fine at table scale, well under
+    // Firestore's per-request read-call ceiling (phase-14-design.md §7).
+    function ownsCharacter(charId) {
+      let c = get(/databases/$(database)/documents/entities/$(charId)).data;
+      return c.category == 'Character' && c.ownerId == request.auth.token.email;
+    }
+
     // Deploy metadata (_meta/version: deployed commit hash, written by CI
     // via the Admin SDK, which bypasses rules — hence no client write path).
     // Read for ANY signed-in user (not just GM/player) so even a not-yet-
@@ -42,10 +53,16 @@ service cloud.firestore {
     // GM's player whitelist. Any signed-in user can read their OWN doc (to
     // resolve their own role, including the not-yet-whitelisted case for
     // the join-request flow); only GM can read the whole collection's other
-    // docs or write.
+    // docs or write, EXCEPT a player may update their own `activeCharacterId`
+    // (Phase 14 S1/§3.4 -- the nav dropdown / Characters tab's set-active
+    // control, S3) -- restricted to that one field via affectedKeys.
     match /players/{email} {
       allow read: if isGM() || (request.auth != null && request.auth.token.email == email);
-      allow write: if isGM();
+      allow create, delete: if isGM();
+      allow update: if isGM() || (
+        request.auth != null && request.auth.token.email == email &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['activeCharacterId'])
+      );
     }
 
     // Map pins: {entryId, x, y} linking a point on the base map image to a
@@ -62,12 +79,48 @@ service cloud.firestore {
       allow write: if isGM();
     }
 
-    // Images (Phase 7b): {ownerType, ownerId, role, data, contentType,
-    // width, height, sizeBytes, uploadedAt}. Same GM/Player-only read
-    // model as entries/maps/pins — no separate public/private concept.
+    // Images: {ownerType, ownerId, role, visibility, characterId,
+    // characterShared, sourceId, data, contentType, width, height,
+    // sizeBytes, uploadedAt, isPortrait, isMap, sortOrder, portraitZoomStep,
+    // portraitOffsetXFrac, portraitOffsetYFrac, portraitFadeH,
+    // portraitFadeV}. Phase 14 S1: first real shape validation on this
+    // collection (previously GM-write-only with no isValidImage() at all --
+    // see phase-14-design.md §3.3, flagged as required before any player
+    // write path could open here). visibility triple mirrors entities/
+    // loreItems minus 'author-only' (images are never notes).
+    function isValidImage() {
+      return request.resource.data.keys().hasOnly(
+          ['ownerType', 'ownerId', 'role', 'visibility', 'characterId', 'characterShared', 'sourceId',
+           'data', 'contentType', 'width', 'height', 'sizeBytes', 'uploadedAt',
+           'isPortrait', 'isMap', 'sortOrder',
+           'portraitZoomStep', 'portraitOffsetXFrac', 'portraitOffsetYFrac', 'portraitFadeH', 'portraitFadeV'])
+        && request.resource.data.ownerType is string
+        && request.resource.data.ownerId is string
+        && request.resource.data.role is string
+        && request.resource.data.visibility in ['gm-only', 'all-players', 'character'];
+    }
     match /images/{imageId} {
       allow read: if isGM() || isPlayer();
-      allow write: if isGM();
+
+      allow create: if isGM() && isValidImage();
+      allow create: if isPlayer() && isValidImage()
+        && request.resource.data.ownerType == 'entity' && ownsCharacter(request.resource.data.ownerId);
+
+      allow update: if isGM() && isValidImage();
+      // Full CRUD under an owned Character (gallery images the player
+      // uploaded for their own PC).
+      allow update: if isPlayer() && isValidImage()
+        && resource.data.ownerType == 'entity' && ownsCharacter(resource.data.ownerId);
+      // Content/sourceId/characterShared edit on an image the GM shared
+      // with the player's active character (§6.2) -- no delete, no
+      // touching role/isMap/isPortrait/ownerId/visibility/characterId.
+      allow update: if isPlayer()
+        && resource.data.visibility == 'character' && ownsCharacter(resource.data.characterId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['data', 'contentType', 'width', 'height', 'sizeBytes', 'sourceId', 'characterShared']);
+
+      allow delete: if isGM()
+        || (isPlayer() && resource.data.ownerType == 'entity' && ownsCharacter(resource.data.ownerId));
     }
 
     // Campaign-wide config (Phase 7b): currently just { rootMapId }, GM-
@@ -90,19 +143,98 @@ service cloud.firestore {
       allow update: if isGM();
     }
 
+    // Character transfer requests (Phase 14 §3.5/§8 D8): a player asks to
+    // take over an unowned PC. Auto-ID docs (unlike joinRequests' email-
+    // keyed singleton) since a player may file more than one over a
+    // campaign's life. {characterId, toEmail, requestedAt}. GM approves
+    // (sets the character's ownerId elsewhere, then deletes this doc) or
+    // rejects (deletes). The GM Requests queue (D8, S5) consolidates this
+    // with joinRequests client-side -- these stay separate collections.
+    function isValidTransferRequest() {
+      return request.resource.data.keys().hasOnly(['characterId', 'toEmail', 'requestedAt'])
+        && request.resource.data.characterId is string
+        && request.resource.data.toEmail is string;
+    }
+    match /transferRequests/{reqId} {
+      allow read: if isGM() || (request.auth != null && resource.data.toEmail == request.auth.token.email);
+      allow create: if isPlayer() && isValidTransferRequest()
+        && request.resource.data.toEmail == request.auth.token.email;
+      allow delete: if isGM() || (request.auth != null && resource.data.toEmail == request.auth.token.email);
+      allow update: if isGM();
+    }
+
+    // GM<->player messaging (Phase 14 §3.5/§6.6, S6). One thread doc per
+    // player, keyed by email (mirrors players/{email}'s own keying).
+    // {lastMessageAt, lastMessagePreview, gmLastReadAt, playerLastReadAt}.
+    // Messages are a subcollection -- the FIRST subcollection in this app
+    // (listeners.js gets per-thread dynamic listeners, S6). Messages are
+    // immutable once sent (no update/delete at all, GM included) -- a
+    // chat log shouldn't be editable after the fact.
+    function isValidThread() {
+      return request.resource.data.keys().hasOnly(['lastMessageAt', 'lastMessagePreview', 'gmLastReadAt', 'playerLastReadAt']);
+    }
+    function isValidMessage() {
+      return request.resource.data.keys().hasOnly(['authorRole', 'text', 'createdAt'])
+        && request.resource.data.authorRole in ['gm', 'player']
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0;
+    }
+    match /threads/{playerEmail} {
+      allow read: if isGM() || (request.auth != null && request.auth.token.email == playerEmail);
+      allow create: if isValidThread()
+        && (isGM() || (request.auth != null && request.auth.token.email == playerEmail));
+      allow update: if isValidThread() && (
+        isGM() ||
+        (request.auth != null && request.auth.token.email == playerEmail &&
+         request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['playerLastReadAt', 'lastMessageAt', 'lastMessagePreview']))
+      );
+      allow delete: if isGM();
+
+      match /messages/{msgId} {
+        allow read: if isGM() || (request.auth != null && request.auth.token.email == playerEmail);
+        allow create: if isValidMessage() && (
+          (isGM() && request.resource.data.authorRole == 'gm') ||
+          (request.auth != null && request.auth.token.email == playerEmail && request.resource.data.authorRole == 'player')
+        );
+        allow update, delete: if false;
+      }
+    }
+
+    // Unlock notifications (Phase 14 §3.5/§6.7, S6). Written at share-time
+    // (sharing.js), never diff-detected -- both GM and player clients can
+    // create these (trust-the-table model, same as every other collection
+    // here), shape-validated. Recipient may only flip their own `seenAt`.
+    function isValidNotification() {
+      return request.resource.data.keys().hasOnly(
+          ['recipientEmail', 'kind', 'entityId', 'loreItemId', 'actorCharacterId', 'createdAt', 'seenAt'])
+        && request.resource.data.recipientEmail is string
+        && request.resource.data.kind in ['discovered', 'learned', 'shared']
+        && request.resource.data.entityId is string;
+    }
+    match /notifications/{notifId} {
+      allow read: if isGM() || (request.auth != null && resource.data.recipientEmail == request.auth.token.email);
+      allow create: if isValidNotification() && (isGM() || isPlayer());
+      allow update: if request.auth != null && resource.data.recipientEmail == request.auth.token.email
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt']);
+      allow delete: if isGM();
+    }
+
     // --- Phase 8 collections ---------------------------------------------
     // Security model (locked): write-integrity only. Reads for every
     // collection are just isGM() || isPlayer(); GM-only vs player-visible
     // content is a CLIENT RENDER choice, not a rules boundary. A whitelisted
     // player with a hacked client can read gm-only lore — accepted
-    // (trust-the-table model, see phase 8 handoff).
+    // (trust-the-table model, see phase 8 handoff). Phase 14 (S1): real
+    // player WRITE paths land for the first time on entities/loreItems/
+    // images (owned-Character authority, D4) -- the read model above is
+    // otherwise unchanged.
 
     // Sources (interjected before Phase 13): GM-maintained attribution
-    // list, {text: markdown, createdAt, updatedAt}. Entities/loreItems
-    // carry an optional sourceId pointing here (images too, but images
-    // has no shape-validation function to extend — see match /images/
-    // above). Read for GM+player: attribution is always shown to players,
-    // not just GM bookkeeping (Gregg's call). Write GM-only.
+    // list, {text: markdown, createdAt, updatedAt}. Entities/loreItems/
+    // images carry an optional sourceId pointing here. Read for GM+player:
+    // attribution is always shown to players, not just GM bookkeeping
+    // (Gregg's call). Write GM-only.
     function isValidSource() {
       return request.resource.data.keys().hasOnly(['text', 'order', 'createdAt', 'updatedAt'])
         && request.resource.data.text is string
@@ -138,20 +270,27 @@ service cloud.firestore {
     // 'mapImageVisibleToPlayers': denormalized alongside hasMapImage, for
     // the same reason (map.js/codex.js need a synchronous answer without
     // loading every entity's images) -- true only when the CURRENT map
-    // image (the one with isMap:true) also has visibility:'all-players'.
-    // Kept in sync at every write site that can change either fact: Set
-    // map, Remove map image, and toggling the map image's own Hidden/
-    // Visible switch in the Gallery tab. Missing/false is the safe
-    // default (no icon/route to players) for docs written before this
-    // field existed.
+    // image (the one with isMap:true) is itself shareable to the whole
+    // party (visibility:'all-players', OR 'character' with
+    // characterShared:true -- Phase 14 §3.1 extension). Kept in sync at
+    // every write site that can change either fact: Set map, Remove map
+    // image, and toggling the map image's own visibility. Missing/false
+    // is the safe default (no icon/route to players) for docs written
+    // before this field existed.
+    // Phase 14 (§3.1) additions: 'characterId'/'characterShared' (the
+    // visibility:'character' triple, mirrored on loreItems/images too),
+    // 'badgeColor' (Character entities only, owner-picked), 'cards'
+    // (Character entities only -- ancestryId/communityId/classId/
+    // subclassId/subclassTier/abilityIds, the character-sheet slots, S5).
     function isValidEntity() {
       return request.resource.data.keys().hasOnly(
           ['slug', 'name', 'category', 'subtype', 'parentId', 'relatedIds', 'mapId',
-           'hasMapImage', 'mapImageVisibleToPlayers', 'visibility', 'tags', 'createdAt', 'updatedAt',
+           'hasMapImage', 'mapImageVisibleToPlayers', 'visibility', 'characterId', 'characterShared',
+           'badgeColor', 'cards', 'tags', 'createdAt', 'updatedAt',
            'ancestry', 'aliases', 'date', 'dateSort', 'dateEnd', 'dateEndSort',
            'ownerId', 'sourceId', 'meta',
            'useTemplate', 'details', 'features', 'searchIndex'])
-        && request.resource.data.visibility in ['gm-only', 'all-players']
+        && request.resource.data.visibility in ['gm-only', 'all-players', 'character']
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.slug is string
@@ -159,13 +298,31 @@ service cloud.firestore {
     }
     match /entities/{entityId} {
       allow read: if isGM() || isPlayer();
-      allow create, update: if isGM() && isValidEntity();
-      allow delete: if isGM();
+
+      allow create: if isGM() && isValidEntity();
+      // A player may create their own Character (D4 -- full gm-control
+      // over owned characters starts at creation).
+      allow create: if isPlayer() && isValidEntity()
+        && request.resource.data.category == 'Character'
+        && request.resource.data.ownerId == request.auth.token.email;
+
+      allow update: if isGM() && isValidEntity();
+      // Full edit of an owned Character, EXCEPT ownerId/category (can't
+      // reassign/recategorize your own PC out from under the rules model).
+      allow update: if isPlayer() && isValidEntity() && ownsCharacter(entityId)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['ownerId', 'category']);
+      // characterShared-only flip on an element the GM shared with the
+      // player's active character (§6.2) -- never visibility/characterId
+      // themselves, those stay GM-controlled via the kebab (S2).
+      allow update: if isPlayer()
+        && resource.data.visibility == 'character' && ownsCharacter(resource.data.characterId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['characterShared', 'updatedAt']);
+
+      allow delete: if isGM() || (isPlayer() && ownsCharacter(entityId));
     }
 
     // Lore items: per-entity content blocks with individual visibility.
-    // Replaces entries.content_gm/content_player. First collection with a
-    // non-GM write path (player notes) — hence the tighter shape checks.
+    // Replaces entries.content_gm/content_player.
     // {entityId, kind, authorId, authorType, visibility, content, order,
     //  createdAt, updatedAt}
     // 'meta': enum, null/absent = none, 'meta' = general GM/mechanics
@@ -174,41 +331,63 @@ service cloud.firestore {
     // into the first such item -- see resolveLoreItemMarkdown). Legacy
     // boolean true/false from before the enum is still tolerated (not
     // rewritten retroactively).
+    // Phase 14 (§3.2): kind gains 'note' (player+GM notes; the old
+    // never-actually-used 'player-note' kind is retired from the writer's
+    // intent but still TOLERATED in the enum below purely as a defensive
+    // read-compatibility measure in case any stray test doc used it --
+    // Gregg confirmed no real data does). visibility gains 'character'.
+    // characterId/characterShared mirror entities. authorType is now
+    // strictly 'gm'|'character' (the old authorType:'player' path below
+    // this function -- isOwnPlayerNoteWrite -- is removed wholesale; it
+    // contradicted the character-authorship model and was never exercised
+    // by any UI).
     function isValidLoreItem() {
       return request.resource.data.keys().hasOnly(
-          ['entityId', 'kind', 'authorId', 'authorType', 'visibility',
+          ['entityId', 'kind', 'authorId', 'authorType', 'visibility', 'characterId', 'characterShared',
            'content', 'meta', 'sourceId', 'order', 'createdAt', 'updatedAt'])
         && request.resource.data.entityId is string
-        && request.resource.data.kind in ['imported', 'gm-note', 'player-note']
-        && request.resource.data.visibility in ['gm-only', 'all-players', 'author-only']
+        && request.resource.data.kind in ['imported', 'gm-note', 'note', 'player-note']
+        && request.resource.data.authorType in ['gm', 'character']
+        && request.resource.data.visibility in ['gm-only', 'all-players', 'character', 'author-only']
         && request.resource.data.content is string
         && (!('meta' in request.resource.data)
             || request.resource.data.meta == null
             || request.resource.data.meta is bool
             || request.resource.data.meta in ['meta', 'meta-details', 'meta-features']);
     }
-    // Player-note constraint: players may only write their OWN notes, and
-    // can't disguise a note as another kind or another author. GM writes
-    // anything shape-valid.
-    function isOwnPlayerNoteWrite() {
-      return request.resource.data.kind == 'player-note'
-        && request.resource.data.authorId == request.auth.uid
-        && request.resource.data.authorType == 'player'
-        && request.resource.data.visibility in ['author-only', 'all-players'];
-    }
     match /loreItems/{itemId} {
       allow read: if isGM() || isPlayer();
-      allow create: if isValidLoreItem()
-        && (isGM() || (isPlayer() && isOwnPlayerNoteWrite()));
-      allow update: if isValidLoreItem()
-        && (isGM() || (isPlayer()
-              && resource.data.kind == 'player-note'
-              && resource.data.authorId == request.auth.uid
-              && isOwnPlayerNoteWrite()));
+
+      allow create: if isGM() && isValidLoreItem();
+      // Full CRUD under an owned Character (the PC's own lore/backstory
+      // items -- entityId points AT the owned Character entity itself).
+      allow create: if isPlayer() && isValidLoreItem() && ownsCharacter(request.resource.data.entityId);
+      // Own notes (kind:'note'; entityId can be ANY entity the note is
+      // about, not necessarily the authoring character itself).
+      allow create: if isPlayer() && isValidLoreItem()
+        && request.resource.data.kind == 'note'
+        && request.resource.data.authorType == 'character'
+        && ownsCharacter(request.resource.data.authorId)
+        && request.resource.data.visibility in ['author-only', 'all-players'];
+
+      allow update: if isGM() && isValidLoreItem();
+      allow update: if isPlayer() && isValidLoreItem() && ownsCharacter(resource.data.entityId);
+      // content/sourceId/characterShared edit on an item the GM shared
+      // with the player's active character (§6.2) -- no delete.
+      allow update: if isPlayer()
+        && resource.data.visibility == 'character' && ownsCharacter(resource.data.characterId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['content', 'sourceId', 'characterShared', 'updatedAt']);
+      // Full edit of an own note (including its own cannon-flip -- D6's
+      // binary visibility toggle is just this update path).
+      allow update: if isPlayer() && isValidLoreItem()
+        && resource.data.kind == 'note' && resource.data.authorType == 'character'
+        && ownsCharacter(resource.data.authorId);
+
       allow delete: if isGM()
-        || (isPlayer()
-              && resource.data.kind == 'player-note'
-              && resource.data.authorId == request.auth.uid);
+        || (isPlayer() && ownsCharacter(resource.data.entityId))
+        || (isPlayer() && resource.data.kind == 'note' && resource.data.authorType == 'character'
+              && ownsCharacter(resource.data.authorId));
     }
 
     // Deploy metadata (_meta/version): {hash, deployedAt}, written by CI
