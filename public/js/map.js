@@ -822,6 +822,16 @@ function renderPins() {
     // names a secret entity is itself a spoiler.
     if (entity && !canSee(entity, ctx)) return;
 
+    // Legend click-to-toggle (Phase 14 S8): a category the GM/player has
+    // clicked off in the legend is skipped entirely -- still counted in
+    // categoriesPresent below though, so its (now-dimmed) legend row
+    // stays visible/clickable to turn back on, rather than disappearing
+    // the moment it's hidden.
+    if (entity && state.mapLegendHiddenCategories.has(entity.category)) {
+      categoriesPresent.add(entity.category);
+      return;
+    }
+
     if (entity) categoriesPresent.add(entity.category);
 
     function handleClick() {
@@ -933,7 +943,10 @@ function updateMapSourceLabel(sourceId) {
 // Rebuild the legend's rows from a Set of category names. Called at the
 // end of every renderPins() so the legend tracks live pin/visibility
 // changes (GM reveal, preview toggle, add/remove pin), not just the
-// state at map load.
+// state at map load. Phase 14 S8: rows are click-to-toggle -- clicking
+// a row hides/shows that category's pins (state.mapLegendHiddenCategories),
+// re-running renderPins() (which rebuilds the legend too, so this stays
+// self-consistent with one call).
 function updateLegend(categoriesPresent) {
   const div = state.mapLegendDiv;
   if (!div) return;
@@ -947,14 +960,23 @@ function updateLegend(categoriesPresent) {
   div.style.display = visibleCats.length ? '' : 'none';
 
   visibleCats.forEach(function (cat) {
-      const row = document.createElement('div');
-      row.className = 'map-pin-legend-row';
+      const hidden = state.mapLegendHiddenCategories.has(cat);
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'map-pin-legend-row' + (hidden ? ' hidden-cat' : '');
+      row.title = hidden ? 'Click to show ' + cat + ' pins' : 'Click to hide ' + cat + ' pins';
       const swatch = document.createElement('span');
       swatch.className = 'map-pin-legend-swatch ' + categoryPinClass(cat);
       row.appendChild(swatch);
       const label = document.createElement('span');
       label.textContent = cat;
       row.appendChild(label);
+      row.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        if (hidden) state.mapLegendHiddenCategories.delete(cat);
+        else state.mapLegendHiddenCategories.add(cat);
+        renderPins();
+      });
       div.appendChild(row);
     });
 }
