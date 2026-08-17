@@ -3458,12 +3458,6 @@ function renderGalleryTab(container, entity, ctx, readOnly, imagesOverride) {
     newImageBtn.addEventListener('click', function () { openGalleryUploadModal(entity); });
     right.appendChild(newImageBtn);
     if (galleryImages.length) {
-      const portraitBtn = document.createElement('button');
-      portraitBtn.type = 'button';
-      portraitBtn.className = 'action-btn-compact';
-      portraitBtn.textContent = 'Set portrait';
-      portraitBtn.addEventListener('click', function () { openSetPortraitDialog(entity, galleryImages); });
-      right.appendChild(portraitBtn);
       if (isLocation) {
         const mapBtn = document.createElement('button');
         mapBtn.type = 'button';
@@ -3472,6 +3466,12 @@ function renderGalleryTab(container, entity, ctx, readOnly, imagesOverride) {
         mapBtn.addEventListener('click', function () { openSetMapDialog(entity, galleryImages); });
         right.appendChild(mapBtn);
       }
+      const portraitBtn = document.createElement('button');
+      portraitBtn.type = 'button';
+      portraitBtn.className = 'action-btn-compact';
+      portraitBtn.textContent = 'Set portrait';
+      portraitBtn.addEventListener('click', function () { openSetPortraitDialog(entity, galleryImages); });
+      right.appendChild(portraitBtn);
     }
     actions.appendChild(right);
     container.appendChild(actions);
