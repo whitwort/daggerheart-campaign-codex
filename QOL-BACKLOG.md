@@ -64,6 +64,12 @@ height, with NO per-context exceptions, except:**
     chevron, exception-4-like), and `#msg-compose button` (Send, inside a
     24rem floating panel too narrow for 12rem, exception-5-like). All
     carry the full `width: auto; min-width: 0;` pair.
+14. Characters tab player view Claim/+ New buttons —
+    `#characters-list-pane .actions-row-right .action-btn-compact`
+    (Phase 14 S8). Same overflow shape as exception 12 (two
+    `.action-btn-compact` buttons side by side in a 300px pane) but
+    narrower still, since the labels are short ("Claim"/"+ New") —
+    `5.5rem`, both matching.
 
 Base width lowered from 13rem to 12rem as of the "+ New party member"
 → "+ New member" rename (that label no longer defines the floor).
