@@ -1569,7 +1569,17 @@ button:disabled:hover { border-color: var(--void-line); }
 .timeline-cluster-picker.show { display: block; }
 .timeline-cluster-picker-title { font-size: 0.75rem; color: rgba(233,221,194,0.6); padding: 0.4rem 0.4rem 0.2rem; }
 
-.timeline-card-pane { flex: 1 1 55%; min-width: 0; height: 100%; overflow-y: auto; }
+/* Card pane (right side): mirrors #codex-detail-pane/#map-card-well
+   exactly -- no box chrome of its own (the .codex-entity-card appended
+   inside already carries border/background/shadow, same class reused
+   verbatim from the Codex tab), just the padding + negative
+   margin-top offset trick so the card's border and vis-hidden/vis-
+   visible glow ring have room to render before hitting this pane's
+   own overflow:auto clip boundary. Previously had neither -- the card
+   sat flush against the pane edge with zero clearance, clipping its
+   border/glow on every side and leaving Timeline looking unboxed next
+   to every other tab's panes, which all follow this same pattern. */
+.timeline-card-pane { flex: 1 1 55%; min-width: 0; height: 100%; overflow-y: auto; padding: 0.65rem 1rem 1rem; margin-top: -0.45rem; }
 .timeline-card-empty { padding: 1.5rem 0; text-align: center; }
 .timeline-edit-in-codex-link { font-size: 0.8rem; }
 

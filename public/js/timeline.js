@@ -817,15 +817,27 @@ function attachStageInteraction() {
         return;
       }
       hideClusterPicker();
-      // "Zoom to bounds": stretch the cluster's own t-span to occupy a
-      // generous portion of the viewport, same idea as Leaflet marker
-      // clusters zooming to fit their members. Re-clusters and can be
-      // tapped again for dense sub-clusters, same as Leaflet's.
+      // Farthest (least zoomed-in) scale that still separates every
+      // member of this cluster into its own dot: find the closest
+      // adjacent pair by time (ties/duplicates skipped -- span<=0
+      // above already caught the all-tied case, and any distinct
+      // remaining pair further apart than the closest one clears the
+      // threshold once scaled by the same factor, so the closest pair
+      // is the only one that matters). Replaces the old heuristic that
+      // just fit the cluster's outer span into 60% of the viewport --
+      // that could either over-zoom evenly-spaced clusters or still
+      // leave unevenly-spaced ones re-clustered.
+      let minGap = Infinity;
+      ts.sort(function (a, b) { return a - b; });
+      for (let i = 1; i < ts.length; i++) {
+        const gap = ts[i] - ts[i - 1];
+        if (gap > 0 && gap < minGap) minGap = gap;
+      }
       const rect = svg.getBoundingClientRect();
       const dim = rect.height || 400;
       const targetT = tMin + span / 2;
-      const targetScale = (dim * 0.6) / span;
-      scale = Math.max(targetScale, scale * 1.5); // always zoom in, never out
+      const MARGIN_PX = 6; // same buffer as zoomToIsolate
+      scale = (CLUSTER_THRESHOLD_PX + MARGIN_PX) / minGap;
       offset = targetT - (dim / 2) / scale;
       render();
     }
