@@ -1693,11 +1693,10 @@ button:disabled:hover { border-color: var(--void-line); }
    (#sign-out-btn/#codex-new-btn) -- .action-btn-compact's fixed 9rem
    was wrapping the label to two lines. */
 #characters-gm-new-btn { width: auto; min-width: 0; }
-/* Player view's "Set active" button (Phase 14 S8): sits in the pane's
-   .pane-title-row alongside the "Your Characters" heading -- same
-   auto-width shape as exception 9, since a fixed 9rem plus the heading
-   text overflows the row. */
-#characters-set-active-btn { width: auto; min-width: 0; padding: 0.3rem 0.7rem; flex-shrink: 0; }
+/* Player view's "Set active" button (Phase 14 S8): its own actions-row
+   below the "Your Characters" heading (was sharing a row with the
+   heading text, needed auto-width to fit; now alone, standard
+   .action-btn-compact width is fine). */
 #characters-set-active-btn.picking { border-color: var(--hope); color: var(--hope); }
 /* Player view's Claim/+ New buttons (Phase 14 S8): the base
    .action-btn-compact 9rem width (sized for "+ New images" elsewhere)
