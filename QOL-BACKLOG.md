@@ -73,6 +73,10 @@ height, with NO per-context exceptions, except:**
 15. Characters tab GM view's "+ New Entity" — `#characters-gm-new-btn`
     (Phase 14 S8). Single button, no sibling group to match, same as
     exception 9 — `width: auto; min-width: 0;`.
+16. Characters tab player view's "Set active" — `#characters-set-active-btn`
+    (Phase 14 S8). Sits in the pane's `.pane-title-row` alongside the
+    "Your Characters" heading — same auto-width shape as exception 9,
+    since a fixed 9rem plus the heading text overflows the row.
 
 Base width lowered from 13rem to 12rem as of the "+ New party member"
 → "+ New member" rename (that label no longer defines the floor).
