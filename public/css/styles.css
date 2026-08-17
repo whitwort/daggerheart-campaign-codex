@@ -1878,6 +1878,20 @@ button:disabled:hover { border-color: var(--void-line); }
 .character-card-editor { margin-top: 1rem; }
 .character-card-slot { margin: 0.3rem 0 0.9rem; }
 .character-card-slot-body { margin-top: 0.35rem; font-size: 0.88rem; }
+/* Ancestry field (Phase 14 S9 layout fix): single row -- "Ancestry"
+   label inline with its dropdown(s)/button, not the usual stacked
+   label-above-field layout every other .entity-edit-field uses.
+   Reuses .related-edit-add's own flex row (gap, align-items:center,
+   select{flex:1}) so 1 or 2 dropdowns end up the same size, sharing
+   the row with the label and (in the one-ancestry state) the "Add
+   Ancestry" button. */
+.character-ancestry-field { margin-top: 1rem; }
+.character-ancestry-field:first-child { margin-top: 0; }
+.character-ancestry-row label {
+  flex: 0 0 auto; margin: 0;
+  font-family: var(--font-display), sans-serif; font-weight: 600; font-size: 0.75rem;
+  color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em;
+}
 /* "Ancestry Features" subheading (Phase 14 S9) -- one step up from the
    small-caps .entity-edit-field label treatment, same family/tracking. */
 .character-card-subheading {
