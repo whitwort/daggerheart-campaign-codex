@@ -1038,9 +1038,10 @@ select {
    cards) -- .search-help-popup's own more specific `code` override
    (font-size only, above) still wins on specificity for its own size,
    while inheriting this background/color. Dark-panel contexts
-   (.admin-card, .gallery-picker-panel) get their own override below
-   since a dark-ink-on-light-tint scheme reads as almost invisible
-   against a near-black background. */
+   (.admin-card, .gallery-picker-panel, #msg-panel -- the last added
+   when chat messages gained markdown rendering) get their own override
+   below since a dark-ink-on-light-tint scheme reads as almost
+   invisible against a near-black background. */
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   font-size: 0.85em;
@@ -1058,11 +1059,11 @@ pre {
   margin: 0.6rem 0;
 }
 pre code { background: none; padding: 0; border-radius: 0; color: inherit; }
-.admin-card code, .gallery-picker-panel code {
+.admin-card code, .gallery-picker-panel code, #msg-panel code {
   background: rgba(255,255,255,0.12);
   color: #E9C097;
 }
-.admin-card pre, .gallery-picker-panel pre {
+.admin-card pre, .gallery-picker-panel pre, #msg-panel pre {
   background: rgba(255,255,255,0.06);
   border-color: var(--void-line);
 }
@@ -1214,7 +1215,7 @@ pre code { background: none; padding: 0; border-radius: 0; color: inherit; }
    editor's Markdown-cheat-sheet link, Sources) use a different,
    inherit-color rule below instead — see that comment for the app-wide
    split. */
-.lore-item-body a, .entity-preview-card a {
+.lore-item-body a, .entity-preview-card a, .msg-text a {
   color: var(--fear);
   text-decoration: underline;
 }
@@ -1978,6 +1979,14 @@ button:disabled:hover { border-color: var(--void-line); }
 .msg-bubble { max-width: 80%; padding: 0.45rem 0.65rem; border-radius: 8px; line-height: 1.35; }
 .msg-bubble.theirs { background: #232a38; align-self: flex-start; border: 1px solid var(--void-line); }
 .msg-bubble.mine { background: #2c3040; align-self: flex-end; border: 1px solid var(--fear); }
+/* Markdown-rendered message text (Phase 14 S8): chat bubbles are
+   compact, so paragraph/list default browser margins need trimming --
+   same minimal first/last-child reset .lore-item-body uses, plus a
+   direct <p> margin trim since a short chat line is likely the ONLY
+   paragraph (no need for the larger spacing multi-paragraph lore gets). */
+.msg-text p { margin: 0.3em 0; }
+.msg-text > :first-child { margin-top: 0; }
+.msg-text > :last-child { margin-bottom: 0; }
 .msg-time { font-size: 0.65rem; color: var(--ink-soft); margin-top: 0.2rem; }
 
 #msg-compose { display: flex; gap: 0.4rem; padding: 0.5rem; border-top: 1px solid var(--void-line); }
