@@ -65,11 +65,11 @@ height, with NO per-context exceptions, except:**
     24rem floating panel too narrow for 12rem, exception-5-like). All
     carry the full `width: auto; min-width: 0;` pair.
 14. Characters tab player view Claim/+ New buttons —
-    `#characters-list-pane .actions-row-right .action-btn-compact`
-    (Phase 14 S8). Same overflow shape as exception 12 (two
-    `.action-btn-compact` buttons side by side in a 300px pane) but
-    narrower still, since the labels are short ("Claim"/"+ New") —
-    `5.5rem`, both matching.
+    `#characters-claim-btn, #characters-create-btn` (Phase 14 S8; id-
+    scoped, not container-descendant — see the CSS comment for why).
+    Same overflow shape as exception 12 (two `.action-btn-compact`
+    buttons side by side in a 300px pane) but narrower still, since the
+    labels are short ("Claim"/"+ New") — `5.5rem`, both matching.
 15. Characters tab GM view's "+ New Entity" — `#characters-gm-new-btn`
     (Phase 14 S8). Single button, no sibling group to match, same as
     exception 9 — `width: auto; min-width: 0;`.
