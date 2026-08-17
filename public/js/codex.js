@@ -341,8 +341,8 @@ function setEntityImagesTarget(entityId) {
     });
 }
 
-function galleryImagesFor(entityId, ctx) {
-  return state.currentEntityImages
+function galleryImagesFor(entityId, ctx, imagesOverride) {
+  return (imagesOverride || state.currentEntityImages)
     .filter(function (img) {
       return img.ownerId === entityId && img.role === 'gallery' && canSee(img, ctx);
     })
@@ -392,12 +392,21 @@ let portraitPreviewOverride = null; // { entityId, img } | null
 // only, per Gregg's call; an entity with images but no chosen portrait
 // simply has no hero image, same as an entity with no images at all.
 // Respects ctx (canSee) the same way galleryImagesFor does, so a gm-only
-// portrait never shows to players.
-function portraitImageFor(entity, ctx) {
+// portrait never shows to players. imagesOverride (Phase 14 S8 bugfix):
+// when given, read from THIS instead of the Codex tab's own global
+// state.currentEntityImages cache -- that cache is scoped to whichever
+// entity is currently selected on the CODEX tab specifically
+// (setEntityImagesTarget, called from renderDetailForSelected only), so
+// a Map/Timeline tab card for an entity never yet opened on the Codex
+// tab this session found an empty cache and silently showed no
+// portrait. Callers with their own independent image source (see
+// entity-images-cache.js) pass it here instead of relying on that
+// single shared, Codex-tab-owned cache.
+function portraitImageFor(entity, ctx, imagesOverride) {
   if (portraitPreviewOverride && portraitPreviewOverride.entityId === entity.id) {
     return portraitPreviewOverride.img;
   }
-  const images = galleryImagesFor(entity.id, ctx);
+  const images = galleryImagesFor(entity.id, ctx, imagesOverride);
   if (!images.length) return null;
   return images.find(function (img) { return img.isPortrait; }) || null;
 }
@@ -3246,9 +3255,9 @@ function openGalleryUploadModal(entity) {
   document.body.appendChild(overlay);
 }
 
-function renderGalleryTab(container, entity, ctx, readOnly) {
-  const galleryImages = galleryImagesFor(entity.id, ctx);
-  const currentPortrait = portraitImageFor(entity, ctx);
+function renderGalleryTab(container, entity, ctx, readOnly, imagesOverride) {
+  const galleryImages = galleryImagesFor(entity.id, ctx, imagesOverride);
+  const currentPortrait = portraitImageFor(entity, ctx, imagesOverride);
   const isLocation = entity.category === 'Location';
   const currentMapImg = isLocation ? galleryImages.find(function (img) { return img.isMap; }) : null;
   const showChrome = hasFullAuthority(entity, ctx) && !readOnly;
@@ -3925,7 +3934,7 @@ function renderEntityViewCard(container, entity, ctx, opts) {
     container.appendChild(opts.topLeftExtra);
   }
 
-  const portrait = portraitImageFor(entity, ctx);
+  const portrait = portraitImageFor(entity, ctx, opts.images);
   container.classList.toggle('has-hero', !!portrait);
   if (portrait) {
     const band = document.createElement('div');
@@ -4068,7 +4077,7 @@ function renderEntityViewCard(container, entity, ctx, opts) {
   if (activeTab === 'notes') {
     renderNotesTab(tabPanel, entity, ctx, !allowEdit);
   } else if (activeTab === 'gallery') {
-    renderGalleryTab(tabPanel, entity, ctx, !allowEdit);
+    renderGalleryTab(tabPanel, entity, ctx, !allowEdit, opts.images);
   } else {
     renderLoreTab(tabPanel, entity, ctx, !allowEdit);
   }
