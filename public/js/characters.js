@@ -371,7 +371,16 @@ function renderCharactersPlayerView(ctx) {
     state.charactersSelectedId = own[0].id;
   }
 
+  // S11: with only one character, there's nothing to switch between --
+  // hide "Set active" entirely rather than show a picker with a single
+  // (already-active, per the guard above) option. Defensive reset of
+  // picking mode alongside, in case it was somehow left on from when a
+  // second character still existed (e.g. released down to one while
+  // picking was active).
   if (charactersSetActiveBtnEl) {
+    const showSetActive = own.length > 1;
+    charactersSetActiveBtnEl.style.display = showSetActive ? '' : 'none';
+    if (!showSetActive) state.charactersPickingActive = false;
     charactersSetActiveBtnEl.textContent = state.charactersPickingActive ? 'Cancel' : 'Set active';
     charactersSetActiveBtnEl.classList.toggle('picking', state.charactersPickingActive);
   }
