@@ -1079,14 +1079,20 @@ function renderCharactersPlayerView(ctx) {
   renderClaimPopup(ctx);
 }
 
-// "Claim Character" popup (§11.6/S8): PC-tagged, unowned, canSee-visible
-// Character entities -- same eligibility as the old inline "Available
-// characters" list, now behind a button rather than always-on real
-// estate. Pending state (already-filed transferRequest) shown inline,
-// same as before -- "Cancel request" swap IS the pending-visual-feedback
-// Gregg asked for (S8's "provide visual feedback that this claim is
-// pending"), plus an explicit "(pending)" label so it reads clearly even
-// at a glance.
+// "Claim Character" popup (§11.6/S8): PC-tagged, unowned Character
+// entities -- same eligibility as the old inline "Available characters"
+// list, now behind a button rather than always-on real estate. Pending
+// state (already-filed transferRequest) shown inline, same as before --
+// "Cancel request" swap IS the pending-visual-feedback Gregg asked for
+// (S8's "provide visual feedback that this claim is pending"), plus an
+// explicit "(pending)" label so it reads clearly even at a glance.
+// Deliberately NOT canSee-gated (S8): a player can request a still
+// gm-only-hidden PC-tagged character, not just ones the GM has already
+// shared -- consistent with the app's own "read-hardening is client-
+// side render filtering, not a security boundary" model (firestore.rules
+// already grants every player read on the whole entities collection
+// regardless of visibility; this is a UI choice to surface some of that
+// already-readable data, not a new access grant).
 function renderClaimPopup(ctx) {
   charactersClaimPopupEl.innerHTML = '';
   if (!state.charactersClaimPopupOpen) {
@@ -1102,7 +1108,7 @@ function renderClaimPopup(ctx) {
 
   const available = state.allEntities
     .filter(function (e) {
-      return e.category === 'Character' && !e.ownerId && canSee(e, ctx)
+      return e.category === 'Character' && !e.ownerId
         && (e.tags || []).some(function (t) { return t.toLowerCase() === 'pc'; });
     })
     .sort(byName);
