@@ -31,6 +31,7 @@
 // wait on write round-trip latency.
 
 import { state } from './state.js';
+import { generateDefaultBadgeColor } from './badge-color.js';
 
 // --- popover singleton: only one open at a time, closed on outside
 // click / Escape. Registered once at module load (not per-render) so
@@ -68,8 +69,9 @@ function partyCharacterOptions() {
         playerName: (player && player.displayName) || e.ownerId,
         // Phase 14 S7 (§11.8): owner-picked badgeColor, same field/CSS-
         // var pattern buildCharacterBadge already uses -- null/unset
-        // falls back to the existing seafoam default at render time.
-        badgeColor: e.badgeColor || null
+        // resolved to a deterministic per-name generated color at
+        // render time (S8, badge-color.js), not a flat fallback.
+        badgeColor: e.badgeColor || generateDefaultBadgeColor(e.name)
       };
     })
     .sort(function (a, b) {
@@ -340,7 +342,7 @@ function buildCharacterBadge(characterId) {
   badge.className = 'character-badge';
   badge.textContent = (character && character.name) || 'Unknown';
   badge.title = 'What your character would share with the party in casual conversation.';
-  badge.style.setProperty('--badge-color', (character && character.badgeColor) || 'var(--badge-default)');
+  badge.style.setProperty('--badge-color', (character && character.badgeColor) || generateDefaultBadgeColor(character && character.name));
   return badge;
 }
 

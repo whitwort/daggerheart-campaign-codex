@@ -881,7 +881,10 @@ select {
 .vis-kebab-char-name { flex: 1; }
 /* Phase 14 S7 (§11.8): small solid dot before the name, same --badge-
    color var/fallback pattern as .character-badge -- flex-shrink:0 so a
-   long character name never squeezes it. */
+   long character name never squeezes it. --badge-default here is a
+   defensive last-resort only (S8): partyCharacterOptions() always
+   resolves an unset badgeColor to a generated per-name color in JS
+   before this ever renders, via badge-color.js. */
 .vis-kebab-char-dot {
   width: 0.55rem; height: 0.55rem; border-radius: 50%; flex-shrink: 0;
   background: var(--badge-color, var(--badge-default));
@@ -1607,9 +1610,10 @@ button:disabled:hover { border-color: var(--void-line); }
 /* Character badge (Phase 14 S4, D3): marks content the party sees because
    a PLAYER chose to share it -- a characterShared element or a cannon
    note -- never a GM-set state. Color comes from the character's own
-   badgeColor (S5's owner-picked swatch; --badge-color falls back to
-   --badge-default (light grey, S8) until one is set, via
-   buildCharacterBadge).
+   badgeColor (S5's owner-picked swatch), or a deterministic per-name
+   generated color (S8, badge-color.js) when unset -- --badge-color is
+   always set inline by buildCharacterBadge before this renders;
+   --badge-default here is a defensive last-resort only.
    Sits inline with .source-label (right of it, or alone when the item
    has no source), so it's sized/spaced like that row's other small
    attribution text rather than like .meta-tag's heavier toggle-state
@@ -1730,9 +1734,11 @@ button:disabled:hover { border-color: var(--void-line); }
   border: 2px solid transparent; box-shadow: none; cursor: pointer;
 }
 .character-badge-swatch.selected { border-color: var(--parchment); }
-/* "Default" swatch (S8): explicit reset to badgeColor:null, shown as
-   the same light-grey --badge-default every unset badge/dot already
-   falls back to elsewhere. */
+/* "Default" swatch (S8): explicit reset to badgeColor:null. Preview
+   color is set inline per-entity in JS (generateDefaultBadgeColor,
+   badge-color.js) -- the character's deterministic auto-generated
+   color, not a flat grey; --badge-default here is a defensive
+   last-resort fallback only, in case the inline style is ever missing. */
 .character-badge-swatch-default { background: var(--badge-default); }
 /* Custom color swatch (S8): a <label> wrapping a native
    <input type="color">, styled to LOOK like the other circular swatch

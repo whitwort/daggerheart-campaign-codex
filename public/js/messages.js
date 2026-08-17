@@ -56,6 +56,7 @@ import { trackWrite } from './connectivity.js';
 import { viewerContext, canSee } from './visibility.js';
 import { buildCharacterBadge } from './visibility-ui.js';
 import { switchToCodexTabForEntity } from './codex.js';
+import { generateDefaultBadgeColor } from './badge-color.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -121,16 +122,19 @@ function threadTabDefs() {
 }
 
 // Phase 14 S7 (§11.8): color a GM-side player tab by that player's
-// CURRENT active character's badgeColor (falls back to null -> the
-// existing default tab styling when unset or no active character).
-// Threads are keyed by player email, not character -- a player can own
-// several PCs, so this is inherently "whichever one they're playing
-// right now", which can shift the tab color mid-session on a character
-// switch. Confirmed as the right tradeoff (Phase 14 S7 design review).
+// CURRENT active character's badgeColor (falls back to a deterministic
+// per-name generated color, S8, when unset -- or null when the player
+// has no active character at all, which still leaves the existing
+// default tab styling with no color cue, since there's no character to
+// generate one from). Threads are keyed by player email, not character
+// -- a player can own several PCs, so this is inherently "whichever one
+// they're playing right now", which can shift the tab color mid-session
+// on a character switch. Confirmed as the right tradeoff (Phase 14 S7
+// design review).
 function activeCharacterBadgeColor(player) {
   if (!player || !player.activeCharacterId) return null;
   const char = state.allEntities.find(function (e) { return e.id === player.activeCharacterId; });
-  return (char && char.badgeColor) || null;
+  return char ? (char.badgeColor || generateDefaultBadgeColor(char.name)) : null;
 }
 
 function campaignUnreadCount() {

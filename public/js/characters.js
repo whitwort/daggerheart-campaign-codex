@@ -46,6 +46,7 @@ import { canSee, viewerContext, hasFullAuthority } from './visibility.js';
 import { switchToCodexTabForEntity, openNewEntityDialog } from './codex.js';
 import { getTemplateSchema } from './templates.js';
 import { renderMarkdownInto } from './markdown.js';
+import { generateDefaultBadgeColor } from './badge-color.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -631,8 +632,9 @@ function buildBadgeColorPicker(entity) {
   const defaultBtn = document.createElement('button');
   defaultBtn.type = 'button';
   defaultBtn.className = 'character-badge-swatch character-badge-swatch-default';
+  defaultBtn.style.background = generateDefaultBadgeColor(entity.name);
   if (!entity.badgeColor) defaultBtn.classList.add('selected');
-  defaultBtn.title = 'Default (none set)';
+  defaultBtn.title = 'Default (auto, from name)';
   defaultBtn.addEventListener('click', function () { save(null); });
   row.appendChild(defaultBtn);
 
@@ -749,13 +751,14 @@ function buildCardSlotViewer(entity) {
 // codex.js's buildEntityLi. Reused for every character row across GM/
 // player views and the Claim popup, per Gregg's explicit styling-parity
 // Small solid dot showing a character's badgeColor, same visual language
-// as the Codex tab's entity-group-dot (category-color cue). Defaults to
-// --badge-default (light grey) when unset, same fallback as
-// .character-badge/.vis-kebab-char-dot elsewhere.
+// as the Codex tab's entity-group-dot (category-color cue). Falls back
+// to a deterministic per-name generated color (badge-color.js) when
+// unset, rather than a flat grey -- two un-colored characters still
+// read as visually distinct in a list.
 function buildBadgeDot(entity) {
   const dot = document.createElement('span');
   dot.className = 'character-badge-dot';
-  dot.style.background = entity.badgeColor || 'var(--badge-default)';
+  dot.style.background = entity.badgeColor || generateDefaultBadgeColor(entity.name);
   return dot;
 }
 
