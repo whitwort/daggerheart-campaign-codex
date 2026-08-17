@@ -154,7 +154,21 @@ function buildTemplateData(rec, schema) {
 
   let features = [];
   if (schema.hasFeatures) {
-    if (schema.featureGroups) {
+    if (schema.featureGroups && schema.featureGroupsFromArray) {
+      // Ancestry (Phase 14 S7, §11.1): source has one flat rec.feature
+      // array, group assigned by position -- NOT per-key arrays like
+      // subclasses use in the branch below. Every current SRD ancestry
+      // carries exactly 2 (verified), but guard defensively: extra
+      // entries beyond featureGroups.length are still imported, just
+      // left ungrouped (no false badge/pick-slot), rather than dropped.
+      usedKeys.feature = true;
+      if (Array.isArray(rec.feature)) {
+        rec.feature.forEach(function (f, i) {
+          const g = schema.featureGroups[i];
+          features.push({ name: f.name, text: f.text, group: g ? g.key : null });
+        });
+      }
+    } else if (schema.featureGroups) {
       schema.featureGroups.forEach(function (g) {
         usedKeys[g.key] = true;
         if (Array.isArray(rec[g.key])) {

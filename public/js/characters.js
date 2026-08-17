@@ -134,6 +134,153 @@ function slotStatMarkdown(entity, tierFilter) {
   return blocks.join('\n\n');
 }
 
+// Ancestry feature card slot: display identity (flavor entity, may be a
+// meta ancestry) is decoupled from the STAT entity feature text is drawn
+// from (the resolved functional ancestry) -- see resolveFunctionalAncestryIds.
+// For a non-meta pick these are the same entity, so the common case
+// renders identically to before this feature existed.
+function buildAncestryFeatureCardSlot(statEntity, groupFilter) {
+  return buildCardSlot(statEntity, { tier: groupFilter });
+}
+
+// Up to 2 ancestries, add/remove list (mirrors buildAbilitiesPicker's
+// UX), each with per-functional-ancestry First/Second feature-group
+// picks when resolution yields 2 functional ancestries -- whether that's
+// 2 directly-picked ancestries, or a single meta pick whose own
+// metaAncestryTargetIds has 2 entries (§11.2's "meta can be mixed").
+function buildAncestrySlotEditor(entity, cards, ancestryEntities) {
+  const wrap = document.createElement('div');
+  const label = document.createElement('label');
+  label.textContent = 'Ancestry';
+  wrap.appendChild(label);
+
+  const flavorIds = normalizeAncestryIds(cards);
+  const functionalIds = resolveFunctionalIds(flavorIds);
+  const picks = cards.ancestryFeaturePicks || {};
+
+  function save(newFlavorIds, newPicks) {
+    saveCardsPatch(entity, { ancestryIds: newFlavorIds, ancestryFeaturePicks: newPicks || {} });
+  }
+
+  const list = document.createElement('ul');
+  list.className = 'related-edit-list';
+  flavorIds.forEach(function (id) {
+    const a = ancestryEntities.find(function (e) { return e.id === id; });
+    const li = document.createElement('li');
+    const span = document.createElement('span');
+    span.textContent = a ? a.name : '(deleted ancestry)';
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.textContent = 'Remove';
+    removeBtn.addEventListener('click', function () {
+      save(flavorIds.filter(function (x) { return x !== id; }), picks);
+    });
+    li.appendChild(span);
+    li.appendChild(removeBtn);
+    list.appendChild(li);
+  });
+  wrap.appendChild(list);
+
+  const addRow = document.createElement('div');
+  addRow.className = 'related-edit-add';
+  const select = document.createElement('select');
+  // Eligible = not already picked, and wouldn't push the resolved
+  // functional-ancestry count past 2 (e.g. can't add a second pick once
+  // a meta-mix ancestry already resolves to 2 targets on its own).
+  const available = ancestryEntities.filter(function (e) {
+    if (flavorIds.indexOf(e.id) !== -1) return false;
+    const candidateFunctional = resolveFunctionalAncestryIds(e.id);
+    const merged = functionalIds.concat(candidateFunctional.filter(function (fid) { return functionalIds.indexOf(fid) === -1; }));
+    return merged.length <= 2;
+  });
+  if (!available.length) {
+    const opt = document.createElement('option');
+    opt.textContent = flavorIds.length ? '(no eligible ancestries to add)' : '-- choose --';
+    opt.disabled = true;
+    select.appendChild(opt);
+  } else {
+    const placeholder = document.createElement('option');
+    placeholder.textContent = '-- choose --';
+    placeholder.value = '';
+    select.appendChild(placeholder);
+    available.forEach(function (e) {
+      const opt = document.createElement('option');
+      opt.value = e.id;
+      opt.textContent = e.name;
+      select.appendChild(opt);
+    });
+  }
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.textContent = 'Add';
+  addBtn.addEventListener('click', function () {
+    const id = select.value;
+    if (!id || flavorIds.length >= 2) return;
+    save(flavorIds.concat([id]), picks);
+  });
+  addRow.appendChild(select);
+  addRow.appendChild(addBtn);
+  wrap.appendChild(addRow);
+
+  // Feature-group picks: only meaningful/shown when resolution yields
+  // exactly 2 functional ancestries. Two selects, each constrained to
+  // differ from the other -- picking 'first' on one auto-flips the other
+  // to 'second' rather than exposing an invalid both-same state.
+  if (functionalIds.length === 2) {
+    const picksWrap = document.createElement('div');
+    picksWrap.className = 'entity-edit-field';
+    const picksLabel = document.createElement('label');
+    picksLabel.textContent = 'Feature picks';
+    picksWrap.appendChild(picksLabel);
+    const selects = functionalIds.map(function (fid) {
+      const fEnt = ancestryEntities.find(function (e) { return e.id === fid; })
+        || state.allEntities.find(function (e) { return e.id === fid; });
+      const row = document.createElement('div');
+      row.className = 'entity-edit-field';
+      const rowLabel = document.createElement('span');
+      rowLabel.className = 'toggle-switch-label';
+      rowLabel.textContent = (fEnt ? fEnt.name : fid) + ':';
+      row.appendChild(rowLabel);
+      const sel = document.createElement('select');
+      ['first', 'second'].forEach(function (g) {
+        const opt = document.createElement('option');
+        opt.value = g;
+        opt.textContent = g === 'first' ? 'First' : 'Second';
+        sel.appendChild(opt);
+      });
+      row.appendChild(sel);
+      picksWrap.appendChild(row);
+      return { fid: fid, sel: sel };
+    });
+    selects[0].sel.value = picks[selects[0].fid] || 'first';
+    selects[1].sel.value = picks[selects[1].fid] || (selects[0].sel.value === 'first' ? 'second' : 'first');
+    selects.forEach(function (entry, i) {
+      entry.sel.addEventListener('change', function () {
+        const other = selects[1 - i];
+        if (other.sel.value === entry.sel.value) {
+          other.sel.value = entry.sel.value === 'first' ? 'second' : 'first';
+        }
+        const newPicks = {};
+        newPicks[selects[0].fid] = selects[0].sel.value;
+        newPicks[selects[1].fid] = selects[1].sel.value;
+        save(flavorIds, newPicks);
+      });
+    });
+    wrap.appendChild(picksWrap);
+  }
+
+  // Feature card(s): one per functional ancestry, named/statted off the
+  // FUNCTIONAL entity (see buildAncestryFeatureCardSlot header comment).
+  functionalIds.forEach(function (fid) {
+    const statEntity = state.allEntities.find(function (e) { return e.id === fid; });
+    const groupFilter = functionalIds.length === 2 ? (picks[fid] || null) : null;
+    wrap.appendChild(buildAncestryFeatureCardSlot(statEntity, groupFilter));
+  });
+  if (!functionalIds.length) wrap.appendChild(buildCardSlot(null));
+
+  return wrap;
+}
+
 function buildCardSlot(entity, opts) {
   const wrap = document.createElement('div');
   wrap.className = 'character-card-slot';
@@ -189,18 +336,24 @@ function buildSingleEntityPicker(labelText, entities, currentId, onChange) {
 // additionally grouped into <optgroup>s by the ability's `domain` detail
 // key (Game Mechanics/abilities schema, templates.js) since that's how
 // players actually browse Daggerheart's ability list at the table.
-function buildAbilitiesPicker(cards, abilityEntities, onChange) {
+// displayEntities: full visible-abilities pool, used to look up names for
+// already-picked ids so a Phase 14 S7 class/domain change doesn't make a
+// previously-added ability show as "(deleted ability)". addCandidates
+// (defaults to displayEntities): the domain/class-filtered set the add-
+// select offers -- see buildCardSlotEditor's abilityOptionsDeduped.
+function buildAbilitiesPicker(cards, displayEntities, onChange, addCandidates) {
   const wrap = document.createElement('div');
   wrap.className = 'entity-edit-field';
   const label = document.createElement('label');
   label.textContent = 'Abilities (aim for at least 2)';
   wrap.appendChild(label);
 
+  const abilityEntities = addCandidates || displayEntities;
   const abilityIds = cards.abilityIds || [];
   const list = document.createElement('ul');
   list.className = 'related-edit-list';
   abilityIds.forEach(function (id) {
-    const a = abilityEntities.find(function (e) { return e.id === id; });
+    const a = displayEntities.find(function (e) { return e.id === id; });
     const li = document.createElement('li');
     const span = document.createElement('span');
     span.textContent = a ? a.name : '(deleted ability)';
@@ -258,7 +411,7 @@ function buildAbilitiesPicker(cards, abilityEntities, onChange) {
 }
 
 const DEFAULT_CARDS = {
-  ancestryId: null, communityId: null, classId: null, subclassId: null,
+  ancestryId: null, ancestryIds: [], ancestryFeaturePicks: {}, communityId: null, classId: null, subclassId: null,
   subclassTier: 'foundation', abilityIds: []
 };
 // Single source of truth for tier keys/labels: the same featureGroups
@@ -272,6 +425,40 @@ const TIER_OPTIONS = (function () {
     { key: 'specialization', label: 'Specialization' }
   ];
 })();
+
+// --- Mixed/meta ancestry resolution (Phase 14 S7, §11.1/§11.2) ---------
+// cards.ancestryIds: the FLAVOR ancestries the player actually picked (1
+// or 2, what displays on the card). A flavor ancestry may itself be
+// "meta" (entity.metaAncestryTargetIds set) -- flavor-only, its features/
+// details resolve through 1-2 TARGET ancestries instead of its own.
+// Chaining (a target that's itself meta) is disallowed by construction
+// (the Ancestry entity edit form excludes already-meta ancestries from
+// the target picker) -- resolveFunctionalAncestryIds does one lookup,
+// not a walk.
+function normalizeAncestryIds(cards) {
+  if (cards.ancestryIds && cards.ancestryIds.length) return cards.ancestryIds;
+  if (cards.ancestryId) return [cards.ancestryId];
+  return [];
+}
+function resolveFunctionalAncestryIds(ancestryId) {
+  const anc = state.allEntities.find(function (e) { return e.id === ancestryId; });
+  if (!anc) return [];
+  const targets = anc.metaAncestryTargetIds;
+  return (targets && targets.length) ? targets.slice(0, 2) : [ancestryId];
+}
+// Flattened, deduped list of the FUNCTIONAL ancestry ids a character's
+// flavor picks resolve to -- length 1 or 2 in valid data (the add-select
+// in buildAncestrySlotEditor prevents exceeding 2; a stale/edited-outside
+// doc that somehow exceeds it is truncated here, not thrown on).
+function resolveFunctionalIds(flavorIds) {
+  const out = [];
+  flavorIds.forEach(function (id) {
+    resolveFunctionalAncestryIds(id).forEach(function (fid) {
+      if (out.indexOf(fid) === -1) out.push(fid);
+    });
+  });
+  return out.slice(0, 2);
+}
 
 function saveCardsPatch(entity, patch) {
   const cards = Object.assign({}, DEFAULT_CARDS, entity.cards || {}, patch);
@@ -300,9 +487,37 @@ function buildCardSlotEditor(entity, ctx) {
   const subclasses = state.allEntities.filter(function (e) { return e.category === 'Game Mechanics' && e.subtype === 'subclasses' && visible(e); }).sort(byName);
   const abilities = state.allEntities.filter(function (e) { return e.category === 'Game Mechanics' && e.subtype === 'abilities' && visible(e); });
 
-  wrap.appendChild(buildSingleEntityPicker('Ancestry', ancestries, cards.ancestryId,
-    function (v) { saveCardsPatch(entity, { ancestryId: v }); }));
-  wrap.appendChild(buildCardSlot(ancestries.find(function (e) { return e.id === cards.ancestryId; })));
+  // Phase 14 S7 (§11.7): class.details.subclass_1/subclass_2 and
+  // ability.details.domain are plain strings that already exact-match
+  // Subclass/Domain entity names (verified against live SRD data) --
+  // no schema/rules needed, just a name-match filter. Empty until a
+  // class is chosen (Gregg's call, deferring picker-UX refinement to a
+  // later pass). Character-scoped ad hoc cards (§11.3) bypass the
+  // domain filter -- they're already gated by ownership, not meant to
+  // compete with class-domain access.
+  const selectedClass = classes.find(function (e) { return e.id === cards.classId; });
+  const subclassOptions = selectedClass
+    ? subclasses.filter(function (s) {
+        const d = selectedClass.details || {};
+        return s.name === d.subclass_1 || s.name === d.subclass_2;
+      })
+    : [];
+  const abilityOptions = selectedClass
+    ? abilities.filter(function (a) {
+        const d = selectedClass.details || {};
+        const dom = a.details && a.details.domain;
+        return dom && (dom === d.domain_1 || dom === d.domain_2);
+      }).concat(abilities.filter(function (a) {
+        return a.visibility === 'character' && a.characterId === entity.id;
+      }))
+    : abilities.filter(function (a) { return a.visibility === 'character' && a.characterId === entity.id; });
+  // De-dupe (a character-scoped ability could theoretically also match
+  // the domain filter above).
+  const abilityOptionsDeduped = abilityOptions.filter(function (a, i) {
+    return abilityOptions.findIndex(function (b) { return b.id === a.id; }) === i;
+  });
+
+  wrap.appendChild(buildAncestrySlotEditor(entity, cards, ancestries));
 
   wrap.appendChild(buildSingleEntityPicker('Community', communities, cards.communityId,
     function (v) { saveCardsPatch(entity, { communityId: v }); }));
@@ -312,7 +527,7 @@ function buildCardSlotEditor(entity, ctx) {
     function (v) { saveCardsPatch(entity, { classId: v }); }));
   wrap.appendChild(buildCardSlot(classes.find(function (e) { return e.id === cards.classId; })));
 
-  wrap.appendChild(buildSingleEntityPicker('Subclass', subclasses, cards.subclassId,
+  wrap.appendChild(buildSingleEntityPicker('Subclass', subclassOptions, cards.subclassId,
     function (v) { saveCardsPatch(entity, { subclassId: v }); }));
   const tierWrap = document.createElement('div');
   tierWrap.className = 'entity-edit-field';
@@ -332,7 +547,7 @@ function buildCardSlotEditor(entity, ctx) {
   wrap.appendChild(tierWrap);
   wrap.appendChild(buildCardSlot(subclasses.find(function (e) { return e.id === cards.subclassId; }), { tier: cards.subclassTier }));
 
-  wrap.appendChild(buildAbilitiesPicker(cards, abilities, function (ids) { saveCardsPatch(entity, { abilityIds: ids }); }));
+  wrap.appendChild(buildAbilitiesPicker(cards, abilities, function (ids) { saveCardsPatch(entity, { abilityIds: ids }); }, abilityOptionsDeduped));
   const abilityCardsWrap = document.createElement('div');
   cards.abilityIds.forEach(function (id) {
     const a = abilities.find(function (e) { return e.id === id; });
@@ -340,7 +555,47 @@ function buildCardSlotEditor(entity, ctx) {
   });
   wrap.appendChild(abilityCardsWrap);
 
+  // GM-only: creating a non-Character entity is rules-denied for
+  // players (isValidEntity's player create path is category=='Character'
+  // only) -- a player-owned-character context never gets this button.
+  if (ctx.gmView) wrap.appendChild(buildAdHocCardButton(entity));
+
   return wrap;
+}
+
+// Phase 14 S7 (§11.3): convenience creation of a character-scoped ad hoc
+// "card" (e.g. a campaign-specific mechanic like Aether Touched) without
+// leaving the Characters tab to use the general Codex "+ New entity"
+// flow + kebab manually. No new schema/rules -- this is exactly the
+// existing visibility:'character' mechanism, pre-filled. Scoped to
+// Game Mechanics/abilities only (matches the domain-optgroup UI it'll
+// surface in); intentionally minimal (name-only prompt, same "stub now,
+// fill in mechanics text via Codex" pattern as "+ New character") since
+// there's no character-sheet ability cap this needs to respect or be
+// exempted from.
+function buildAdHocCardButton(entity) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'action-btn-compact';
+  btn.textContent = '+ New card for this character';
+  btn.addEventListener('click', function () {
+    const name = window.prompt('Card name (e.g. "Aether Touched"):');
+    if (!name || !name.trim()) return;
+    const trimmed = name.trim();
+    const newId = doc(collection(db, 'entities')).id;
+    const entityData = {
+      slug: slugify(trimmed), name: trimmed, category: 'Game Mechanics', subtype: 'abilities',
+      ancestry: null, aliases: [], date: null, dateSort: null, dateEnd: null, dateEndSort: null,
+      parentId: null, relatedIds: [], visibility: 'character', characterId: entity.id, characterShared: false,
+      hasMapImage: false, mapImageVisibleToPlayers: false, tags: [], sourceId: null,
+      useTemplate: false, details: {}, features: [], searchIndex: [],
+      createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+    };
+    trackWrite(setDoc(doc(db, 'entities', newId), entityData), 'Creating card')
+      .then(function () { switchToCodexTabForEntity(newId); })
+      .catch(function (err) { window.alert('Create failed: ' + err.message); });
+  });
+  return btn;
 }
 
 // Owner-picked badge color (D3/S4's badge mechanism gains its picker
@@ -584,8 +839,16 @@ function renderCharactersPlayerView(ctx) {
   // transfer request simply shares it, same as any other lore element;
   // an NPC left gm-only (the default) never surfaces here. Documented
   // interpretation -- see handoff.
+  // Phase 14 S7 (§11.6): only characters the GM has explicitly tagged
+  // 'PC' (case-insensitive) are claimable -- distinguishes adoptable
+  // party-member slots from unowned Character entities that exist for
+  // other reasons (e.g. a former PC, an NPC modeled as a Character for
+  // template convenience) but aren't meant to be requested.
   const available = state.allEntities
-    .filter(function (e) { return e.category === 'Character' && !e.ownerId && canSee(e, ctx); })
+    .filter(function (e) {
+      return e.category === 'Character' && !e.ownerId && canSee(e, ctx)
+        && (e.tags || []).some(function (t) { return t.toLowerCase() === 'pc'; });
+    })
     .sort(byName);
   charactersPlayerAvailableListEl.innerHTML = '';
   if (!available.length) {

@@ -114,10 +114,23 @@ function threadTabDefs() {
       .sort(function (a, b) {
         return (a.displayName || a.id).localeCompare(b.displayName || b.id);
       })
-      .map(function (p) { return { key: p.id, label: p.displayName || p.id }; });
+      .map(function (p) { return { key: p.id, label: p.displayName || p.id, badgeColor: activeCharacterBadgeColor(p) }; });
   }
   const email = state.currentUser && state.currentUser.email;
-  return email ? [{ key: email, label: 'GM' }] : [];
+  return email ? [{ key: email, label: 'GM', badgeColor: null }] : [];
+}
+
+// Phase 14 S7 (§11.8): color a GM-side player tab by that player's
+// CURRENT active character's badgeColor (falls back to null -> the
+// existing default tab styling when unset or no active character).
+// Threads are keyed by player email, not character -- a player can own
+// several PCs, so this is inherently "whichever one they're playing
+// right now", which can shift the tab color mid-session on a character
+// switch. Confirmed as the right tradeoff (Phase 14 S7 design review).
+function activeCharacterBadgeColor(player) {
+  if (!player || !player.activeCharacterId) return null;
+  const char = state.allEntities.find(function (e) { return e.id === player.activeCharacterId; });
+  return (char && char.badgeColor) || null;
 }
 
 function campaignUnreadCount() {
@@ -497,7 +510,7 @@ function renderMessagesTray() {
     const strip = document.createElement('div');
     strip.id = 'msg-strip';
     defs.forEach(function (d) {
-      strip.appendChild(buildStripTab(d.label, threadUnread(threadFor(d.key)), function () { openTab(d.key); }));
+      strip.appendChild(buildStripTab(d.label, threadUnread(threadFor(d.key)), function () { openTab(d.key); }, d.badgeColor));
     });
     strip.appendChild(buildStripTab('Campaign', campUnread, function () { openTab('campaign'); }));
     trayEl.appendChild(strip);
@@ -518,7 +531,8 @@ function renderMessagesTray() {
     tabsRow.appendChild(buildPanelTab(d.label,
       state.trayTab === d.key,
       threadUnread(threadFor(d.key)),
-      function () { openTab(d.key); }));
+      function () { openTab(d.key); },
+      d.badgeColor));
   });
   tabsRow.appendChild(buildPanelTab('Campaign', state.trayTab === 'campaign', campUnread,
     function () { openTab('campaign'); }));
@@ -603,11 +617,15 @@ function renderMessagesTray() {
   body.scrollTop = body.scrollHeight;
 }
 
-function buildStripTab(label, unread, onClick) {
+function buildStripTab(label, unread, onClick, badgeColor) {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'msg-strip-tab' + (unread ? ' unread' : '');
   btn.textContent = label;
+  if (badgeColor) {
+    btn.style.setProperty('--badge-color', badgeColor);
+    btn.classList.add('has-badge-color');
+  }
   if (unread) {
     const dot = document.createElement('span');
     dot.className = 'msg-dot';
@@ -617,11 +635,15 @@ function buildStripTab(label, unread, onClick) {
   return btn;
 }
 
-function buildPanelTab(label, active, unread, onClick) {
+function buildPanelTab(label, active, unread, onClick, badgeColor) {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'msg-panel-tab' + (active ? ' active' : '') + (unread && !active ? ' unread' : '');
   btn.textContent = label;
+  if (badgeColor) {
+    btn.style.setProperty('--badge-color', badgeColor);
+    btn.classList.add('has-badge-color');
+  }
   btn.addEventListener('click', onClick);
   return btn;
 }
