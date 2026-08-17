@@ -1320,6 +1320,15 @@ button:disabled:hover { border-color: var(--void-line); }
    light tone. */
 .gallery-picker-body .image-edit-status { color: rgba(233,221,194,0.65); }
 
+/* Entity picker popup (Phase 14 S8): openEntityPickerPopup, the "Add
+   related entry" workflow's search/browse popup -- extends
+   .gallery-picker-panel (same floating/draggable chrome), just wider
+   to comfortably show a grouped list, and its own scroll region so a
+   long result list doesn't grow the panel past the viewport. */
+.entity-picker-panel { width: min(24rem, calc(100vw - 3rem)); }
+.entity-picker-search { width: 100%; box-sizing: border-box; padding: 0.4rem 0.6rem; font-size: 0.9rem; margin-bottom: 0.6rem; }
+.entity-picker-list { max-height: 22rem; overflow-y: auto; margin-bottom: 0.6rem; }
+
 /* Card hero, while the picker's Stage B is open: draggable directly on
    the live card. The heading text normally sits above the hero (z-index)
    and would intercept the drag before it reaches the image — disabled
