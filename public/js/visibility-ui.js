@@ -9,7 +9,7 @@
 //   characterId == null: toggle flips gm-only <-> all-players
 //     ("Hidden from party" / "Visible to party")
 //   characterId != null: toggle flips character <-> all-players
-//     ("Specific player" / "Visible to party"); gm-only unreachable until
+//     ("Specific character" / "Visible to party"); gm-only unreachable until
 //     "None" is selected in the popover.
 //   Selecting a character (from any state) -> visibility becomes
 //     'character' with that characterId. If the character actually changed,
@@ -97,6 +97,16 @@ function buildVisibilityControl(opts) {
   const wrap = document.createElement('span');
   wrap.className = 'vis-control';
 
+  // Badge dot (Phase 14 S8): shown only in the "Specific character"
+  // state (character-targeted, toggle off) -- the character's own
+  // badgeColor (or generated default), same visual language as
+  // .vis-kebab-char-dot in the popover list below. Appended before
+  // `label` so it sits to its left in this flex row.
+  const badgeDot = document.createElement('span');
+  badgeDot.className = 'vis-label-badge-dot';
+  badgeDot.hidden = true;
+  wrap.appendChild(badgeDot);
+
   const label = document.createElement('span');
   wrap.appendChild(label);
 
@@ -172,12 +182,20 @@ function buildVisibilityControl(opts) {
     radios.forEach(function (r) { r.input.checked = (r.value === (currentCharId || '')); });
   }
 
+  // Current target character's badgeColor (or generated default) --
+  // same fallback pattern as buildCharacterBadge/partyCharacterOptions.
+  function currentCharacterBadgeColor() {
+    if (!currentCharId) return null;
+    const char = state.allEntities.find(function (e) { return e.id === currentCharId; });
+    return char ? (char.badgeColor || generateDefaultBadgeColor(char.name)) : null;
+  }
+
   function refresh() {
     const characterMode = !!currentCharId;
     const visible = currentV === 'all-players';
     let text, cls;
     if (characterMode) {
-      text = visible ? 'Visible to party' : 'Specific player';
+      text = visible ? 'Visible to party' : 'Specific character';
       cls = visible ? 'state-visible' : 'state-character';
     } else {
       text = visible ? 'Visible to party' : 'Hidden from party';
@@ -185,6 +203,12 @@ function buildVisibilityControl(opts) {
     }
     label.className = 'toggle-switch-label ' + cls;
     label.textContent = text;
+    if (characterMode && !visible) {
+      badgeDot.style.background = currentCharacterBadgeColor() || 'var(--badge-default)';
+      badgeDot.hidden = false;
+    } else {
+      badgeDot.hidden = true;
+    }
     switchLabel.className = 'toggle-switch' + (characterMode ? ' mode-character' : '');
     switchInput.checked = visible;
     kebabBtn.classList.toggle('active', characterMode);
