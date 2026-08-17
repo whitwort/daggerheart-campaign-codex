@@ -1650,7 +1650,12 @@ button:disabled:hover { border-color: var(--void-line); }
 }
 .characters-add-btn:hover { background: var(--seafoam); color: #fff; border-color: var(--seafoam); }
 .characters-remove-btn:hover { background: var(--fear); color: #fff; border-color: var(--fear); }
-.characters-assign-row { margin: 0.3rem 0 0.9rem; }
+/* Assign picker (GM view's inline "+"): a nested .entity-group-list, one
+   click assigns -- no separate Assign/Cancel step, undo is just the
+   normal per-character "x" remove icon once assigned. */
+.characters-assign-picker { margin: 0.2rem 0 0.6rem; }
+.characters-assign-picker li.lore-empty { cursor: default; }
+.characters-assign-picker li.lore-empty:hover { background: none; }
 .characters-claim-popup {
   margin-top: 0.75rem; padding: 0.75rem; border-radius: 8px;
   background: var(--void); border: 1px solid var(--void-line);
