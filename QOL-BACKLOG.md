@@ -70,9 +70,10 @@ height, with NO per-context exceptions, except:**
 14. Characters tab player view Claim/+ New buttons —
     `#characters-claim-btn, #characters-create-btn` (Phase 14 S8; id-
     scoped, not container-descendant — see the CSS comment for why).
-    Same overflow shape as exception 12 (two `.action-btn-compact`
-    buttons side by side in a 300px pane) but narrower still, since the
-    labels are short ("Claim"/"+ New") — `5.5rem`, both matching.
+    `width: auto; min-width: 0;` (S13: was a fixed `5.5rem` match to
+    each other; switched to auto so all three buttons in this row --
+    these two plus "Set active", exception 17 -- fit on one line
+    together, which the fixed width didn't leave room for).
 15. Characters tab GM view's "+ New Entity" — `#characters-gm-new-btn`
     (Phase 14 S8). Single button, no sibling group to match, same as
     exception 9 — `width: auto; min-width: 0;`.
@@ -83,11 +84,8 @@ height, with NO per-context exceptions, except:**
     `.timeline-row`/`.related-chip`.
 17. Characters tab player view "Set active" — `#characters-set-active-btn`
     (Phase 14 S11). Repositioned into the same bottom row as Claim/+ New
-    (exception 14) but NOT sized to match them — auto-width, narrowest
-    fit around its own label, per Gregg's explicit "as narrow as
-    possible" ask. `width: auto; min-width: 0;`, same as exception 9/15
-    but grouped alongside fixed-width siblings rather than alone (the
-    row's own `flex-wrap` handles the mixed-width overflow case).
+    (exception 14), all three now auto-width (S13) so the row fits on
+    one line. `width: auto; min-width: 0;`, same as exception 9/15.
 18. "Claim a character" popup's row button — `.characters-claim-req-btn`
     (Phase 14 S12; was "Request transfer"/"Cancel request", shortened to
     "Claim"/"Cancel" in the same pass). `width: auto; min-width: 0;`,
