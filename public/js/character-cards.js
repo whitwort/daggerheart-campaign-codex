@@ -441,6 +441,21 @@ function buildFloatingPickerPanel() {
 // Ability add-picker: search + domain-grouped list, same interaction
 // pattern (search input, click-away/Escape close) as codex.js's
 // openEntityPickerPopup for Related entries.
+// Ability level -> character tier (Daggerheart's fixed tier bands: Tier
+// 1 = level 1 only; Tier 2 = levels 2-4; Tier 3 = levels 5-7; Tier 4 =
+// levels 8-10 -- same mapping the core rules use for PC tiers generally,
+// not to be confused with a Subclass's own Foundation/Specialization/
+// Mastery tiers). Abilities carry details.level (SRD schema,
+// templates.js); an unparseable/missing level sorts last under "Other".
+function abilityLevelTier(entity) {
+  const n = parseInt(entity.details && entity.details.level, 10);
+  if (!n || isNaN(n)) return null;
+  if (n === 1) return 1;
+  if (n <= 4) return 2;
+  if (n <= 7) return 3;
+  return 4;
+}
+
 function openAbilityPickerPopup(title, candidates, onSelect) {
   if (document.querySelector('.entity-picker-panel')) return;
   const built = buildFloatingPickerPanel();
@@ -491,18 +506,34 @@ function openAbilityPickerPopup(title, candidates, onSelect) {
       header.appendChild(countSpan);
       listEl.appendChild(header);
 
-      const ul = document.createElement('ul');
-      ul.className = 'entity-group-list';
-      byDomain[dom].sort(byName).forEach(function (e) {
-        const li = document.createElement('li');
-        const nameDiv = document.createElement('div');
-        nameDiv.className = 'entity-name';
-        nameDiv.textContent = e.name;
-        li.appendChild(nameDiv);
-        li.addEventListener('click', function () { onSelect(e); close(); });
-        ul.appendChild(li);
+      // Sub-divide by Tier within this Domain -- Tier 1-4 in order,
+      // then "Other" (missing/unparseable level) last.
+      const byTier = {};
+      byDomain[dom].forEach(function (e) {
+        const tier = abilityLevelTier(e);
+        const key = tier == null ? 'other' : String(tier);
+        (byTier[key] = byTier[key] || []).push(e);
       });
-      listEl.appendChild(ul);
+      const tierKeys = ['1', '2', '3', '4', 'other'].filter(function (k) { return byTier[k]; });
+      tierKeys.forEach(function (tierKey) {
+        const tierHeader = document.createElement('div');
+        tierHeader.className = 'ability-tier-subheader';
+        tierHeader.textContent = tierKey === 'other' ? 'Other' : 'Tier ' + tierKey;
+        listEl.appendChild(tierHeader);
+
+        const ul = document.createElement('ul');
+        ul.className = 'entity-group-list';
+        byTier[tierKey].sort(byName).forEach(function (e) {
+          const li = document.createElement('li');
+          const nameDiv = document.createElement('div');
+          nameDiv.className = 'entity-name';
+          nameDiv.textContent = e.name;
+          li.appendChild(nameDiv);
+          li.addEventListener('click', function () { onSelect(e); close(); });
+          ul.appendChild(li);
+        });
+        listEl.appendChild(ul);
+      });
     });
   }
 
