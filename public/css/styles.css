@@ -1644,6 +1644,16 @@ button:disabled:hover { border-color: var(--void-line); }
    class selectors, not `#codex-entities`-prefixed, so they're safe to
    reuse here unmodified. */
 .characters-layout { display: flex; align-items: flex-start; gap: 1rem; margin-top: 1rem; }
+/* Pending-claims banner (Phase 14 S8): moved out of the "Players &
+   Characters" list-pane to span the full tab width, above both panes --
+   own top margin since it's no longer inside .admin-card's padding, and
+   .characters-layout's own margin-top would otherwise double up with it
+   sitting directly above (kept at 1rem to match, not stacked). Empty
+   (no pending requests) when renderPendingClaims has nothing to show --
+   no visible gap in that case since it has no padding/border of its
+   own, only its .admin-notification children do. */
+#characters-pending-claims { margin-top: 1rem; }
+#characters-pending-claims:empty { margin-top: 0; }
 .characters-list-pane {
   flex: 0 0 300px; max-height: 34rem; overflow-y: auto;
 }

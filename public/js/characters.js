@@ -856,6 +856,11 @@ function buildRemoveIconBtn(title, onClick) {
 // D8/§6.5/S5 -- this is a deliberate DUPLICATE, not a replacement, so
 // the GM can approve/reject a claim without leaving the Characters tab
 // while still testing/reviewing player-character assignments there).
+// Rendered as a banner spanning the full tab width, above both panes
+// (#characters-pending-claims sits outside .characters-layout in the
+// HTML) -- not tucked inside the "Players & Characters" list-pane,
+// since a pending claim is worth surfacing at a glance regardless of
+// which pane the GM's attention is on.
 // state.allTransferRequests is populated by admin.js's listener, which
 // attaches for the whole GM session regardless of active tab (auth.js),
 // so this reads live data with no listener of its own needed here.
