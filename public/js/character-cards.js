@@ -33,6 +33,25 @@ const db = getFirestore(firebaseApp);
 
 function byName(a, b) { return (a.name || '').localeCompare(b.name || ''); }
 
+// Display-only ancestry name for a Character entity, resolved from
+// cards.ancestryIds (S9 -- replaces the old free-text entity.ancestry
+// field, which had no editing UI left after the S9 unification and is
+// PC-only anyway; Gregg's call). Shows the FLAVOR ancestry name(s) --
+// i.e. what's actually selected in the ancestry dropdown -- not the
+// resolved functional/meta name, since that's what a viewer picked and
+// expects to see. Dual ancestry joins as "A / B". Empty string (falsy,
+// same as the old entity.ancestry-unset case) when nothing's picked,
+// or for non-Character entities.
+export function characterAncestryDisplayName(entity) {
+  if (!entity || entity.category !== 'Character') return '';
+  const cards = Object.assign({}, DEFAULT_CARDS, entity.cards || {});
+  const flavorIds = normalizeAncestryIds(cards);
+  const names = flavorIds
+    .map(function (id) { const e = state.allEntities.find(function (x) { return x.id === id; }); return e ? e.name : null; })
+    .filter(Boolean);
+  return names.join(' / ');
+}
+
 function humanizeKey(key) {
   return key.replace(/_/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
 }

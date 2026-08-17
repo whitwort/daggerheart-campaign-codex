@@ -21,7 +21,7 @@ import {
 } from './visibility.js';
 import { shareEntityVisibility, shareLoreItemVisibility, shareImageVisibility, createLoreItemShared } from './sharing.js';
 import { buildVisibilityControl, buildSharedToggle, buildNoteToggle, buildCharacterBadge } from './visibility-ui.js';
-import { buildCharacterCardEditor } from './character-cards.js';
+import { buildCharacterCardEditor, characterAncestryDisplayName } from './character-cards.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -3698,10 +3698,10 @@ function buildEntityPreviewCard(entity, ctx) {
   const catEm = document.createElement('em');
   catEm.textContent = entity.category || '';
   catP.appendChild(catEm);
-  if (entity.ancestry) {
+  if (characterAncestryDisplayName(entity)) {
     catP.appendChild(document.createTextNode(' \u2014 '));
     const ancestrySpan = document.createElement('span');
-    ancestrySpan.textContent = entity.ancestry;
+    ancestrySpan.textContent = characterAncestryDisplayName(entity);
     catP.appendChild(ancestrySpan);
     applyWikiLinks(ancestrySpan, entity.id, ctx);
   }
@@ -4095,10 +4095,10 @@ function renderEntityViewCard(container, entity, ctx, opts) {
   const catEm = document.createElement('em');
   catEm.textContent = entity.category || '';
   catP.appendChild(catEm);
-  if (entity.ancestry) {
+  if (characterAncestryDisplayName(entity)) {
     catP.appendChild(document.createTextNode(' \u2014 '));
     const ancestrySpan = document.createElement('span');
-    ancestrySpan.textContent = entity.ancestry;
+    ancestrySpan.textContent = characterAncestryDisplayName(entity);
     catP.appendChild(ancestrySpan);
     applyWikiLinks(ancestrySpan, entity.id, ctx);
   }
