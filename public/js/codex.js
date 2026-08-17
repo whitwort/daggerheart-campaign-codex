@@ -1502,6 +1502,130 @@ function openEntityPickerPopup(opts) {
   }
 }
 
+// "Suggest Related" (Phase 14 S8): scans this entity's OWN lore items'
+// raw markdown content for other entities' name/alias mentions -- the
+// same word-boundary name-matching approach applyWikiLinks already
+// uses to turn mentions into clickable links (candidates sorted
+// longest-name-first so e.g. "Lor'thak Felwind" matches before a
+// shorter overlapping alias would), just run against the raw source
+// strings instead of rendered DOM (nothing to mutate here, just
+// scanning for candidates to suggest -- no tree-walk/link-avoidance
+// needed). excludeIds keeps already-related entities and self out of
+// the results.
+function findRelatedSuggestions(entityId, excludeIds, ctx) {
+  const loreText = state.allLoreItems
+    .filter(function (it) { return it.entityId === entityId; })
+    .map(function (it) { return it.content || ''; })
+    .join('\n');
+  if (!loreText.trim()) return [];
+
+  const nameCandidates = [];
+  state.allEntities.forEach(function (e) {
+    if (e.id === entityId || !e.name || excludeIds.indexOf(e.id) !== -1) return;
+    if (!canSee(e, ctx)) return;
+    nameCandidates.push({ name: e.name, id: e.id });
+    (e.aliases || []).forEach(function (a) { if (a) nameCandidates.push({ name: a, id: e.id }); });
+  });
+  if (!nameCandidates.length) return [];
+  nameCandidates.sort(function (a, b) { return b.name.length - a.name.length; });
+
+  function isWordChar(ch) { return /[A-Za-z0-9]/.test(ch); }
+  const matchedIds = new Set();
+  nameCandidates.forEach(function (cand) {
+    if (matchedIds.has(cand.id)) return;
+    const escaped = cand.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(escaped, 'g');
+    let m;
+    while ((m = re.exec(loreText)) !== null) {
+      const before = m.index > 0 ? loreText.charAt(m.index - 1) : '';
+      const after = loreText.charAt(m.index + m[0].length);
+      if (!((before && isWordChar(before)) || (after && isWordChar(after)))) {
+        matchedIds.add(cand.id);
+        break;
+      }
+    }
+  });
+
+  return state.allEntities
+    .filter(function (e) { return matchedIds.has(e.id); })
+    .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+}
+
+// Suggestion popup: checkbox per suggestion (all pre-checked -- the
+// common case is "yes, add all of these"), "Add selected" commits only
+// the checked ones. Same floating-panel/click-away/Escape pattern as
+// openEntityPickerPopup, reused rather than duplicated.
+function openSuggestRelatedPopup(entityId, draft, ctx) {
+  if (document.querySelector('.entity-picker-panel')) return;
+  const suggestions = findRelatedSuggestions(entityId, [entityId].concat(draft.relatedIds), ctx);
+
+  const built = buildGalleryPickerPanel();
+  built.panel.classList.add('entity-picker-panel');
+  built.header.textContent = 'Suggested related entries';
+
+  const listEl = document.createElement('div');
+  listEl.className = 'entity-picker-list';
+  built.body.appendChild(listEl);
+
+  if (!suggestions.length) {
+    const p = document.createElement('p');
+    p.className = 'lore-empty';
+    p.textContent = 'No name mentions found in this entry\u2019s lore.';
+    listEl.appendChild(p);
+  } else {
+    const checks = [];
+    const ul = document.createElement('ul');
+    ul.className = 'related-edit-list';
+    suggestions.forEach(function (e) {
+      const li = document.createElement('li');
+      const rowLabel = document.createElement('label');
+      rowLabel.className = 'related-suggest-row';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = true;
+      rowLabel.appendChild(cb);
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = e.name;
+      rowLabel.appendChild(nameSpan);
+      li.appendChild(rowLabel);
+      ul.appendChild(li);
+      checks.push({ id: e.id, cb: cb });
+    });
+    listEl.appendChild(ul);
+
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.textContent = 'Add selected';
+    addBtn.addEventListener('click', function () {
+      checks.forEach(function (c) {
+        if (c.cb.checked && draft.relatedIds.indexOf(c.id) === -1) draft.relatedIds.push(c.id);
+      });
+      close();
+      renderDetailForSelected();
+    });
+    built.body.appendChild(addBtn);
+  }
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', close);
+  built.body.appendChild(cancelBtn);
+
+  function onDocClick(ev) {
+    if (!built.panel.contains(ev.target)) close();
+  }
+  function onKeydown(ev) { if (ev.key === 'Escape') close(); }
+  setTimeout(function () { document.addEventListener('click', onDocClick); }, 0);
+  document.addEventListener('keydown', onKeydown);
+
+  function close() {
+    document.removeEventListener('click', onDocClick);
+    document.removeEventListener('keydown', onKeydown);
+    built.panel.remove();
+  }
+}
+
 function buildRelatedEditor(entityId, draft, ctx) {
   const wrap = document.createElement('div');
   wrap.className = 'entity-edit-field';
@@ -1548,6 +1672,14 @@ function buildRelatedEditor(entityId, draft, ctx) {
       }
     });
   });
+  const suggestBtn = document.createElement('button');
+  suggestBtn.type = 'button';
+  suggestBtn.className = 'action-btn-compact';
+  suggestBtn.textContent = 'Suggest related';
+  suggestBtn.addEventListener('click', function () {
+    openSuggestRelatedPopup(entityId, draft, ctx);
+  });
+  addRowRight.appendChild(suggestBtn);
   addRowRight.appendChild(addBtn);
   addRow.appendChild(addRowRight);
   wrap.appendChild(addRow);
