@@ -1372,6 +1372,127 @@ function buildParentSelect(entityId, currentParentId, onChange, ctx) {
   return wrap;
 }
 
+// Reusable entity search/browse popup (Phase 14 S8): "the SAME entry
+// browse/search UI we have everywhere else" per Gregg's ask -- same
+// visual language as the Codex tab's own list (category headers +
+// entity rows via entity-group-header/entity-group-list, live search
+// via entityMatchesQuery, category grouping/labels via
+// categoryGroupLabel) but its own small self-contained component, NOT
+// a re-mount of the Codex tab's own stateful renderList (that's bound
+// to state.selectedId and the Codex tab's own search-input DOM element
+// -- same "don't re-invoke stateful global UI for a second simultaneous
+// surface" reasoning as characters.js's GM-preview card, see that
+// module's header comment). Click a row to select; click away, Escape,
+// or Cancel closes without selecting.
+//
+// opts: { title, excludeIds (array|Set), ctx, onSelect: fn(entity) }
+function openEntityPickerPopup(opts) {
+  if (document.querySelector('.entity-picker-panel')) return;
+  const excludeIds = opts.excludeIds instanceof Set ? opts.excludeIds : new Set(opts.excludeIds || []);
+  const ctx = opts.ctx;
+
+  const built = buildGalleryPickerPanel();
+  built.panel.classList.add('entity-picker-panel');
+  built.header.textContent = opts.title || 'Choose an entry';
+
+  const searchInput = document.createElement('input');
+  searchInput.type = 'text';
+  searchInput.placeholder = 'Search\u2026';
+  searchInput.className = 'entity-picker-search';
+  built.body.appendChild(searchInput);
+
+  const listEl = document.createElement('div');
+  listEl.className = 'entity-picker-list';
+  built.body.appendChild(listEl);
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', close);
+  built.body.appendChild(cancelBtn);
+
+  function renderResults() {
+    listEl.innerHTML = '';
+    const pool = state.allEntities
+      .filter(function (e) {
+        return !excludeIds.has(e.id) && (ctx.gmView || canSee(e, ctx)) && entityMatchesQuery(e, searchInput.value);
+      })
+      .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+
+    if (!pool.length) {
+      const p = document.createElement('p');
+      p.className = 'lore-empty';
+      p.textContent = 'No matches.';
+      listEl.appendChild(p);
+      return;
+    }
+
+    const byCategory = {};
+    pool.forEach(function (e) {
+      const cat = e.category || '(uncategorized)';
+      (byCategory[cat] = byCategory[cat] || []).push(e);
+    });
+    const orderedCats = CONFIG.categories.filter(function (c) { return byCategory[c]; });
+    Object.keys(byCategory).forEach(function (c) { if (orderedCats.indexOf(c) === -1) orderedCats.push(c); });
+
+    orderedCats.forEach(function (cat) {
+      const header = document.createElement('div');
+      header.className = 'entity-group-header';
+      const dotSpan = document.createElement('span');
+      dotSpan.className = 'entity-group-dot ' + categoryPinClassLocal(cat);
+      const titleSpan = document.createElement('span');
+      titleSpan.className = 'entity-group-title';
+      titleSpan.textContent = categoryGroupLabel(cat);
+      const countSpan = document.createElement('span');
+      countSpan.className = 'entity-group-count';
+      countSpan.textContent = '(' + byCategory[cat].length + ')';
+      header.appendChild(dotSpan);
+      header.appendChild(titleSpan);
+      header.appendChild(countSpan);
+      listEl.appendChild(header);
+
+      const ul = document.createElement('ul');
+      ul.className = 'entity-group-list';
+      byCategory[cat]
+        .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); })
+        .forEach(function (e) {
+          const li = document.createElement('li');
+          const nameDiv = document.createElement('div');
+          nameDiv.className = 'entity-name';
+          nameDiv.textContent = e.name;
+          li.appendChild(nameDiv);
+          li.addEventListener('click', function () {
+            opts.onSelect(e);
+            close();
+          });
+          ul.appendChild(li);
+        });
+      listEl.appendChild(ul);
+    });
+  }
+
+  searchInput.addEventListener('input', renderResults);
+  renderResults();
+  searchInput.focus();
+
+  function onDocClick(ev) {
+    if (!built.panel.contains(ev.target)) close();
+  }
+  function onKeydown(ev) { if (ev.key === 'Escape') close(); }
+  // Deferred by a tick: the SAME click that opened this popup (the
+  // triggering "Add" button's own click event) is still bubbling up to
+  // document when this listener would otherwise attach synchronously,
+  // which would close the popup the instant it opens.
+  setTimeout(function () { document.addEventListener('click', onDocClick); }, 0);
+  document.addEventListener('keydown', onKeydown);
+
+  function close() {
+    document.removeEventListener('click', onDocClick);
+    document.removeEventListener('keydown', onKeydown);
+    built.panel.remove();
+  }
+}
+
 function buildRelatedEditor(entityId, draft, ctx) {
   const wrap = document.createElement('div');
   wrap.className = 'entity-edit-field';
@@ -1399,37 +1520,22 @@ function buildRelatedEditor(entityId, draft, ctx) {
   });
   wrap.appendChild(list);
 
-  const addRow = document.createElement('div');
-  addRow.className = 'related-edit-add';
-  const select = document.createElement('select');
-  const available = state.allEntities
-    .filter(function (e) { return e.id !== entityId && draft.relatedIds.indexOf(e.id) === -1 && (ctx.gmView || canSee(e, ctx)); })
-    .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
-  if (available.length === 0) {
-    const opt = document.createElement('option');
-    opt.textContent = '(no more entities to link)';
-    opt.disabled = true;
-    select.appendChild(opt);
-  } else {
-    available.forEach(function (e) {
-      const opt = document.createElement('option');
-      opt.value = e.id;
-      opt.textContent = e.name;
-      select.appendChild(opt);
-    });
-  }
   const addBtn = document.createElement('button');
   addBtn.type = 'button';
-  addBtn.textContent = 'Add';
+  addBtn.className = 'action-btn-compact';
+  addBtn.textContent = '+ Add related';
   addBtn.addEventListener('click', function () {
-    const id = select.value;
-    if (!id || draft.relatedIds.indexOf(id) !== -1) return;
-    draft.relatedIds.push(id);
-    renderDetailForSelected();
+    openEntityPickerPopup({
+      title: 'Add related entry',
+      excludeIds: [entityId].concat(draft.relatedIds),
+      ctx: ctx,
+      onSelect: function (entity) {
+        if (draft.relatedIds.indexOf(entity.id) === -1) draft.relatedIds.push(entity.id);
+        renderDetailForSelected();
+      }
+    });
   });
-  addRow.appendChild(select);
-  addRow.appendChild(addBtn);
-  wrap.appendChild(addRow);
+  wrap.appendChild(addBtn);
   return wrap;
 }
 
