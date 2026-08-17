@@ -1228,6 +1228,7 @@ function enterEntityEditMode(entity) {
   state.detailEditDraft = buildEntityDraft(entity);
   state.detailEditBaseUpdatedAtMs = updatedAtMs(entity);
   state.detailEditConflictDismissedAtMs = null;
+  state.detailEditPendingCardWrites = 0;
   renderDetailForSelected();
 }
 
@@ -1236,6 +1237,7 @@ function cancelEntityEdit() {
   state.detailEditDraft = null;
   state.detailEditBaseUpdatedAtMs = null;
   state.detailEditConflictDismissedAtMs = null;
+  state.detailEditPendingCardWrites = 0;
   renderDetailForSelected();
 }
 
@@ -1338,6 +1340,7 @@ function saveEntityEdit(entity) {
   state.detailEditDraft = null;
   state.detailEditBaseUpdatedAtMs = null;
   state.detailEditConflictDismissedAtMs = null;
+  state.detailEditPendingCardWrites = 0;
   renderDetailForSelected();
 }
 
@@ -3804,7 +3807,21 @@ function renderDetailForSelected() {
   // open. Draft text is never silently touched by this -- state.draft
   // already isolates typed content from re-renders -- this is purely a
   // heads-up + explicit choice, not a race in the data itself.
+  //
+  // S9: character-cards.js's ancestry/community/class/subclass/tier/
+  // abilities/badge writes happen immediately (independent of this
+  // form's own Save/Cancel), which -- before this reconciliation --
+  // looked identical to an external edit and tripped this banner on
+  // every single card change made through this very form. Each such
+  // write bumps detailEditPendingCardWrites (via onWriteStart) before
+  // it's issued; once the resulting updatedAt actually lands, silently
+  // re-baseline instead of flagging it, since it's this same session's
+  // own change, not someone else's.
   const liveUpdatedAtMs = updatedAtMs(entity);
+  if (state.detailEditPendingCardWrites > 0 && liveUpdatedAtMs != null && liveUpdatedAtMs !== state.detailEditBaseUpdatedAtMs) {
+    state.detailEditBaseUpdatedAtMs = liveUpdatedAtMs;
+    state.detailEditPendingCardWrites -= 1;
+  }
   const hasConflict = state.detailEditBaseUpdatedAtMs != null &&
     liveUpdatedAtMs != null &&
     liveUpdatedAtMs !== state.detailEditBaseUpdatedAtMs &&
@@ -4024,7 +4041,9 @@ function renderDetailForSelected() {
   if (draft.category === 'Character') {
     const cardsWrap = document.createElement('div');
     cardsWrap.className = 'codex-character-cards';
-    cardsWrap.appendChild(buildCharacterCardEditor(entity, ctx, renderDetailForSelected));
+    cardsWrap.appendChild(buildCharacterCardEditor(entity, ctx, renderDetailForSelected, function () {
+      state.detailEditPendingCardWrites += 1;
+    }));
     contentWrap.appendChild(cardsWrap);
   }
 
