@@ -140,18 +140,107 @@ function draftSubtype(draft) {
   return ((CONFIG.subtypesByCategory[draft.category] || []).length && draft.subtype) ? draft.subtype : null;
 }
 
-// Lore item 'meta' field: enum ('', 'meta', 'meta-details', 'meta-features'),
-// null/absent on the doc means none. Legacy docs from before this enum
+// Lore item 'meta' field: enum ('', 'meta', 'meta-details', 'meta-features',
+// 'meta-narrative-backstory' [Phase 14 S7, §11.5 -- plain badge, no
+// auto-synthesis behavior, unlike meta-details/meta-features]), null/
+// absent on the doc means none. Legacy docs from before this enum
 // (boolean true) still normalize to 'meta' for editing/badge purposes.
 function normalizeMetaForEdit(v) {
-  if (v === 'meta-details' || v === 'meta-features' || v === 'meta') return v;
+  if (v === 'meta-details' || v === 'meta-features' || v === 'meta-narrative-backstory' || v === 'meta') return v;
   return v ? 'meta' : '';
 }
 function metaBadgeLabel(v) {
   if (v === 'meta-details') return 'Meta \u00b7 Details';
   if (v === 'meta-features') return 'Meta \u00b7 Features';
+  if (v === 'meta-narrative-backstory') return 'Meta \u00b7 Narrative Backstory';
   if (v) return 'Meta';
   return null;
+}
+
+// Enters inline edit mode for a lore item -- factored out of the
+// per-item Edit button (Phase 14 S7, §11.4) so the lore-item pop-out
+// panel's own Edit shortcut can trigger the exact same flow instead of
+// duplicating the edit-box machinery inside the panel.
+function openLoreItemEdit(entity, item, isNote, entityAuthority) {
+  if (isNote) {
+    state.noteEdit = { entityId: entity.id, id: item.id, content: item.content, visibility: item.visibility, authorType: item.authorType, authorId: item.authorId || null, baseUpdatedAtMs: updatedAtMs(item), conflictDismissedAtMs: null };
+  } else {
+    state.loreEdit = entityAuthority
+      ? { entityId: entity.id, id: item.id, content: item.content, visibility: item.visibility, characterId: item.characterId || null, characterShared: !!item.characterShared, meta: normalizeMetaForEdit(item.meta), sourceId: item.sourceId || null, baseUpdatedAtMs: updatedAtMs(item), conflictDismissedAtMs: null }
+      : { entityId: entity.id, id: item.id, content: item.content, sourceId: item.sourceId || null, limited: true };
+  }
+  renderDetailForSelected();
+}
+
+// Phase 14 S7 (§11.4): long lore items get a collapse/expand toggle
+// (inline, height-capped with a fade) plus a "pop out" affordance that
+// opens the item full-size in a floating draggable panel (reusing
+// buildGalleryPickerPanel's drag/header/body pattern -- generic despite
+// its gallery-specific name). "Long" is measured post-render against
+// actual pixel height, not markdown source length. Editable=true means
+// the viewer has some edit path on this item (entityAuthority OR
+// isNoteAuthor OR shared-element edit) -- caller passes hasChrome, which
+// already encodes exactly that.
+const LORE_ITEM_COLLAPSE_PX = 320;
+function attachLoreItemExpand(bodyDiv, itemDiv, entity, item, ctx, editable, isNote, entityAuthority) {
+  if (bodyDiv.scrollHeight <= LORE_ITEM_COLLAPSE_PX) return;
+  bodyDiv.classList.add('lore-item-body-collapsed');
+
+  const row = document.createElement('div');
+  row.className = 'lore-item-expand-row';
+
+  const toggleBtn = document.createElement('button');
+  toggleBtn.type = 'button';
+  toggleBtn.className = 'lore-item-btn';
+  toggleBtn.textContent = 'Show more';
+  toggleBtn.addEventListener('click', function () {
+    const collapsed = bodyDiv.classList.toggle('lore-item-body-collapsed');
+    toggleBtn.textContent = collapsed ? 'Show more' : 'Show less';
+  });
+  row.appendChild(toggleBtn);
+
+  const popBtn = document.createElement('button');
+  popBtn.type = 'button';
+  popBtn.className = 'lore-item-btn';
+  popBtn.textContent = 'Open in window';
+  popBtn.addEventListener('click', function () { openLoreItemPopout(entity, item, ctx, editable, isNote, entityAuthority); });
+  row.appendChild(popBtn);
+
+  itemDiv.insertBefore(row, bodyDiv.nextSibling);
+}
+
+function openLoreItemPopout(entity, item, ctx, editable, isNote, entityAuthority) {
+  if (document.querySelector('.gallery-picker-panel')) return;
+  const built = buildGalleryPickerPanel();
+  built.panel.classList.add('lore-item-popout-panel');
+  built.header.textContent = entity.name;
+  const fullBody = document.createElement('div');
+  fullBody.className = 'lore-item-body lore-item-popout-body';
+  built.body.appendChild(fullBody);
+  const items = state.allLoreItems.filter(function (it) { return it.entityId === entity.id; });
+  renderMarkdownInto(fullBody, resolveLoreItemMarkdown(entity, item, items)).then(function () {
+    applyWikiLinks(fullBody, entity.id, ctx);
+  });
+  if (editable) {
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'lore-item-btn';
+    editBtn.textContent = 'Edit';
+    editBtn.addEventListener('click', function () {
+      built.panel.remove();
+      openLoreItemEdit(entity, item, isNote, entityAuthority);
+    });
+    built.body.appendChild(editBtn);
+  }
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.className = 'lore-item-btn';
+  closeBtn.textContent = 'Close';
+  closeBtn.addEventListener('click', function () { built.panel.remove(); });
+  built.body.appendChild(closeBtn);
+  document.addEventListener('keydown', function escHandler(e) {
+    if (e.key === 'Escape') { built.panel.remove(); document.removeEventListener('keydown', escHandler); }
+  });
 }
 
 // CSS class carrying the entry-type dot/pin color (see styles.css "Pin
@@ -1080,7 +1169,13 @@ function buildEntityDraft(entity) {
     sourceId: entity.sourceId || null,
     useTemplate: !!entity.useTemplate,
     details: Object.assign({}, entity.details || {}),
-    features: (entity.features || []).map(function (f) { return { name: f.name || '', text: f.text || '' }; })
+    // Phase 14 S7 fix: 'group' must survive into the draft or reopening
+    // an existing featureGroups entity (Subclass tiers; now also
+    // Ancestry First/Second, §11.1) for edit silently empties every
+    // group's feature list -- the editor filters on f.group === g.key,
+    // and a stripped group never matches any key.
+    features: (entity.features || []).map(function (f) { return { name: f.name || '', text: f.text || '', group: f.group || null }; }),
+    metaAncestryTargetIds: (entity.metaAncestryTargetIds || []).slice()
   };
 }
 
@@ -1205,6 +1300,10 @@ function saveEntityEdit(entity) {
     details: draft.details || {},
     features: draft.features || [],
     searchIndex: (draft.useTemplate && templateSchema) ? computeSearchIndex(draft.details, draft.features, templateSchema) : [],
+    // Phase 14 S7 (§11.2): Ancestry-only, same normalize-to-empty
+    // pattern as ancestry/ownerId above for other category-specific
+    // fields.
+    metaAncestryTargetIds: (cat === 'Ancestry') ? (draft.metaAncestryTargetIds || []) : [],
     updatedAt: serverTimestamp()
   };
   // Phase 13: close the edit form optimistically, not gated on the
@@ -1891,7 +1990,8 @@ function buildLoreEditBox(entity, editState, isNew) {
     ['', 'None'],
     ['meta', 'Meta'],
     ['meta-details', 'Meta \u2014 Details'],
-    ['meta-features', 'Meta \u2014 Features']
+    ['meta-features', 'Meta \u2014 Features'],
+    ['meta-narrative-backstory', 'Meta \u2014 Narrative Backstory']
   ].forEach(function (pair) {
     const opt = document.createElement('option');
     opt.value = pair[0];
@@ -2207,6 +2307,12 @@ function renderLoreTab(container, entity, ctx, readOnly) {
     bodyDiv.className = 'lore-item-body';
     renderMarkdownInto(bodyDiv, resolveLoreItemMarkdown(entity, item, items)).then(function () {
       applyWikiLinks(bodyDiv, entity.id, ctx);
+      // Phase 14 S7 (§11.4): only long items get collapse/pop-out chrome
+      // -- checked post-render since it depends on actual rendered
+      // height, not raw markdown length (a short paragraph with a big
+      // embedded image is "long" on screen; a long line of prose might
+      // not be).
+      attachLoreItemExpand(bodyDiv, itemDiv, entity, item, ctx, hasChrome && !anyActiveEdit, isNote, entityAuthority);
     });
     itemDiv.appendChild(bodyDiv);
 
@@ -2219,16 +2325,7 @@ function renderLoreTab(container, entity, ctx, readOnly) {
       const editBtn = document.createElement('button');
       editBtn.className = 'lore-item-btn';
       editBtn.textContent = 'Edit';
-      editBtn.addEventListener('click', function () {
-        if (isNote) {
-          state.noteEdit = { entityId: entity.id, id: item.id, content: item.content, visibility: item.visibility, authorType: item.authorType, authorId: item.authorId || null, baseUpdatedAtMs: updatedAtMs(item), conflictDismissedAtMs: null };
-        } else {
-          state.loreEdit = entityAuthority
-            ? { entityId: entity.id, id: item.id, content: item.content, visibility: item.visibility, characterId: item.characterId || null, characterShared: !!item.characterShared, meta: normalizeMetaForEdit(item.meta), sourceId: item.sourceId || null, baseUpdatedAtMs: updatedAtMs(item), conflictDismissedAtMs: null }
-            : { entityId: entity.id, id: item.id, content: item.content, sourceId: item.sourceId || null, limited: true };
-        }
-        renderDetailForSelected();
-      });
+      editBtn.addEventListener('click', function () { openLoreItemEdit(entity, item, isNote, entityAuthority); });
       actionsRow.appendChild(editBtn);
       if (entityAuthority || noteChrome) {
         const delBtn = document.createElement('button');
@@ -2902,26 +2999,33 @@ function openGalleryUploadModal(entity) {
   box.className = 'modal-box';
 
   const h3 = document.createElement('h3');
-  h3.textContent = 'New gallery image';
+  h3.textContent = 'New gallery images';
   box.appendChild(h3);
 
   const label = document.createElement('label');
-  label.textContent = 'Image file';
+  label.textContent = 'Image file(s)';
   box.appendChild(label);
 
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
+  // Phase 14 S7: multi-select upload -- each file still goes through
+  // uploadEntityGalleryImage individually (own addDoc, own compression
+  // pass); this modal just sequences the calls. See saveBtn's click
+  // handler for why sequential, not Promise.all.
+  input.multiple = true;
   box.appendChild(input);
 
   const statusEl = document.createElement('p');
   statusEl.className = 'image-edit-status';
   box.appendChild(statusEl);
 
-  let selectedFile = null;
+  let selectedFiles = [];
   input.addEventListener('change', function () {
-    selectedFile = input.files[0] || null;
-    statusEl.textContent = selectedFile ? selectedFile.name : '';
+    selectedFiles = Array.prototype.slice.call(input.files || []);
+    if (!selectedFiles.length) statusEl.textContent = '';
+    else if (selectedFiles.length === 1) statusEl.textContent = selectedFiles[0].name;
+    else statusEl.textContent = selectedFiles.length + ' images selected';
   });
 
   function close() { overlay.remove(); }
@@ -2932,16 +3036,39 @@ function openGalleryUploadModal(entity) {
   saveBtn.type = 'button';
   saveBtn.textContent = 'Save';
   saveBtn.addEventListener('click', function () {
-    if (!selectedFile) { statusEl.textContent = 'Choose an image first.'; return; }
+    if (!selectedFiles.length) { statusEl.textContent = 'Choose at least one image first.'; return; }
     saveBtn.disabled = true;
     input.disabled = true;
-    uploadEntityGalleryImage(entity.id, selectedFile, {
-      onStatus: function (text) { statusEl.textContent = text; }
-    }).then(close).catch(function (err) {
-      statusEl.textContent = err.message;
-      saveBtn.disabled = false;
-      input.disabled = false;
-    });
+    const total = selectedFiles.length;
+    const failures = [];
+    // Sequential, not Promise.all -- WebP encoding is CPU-heavy WASM
+    // work and this app is primarily used on iPad; running several
+    // encodes at once would be rough on it. Sequencing also gives a
+    // clean per-file progress line instead of N simultaneous status
+    // updates racing each other. A single file's failure doesn't abort
+    // the rest of the batch -- collected and summarized at the end so
+    // the successful uploads in the batch aren't lost.
+    function uploadNext(i) {
+      if (i >= total) {
+        if (!failures.length) { close(); return; }
+        statusEl.textContent = (total - failures.length) + ' of ' + total + ' uploaded. Failed: ' +
+          failures.map(function (f) { return f.name + ' (' + f.err + ')'; }).join('; ');
+        saveBtn.disabled = false;
+        input.disabled = false;
+        return;
+      }
+      const file = selectedFiles[i];
+      const prefix = total > 1 ? ('Image ' + (i + 1) + ' of ' + total + ': ') : '';
+      uploadEntityGalleryImage(entity.id, file, {
+        onStatus: function (text) { statusEl.textContent = prefix + text; }
+      }).then(function () {
+        uploadNext(i + 1);
+      }).catch(function (err) {
+        failures.push({ name: file.name, err: err.message });
+        uploadNext(i + 1);
+      });
+    }
+    uploadNext(0);
   });
   actions.appendChild(saveBtn);
   const cancelBtn = document.createElement('button');
@@ -3149,7 +3276,7 @@ function renderGalleryTab(container, entity, ctx, readOnly) {
     right.className = 'actions-row-right';
     const newImageBtn = document.createElement('button');
     newImageBtn.className = 'action-btn-compact';
-    newImageBtn.textContent = '+ New image';
+    newImageBtn.textContent = '+ New images';
     newImageBtn.addEventListener('click', function () { openGalleryUploadModal(entity); });
     right.appendChild(newImageBtn);
     if (galleryImages.length) {
@@ -3516,6 +3643,76 @@ function renderDetailForSelected() {
       ownerWrap.appendChild(ownerSelect);
       leftCol.appendChild(ownerWrap);
     }
+  }
+  if (draft.category === 'Ancestry') {
+    // Phase 14 S7 (§11.2): 0-2 target Ancestry entities this one
+    // functionally resolves to (flavor-only "meta" ancestry, e.g. a
+    // homebrew "Goat" that mechanically plays as Faun). Chaining is
+    // disallowed by excluding already-meta ancestries (ones that
+    // themselves have metaAncestryTargetIds set) from this picker's
+    // options -- keeps resolution a single lookup, never a walk.
+    const metaWrap = document.createElement('div');
+    metaWrap.className = 'entity-edit-field';
+    const metaLabel = document.createElement('label');
+    metaLabel.textContent = 'Functional ancestry (optional -- for flavor-only "meta" ancestries)';
+    metaWrap.appendChild(metaLabel);
+    const metaTargets = draft.metaAncestryTargetIds || [];
+    const metaList = document.createElement('ul');
+    metaList.className = 'related-edit-list';
+    metaTargets.forEach(function (id) {
+      const target = state.allEntities.find(function (e) { return e.id === id; });
+      const li = document.createElement('li');
+      const span = document.createElement('span');
+      span.textContent = target ? target.name : '(deleted ancestry)';
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.textContent = 'Remove';
+      removeBtn.addEventListener('click', function () {
+        draft.metaAncestryTargetIds = metaTargets.filter(function (x) { return x !== id; });
+        renderDetailForSelected();
+      });
+      li.appendChild(span);
+      li.appendChild(removeBtn);
+      metaList.appendChild(li);
+    });
+    metaWrap.appendChild(metaList);
+    const metaAddRow = document.createElement('div');
+    metaAddRow.className = 'related-edit-add';
+    const metaSelect = document.createElement('select');
+    const metaAvailable = state.allEntities.filter(function (e) {
+      return e.category === 'Ancestry' && e.id !== entity.id
+        && metaTargets.indexOf(e.id) === -1 && metaTargets.length < 2
+        && !(e.metaAncestryTargetIds && e.metaAncestryTargetIds.length);
+    });
+    if (!metaAvailable.length) {
+      const opt = document.createElement('option');
+      opt.textContent = metaTargets.length >= 2 ? '(maximum 2)' : '(no eligible ancestries)';
+      opt.disabled = true;
+      metaSelect.appendChild(opt);
+    } else {
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = '-- choose --';
+      metaSelect.appendChild(placeholder);
+      metaAvailable.sort(function (a, b) { return a.name.localeCompare(b.name); }).forEach(function (e) {
+        const opt = document.createElement('option');
+        opt.value = e.id;
+        opt.textContent = e.name;
+        metaSelect.appendChild(opt);
+      });
+    }
+    const metaAddBtn = document.createElement('button');
+    metaAddBtn.type = 'button';
+    metaAddBtn.textContent = 'Add';
+    metaAddBtn.addEventListener('click', function () {
+      if (!metaSelect.value || metaTargets.length >= 2) return;
+      draft.metaAncestryTargetIds = metaTargets.concat([metaSelect.value]);
+      renderDetailForSelected();
+    });
+    metaAddRow.appendChild(metaSelect);
+    metaAddRow.appendChild(metaAddBtn);
+    metaWrap.appendChild(metaAddRow);
+    leftCol.appendChild(metaWrap);
   }
   if (draft.category === 'Scene' || draft.category === 'Event') {
     leftCol.appendChild(makeEditField('Date', draft.date, function (v) { draft.date = v; }, { placeholder: 'e.g. 12d, 45y   or   3500ya' }));

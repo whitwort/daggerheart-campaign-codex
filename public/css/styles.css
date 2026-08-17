@@ -869,6 +869,13 @@ select {
 .vis-kebab-option:hover { background: rgba(78,168,142,0.15); }
 .vis-kebab-option input[type="radio"] { accent-color: var(--seafoam); flex-shrink: 0; }
 .vis-kebab-char-name { flex: 1; }
+/* Phase 14 S7 (§11.8): small solid dot before the name, same --badge-
+   color var/fallback pattern as .character-badge -- flex-shrink:0 so a
+   long character name never squeezes it. */
+.vis-kebab-char-dot {
+  width: 0.55rem; height: 0.55rem; border-radius: 50%; flex-shrink: 0;
+  background: var(--badge-color, var(--seafoam));
+}
 .vis-kebab-player-name { font-size: 0.72rem; color: var(--ink-soft); }
 
 .codex-related { margin-top: 1rem; }
@@ -975,6 +982,26 @@ select {
    class. */
 .lore-item-btn, .action-btn-compact { width: 9rem; min-width: 9rem; padding: 0.35rem 0.9rem; cursor: pointer; }
 .lore-item-body { font-size: 0.906rem; line-height: 1.6; color: var(--ink); font-weight: 400; }
+/* Phase 14 S7 (§11.4): collapse only applied (via JS, post-render height
+   check) to items long enough to need it -- short items never get this
+   class or the expand row at all. */
+.lore-item-body-collapsed {
+  max-height: 20rem; overflow: hidden; position: relative;
+}
+.lore-item-body-collapsed::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 3.5rem;
+  background: linear-gradient(to bottom, rgba(253,248,238,0), var(--parchment));
+  pointer-events: none;
+}
+.entity-preview-card .lore-item-body-collapsed::after { background: linear-gradient(to bottom, rgba(253,248,238,0), var(--parchment-edge)); }
+.lore-item-expand-row { display: flex; gap: 0.4rem; margin-top: 0.4rem; }
+/* Pop-out panel body: reuses .gallery-picker-panel/.gallery-picker-body
+   (see that rule's comment) -- own scroll region since a long lore item
+   can exceed the panel's fixed footprint, and its own button-row
+   spacing since gallery-picker-body's button override (width: auto) is
+   for a different button family than .lore-item-btn's 9rem exception. */
+.lore-item-popout-body { max-height: 60vh; overflow-y: auto; margin-bottom: 0.6rem; }
+.lore-item-popout-panel { width: min(32rem, calc(100vw - 3rem)); }
 .lore-item-body > :first-child { margin-top: 0; }
 .lore-item-body > :last-child { margin-bottom: 0; }
 .lore-item-body blockquote {
@@ -1671,6 +1698,11 @@ button:disabled:hover { border-color: var(--void-line); }
   border-radius: 6px 6px 0 0; padding: 0.35rem 0.8rem; cursor: pointer; color: var(--parchment);
   font-size: 0.85rem; box-shadow: none; position: relative;
 }
+/* Phase 14 S7 (§11.8): GM-side per-player tab colored by that player's
+   active character's badgeColor -- a plain identity cue, not an alert,
+   so .unread's hope-colored urgency state (below, same specificity,
+   later in source) still wins when both apply. */
+.msg-strip-tab.has-badge-color { border-top: 2px solid var(--badge-color); }
 .msg-strip-tab.unread {
   border-color: var(--hope); color: var(--hope);
   box-shadow: 0 0 0.6rem var(--hope-glow);
@@ -1698,6 +1730,9 @@ button:disabled:hover { border-color: var(--void-line); }
   padding: 0.3rem 0.6rem; color: var(--ink-soft); cursor: pointer; font-size: 0.85rem;
   border-bottom: 2px solid transparent; border-radius: 0; white-space: nowrap;
 }
+/* See .msg-strip-tab.has-badge-color above -- same identity-cue-not-
+   alert reasoning; .active/.unread (below, later in source) win. */
+.msg-panel-tab.has-badge-color { border-bottom-color: var(--badge-color); }
 .msg-panel-tab.active { color: var(--hope); border-bottom-color: var(--hope); }
 .msg-panel-tab.unread { color: var(--hope); }
 #msg-collapse {

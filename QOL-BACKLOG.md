@@ -39,7 +39,8 @@ height, with NO per-context exceptions, except:**
    label ("Remove pin").
 8. Entry-card action buttons — `.action-btn-compact` (lore item
    Edit/Delete, + New lore, entity-level Edit/Delete, gallery + New
-   image), all matching, sized to fit the longest label ("+ New
+   images), all matching, sized to fit the longest label ("+ New
+   images" as of Phase 14 S7's multi-select rename, was "+ New
    image"). Reuse this class for the future Notes-tab "+ New Note"
    button (see below).
 9. `#sign-out-btn` and `#codex-new-btn` — single buttons, no group to

@@ -62,8 +62,25 @@ const TEMPLATE_SCHEMAS = {
     hasFeatures: false
   },
   'Ancestry/': {
+    // Phase 14 S7 (§11.1): every ancestry has exactly two features; a
+    // mixed-ancestry character picks one from each of two ancestries,
+    // never two 'first' or two 'second'. featureGroups drives BOTH the
+    // generic Features editor (codex.js, already built for subclass
+    // tiers off this same schema field) and Characters tab's per-
+    // ancestry first/second pick UI. SRD source records store these as
+    // a flat feature[] (not per-key arrays like subclasses) -- see
+    // featureGroupsFromArray below and srd-import.js's buildTemplateData.
     detailKeys: [],
-    hasFeatures: true
+    hasFeatures: true,
+    featureGroups: [
+      { key: 'first', label: 'First' },
+      { key: 'second', label: 'Second' }
+    ],
+    // Distinguishes this from subclasses' featureGroups: subclasses'
+    // source records carry separate keyed arrays (rec.foundation,
+    // rec.mastery, ...); ancestries carry one flat rec.feature array,
+    // group assigned by position. srd-import.js checks this flag.
+    featureGroupsFromArray: true
   },
   'Community/': {
     detailKeys: [],
