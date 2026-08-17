@@ -21,6 +21,7 @@ import {
 } from './visibility.js';
 import { shareEntityVisibility, shareLoreItemVisibility, shareImageVisibility, createLoreItemShared } from './sharing.js';
 import { buildVisibilityControl, buildSharedToggle, buildNoteToggle, buildCharacterBadge } from './visibility-ui.js';
+import { buildCharacterCardEditor } from './character-cards.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -3903,45 +3904,6 @@ function renderDetailForSelected() {
   }
 
   if (draft.category === 'Character') {
-    // Dropdown, not free text -- lists every Ancestry-category entity's
-    // name (stored as plain text on draft.ancestry, same as before;
-    // wiki-link resolution already matches by name, so this doesn't
-    // change how that works, just constrains entry to real Ancestries
-    // instead of allowing typos/drift). A legacy value that doesn't
-    // match any current Ancestry entity is kept as its own option
-    // rather than silently dropped -- reopening for edit shouldn't
-    // blank a field the GM didn't touch. Phase 14 S3: non-GM (owned-
-    // character) editors only see Ancestries they can actually see
-    // (canSee-filtered) -- a hand-added gm-only homebrew Ancestry
-    // shouldn't leak its name into a player's dropdown.
-    const ancestryWrap = document.createElement('div');
-    ancestryWrap.className = 'entity-edit-field';
-    const ancestryLabel = document.createElement('label');
-    ancestryLabel.textContent = 'Ancestry';
-    ancestryWrap.appendChild(ancestryLabel);
-    const ancestrySelect = document.createElement('select');
-    const ancestryNoneOpt = document.createElement('option');
-    ancestryNoneOpt.value = '';
-    ancestryNoneOpt.textContent = '-- none --';
-    ancestrySelect.appendChild(ancestryNoneOpt);
-    const ancestryNames = state.allEntities
-      .filter(function (e) { return e.category === 'Ancestry' && (ctx.gmView || canSee(e, ctx)); })
-      .map(function (e) { return e.name; })
-      .sort(function (a, b) { return a.localeCompare(b); });
-    if (draft.ancestry && ancestryNames.indexOf(draft.ancestry) === -1) {
-      ancestryNames.unshift(draft.ancestry);
-    }
-    ancestryNames.forEach(function (name) {
-      const opt = document.createElement('option');
-      opt.value = name;
-      opt.textContent = name;
-      ancestrySelect.appendChild(opt);
-    });
-    ancestrySelect.value = draft.ancestry || '';
-    ancestrySelect.addEventListener('change', function () { draft.ancestry = ancestrySelect.value; });
-    ancestryWrap.appendChild(ancestrySelect);
-    leftCol.appendChild(ancestryWrap);
-
     leftCol.appendChild(makeEditField('Aliases (comma-separated)', draft.aliases, function (v) { draft.aliases = v; }));
 
     // Phase 14 S8: Player <-> Character assignment moved to the
@@ -4051,6 +4013,20 @@ function renderDetailForSelected() {
   }
   headingRow.appendChild(rightCol);
   contentWrap.appendChild(headingRow);
+
+  // Character "cards" (ancestry/community/class/subclass/abilities,
+  // badge color) -- Phase 14 S9: same shared builder characters.js's
+  // player-view detail pane calls, so this section is byte-identical
+  // whether reached from here (GM or player editing a Character on the
+  // Codex tab) or from the Characters tab. Writes immediately per
+  // change (saveCardsPatch/badge updateDoc), independent of this form's
+  // own draft/Save-button flow for name/tags/aliases/etc. below.
+  if (draft.category === 'Character') {
+    const cardsWrap = document.createElement('div');
+    cardsWrap.className = 'codex-character-cards';
+    cardsWrap.appendChild(buildCharacterCardEditor(entity, ctx, renderDetailForSelected));
+    contentWrap.appendChild(cardsWrap);
+  }
 
   const editBlock = document.createElement('div');
   editBlock.className = 'entity-edit-block';
