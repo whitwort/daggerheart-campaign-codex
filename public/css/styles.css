@@ -1878,6 +1878,14 @@ button:disabled:hover { border-color: var(--void-line); }
 .character-card-editor { margin-top: 1rem; }
 .character-card-slot { margin: 0.3rem 0 0.9rem; }
 .character-card-slot-body { margin-top: 0.35rem; font-size: 0.88rem; }
+/* "Ancestry Features" subheading (Phase 14 S9) -- one step up from the
+   small-caps .entity-edit-field label treatment, same family/tracking. */
+.character-card-subheading {
+  margin: 1.1rem 0 0.5rem; font-family: var(--font-display), sans-serif;
+  font-weight: 600; font-size: 0.85rem; color: var(--ink-soft);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.codex-character-cards { margin-bottom: 1.2rem; }
 .character-player-eye-view { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--void-line); }
 .character-player-eye-view h4 { margin: 0 0 0.5rem; font-size: 0.85rem; color: var(--ink-soft); }
 /* Badge-color swatch grid -- small icon-only circular buttons, same
