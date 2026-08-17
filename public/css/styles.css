@@ -1439,7 +1439,13 @@ button:disabled:hover { border-color: var(--void-line); }
 .portrait-fade-row input[type="range"] { width: 100%; accent-color: var(--hope); }
 .portrait-fade-value { text-align: right; color: rgba(233,221,194,0.65); }
 
-#timeline-panel { padding: 1rem 1.5rem; }
+/* Horizontal padding removed (S14) -- body's own 2rem side padding
+   already matches every other tab-panel (#codex-panel/#map-panel etc.
+   add none of their own); this panel's extra 1.5rem was stacking on
+   top of that, making Timeline's left edge sit 3.5rem in instead of
+   the 2rem every other tab lines up at. Top/bottom kept -- there's no
+   shared vertical rhythm to match here the way there is horizontally. */
+#timeline-panel { padding: 1rem 0; }
 /* display:flex must be scoped to .active -- a bare #timeline-panel
    rule setting display would beat .tab-panel's display:none (ID
    specificity always wins over class, regardless of source order),
