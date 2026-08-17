@@ -1873,15 +1873,18 @@ button:disabled:hover { border-color: var(--void-line); }
    id list stays clearer than relying on that coincidence. */
 #characters-claim-btn, #characters-create-btn { width: auto; min-width: 0; }
 /* GM view's "Players & Characters" list: no per-row dot (Codex's dot is
-   a category-color cue that doesn't apply to players) -- the freed
-   horizontal space goes to a deeper indent instead, so characters read
-   as nested under their player's name rather than flush with the
-   header's own left edge. header padding-left 0.375rem + row
-   padding-left 1.375rem in the base Codex rule (no dot); bumped to
-   1.875rem here for a clearer one-level nest. Scoped to this list only
-   -- the Codex tab's own .entity-group-list keeps its dot/indent as-is. */
+   a category-color cue that doesn't apply to players). Row indent
+   removed (Gregg's call, S14) -- rows now sit flush with the header's
+   own left edge rather than nested under it, matching the claim
+   popup's treatment above. Scoped to this list only -- the Codex tab's
+   own .entity-group-list keeps its dot/indent as-is. */
 #characters-flipper-list .entity-group-header { padding-left: 0.375rem; }
-#characters-flipper-list .entity-group-list li { padding-left: 1.875rem; }
+#characters-flipper-list .entity-group-list li { padding-left: 0.375rem; }
+/* Player view's "Your Characters" list (S14): same flush-left treatment
+   as the claim popup and the GM flipper list above -- this list isn't
+   nested under anything either, so the base 1.375rem left padding just
+   indented the dot/name for no reason. */
+#characters-player-own-list .entity-group-list li { padding-left: 0.375rem; }
 /* .character-name-chip (Phase 14 S5): a standalone class, NOT a reuse of
    the existing .related-chip's actual CSS -- that class's real pill
    styling (including its width:auto override, needed to beat the base
