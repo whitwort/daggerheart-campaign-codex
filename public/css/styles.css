@@ -1761,19 +1761,28 @@ button:disabled:hover { border-color: var(--void-line); }
 /* Custom color swatch (S8): a <label> wrapping a native
    <input type="color">, styled to LOOK like the other circular swatch
    buttons rather than the browser's default rectangular color-picker
-   control. WebKit-specific pseudo-elements are required here (not just
-   nice-to-have) since iPad Safari is Gregg's primary dev/test surface
-   (project convention) -- ::-webkit-color-swatch-wrapper/-swatch strip
-   the native padding/border that would otherwise break the circular
-   shape on iOS. */
+   control. WebKit-specific pseudo-elements/resets are required here
+   (not just nice-to-have) since iPad Safari is Gregg's primary dev/
+   test surface (project convention) -- -webkit-appearance:none and
+   overflow:hidden strip the native swatch's own padding/border that
+   would otherwise break the circular shape and/or poke outside it on
+   iOS. flex-shrink:0 + min-width (S8 fix): the button swatches next to
+   it (.character-badge-swatch) already had min-width:1.6rem so they
+   can't shrink below their circle size in the flex row; this label had
+   no such floor, so under any row-width pressure it could shrink
+   smaller than its siblings while align-items:center still centered
+   it -- same vertical center, but a visibly smaller circle whose top/
+   bottom edges don't line up with the others reads as "not aligned". */
 .character-badge-swatch-custom {
-  width: 1.6rem; height: 1.6rem; border-radius: 50%; border: 2px solid transparent;
-  padding: 0; cursor: pointer; overflow: hidden; display: inline-block;
+  width: 1.6rem; min-width: 1.6rem; height: 1.6rem; border-radius: 50%; border: 2px solid transparent;
+  padding: 0; margin: 0; cursor: pointer; overflow: hidden; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
   background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
 }
 .character-badge-swatch-custom.selected { border-color: var(--parchment); }
 .character-badge-swatch-custom input[type="color"] {
-  width: 100%; height: 100%; padding: 0; border: none; cursor: pointer;
+  width: 100%; height: 100%; padding: 0; margin: 0; border: none; cursor: pointer;
+  -webkit-appearance: none; appearance: none; display: block;
   opacity: 0; /* the conic-gradient wrapper IS the visible swatch; the input just captures the tap and opens the OS picker */
 }
 
