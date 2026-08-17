@@ -47,6 +47,7 @@ import { switchToCodexTabForEntity, openNewEntityDialog } from './codex.js';
 import { getTemplateSchema } from './templates.js';
 import { renderMarkdownInto } from './markdown.js';
 import { generateDefaultBadgeColor } from './badge-color.js';
+import { approveTransferRequest, rejectTransferRequest } from './transfer-requests.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -80,6 +81,7 @@ const charactersClaimBtnEl = document.getElementById('characters-claim-btn');
 const charactersCreateBtnEl = document.getElementById('characters-create-btn');
 const charactersClaimPopupEl = document.getElementById('characters-claim-popup');
 const charactersSetActiveBtnEl = document.getElementById('characters-set-active-btn');
+const charactersPendingClaimsEl = document.getElementById('characters-pending-claims');
 
 // --- transferRequests: player-scoped listener (own requests only) --------
 function attachCharacterTransferListeners() {
@@ -802,7 +804,51 @@ function buildRemoveIconBtn(title, onClick) {
   return btn;
 }
 
+// GM view's own copy of the pending-transfer-request notifications
+// (Admin tab's unified Requests queue is the other place these show,
+// D8/§6.5/S5 -- this is a deliberate DUPLICATE, not a replacement, so
+// the GM can approve/reject a claim without leaving the Characters tab
+// while still testing/reviewing player-character assignments there).
+// state.allTransferRequests is populated by admin.js's listener, which
+// attaches for the whole GM session regardless of active tab (auth.js),
+// so this reads live data with no listener of its own needed here.
+// Reuses the same .admin-notification/.admin-notification-warning
+// styling as the Admin tab row for visual consistency between the two
+// surfaces. Join requests (player account access, not character
+// ownership) are deliberately NOT duplicated here -- out of scope for
+// a Characters tab.
+function renderPendingClaims() {
+  charactersPendingClaimsEl.innerHTML = '';
+  if (!state.allTransferRequests.length) return;
+  state.allTransferRequests.forEach(function (req) {
+    const character = state.allEntities.find(function (e) { return e.id === req.characterId; });
+    const requester = state.allPlayers.find(function (p) { return p.id === req.toEmail; });
+    const box = document.createElement('div');
+    box.className = 'admin-notification admin-notification-warning';
+    const label = document.createElement('span');
+    label.textContent = (requester && requester.displayName ? requester.displayName + ' \u2014 ' : '') + req.toEmail
+      + ' wants to take over ' + (character ? character.name : '(deleted character)');
+    box.appendChild(label);
+
+    const actions = document.createElement('div');
+    actions.className = 'actions-row-right';
+    const approveBtn = document.createElement('button');
+    approveBtn.textContent = 'Approve';
+    approveBtn.disabled = !character;
+    approveBtn.addEventListener('click', function () { approveTransferRequest(req); });
+    actions.appendChild(approveBtn);
+    const rejectBtn = document.createElement('button');
+    rejectBtn.textContent = 'Reject';
+    rejectBtn.addEventListener('click', function () { rejectTransferRequest(req); });
+    actions.appendChild(rejectBtn);
+    box.appendChild(actions);
+
+    charactersPendingClaimsEl.appendChild(box);
+  });
+}
+
 function renderCharactersGmView(ctx) {
+  renderPendingClaims();
   charactersFlipperListEl.innerHTML = '';
   const allCharacters = state.allEntities.filter(function (e) { return e.category === 'Character'; });
   const owned = allCharacters.filter(function (e) { return e.ownerId; });
