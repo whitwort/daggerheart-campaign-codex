@@ -855,15 +855,24 @@ select {
 .vis-kebab-wrap { position: relative; display: inline-block; }
 /* Phase 14 S8 (global UI pass item 2): height matched to .toggle-switch
    (1.4rem) -- previously 1.15rem, visibly shorter than the toggle it
-   sits beside. Kept circular (width == height) rather than just
-   growing height, so the "..." stays a dot, not an oval. */
+   sits beside. Bumped again to 1.6rem (matches .character-badge-swatch
+   sizing elsewhere) per a later follow-up ask -- still kept circular
+   (width == height) rather than just growing height, so the "..."
+   stays a dot, not an oval. */
 .vis-kebab-btn {
-  width: 1.4rem; min-width: 1.4rem; height: 1.4rem; border-radius: 50%;
+  width: 1.6rem; min-width: 1.6rem; height: 1.6rem; border-radius: 50%;
   border: 1px solid var(--ink-soft); background: transparent; color: var(--ink-soft);
   box-shadow: none; font-size: 0.85rem; line-height: 1; cursor: pointer; padding: 0;
   display: flex; align-items: center; justify-content: center;
 }
-.vis-kebab-btn:hover, .vis-kebab-btn.open { background: var(--ink-soft); color: var(--parchment); border-color: var(--ink-soft); }
+/* Hover/open fill (S8 follow-up): was a solid var(--ink-soft) fill --
+   a dark brown that read as near-black against the surrounding
+   parchment. Swapped for an ink-tinted "well" look (translucent ink
+   over the parchment behind it, not a separate solid color) so it
+   reads as a recessed parchment surface instead of a black dot; text
+   switches to --ink (dark) rather than --parchment (light), since the
+   background is light-ish now, not dark. */
+.vis-kebab-btn:hover, .vis-kebab-btn.open { background: rgba(58,46,34,0.16); color: var(--ink); border-color: var(--ink-soft); }
 .vis-kebab-btn.active { border-color: var(--seafoam); color: var(--seafoam); }
 .vis-kebab-btn.active:hover, .vis-kebab-btn.active.open { background: var(--seafoam); color: #fff; }
 .vis-kebab-popover {
