@@ -998,11 +998,16 @@ function renderList() {
         });
         rightCol.appendChild(mapLink);
       }
-      // Literal-state display (not an access gate) -- the GM is shown
-      // their OWN entity's raw visibility value here, not filtered
-      // per-viewer access, so this stays a direct value comparison
-      // rather than a canSee() call. S2 makes this 3-state-aware.
-      if (ctx.gmView && !isShareableToWholeParty(entity)) {
+      // Literal-state display (not an access gate): a viewer sees their
+      // OWN entity's raw visibility value here, not filtered per-viewer
+      // access, so this stays a direct value comparison rather than a
+      // canSee() call. S2 makes this 3-state-aware. S12: gated on
+      // hasFullAuthority (GM, OR a player viewing an entity they
+      // control the visibility state for -- in practice their own
+      // owned Character) rather than bare ctx.gmView -- a player
+      // couldn't previously tell their own character was hidden from
+      // the rest of the party while browsing their own Codex list.
+      if (hasFullAuthority(entity, ctx) && !isShareableToWholeParty(entity)) {
         const hiddenSpan = document.createElement('span');
         hiddenSpan.className = 'entity-hidden-badge';
         hiddenSpan.textContent = 'hidden';

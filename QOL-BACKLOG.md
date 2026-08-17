@@ -88,6 +88,11 @@ height, with NO per-context exceptions, except:**
     possible" ask. `width: auto; min-width: 0;`, same as exception 9/15
     but grouped alongside fixed-width siblings rather than alone (the
     row's own `flex-wrap` handles the mixed-width overflow case).
+18. "Claim a character" popup's row button — `.characters-claim-req-btn`
+    (Phase 14 S12; was "Request transfer"/"Cancel request", shortened to
+    "Claim"/"Cancel" in the same pass). `width: auto; min-width: 0;`,
+    same reasoning as exception 17 -- narrowest fit around a short label,
+    not matched to any sibling group here (this button has none).
 
 Base width lowered from 13rem to 12rem as of the "+ New party member"
 → "+ New member" rename (that label no longer defines the floor).
