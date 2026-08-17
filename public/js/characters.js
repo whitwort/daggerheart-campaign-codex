@@ -425,6 +425,8 @@ function renderCharactersPlayerView(ctx) {
         trackWrite(updateDoc(doc(db, 'players', ctx.email), { activeCharacterId: e.id }), 'Setting active character')
           .catch(function (err) { window.alert('Save failed: ' + err.message); });
         state.charactersPickingActive = false;
+        state.charactersSelectedId = e.id;
+        state.charactersSelectedAutoPicked = false;
         renderCharactersTab();
       } : null;
       ul.appendChild(buildCharacterLi(e, function (rightCol) {
