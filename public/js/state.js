@@ -28,6 +28,7 @@ export const state = {
   myTransferRequests: [],    // Phase 14 S5 -- any signed-in player's OWN pending transferRequests (where toEmail==self, characters.js listener), used to gray out "Request transfer" once already filed for a character
   myTransferRequestsUnsub: null,
   charactersSelectedId: null,     // Phase 14 S5 -- Characters tab's own selection, independent of the Codex tab's state.selectedId: the GM flipper's chosen PC, or a player's chosen own-character for the card-slot editor
+  charactersSelectedAutoPicked: false, // Phase 14 S13 -- true when charactersSelectedId was set by the player-view default-select guard (not a real click); lets a later-arriving activeCharacterId correct an interim own[0] pick without ever overriding a deliberate user selection
   charactersAssignOpenPlayerEmail: null, // Phase 14 S8 -- GM view: which player's inline "+" assign row is expanded, if any
   charactersClaimPopupOpen: false,       // Phase 14 S8 -- player view: whether the "Claim Character" popup is open
   charactersPickingActive: false,        // Phase 14 S8 -- player view: "Set active" picking mode -- next character clicked becomes activeCharacterId
