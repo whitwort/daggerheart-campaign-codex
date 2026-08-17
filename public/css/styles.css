@@ -1704,7 +1704,7 @@ button:disabled:hover { border-color: var(--void-line); }
    makes two buttons wrap to their own line inside the 300px list-pane.
    Labels are short ("Claim"/"+ New") -- narrower fixed width, both
    matching, lets them sit side by side on one row instead. */
-#characters-list-pane .actions-row-right .action-btn-compact { width: 5.5rem; min-width: 5.5rem; }
+#characters-player-list-pane .actions-row-right .action-btn-compact { width: 5.5rem; min-width: 5.5rem; }
 /* GM view's "Players & Characters" list: no per-row dot (Codex's dot is
    a category-color cue that doesn't apply to players) -- the freed
    horizontal space goes to a deeper indent instead, so characters read
