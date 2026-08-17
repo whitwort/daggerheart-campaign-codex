@@ -282,13 +282,19 @@ service cloud.firestore {
     // 'badgeColor' (Character entities only, owner-picked), 'cards'
     // (Character entities only -- ancestryId/communityId/classId/
     // subclassId/subclassTier/abilityIds, the character-sheet slots, S5).
+    // 'metaAncestryTargetIds' (Phase 14 S7, §11.2): Ancestry entities
+    // only. 0-2 target Ancestry entity ids; when set, this ancestry is
+    // flavor-only -- its own name/lore display, but features/details for
+    // gameplay resolve through the target(s) instead. Not enforced
+    // category-exclusive here (same as 'ancestry'/'cards'/'badgeColor'
+    // above) -- client-side convention, GM-authored.
     function isValidEntity() {
       return request.resource.data.keys().hasOnly(
           ['slug', 'name', 'category', 'subtype', 'parentId', 'relatedIds', 'mapId',
            'hasMapImage', 'mapImageVisibleToPlayers', 'visibility', 'characterId', 'characterShared',
            'badgeColor', 'cards', 'tags', 'createdAt', 'updatedAt',
            'ancestry', 'aliases', 'date', 'dateSort', 'dateEnd', 'dateEndSort',
-           'ownerId', 'sourceId', 'meta',
+           'ownerId', 'sourceId', 'meta', 'metaAncestryTargetIds',
            'useTemplate', 'details', 'features', 'searchIndex'])
         && request.resource.data.visibility in ['gm-only', 'all-players', 'character']
         && request.resource.data.name is string
@@ -360,7 +366,7 @@ service cloud.firestore {
         && (!('meta' in request.resource.data)
             || request.resource.data.meta == null
             || request.resource.data.meta is bool
-            || request.resource.data.meta in ['meta', 'meta-details', 'meta-features']);
+            || request.resource.data.meta in ['meta', 'meta-details', 'meta-features', 'meta-narrative-backstory']);
     }
     match /loreItems/{itemId} {
       allow read: if isGM() || isPlayer();

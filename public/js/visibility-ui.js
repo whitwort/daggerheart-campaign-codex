@@ -65,7 +65,11 @@ function partyCharacterOptions() {
       return {
         id: e.id,
         name: e.name || '(unnamed)',
-        playerName: (player && player.displayName) || e.ownerId
+        playerName: (player && player.displayName) || e.ownerId,
+        // Phase 14 S7 (§11.8): owner-picked badgeColor, same field/CSS-
+        // var pattern buildCharacterBadge already uses -- null/unset
+        // falls back to the existing seafoam default at render time.
+        badgeColor: e.badgeColor || null
       };
     })
     .sort(function (a, b) {
@@ -120,7 +124,7 @@ function buildVisibilityControl(opts) {
   const radioName = 'vis-target-' + Math.random().toString(36).slice(2);
   let radios = [];
 
-  function buildOptionRow(value, name, playerName) {
+  function buildOptionRow(value, name, playerName, badgeColor) {
     const row = document.createElement('label');
     row.className = 'vis-kebab-option';
     const input = document.createElement('input');
@@ -129,6 +133,12 @@ function buildVisibilityControl(opts) {
     input.value = value;
     input.addEventListener('change', function () { onSelect(value); });
     row.appendChild(input);
+    if (badgeColor) {
+      const dot = document.createElement('span');
+      dot.className = 'vis-kebab-char-dot';
+      dot.style.setProperty('--badge-color', badgeColor);
+      row.appendChild(dot);
+    }
     const nameSpan = document.createElement('span');
     nameSpan.className = 'vis-kebab-char-name';
     nameSpan.textContent = name;
@@ -149,7 +159,7 @@ function buildVisibilityControl(opts) {
     popover.appendChild(noneOpt.row);
     radios.push(noneOpt);
     partyCharacterOptions().forEach(function (pc) {
-      const opt = buildOptionRow(pc.id, pc.name, pc.playerName);
+      const opt = buildOptionRow(pc.id, pc.name, pc.playerName, pc.badgeColor);
       popover.appendChild(opt.row);
       radios.push(opt);
     });
