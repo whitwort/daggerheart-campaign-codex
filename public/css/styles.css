@@ -1702,8 +1702,13 @@ button:disabled:hover { border-color: var(--void-line); }
    .action-btn-compact 9rem width (sized for "+ New images" elsewhere)
    makes two buttons wrap to their own line inside the 300px list-pane.
    Labels are short ("Claim"/"+ New") -- narrower fixed width, both
-   matching, lets them sit side by side on one row instead. */
-#characters-player-list-pane .actions-row-right .action-btn-compact { width: 5.5rem; min-width: 5.5rem; }
+   matching, lets them sit side by side on one row instead. Scoped to
+   these two ids specifically (not a container-descendant selector on
+   .action-btn-compact) -- a container-scoped version previously also
+   caught "Set active" once it moved into its own .actions-row inside
+   this same pane, shrinking it below its label's width and causing the
+   exact wrap this rule exists to prevent. */
+#characters-claim-btn, #characters-create-btn { width: 5.5rem; min-width: 5.5rem; }
 /* GM view's "Players & Characters" list: no per-row dot (Codex's dot is
    a category-color cue that doesn't apply to players) -- the freed
    horizontal space goes to a deeper indent instead, so characters read
