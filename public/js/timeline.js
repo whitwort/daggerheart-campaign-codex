@@ -7,6 +7,7 @@ import {
 } from './codex.js';
 import { formatDateSegments } from './dates.js';
 import { canSee, viewerContext } from './visibility.js';
+import { createEntityImagesCache } from './entity-images-cache.js';
 
 const panelEl = document.getElementById('timeline-panel');
 let built = false;
@@ -294,17 +295,26 @@ function selectFromList(entityId) {
   render();
 }
 
+// Phase 14 S8 bugfix: independent per-entity images cache for this
+// card pane, same fix/reasoning as map.js's mapCardImagesCache -- see
+// entity-images-cache.js header comment. Without this, a portrait
+// wouldn't show here until the same entity had also been opened on the
+// Codex tab at least once that session.
+const timelineCardImagesCache = createEntityImagesCache(function () { renderCardPane(); });
+
 function renderCardPane() {
   const ctx = viewerContext();
   dom.cardPane.innerHTML = '';
   const entity = selectedId ? dated.find(function (e) { return e.id === selectedId; }) : null;
   if (!entity) {
+    timelineCardImagesCache.setTarget(null);
     const emptyP = document.createElement('p');
     emptyP.className = 'lore-empty timeline-card-empty';
     emptyP.textContent = 'Tap a moment to read more.';
     dom.cardPane.appendChild(emptyP);
     return;
   }
+  timelineCardImagesCache.setTarget(entity.id);
   const card = document.createElement('div');
   card.className = 'codex-entity-card';
   dom.cardPane.appendChild(card);
@@ -323,6 +333,7 @@ function renderCardPane() {
   renderEntityViewCard(card, entity, ctx, {
     allowEdit: false,
     hideSubTabs: true,
+    images: timelineCardImagesCache.getImages(),
     onRelatedClick: function (id) { openEntityInPanel(id); },
     headingRightExtra: headingRightExtra
   });
