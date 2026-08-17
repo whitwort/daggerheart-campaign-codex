@@ -23,8 +23,10 @@ height, with NO per-context exceptions, except:**
    `.map-breadcrumb-link`, `.collapse-toggle`.
 4. Small icon-only circular buttons — `.image-lightbox-close`,
    `.vis-kebab-btn` (Phase 14 S2, the GM 3-state visibility control's
-   "..." menu), `.character-badge-swatch` (Phase 14 S5, the badgeColor
-   picker's color swatches).
+   "..." menu; height matched to `.toggle-switch` at 1.4rem as of S8),
+   `.character-badge-swatch` (Phase 14 S5, the badgeColor picker's color
+   swatches), `.characters-add-btn`/`.characters-remove-btn` (Phase 14
+   S8, Characters tab's inline assign/unassign icons).
 5. Buttons inside a small floating panel too narrow for the fixed
    13rem width — `.gallery-picker-body button` (Set portrait / Set map
    picker panel — shared by both since they were unified onto one

@@ -1,8 +1,27 @@
-// characters.js — Phase 14 S5. The Characters tab: GM left-rail PC
-// flipper + ownerId assignment management, player own-character list/
-// create/delete + card-slot editor (ancestry/community/class/subclass+
-// tier/abilities), badgeColor picker, and the player-side "Request
-// transfer" flow on unowned-but-visible PCs (transferRequests writes).
+// characters.js — Phase 14 S5, restyled S8. The Characters tab.
+//
+// GM view ("Players & Characters"): left pane lists every party member
+// with an inline "+ assign"/"x remove" UI for the ownerId association
+// (moved here from the Codex-tab entity-edit form in S8 -- see codex.js);
+// right pane is a READ-ONLY card-slot viewer (buildCardSlotViewer) for
+// whichever character is selected -- deliberately NOT the editable
+// buildCardSlotEditor (GM doesn't edit Character entries from this tab;
+// that capacity already exists on the Codex tab) and NOT a re-mount of
+// the Codex tab's own stateful renderEntityViewCard (that component owns
+// several genuinely singular pieces of global state -- state.selectedId,
+// state.entityImagesTargetId/currentEntityImages, a single live
+// Firestore query pointed at ONE entity's images at a time -- two
+// simultaneously-mounted instances would fight over it, and tab panels
+// hide via CSS, not unmount, so both CAN be on screen at once).
+//
+// Player view: left pane lists the player's own characters (name +
+// active-toggle + self-release "x", same pattern as the GM pane's
+// remove); right pane is the editable buildCardSlotEditor + badgeColor
+// picker for whichever is selected; "Claim Character"/"+ Create
+// Character" live at the bottom (S8) -- Claim opens a popup over the
+// existing PC-tagged/unowned/visible transferRequests flow, Create
+// routes through codex.js's New Entity dialog (category Character, tag
+// PC preset).
 //
 // The GM's FULL transferRequests collection listener (unfiltered --
 // needed for the unified Requests queue) lives in admin.js beside
@@ -13,23 +32,7 @@
 // collection listener would be rules-denied for a non-GM, same reason
 // joinRequests/players are GM-only collection reads elsewhere in this
 // app) -- used here to gray out an already-requested "Request transfer"
-// button.
-//
-// "GM view" shows that character's player-perspective card view (§6.4):
-// deliberately NOT built by re-invoking the Codex tab's own stateful
-// renderEntityViewCard with a synthesized ctx -- that component owns
-// several genuinely singular pieces of global state (state.selectedId,
-// state.detailActiveTab, state.loreEdit/noteEdit, and critically
-// state.entityImagesTargetId/currentEntityImages, which is a single live
-// Firestore query pointed at ONE entity's images at a time). Two
-// simultaneously-mounted instances -- the real Codex tab selection and
-// this flipper's preview -- would fight over that single per-entity
-// image listener the moment both are on screen, which they can be (tab
-// panels hide via CSS, not by unmounting). Instead this module builds
-// its own smaller, fully self-contained read-only preview (lore list
-// only, no Gallery/Notes/edit chrome, own local canSee filtering against
-// a synthesized ctx) -- see renderCharacterPlayerEyeView. Flagged as a
-// deliberate simplification, not an oversight -- see handoff.
+// button, and to show a "(pending)" label in the Claim popup.
 
 import {
   getFirestore, doc, collection, addDoc, deleteDoc, updateDoc, setDoc,
@@ -39,8 +42,8 @@ import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
 import { trackWrite } from './connectivity.js';
-import { canSee, viewerContext, hasFullAuthority, belongsOnLoreSurface } from './visibility.js';
-import { switchToCodexTabForEntity, applyWikiLinks } from './codex.js';
+import { canSee, viewerContext, hasFullAuthority } from './visibility.js';
+import { switchToCodexTabForEntity, openNewEntityDialog } from './codex.js';
 import { getTemplateSchema } from './templates.js';
 import { renderMarkdownInto } from './markdown.js';
 
@@ -69,15 +72,12 @@ const charactersGmViewEl = document.getElementById('characters-gm-view');
 const charactersPlayerViewEl = document.getElementById('characters-player-view');
 const charactersFlipperListEl = document.getElementById('characters-flipper-list');
 const charactersDetailPaneEl = document.getElementById('characters-detail-pane');
+const charactersGmNewBtnEl = document.getElementById('characters-gm-new-btn');
 const charactersPlayerOwnListEl = document.getElementById('characters-player-own-list');
-const charactersNewBtnEl = document.getElementById('characters-new-btn');
-const charactersNewFormEl = document.getElementById('characters-new-form');
-const charactersNewNameEl = document.getElementById('characters-new-name');
-const charactersNewSaveBtnEl = document.getElementById('characters-new-save-btn');
-const charactersNewCancelBtnEl = document.getElementById('characters-new-cancel-btn');
-const charactersNewErrorEl = document.getElementById('characters-new-error');
 const charactersPlayerSelectedEl = document.getElementById('characters-player-selected');
-const charactersPlayerAvailableListEl = document.getElementById('characters-player-available-list');
+const charactersClaimBtnEl = document.getElementById('characters-claim-btn');
+const charactersCreateBtnEl = document.getElementById('characters-create-btn');
+const charactersClaimPopupEl = document.getElementById('characters-claim-popup');
 
 // --- transferRequests: player-scoped listener (own requests only) --------
 function attachCharacterTransferListeners() {
@@ -635,115 +635,196 @@ function buildBadgeColorPicker(entity) {
   return wrap;
 }
 
-// GM-only: reassign/unassign ownerId on an already-owned PC. This is the
-// "assignment management" half of §6.4's GM view -- ownerId was already
-// settable via the general Codex-tab inline entity-edit form (unchanged,
-// still works); this is a Characters-tab-local convenience so the GM
-// doesn't have to leave the flipper to do it, per the design's explicit
-// "absorbing the Admin party-table's character column" language (the
-// Admin table's old read-only Characters column is removed this session
-// -- see admin.js -- since this view now both shows and manages it).
-function buildOwnerReassignSelect(entity) {
+// GM-only: assign an unowned PC-tagged Character to a player (Phase 14
+// S8's "Players & Characters" panel replaces the old owner-reassign
+// <select> in the detail pane -- assignment now lives in the list
+// itself, next to each player, per Gregg's explicit layout ask).
+function assignCharacterToPlayer(entityId, email) {
+  trackWrite(
+    updateDoc(doc(db, 'entities', entityId), { ownerId: email, updatedAt: serverTimestamp() }),
+    'Assigning character'
+  ).catch(function (err) { window.alert('Assign failed: ' + err.message); });
+}
+
+// GM-only: unassign (NOT delete) -- also clears the player's
+// activeCharacterId if it pointed at this now-unowned character, so no
+// dangling reference survives the unassign.
+function unassignCharacterGm(entity) {
+  trackWrite(
+    updateDoc(doc(db, 'entities', entity.id), { ownerId: null, updatedAt: serverTimestamp() }),
+    'Removing character from player'
+  ).then(function () {
+    const p = state.allPlayers.find(function (pl) { return pl.id === entity.ownerId; });
+    if (p && p.activeCharacterId === entity.id) {
+      updateDoc(doc(db, 'players', entity.ownerId), { activeCharacterId: null }).catch(function () {});
+    }
+  }).catch(function (err) { window.alert('Remove failed: ' + err.message); });
+  if (state.charactersSelectedId === entity.id) state.charactersSelectedId = null;
+}
+
+// Player self-service: drop your own Character's ownerId to null (NOT a
+// delete) -- rules-permitted via firestore.rules' dedicated "self-
+// release" clause (ownerId -> null, nothing else, in the same write;
+// players otherwise can't touch their own ownerId at all).
+function unassignCharacterSelf(entity) {
+  trackWrite(
+    updateDoc(doc(db, 'entities', entity.id), { ownerId: null, updatedAt: serverTimestamp() }),
+    'Removing character from your list'
+  ).catch(function (err) { window.alert('Remove failed: ' + err.message); });
+  if (state.charactersSelectedId === entity.id) state.charactersSelectedId = null;
+}
+
+// Read-only card-slot view (§6.4/S8: GM's detail pane shows exactly what
+// the owning player sees in their own Characters tab -- ancestry/
+// community/class/subclass/ability cards -- with no editing chrome).
+// Deliberately built from buildCardSlot (already display-only) rather
+// than buildCardSlotEditor, which wraps every slot in picker/add/remove
+// controls the GM doesn't need here (§8.1: GM doesn't edit Characters
+// from this tab -- that's Codex-tab/card-slot-editor territory for the
+// owning player only).
+function buildCardSlotViewer(entity) {
   const wrap = document.createElement('div');
-  wrap.className = 'entity-edit-field';
-  const label = document.createElement('label');
-  label.textContent = 'Owned by party member';
-  wrap.appendChild(label);
-  const select = document.createElement('select');
-  const noneOpt = document.createElement('option');
-  noneOpt.value = '';
-  noneOpt.textContent = '-- unassign --';
-  select.appendChild(noneOpt);
-  state.allPlayers.slice().sort(function (a, b) { return a.id.localeCompare(b.id); }).forEach(function (p) {
-    const opt = document.createElement('option');
-    opt.value = p.id;
-    opt.textContent = p.displayName ? (p.displayName + ' (' + p.id + ')') : p.id;
-    select.appendChild(opt);
+  wrap.className = 'character-card-editor';
+  const cards = Object.assign({}, DEFAULT_CARDS, entity.cards || {});
+  const flavorIds = normalizeAncestryIds(cards);
+  const functionalIds = resolveFunctionalIds(flavorIds);
+  const picks = cards.ancestryFeaturePicks || {};
+  if (functionalIds.length) {
+    functionalIds.forEach(function (fid) {
+      const statEntity = state.allEntities.find(function (e) { return e.id === fid; });
+      const groupFilter = functionalIds.length === 2 ? (picks[fid] || null) : null;
+      wrap.appendChild(buildCardSlot(statEntity, { tier: groupFilter }));
+    });
+  } else {
+    wrap.appendChild(buildCardSlot(null));
+  }
+  wrap.appendChild(buildCardSlot(state.allEntities.find(function (e) { return e.id === cards.communityId; })));
+  wrap.appendChild(buildCardSlot(state.allEntities.find(function (e) { return e.id === cards.classId; })));
+  wrap.appendChild(buildCardSlot(
+    state.allEntities.find(function (e) { return e.id === cards.subclassId; }),
+    { tier: cards.subclassTier }
+  ));
+  (cards.abilityIds || []).forEach(function (id) {
+    const a = state.allEntities.find(function (e) { return e.id === id; });
+    if (a) wrap.appendChild(buildCardSlot(a));
   });
-  select.value = entity.ownerId || '';
-  select.addEventListener('change', function () {
-    const newOwner = select.value || null;
-    trackWrite(
-      updateDoc(doc(db, 'entities', entity.id), { ownerId: newOwner, updatedAt: serverTimestamp() }),
-      'Reassigning character'
-    ).catch(function (err) { window.alert('Save failed: ' + err.message); });
-    if (!newOwner) state.charactersSelectedId = null; // drops out of the PC flipper once the entities snapshot lands
-  });
-  wrap.appendChild(select);
   return wrap;
 }
 
-// Read-only "as the owner currently sees it" preview (§6.4) -- see the
-// module header comment for why this is a small self-contained renderer
-// rather than a second mount of the Codex tab's stateful detail card.
-// Lore only (D5: notes are private by construction, nothing to preview
-// there; Gallery is a possible follow-up, not built this session).
-function renderCharacterPlayerEyeView(container, entity) {
-  const syntheticCtx = {
-    role: 'player', gmView: false, email: entity.ownerId,
-    activeCharacterId: entity.id, ownedCharacterIds: [entity.id]
-  };
-  const heading = document.createElement('h4');
-  heading.textContent = 'As ' + (entity.ownerId || 'the owner') + ' currently sees it';
-  container.appendChild(heading);
-  const items = state.allLoreItems
-    .filter(function (it) { return it.entityId === entity.id && belongsOnLoreSurface(it) && canSee(it, syntheticCtx); })
-    .sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
-  if (!items.length) {
-    const p = document.createElement('p');
-    p.className = 'lore-empty';
-    p.textContent = 'No lore visible to this character yet.';
-    container.appendChild(p);
-    return;
-  }
-  items.forEach(function (item) {
-    const div = document.createElement('div');
-    div.className = 'lore-item';
-    const bodyDiv = document.createElement('div');
-    bodyDiv.className = 'lore-item-body';
-    renderMarkdownInto(bodyDiv, item.content).then(function () {
-      applyWikiLinks(bodyDiv, entity.id, syntheticCtx);
-    });
-    div.appendChild(bodyDiv);
-    container.appendChild(div);
-  });
+// --- GM view: "Players & Characters" ------------------------------------
+function buildRemoveIconBtn(title, onClick) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'characters-remove-btn';
+  btn.title = title;
+  btn.textContent = '\u00d7';
+  btn.addEventListener('click', function (ev) { ev.stopPropagation(); onClick(); });
+  return btn;
 }
 
-// --- GM view ---------------------------------------------------------
 function renderCharactersGmView(ctx) {
   charactersFlipperListEl.innerHTML = '';
-  const owned = state.allEntities.filter(function (e) { return e.category === 'Character' && e.ownerId; });
+  const allCharacters = state.allEntities.filter(function (e) { return e.category === 'Character'; });
+  const owned = allCharacters.filter(function (e) { return e.ownerId; });
+  // PC-tagged, unowned -- eligible for the inline "+ assign" picker,
+  // same claimability gate as the player-side "Claim Character" list
+  // (§11.6: tags include 'pc', case-insensitive).
+  const assignable = allCharacters.filter(function (e) {
+    return !e.ownerId && (e.tags || []).some(function (t) { return t.toLowerCase() === 'pc'; });
+  }).sort(byName);
 
-  if (!owned.length) {
+  const byPlayer = {};
+  owned.forEach(function (e) { (byPlayer[e.ownerId] = byPlayer[e.ownerId] || []).push(e); });
+
+  const playersSorted = state.allPlayers.slice().sort(function (a, b) {
+    return (a.displayName || a.id).localeCompare(b.displayName || b.id);
+  });
+
+  if (!playersSorted.length) {
     const p = document.createElement('p');
     p.className = 'lore-empty';
-    p.textContent = 'No characters assigned to party members yet.';
+    p.textContent = 'No party members yet -- add one on the Admin tab.';
     charactersFlipperListEl.appendChild(p);
   } else {
-    const byPlayer = {};
-    owned.forEach(function (e) { (byPlayer[e.ownerId] = byPlayer[e.ownerId] || []).push(e); });
-    Object.keys(byPlayer).sort(function (a, b) {
-      const pa = state.allPlayers.find(function (p) { return p.id === a; });
-      const pb = state.allPlayers.find(function (p) { return p.id === b; });
-      return ((pa && pa.displayName) || a).localeCompare((pb && pb.displayName) || b);
-    }).forEach(function (email) {
-      const player = state.allPlayers.find(function (p) { return p.id === email; });
-      const groupLabel = document.createElement('div');
+    playersSorted.forEach(function (player) {
+      const email = player.id;
+      const groupHead = document.createElement('div');
+      groupHead.className = 'characters-flipper-group-head';
+      const groupLabel = document.createElement('span');
       groupLabel.className = 'characters-flipper-group-label';
-      groupLabel.textContent = (player && player.displayName) || email;
-      charactersFlipperListEl.appendChild(groupLabel);
-      byPlayer[email].sort(byName).forEach(function (e) {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'characters-flipper-item';
-        if (e.id === state.charactersSelectedId) btn.classList.add('selected');
-        btn.textContent = e.name;
-        btn.addEventListener('click', function () {
-          state.charactersSelectedId = e.id;
+      groupLabel.textContent = player.displayName || email;
+      groupHead.appendChild(groupLabel);
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'characters-add-btn';
+      addBtn.title = 'Assign a character to ' + (player.displayName || email);
+      addBtn.textContent = '+';
+      addBtn.addEventListener('click', function () {
+        state.charactersAssignOpenPlayerEmail = (state.charactersAssignOpenPlayerEmail === email) ? null : email;
+        renderCharactersTab();
+      });
+      groupHead.appendChild(addBtn);
+      charactersFlipperListEl.appendChild(groupHead);
+
+      (byPlayer[email] || []).sort(byName).forEach(function (e) {
+        const row = document.createElement('div');
+        row.className = 'characters-flipper-item characters-own-row';
+        if (e.id === state.charactersSelectedId) row.classList.add('selected');
+        const nameBtn = document.createElement('button');
+        nameBtn.type = 'button';
+        nameBtn.className = 'character-name-chip';
+        nameBtn.textContent = e.name;
+        nameBtn.addEventListener('click', function () { state.charactersSelectedId = e.id; renderCharactersTab(); });
+        row.appendChild(nameBtn);
+        row.appendChild(buildRemoveIconBtn('Remove from ' + (player.displayName || email), function () {
+          unassignCharacterGm(e);
+        }));
+        charactersFlipperListEl.appendChild(row);
+      });
+
+      if (state.charactersAssignOpenPlayerEmail === email) {
+        const addRow = document.createElement('div');
+        addRow.className = 'related-edit-add characters-assign-row';
+        const select = document.createElement('select');
+        if (!assignable.length) {
+          const opt = document.createElement('option');
+          opt.textContent = '(no unassigned PC-tagged characters)';
+          opt.disabled = true;
+          select.appendChild(opt);
+        } else {
+          const placeholder = document.createElement('option');
+          placeholder.value = '';
+          placeholder.textContent = '-- choose --';
+          select.appendChild(placeholder);
+          assignable.forEach(function (e) {
+            const opt = document.createElement('option');
+            opt.value = e.id;
+            opt.textContent = e.name;
+            select.appendChild(opt);
+          });
+        }
+        const assignBtn = document.createElement('button');
+        assignBtn.type = 'button';
+        assignBtn.className = 'action-btn-compact';
+        assignBtn.textContent = 'Assign';
+        assignBtn.addEventListener('click', function () {
+          if (!select.value) return;
+          assignCharacterToPlayer(select.value, email);
+          state.charactersAssignOpenPlayerEmail = null;
+        });
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'action-btn-compact';
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.addEventListener('click', function () {
+          state.charactersAssignOpenPlayerEmail = null;
           renderCharactersTab();
         });
-        charactersFlipperListEl.appendChild(btn);
-      });
+        addRow.appendChild(select);
+        addRow.appendChild(assignBtn);
+        addRow.appendChild(cancelBtn);
+        charactersFlipperListEl.appendChild(addRow);
+      }
     });
   }
 
@@ -759,16 +840,10 @@ function renderCharactersGmView(ctx) {
   const heading = document.createElement('h3');
   heading.textContent = selected.name;
   charactersDetailPaneEl.appendChild(heading);
-  charactersDetailPaneEl.appendChild(buildOwnerReassignSelect(selected));
-  charactersDetailPaneEl.appendChild(buildBadgeColorPicker(selected));
-  charactersDetailPaneEl.appendChild(buildCardSlotEditor(selected, ctx));
-  const eyeView = document.createElement('div');
-  eyeView.className = 'character-player-eye-view';
-  renderCharacterPlayerEyeView(eyeView, selected);
-  charactersDetailPaneEl.appendChild(eyeView);
+  charactersDetailPaneEl.appendChild(buildCardSlotViewer(selected));
 }
 
-// --- Player view -------------------------------------------------------
+// --- Player view ---------------------------------------------------------
 function renderCharactersPlayerView(ctx) {
   const own = state.allEntities
     .filter(function (e) { return e.category === 'Character' && e.ownerId === ctx.email; })
@@ -778,7 +853,7 @@ function renderCharactersPlayerView(ctx) {
   if (!own.length) {
     const p = document.createElement('p');
     p.className = 'lore-empty';
-    p.textContent = 'No characters yet -- create one below.';
+    p.textContent = 'No characters yet -- claim or create one below.';
     charactersPlayerOwnListEl.appendChild(p);
   } else {
     own.forEach(function (e) {
@@ -807,6 +882,9 @@ function renderCharactersPlayerView(ctx) {
         });
         row.appendChild(setActiveBtn);
       }
+      row.appendChild(buildRemoveIconBtn('Remove from your characters', function () {
+        unassignCharacterSelf(e);
+      }));
       charactersPlayerOwnListEl.appendChild(row);
     });
   }
@@ -819,47 +897,53 @@ function renderCharactersPlayerView(ctx) {
     charactersPlayerSelectedEl.appendChild(heading);
     charactersPlayerSelectedEl.appendChild(buildBadgeColorPicker(selected));
     charactersPlayerSelectedEl.appendChild(buildCardSlotEditor(selected, ctx));
-    const deleteBtn = document.createElement('button');
-    deleteBtn.type = 'button';
-    deleteBtn.className = 'action-btn-compact';
-    deleteBtn.textContent = 'Delete character';
-    deleteBtn.addEventListener('click', function () {
-      const confirmed = window.confirm('Delete ' + selected.name + '? This cannot be undone.');
-      if (!confirmed) return;
-      deleteDoc(doc(db, 'entities', selected.id)).catch(function (err) { window.alert('Delete failed: ' + err.message); });
-      state.charactersSelectedId = null;
-    });
-    charactersPlayerSelectedEl.appendChild(deleteBtn);
+  } else {
+    const p = document.createElement('p');
+    p.className = 'lore-empty';
+    p.textContent = 'Select a character to view or edit their cards.';
+    charactersPlayerSelectedEl.appendChild(p);
   }
 
-  // "Available characters" (§6.4): unowned Character entities the GM has
-  // made visible (canSee) -- ownerId==null alone doesn't distinguish an
-  // NPC from an adoptable PC in this schema (no separate flag), so
-  // visibility is the de facto gate: a GM who wants a PC discoverable for
-  // transfer request simply shares it, same as any other lore element;
-  // an NPC left gm-only (the default) never surfaces here. Documented
-  // interpretation -- see handoff.
-  // Phase 14 S7 (§11.6): only characters the GM has explicitly tagged
-  // 'PC' (case-insensitive) are claimable -- distinguishes adoptable
-  // party-member slots from unowned Character entities that exist for
-  // other reasons (e.g. a former PC, an NPC modeled as a Character for
-  // template convenience) but aren't meant to be requested.
+  renderClaimPopup(ctx);
+}
+
+// "Claim Character" popup (§11.6/S8): PC-tagged, unowned, canSee-visible
+// Character entities -- same eligibility as the old inline "Available
+// characters" list, now behind a button rather than always-on real
+// estate. Pending state (already-filed transferRequest) shown inline,
+// same as before -- "Cancel request" swap IS the pending-visual-feedback
+// Gregg asked for (S8's "provide visual feedback that this claim is
+// pending"), plus an explicit "(pending)" label so it reads clearly even
+// at a glance.
+function renderClaimPopup(ctx) {
+  charactersClaimPopupEl.innerHTML = '';
+  if (!state.charactersClaimPopupOpen) {
+    charactersClaimPopupEl.style.display = 'none';
+    return;
+  }
+  charactersClaimPopupEl.style.display = 'block';
+  charactersClaimPopupEl.className = 'characters-claim-popup';
+
+  const heading = document.createElement('h4');
+  heading.textContent = 'Claim a character';
+  charactersClaimPopupEl.appendChild(heading);
+
   const available = state.allEntities
     .filter(function (e) {
       return e.category === 'Character' && !e.ownerId && canSee(e, ctx)
         && (e.tags || []).some(function (t) { return t.toLowerCase() === 'pc'; });
     })
     .sort(byName);
-  charactersPlayerAvailableListEl.innerHTML = '';
+
   if (!available.length) {
     const p = document.createElement('p');
     p.className = 'lore-empty';
-    p.textContent = 'None right now.';
-    charactersPlayerAvailableListEl.appendChild(p);
+    p.textContent = 'None available right now.';
+    charactersClaimPopupEl.appendChild(p);
   } else {
     available.forEach(function (e) {
       const row = document.createElement('div');
-      row.className = 'characters-flipper-item';
+      row.className = 'characters-flipper-item characters-own-row';
       const nameBtn = document.createElement('button');
       nameBtn.type = 'button';
       nameBtn.className = 'character-name-chip';
@@ -867,6 +951,12 @@ function renderCharactersPlayerView(ctx) {
       nameBtn.addEventListener('click', function () { switchToCodexTabForEntity(e.id); });
       row.appendChild(nameBtn);
       const pendingReq = state.myTransferRequests.find(function (r) { return r.characterId === e.id; });
+      if (pendingReq) {
+        const pendingLabel = document.createElement('span');
+        pendingLabel.className = 'characters-active-label';
+        pendingLabel.textContent = '(pending)';
+        row.appendChild(pendingLabel);
+      }
       const reqBtn = document.createElement('button');
       reqBtn.type = 'button';
       reqBtn.className = 'action-btn-compact';
@@ -880,12 +970,22 @@ function renderCharactersPlayerView(ctx) {
         }
       });
       row.appendChild(reqBtn);
-      charactersPlayerAvailableListEl.appendChild(row);
+      charactersClaimPopupEl.appendChild(row);
     });
   }
+
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.className = 'action-btn-compact';
+  closeBtn.textContent = 'Close';
+  closeBtn.addEventListener('click', function () {
+    state.charactersClaimPopupOpen = false;
+    renderCharactersTab();
+  });
+  charactersClaimPopupEl.appendChild(closeBtn);
 }
 
-// --- Dispatch + "+ New character" --------------------------------------
+// --- Dispatch --------------------------------------------------------
 function renderCharactersTab() {
   const ctx = viewerContext();
   charactersGmViewEl.style.display = ctx.gmView ? '' : 'none';
@@ -907,55 +1007,25 @@ function ensureCharactersTabReady() {
   renderCharactersTab();
 }
 
-if (charactersNewBtnEl) {
-  charactersNewBtnEl.addEventListener('click', function () {
-    charactersNewFormEl.style.display = 'block';
-    charactersNewErrorEl.textContent = '';
-    charactersNewNameEl.value = '';
-    charactersNewNameEl.focus();
+// "+ New Entity" (GM) / "+ Create Character" (player): both route through
+// codex.js's New Entity dialog, preset to category Character + tag PC
+// (§8.5/§8.4 -- "follow #5 above exactly"). saveNewEntity itself handles
+// setting ownerId=self for a non-GM creator (rules require it in the
+// same write) -- see codex.js.
+if (charactersGmNewBtnEl) {
+  charactersGmNewBtnEl.addEventListener('click', function () {
+    openNewEntityDialog({ category: 'Character', tags: ['PC'] });
   });
-  charactersNewCancelBtnEl.addEventListener('click', function () {
-    charactersNewFormEl.style.display = 'none';
+}
+if (charactersCreateBtnEl) {
+  charactersCreateBtnEl.addEventListener('click', function () {
+    openNewEntityDialog({ category: 'Character', tags: ['PC'] });
   });
-  charactersNewSaveBtnEl.addEventListener('click', function () {
-    const ctx = viewerContext();
-    const name = charactersNewNameEl.value.trim();
-    charactersNewErrorEl.textContent = '';
-    if (!name) { charactersNewErrorEl.textContent = 'Name is required.'; return; }
-    if (!ctx.email) return;
-    charactersNewSaveBtnEl.disabled = true;
-    const newId = doc(collection(db, 'entities')).id;
-    // Mirrors codex.js's saveNewEntity default shape, plus the Phase 14
-    // Character-only fields (ownerId/badgeColor/cards) and the
-    // characterId/characterShared/mapImageVisibleToPlayers triple every
-    // entity now carries (§3.1). visibility defaults gm-only, same
-    // literal-default convention as every other new-entity write in this
-    // app (sharing.js's header comment) -- the owner still sees their own
-    // brand-new PC regardless, via canSee's own-Character grant.
-    const entityData = {
-      slug: slugify(name), name: name, category: 'Character',
-      ancestry: null, subtype: '', aliases: [], date: null, dateSort: null,
-      dateEnd: null, dateEndSort: null, parentId: null, relatedIds: [],
-      visibility: 'gm-only', characterId: null, characterShared: false,
-      hasMapImage: false, mapImageVisibleToPlayers: false, tags: [], sourceId: null,
-      useTemplate: false, details: {}, features: [], searchIndex: [],
-      ownerId: ctx.email, badgeColor: null,
-      cards: Object.assign({}, DEFAULT_CARDS),
-      createdAt: serverTimestamp(), updatedAt: serverTimestamp()
-    };
-    trackWrite(setDoc(doc(db, 'entities', newId), entityData), 'Creating character').catch(function (err) {
-      window.alert('Create failed: ' + err.message);
-    });
-    charactersNewSaveBtnEl.disabled = false;
-    charactersNewFormEl.style.display = 'none';
-    state.charactersSelectedId = newId;
-    // Convenience default: a player's very first character becomes their
-    // active one automatically. Never overrides an already-set active
-    // character (no silent mid-session switch away from what they're
-    // currently playing).
-    if (!state.activeCharacterId) {
-      updateDoc(doc(db, 'players', ctx.email), { activeCharacterId: newId }).catch(function () {});
-    }
+}
+if (charactersClaimBtnEl) {
+  charactersClaimBtnEl.addEventListener('click', function () {
+    state.charactersClaimPopupOpen = !state.charactersClaimPopupOpen;
+    renderCharactersTab();
   });
 }
 
