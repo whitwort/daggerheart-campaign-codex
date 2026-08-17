@@ -81,6 +81,13 @@ height, with NO per-context exceptions, except:**
     click-to-toggle that category's pins on/off. Same
     `width: auto; min-width: 0; text-align: left` pattern as
     `.timeline-row`/`.related-chip`.
+17. Characters tab player view "Set active" — `#characters-set-active-btn`
+    (Phase 14 S11). Repositioned into the same bottom row as Claim/+ New
+    (exception 14) but NOT sized to match them — auto-width, narrowest
+    fit around its own label, per Gregg's explicit "as narrow as
+    possible" ask. `width: auto; min-width: 0;`, same as exception 9/15
+    but grouped alongside fixed-width siblings rather than alone (the
+    row's own `flex-wrap` handles the mixed-width overflow case).
 
 Base width lowered from 13rem to 12rem as of the "+ New party member"
 → "+ New member" rename (that label no longer defines the floor).

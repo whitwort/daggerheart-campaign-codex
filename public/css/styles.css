@@ -1782,6 +1782,16 @@ button:disabled:hover { border-color: var(--void-line); }
 .characters-list-pane {
   flex: 0 0 300px; max-height: 34rem; overflow-y: auto;
 }
+/* "Your Characters"/"Players & Characters" headings sat lower than the
+   Codex tab's "Table of contents" -- both are .pane-title, but
+   .pane-title lives inside .admin-card here, and .admin-card h3's own
+   margin-top (1rem, or 0.75rem via :first-of-type) is MORE specific
+   than .pane-title's margin:0 (class+type+pseudo-class beats
+   class-only), so it won -- not visible on other .admin-card panes
+   since they don't also carry .pane-title. ID-scoped override (S11)
+   matches specificity and wins on source order, put back flush with
+   the pane's own top padding like #codex-list-pane's heading. */
+#characters-gm-list-pane .pane-title, #characters-player-list-pane .pane-title { margin-top: 0; }
 .characters-detail-pane { flex: 1; min-width: 0; }
 /* .characters-add-btn / .characters-remove-btn: small icon-only circular
    buttons, same exception family as .vis-kebab-btn (QOL-BACKLOG
@@ -1828,10 +1838,15 @@ button:disabled:hover { border-color: var(--void-line); }
    (#sign-out-btn/#codex-new-btn) -- .action-btn-compact's fixed 9rem
    was wrapping the label to two lines. */
 #characters-gm-new-btn { width: auto; min-width: 0; }
-/* Player view's "Set active" button (Phase 14 S8): its own actions-row
-   below the "Your Characters" heading (was sharing a row with the
-   heading text, needed auto-width to fit; now alone, standard
-   .action-btn-compact width is fine). */
+/* Player view's "Set active" button (Phase 14 S8, repositioned S11):
+   moved down into the bottom actions-row alongside Claim/+ New (was
+   its own row above the list) -- Gregg's "lower right" ask, and lets
+   it disappear cleanly (renderCharactersPlayerView) when there's only
+   one character with nothing to switch between. width:auto/min-width:0
+   -- narrowest natural fit around its own label, deliberately NOT
+   matching Claim/+ New's fixed 5.5rem (see below); the three buttons'
+   row already wraps (.actions-row's flex-wrap) if they don't all fit. */
+#characters-set-active-btn { width: auto; min-width: 0; }
 #characters-set-active-btn.picking { border-color: var(--hope); color: var(--hope); }
 /* Player view's Claim/+ New buttons (Phase 14 S8): the base
    .action-btn-compact 9rem width (sized for "+ New images" elsewhere)
