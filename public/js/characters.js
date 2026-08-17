@@ -147,11 +147,28 @@ function buildAncestryFeatureCardSlot(statEntity, groupFilter) {
   return buildCardSlot(statEntity, { tier: groupFilter });
 }
 
-// Up to 2 ancestries, add/remove list (mirrors buildAbilitiesPicker's
-// UX), each with per-functional-ancestry First/Second feature-group
-// picks when resolution yields 2 functional ancestries -- whether that's
-// 2 directly-picked ancestries, or a single meta pick whose own
-// metaAncestryTargetIds has 2 entries (§11.2's "meta can be mixed").
+// Feature-group option label: the ancestry's own actual feature NAME
+// for that group (e.g. "Fungril Resilience"), not a generic "First"/
+// "Second" -- falls back to the generic label if the entity/feature
+// can't be resolved (deleted ancestry, blank feature name).
+function ancestryFeatureLabel(statEntity, groupKey) {
+  const fallback = groupKey === 'first' ? 'First' : 'Second';
+  if (!statEntity) return fallback;
+  const feat = (statEntity.features || []).find(function (f) { return f.group === groupKey; });
+  return (feat && feat.name) ? feat.name : fallback;
+}
+
+// Progressive-reveal ancestry picker (Phase 14 S8 redesign): a single
+// dropdown for the first ancestry; once set, an "Add ancestry" button
+// appears; clicking it reveals a second dropdown (options excluding
+// whatever's picked in the other slot) -- never a third slot. Replaces
+// the earlier always-visible add/remove list UI (S7-era), same
+// underlying cards.ancestryIds/[0,1] schema, no data-shape change.
+// Per-ancestry feature-group picks (First/Second) keep their existing
+// mutual-exclusion auto-flip logic (picking a group on one slot flips
+// the other to the opposite group) -- that logic already IS the
+// "auto-fill the other pick" behavior; this pass only changes the
+// option labels to the actual feature names via ancestryFeatureLabel.
 function buildAncestrySlotEditor(entity, cards, ancestryEntities) {
   const wrap = document.createElement('div');
   const label = document.createElement('label');
@@ -159,6 +176,8 @@ function buildAncestrySlotEditor(entity, cards, ancestryEntities) {
   wrap.appendChild(label);
 
   const flavorIds = normalizeAncestryIds(cards);
+  const firstId = flavorIds[0] || null;
+  const secondId = flavorIds[1] || null;
   const functionalIds = resolveFunctionalIds(flavorIds);
   const picks = cards.ancestryFeaturePicks || {};
 
@@ -166,70 +185,98 @@ function buildAncestrySlotEditor(entity, cards, ancestryEntities) {
     saveCardsPatch(entity, { ancestryIds: newFlavorIds, ancestryFeaturePicks: newPicks || {} });
   }
 
-  const list = document.createElement('ul');
-  list.className = 'related-edit-list';
-  flavorIds.forEach(function (id) {
-    const a = ancestryEntities.find(function (e) { return e.id === id; });
-    const li = document.createElement('li');
-    const span = document.createElement('span');
-    span.textContent = a ? a.name : '(deleted ancestry)';
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.textContent = 'Remove';
-    removeBtn.addEventListener('click', function () {
-      save(flavorIds.filter(function (x) { return x !== id; }), picks);
-    });
-    li.appendChild(span);
-    li.appendChild(removeBtn);
-    list.appendChild(li);
+  // Slot 1: always a single dropdown. Its own option list excludes
+  // whatever's picked in slot 2 (can't pick the same ancestry twice).
+  // Clearing it back to "-- none --" drops BOTH slots -- a second pick
+  // without a first doesn't mean anything in this schema.
+  const firstSelect = document.createElement('select');
+  const firstNoneOpt = document.createElement('option');
+  firstNoneOpt.value = '';
+  firstNoneOpt.textContent = '-- none --';
+  firstSelect.appendChild(firstNoneOpt);
+  ancestryEntities.forEach(function (e) {
+    if (e.id === secondId) return;
+    const opt = document.createElement('option');
+    opt.value = e.id;
+    opt.textContent = e.name;
+    firstSelect.appendChild(opt);
   });
-  wrap.appendChild(list);
+  firstSelect.value = firstId || '';
+  firstSelect.addEventListener('change', function () {
+    const newFirst = firstSelect.value || null;
+    state.charactersAncestryAddOpen = false;
+    if (!newFirst) { save([], {}); return; }
+    save(secondId ? [newFirst, secondId] : [newFirst], picks);
+  });
+  wrap.appendChild(firstSelect);
 
-  const addRow = document.createElement('div');
-  addRow.className = 'related-edit-add';
-  const select = document.createElement('select');
-  // Eligible = not already picked, and wouldn't push the resolved
-  // functional-ancestry count past 2 (e.g. can't add a second pick once
-  // a meta-mix ancestry already resolves to 2 targets on its own).
-  const available = ancestryEntities.filter(function (e) {
-    if (flavorIds.indexOf(e.id) !== -1) return false;
+  // Slot 2: "Add ancestry" button (exactly one picked, add-picker not
+  // yet open, and at least one candidate would keep the FUNCTIONAL
+  // ancestry count at or under 2 -- a meta ancestry can resolve one
+  // flavor pick to 2 functional ancestries on its own, in which case
+  // there's nothing eligible to add and the button doesn't appear at
+  // all) OR the second dropdown itself (add-picker open, or a second
+  // ancestry is already picked -- shown immediately on reopen, not just
+  // mid-pick).
+  const secondCandidates = ancestryEntities.filter(function (e) {
+    if (e.id === firstId) return false;
     const candidateFunctional = resolveFunctionalAncestryIds(e.id);
     const merged = functionalIds.concat(candidateFunctional.filter(function (fid) { return functionalIds.indexOf(fid) === -1; }));
     return merged.length <= 2;
   });
-  if (!available.length) {
-    const opt = document.createElement('option');
-    opt.textContent = flavorIds.length ? '(no eligible ancestries to add)' : '-- choose --';
-    opt.disabled = true;
-    select.appendChild(opt);
-  } else {
-    const placeholder = document.createElement('option');
-    placeholder.textContent = '-- choose --';
-    placeholder.value = '';
-    select.appendChild(placeholder);
-    available.forEach(function (e) {
+  if (firstId && !secondId && !state.charactersAncestryAddOpen && secondCandidates.length) {
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.textContent = 'Add ancestry';
+    addBtn.addEventListener('click', function () {
+      state.charactersAncestryAddOpen = true;
+      renderCharactersTab();
+    });
+    wrap.appendChild(addBtn);
+  } else if (firstId && (secondId || state.charactersAncestryAddOpen)) {
+    const secondRow = document.createElement('div');
+    secondRow.className = 'related-edit-add';
+    const secondSelect = document.createElement('select');
+    const secondNoneOpt = document.createElement('option');
+    secondNoneOpt.value = '';
+    secondNoneOpt.textContent = '-- choose --';
+    secondSelect.appendChild(secondNoneOpt);
+    secondCandidates.forEach(function (e) {
       const opt = document.createElement('option');
       opt.value = e.id;
       opt.textContent = e.name;
-      select.appendChild(opt);
+      secondSelect.appendChild(opt);
     });
+    secondSelect.value = secondId || '';
+    secondSelect.addEventListener('change', function () {
+      const newSecond = secondSelect.value || null;
+      state.charactersAncestryAddOpen = false;
+      if (!newSecond) {
+        if (secondId) save([firstId], {});
+        else renderCharactersTab();
+        return;
+      }
+      save([firstId, newSecond], picks);
+    });
+    secondRow.appendChild(secondSelect);
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.textContent = secondId ? 'Remove' : 'Cancel';
+    cancelBtn.addEventListener('click', function () {
+      state.charactersAncestryAddOpen = false;
+      if (secondId) save([firstId], {});
+      else renderCharactersTab();
+    });
+    secondRow.appendChild(cancelBtn);
+    wrap.appendChild(secondRow);
   }
-  const addBtn = document.createElement('button');
-  addBtn.type = 'button';
-  addBtn.textContent = 'Add';
-  addBtn.addEventListener('click', function () {
-    const id = select.value;
-    if (!id || flavorIds.length >= 2) return;
-    save(flavorIds.concat([id]), picks);
-  });
-  addRow.appendChild(select);
-  addRow.appendChild(addBtn);
-  wrap.appendChild(addRow);
 
   // Feature-group picks: only meaningful/shown when resolution yields
   // exactly 2 functional ancestries. Two selects, each constrained to
-  // differ from the other -- picking 'first' on one auto-flips the other
-  // to 'second' rather than exposing an invalid both-same state.
+  // differ from the other -- picking a group on one auto-flips the
+  // other to the opposite group rather than exposing an invalid
+  // both-same state (this IS the auto-fill: picking ancestry A's first
+  // feature auto-sets ancestry B to its second, and vice versa).
   if (functionalIds.length === 2) {
     const picksWrap = document.createElement('div');
     picksWrap.className = 'entity-edit-field';
@@ -249,7 +296,7 @@ function buildAncestrySlotEditor(entity, cards, ancestryEntities) {
       ['first', 'second'].forEach(function (g) {
         const opt = document.createElement('option');
         opt.value = g;
-        opt.textContent = g === 'first' ? 'First' : 'Second';
+        opt.textContent = ancestryFeatureLabel(fEnt, g);
         sel.appendChild(opt);
       });
       row.appendChild(sel);
