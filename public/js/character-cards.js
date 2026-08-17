@@ -107,8 +107,9 @@ export function resolveFunctionalIds(flavorIds) {
   return out.slice(0, 2);
 }
 
-export function saveCardsPatch(entity, patch) {
+export function saveCardsPatch(entity, patch, onWriteStart) {
   const cards = Object.assign({}, DEFAULT_CARDS, entity.cards || {}, patch);
+  if (onWriteStart) onWriteStart();
   trackWrite(
     updateDoc(doc(db, 'entities', entity.id), { cards: cards, updatedAt: serverTimestamp() }),
     'Saving character card'
@@ -198,7 +199,7 @@ function ancestryFeatureLabel(statEntity, groupKey) {
 // other (single-slot state), not a wipe of both -- clearing the sole
 // remaining slot from there drops to none. Same underlying
 // cards.ancestryIds/[0,1] schema throughout, no data-shape change.
-function buildAncestrySlotEditor(entity, cards, ancestryEntities) {
+function buildAncestrySlotEditor(entity, cards, ancestryEntities, onWriteStart) {
   const wrap = document.createElement('div');
   wrap.className = 'character-ancestry-field';
 
@@ -209,7 +210,7 @@ function buildAncestrySlotEditor(entity, cards, ancestryEntities) {
   const picks = cards.ancestryFeaturePicks || {};
 
   function save(newFlavorIds, newPicks) {
-    saveCardsPatch(entity, { ancestryIds: newFlavorIds, ancestryFeaturePicks: newPicks || {} });
+    saveCardsPatch(entity, { ancestryIds: newFlavorIds, ancestryFeaturePicks: newPicks || {} }, onWriteStart);
   }
 
   // Single row: "Ancestry" label, then the dropdown(s)/button inline --
@@ -569,7 +570,7 @@ const BADGE_COLORS = [
   '#8C8072', '#7C7A45', '#5A7690', '#8E6A4F', '#5C5A66', '#4F7A6E'
 ];
 
-export function buildBadgeColorPicker(entity) {
+export function buildBadgeColorPicker(entity, onWriteStart) {
   const wrap = document.createElement('div');
   wrap.className = 'entity-edit-field';
   const label = document.createElement('label');
@@ -579,6 +580,7 @@ export function buildBadgeColorPicker(entity) {
   row.className = 'character-badge-swatch-row';
 
   function save(color) {
+    if (onWriteStart) onWriteStart();
     trackWrite(
       updateDoc(doc(db, 'entities', entity.id), { badgeColor: color, updatedAt: serverTimestamp() }),
       'Saving badge color'
@@ -643,13 +645,23 @@ export function buildBadgeColorPicker(entity) {
 // throwaway property on the plain entity object avoids a third
 // parameter threaded through every nested builder for something that's
 // only needed by two buttons deep inside the ancestry editor.
-export function buildCharacterCardEditor(entity, ctx, rerender) {
+//
+// onWriteStart (optional, S9): called synchronously right before each
+// Firestore write this editor issues (ancestry/community/class/
+// subclass/tier/abilities/badge). codex.js passes a callback that bumps
+// state.detailEditPendingCardWrites -- these writes happen immediately,
+// independent of this entity's own Codex-tab edit-form Save/Cancel
+// flow, and were otherwise indistinguishable from someone ELSE editing
+// the same entity, tripping the "saved elsewhere" conflict banner on
+// every single card change made through this very form. characters.js
+// has no such banner and passes nothing.
+export function buildCharacterCardEditor(entity, ctx, rerender, onWriteStart) {
   const wrap = document.createElement('div');
   wrap.className = 'character-card-editor';
   entity.__rerenderCards = rerender;
 
   if (entity.ownerId) {
-    wrap.appendChild(buildBadgeColorPicker(entity));
+    wrap.appendChild(buildBadgeColorPicker(entity, onWriteStart));
   }
 
   const cards = Object.assign({}, DEFAULT_CARDS, entity.cards || {});
@@ -660,14 +672,14 @@ export function buildCharacterCardEditor(entity, ctx, rerender) {
   const subclasses = state.allEntities.filter(function (e) { return e.category === 'Game Mechanics' && e.subtype === 'subclasses' && visible(e); }).sort(byName);
   const abilities = state.allEntities.filter(function (e) { return e.category === 'Game Mechanics' && e.subtype === 'abilities' && visible(e); });
 
-  wrap.appendChild(buildAncestrySlotEditor(entity, cards, ancestries));
+  wrap.appendChild(buildAncestrySlotEditor(entity, cards, ancestries, onWriteStart));
 
   wrap.appendChild(buildSingleEntityPicker('Community', communities, cards.communityId,
-    function (v) { saveCardsPatch(entity, { communityId: v }); }));
+    function (v) { saveCardsPatch(entity, { communityId: v }, onWriteStart); }));
   wrap.appendChild(buildCardSlot(communities.find(function (e) { return e.id === cards.communityId; }), { skipNameChip: true }));
 
   wrap.appendChild(buildSingleEntityPicker('Class', classes, cards.classId,
-    function (v) { saveCardsPatch(entity, { classId: v }); }));
+    function (v) { saveCardsPatch(entity, { classId: v }, onWriteStart); }));
   wrap.appendChild(buildCardSlot(classes.find(function (e) { return e.id === cards.classId; }), { skipNameChip: true }));
 
   // Phase 14 S7 (§11.7): class.details.subclass_1/subclass_2 and
@@ -686,7 +698,7 @@ export function buildCharacterCardEditor(entity, ctx, rerender) {
       return s.name === d.subclass_1 || s.name === d.subclass_2;
     });
     wrap.appendChild(buildSingleEntityPicker('Subclass', subclassOptions, cards.subclassId,
-      function (v) { saveCardsPatch(entity, { subclassId: v }); }));
+      function (v) { saveCardsPatch(entity, { subclassId: v }, onWriteStart); }));
 
     const selectedSubclass = subclasses.find(function (e) { return e.id === cards.subclassId; });
     if (selectedSubclass) {
@@ -703,7 +715,7 @@ export function buildCharacterCardEditor(entity, ctx, rerender) {
         tierSelect.appendChild(opt);
       });
       tierSelect.value = cards.subclassTier || 'foundation';
-      tierSelect.addEventListener('change', function () { saveCardsPatch(entity, { subclassTier: tierSelect.value }); });
+      tierSelect.addEventListener('change', function () { saveCardsPatch(entity, { subclassTier: tierSelect.value }, onWriteStart); });
       tierWrap.appendChild(tierSelect);
       wrap.appendChild(tierWrap);
       wrap.appendChild(buildCardSlot(selectedSubclass, { tier: cards.subclassTier, skipNameChip: true }));
@@ -725,7 +737,7 @@ export function buildCharacterCardEditor(entity, ctx, rerender) {
     return abilityOptions.findIndex(function (b) { return b.id === a.id; }) === i;
   });
 
-  wrap.appendChild(buildAbilitiesPicker(cards, abilities, function (ids) { saveCardsPatch(entity, { abilityIds: ids }); }, abilityOptionsDeduped));
+  wrap.appendChild(buildAbilitiesPicker(cards, abilities, function (ids) { saveCardsPatch(entity, { abilityIds: ids }, onWriteStart); }, abilityOptionsDeduped));
   const abilityCardsWrap = document.createElement('div');
   cards.abilityIds.forEach(function (id) {
     const a = abilities.find(function (e) { return e.id === id; });
