@@ -499,8 +499,8 @@ function renderClaimPopup(ctx) {
       }
       const reqBtn = document.createElement('button');
       reqBtn.type = 'button';
-      reqBtn.className = 'action-btn-compact';
-      reqBtn.textContent = pendingReq ? 'Cancel request' : 'Request transfer';
+      reqBtn.className = 'action-btn-compact characters-claim-req-btn';
+      reqBtn.textContent = pendingReq ? 'Cancel' : 'Claim';
       reqBtn.addEventListener('click', function (ev) {
         ev.stopPropagation();
         if (pendingReq) {
