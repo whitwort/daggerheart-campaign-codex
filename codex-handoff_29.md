@@ -1,6 +1,6 @@
 # Codex handoff 29 — Character editing UI: unify, then un-unify, plus fixes
 
-**HEAD after this session: `b9aea94`.** CI green, deployed to dev. Verify HEAD matches on clone before doing anything.
+**HEAD after this session: `e88798a`.** CI green, deployed to dev. Verify HEAD matches on clone before doing anything.
 
 Starting point was handoff 28 (`1d87b07`, S8 testing/polish complete). This session did NOT touch Phase 15 (prod rollout) or the still-open handoff-27 test items — it was entirely about the Character-entity editing UI, triggered by Gregg finding the two-surface (Codex tab + Characters tab) design from S8/earlier confusing and buggy.
 
@@ -15,6 +15,8 @@ Starting point was handoff 28 (`1d87b07`, S8 testing/polish complete). This sess
    Also per a screenshot: removed the per-ability Domain/Level/Type description dump that cluttered the Abilities list (kept the single description card under Community/Class/Subclass — that one's still useful for verification, abilities' per-item dump wasn't).
 
 4. **Three small polish items** (`b9aea94`): Set active button now hides when the player has only one character (nothing to switch between — the existing default-active guard already auto-activates a sole character, unchanged); repositioned Set active into the bottom actions-row next to Claim/+ New (was its own row above the list) and narrowed it to auto-width (QOL-BACKLOG exception 17); fixed "Your Characters"/"Players & Characters" pane-title headings sitting lower than Codex's "Table of contents" — root cause was `.admin-card h3`'s margin-top being more specific than `.pane-title`'s own `margin:0`, fixed with an ID-scoped override.
+5. **Claim popup + hidden badge** (`1c379ca`): Claim popup rows no longer indent (was inheriting nesting-sized left padding meant for other contexts); its per-row button relabeled "Request transfer"/"Cancel request" → "Claim"/"Cancel" and narrowed to auto-width (exception 18). Separately: the Codex-tab list's "hidden" badge was gated on `ctx.gmView` only — a player had no way to tell their own owned Character was hidden from the rest of the party. Changed the gate to `hasFullAuthority(entity, ctx)`, which already means exactly "GM, or a player who controls this entity's visibility state" — same check the edit/kebab controls use, just not this badge until now.
+6. **Row-fit + default-selection fix** (`e88798a`): Claim/+ New buttons switched from a fixed `5.5rem` to auto-width (exception 14 updated) so all three buttons in that row (Set active, Claim, + New) fit on one line — the fixed width was sized before Set active joined that row and didn't leave enough space. Separately, default character selection on app load now prefers the player's ACTIVE character (`players/{email}.activeCharacterId`) over `own[0]` (alphabetically-first, unrelated to what they're actually playing) — new `state.charactersSelectedAutoPicked` tracks whether the current selection was an auto-pick (vs. a real click), since `activeCharacterId` arrives via its own listener that can lag a render behind this one right on app load; a real click clears the flag permanently for that session.
 
 ## Current architecture (character-cards.js)
 
@@ -29,7 +31,7 @@ Starting point was handoff 28 (`1d87b07`, S8 testing/polish complete). This sess
 - **`entity.ancestry` (legacy string field) is fully abandoned**, no editing UI anywhere. Existing Character entities that had it set will show stale data nowhere now (display was switched to read `cards.ancestryIds` instead) — Gregg said he'll hand-fix by re-picking ancestry through the editor for existing PCs. Not our job to backfill.
 - **No read-only character view exists anywhere right now** — cards are only visible while the Codex-tab edit form is open (GM or the owning player, since editing requires `hasFullAuthority`). This is intentional per Gregg's S10 ask, not an oversight, but flag it if it comes up as a complaint before the "character deck" feature lands.
 - The "character deck" feature Gregg mentioned is **not designed yet** — he said he'd describe it once everything else is in place. Both Characters-tab detail panes (`#characters-detail-pane`, `#characters-player-selected`) are sitting empty (just a name heading) waiting for it. Don't build anything there speculatively.
-- This session's Characters-tab and card-editor changes have NOT been manually tested by Gregg yet in a live GM+player session — worth a real walkthrough next time: ancestry 3-state picker (all transitions), tier ordering/cumulative text, ability-tier-popup grouping, Save vs. Cancel actually persisting/discarding cards changes, Set-active button hide/reposition, pane-title alignment.
+- This session's Characters-tab and card-editor changes have NOT been manually tested by Gregg yet in a live GM+player session — worth a real walkthrough next time: ancestry 3-state picker (all transitions), tier ordering/cumulative text, ability-tier-popup grouping, Save vs. Cancel actually persisting/discarding cards changes, Set-active button hide/reposition, pane-title alignment, Claim popup relabel/indent, hidden-badge on player-owned entries, one-row button fit, active-character default-select on load.
 
 ## Still-open from handoff 28 (untouched this session)
 
@@ -53,4 +55,4 @@ Every commit individually verification-gated (ESLint, `node --check` per file, C
 - Whenever Gregg's ready: the "character deck" feature design (his call, not started).
 - Otherwise, pick back up the handoff-27/28 untested-item list, or prod rollout go/no-go.
 
-Session ritual unchanged: fresh clone, verify HEAD `b9aea94`, git identity, read QOL-BACKLOG.md + this doc.
+Session ritual unchanged: fresh clone, verify HEAD `e88798a`, git identity, read QOL-BACKLOG.md + this doc.
