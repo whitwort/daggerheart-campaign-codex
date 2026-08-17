@@ -61,17 +61,32 @@ export const DEFAULT_CARDS = {
   subclassTier: 'foundation', abilityIds: []
 };
 
-// Single source of truth for tier keys/labels: the same featureGroups
-// the subclass template schema already defines (templates.js) -- falls
-// back to the same three if that schema is ever removed/renamed.
-export const TIER_OPTIONS = (function () {
-  const schema = getTemplateSchema('Game Mechanics', 'subclasses');
-  return (schema && schema.featureGroups) || [
-    { key: 'foundation', label: 'Foundation' },
-    { key: 'mastery', label: 'Mastery' },
-    { key: 'specialization', label: 'Specialization' }
-  ];
-})();
+// Tier progression order: Foundation (unlocked at character creation)
+// -> Specialization -> Mastery (highest). Hardcoded rather than derived
+// from the subclasses template schema's own featureGroups array order
+// (templates.js declares foundation/mastery/specialization, which is
+// NOT this game's actual unlock order) -- this ordering is fixed
+// Daggerheart domain knowledge the dropdown and the cumulative-tier
+// display below both depend on, not something that should silently
+// follow whatever order a schema happens to list its groups in.
+export const TIER_OPTIONS = [
+  { key: 'foundation', label: 'Foundation' },
+  { key: 'specialization', label: 'Specialization' },
+  { key: 'mastery', label: 'Mastery' }
+];
+
+// Current tier + every tier below it, in TIER_OPTIONS order -- e.g.
+// 'specialization' -> ['foundation', 'specialization']. A character at
+// a given tier has actually unlocked all lower tiers' features too, so
+// this is what the subclass card's description should show (S9), not
+// just the single selected tier in isolation. Unknown/unset tier key
+// falls back to itself alone (defensive; shouldn't happen since the
+// tier select only ever offers TIER_OPTIONS' own keys).
+function cumulativeTierKeys(tierKey) {
+  const idx = TIER_OPTIONS.findIndex(function (t) { return t.key === tierKey; });
+  if (idx === -1) return tierKey ? [tierKey] : [];
+  return TIER_OPTIONS.slice(0, idx + 1).map(function (t) { return t.key; });
+}
 
 // --- Mixed/meta ancestry resolution (Phase 14 S7, §11.1/§11.2) ---------
 // cards.ancestryIds: the FLAVOR ancestries the player actually picked (1
@@ -116,6 +131,11 @@ export function saveCardsPatch(entity, patch, onWriteStart) {
   ).catch(function (err) { window.alert('Save failed: ' + err.message); });
 }
 
+// tierFilter: a single featureGroups key (equality -- ancestry feature
+// picks, always exactly one of 'first'/'second'), or an array of keys
+// (membership -- subclass tier, S9: "current tier" now means current +
+// all lower tiers, so a subclass card shows everything actually
+// unlocked, not just the one tier in isolation).
 function slotStatMarkdown(entity, tierFilter) {
   if (!entity) return '';
   const schema = getTemplateSchema(entity.category, entity.subtype);
@@ -130,7 +150,9 @@ function slotStatMarkdown(entity, tierFilter) {
   }
   const feats = entity.features || [];
   const relevantFeats = (schema && schema.featureGroups && tierFilter)
-    ? feats.filter(function (f) { return f.group === tierFilter; })
+    ? feats.filter(function (f) {
+        return Array.isArray(tierFilter) ? tierFilter.indexOf(f.group) !== -1 : f.group === tierFilter;
+      })
     : feats;
   const featLines = relevantFeats.map(function (f) { return '**' + f.name + '.** ' + f.text; });
   const blocks = [];
@@ -718,7 +740,7 @@ export function buildCharacterCardEditor(entity, ctx, rerender, onWriteStart) {
       tierSelect.addEventListener('change', function () { saveCardsPatch(entity, { subclassTier: tierSelect.value }, onWriteStart); });
       tierWrap.appendChild(tierSelect);
       wrap.appendChild(tierWrap);
-      wrap.appendChild(buildCardSlot(selectedSubclass, { tier: cards.subclassTier, skipNameChip: true }));
+      wrap.appendChild(buildCardSlot(selectedSubclass, { tier: cumulativeTierKeys(cards.subclassTier), skipNameChip: true }));
     }
   }
 
@@ -772,7 +794,7 @@ export function buildCardSlotViewer(entity, onOpenInCodex) {
   wrap.appendChild(buildCardSlot(state.allEntities.find(function (e) { return e.id === cards.classId; }), { onOpenInCodex: onOpenInCodex }));
   wrap.appendChild(buildCardSlot(
     state.allEntities.find(function (e) { return e.id === cards.subclassId; }),
-    { tier: cards.subclassTier, onOpenInCodex: onOpenInCodex }
+    { tier: cumulativeTierKeys(cards.subclassTier), onOpenInCodex: onOpenInCodex }
   ));
   (cards.abilityIds || []).forEach(function (id) {
     const a = state.allEntities.find(function (e) { return e.id === id; });
