@@ -67,6 +67,7 @@ const charactersClaimBtnEl = document.getElementById('characters-claim-btn');
 const charactersCreateBtnEl = document.getElementById('characters-create-btn');
 const charactersClaimPopupEl = document.getElementById('characters-claim-popup');
 const charactersSetActiveBtnEl = document.getElementById('characters-set-active-btn');
+const charactersSetActiveHintEl = document.getElementById('characters-set-active-hint');
 const charactersPendingClaimsEl = document.getElementById('characters-pending-claims');
 
 // --- transferRequests: player-scoped listener (own requests only) --------
@@ -405,13 +406,17 @@ function renderCharactersPlayerView(ctx) {
     charactersSetActiveBtnEl.classList.toggle('picking', state.charactersPickingActive);
   }
 
-  charactersPlayerOwnListEl.innerHTML = '';
-  if (state.charactersPickingActive) {
-    const hint = document.createElement('p');
-    hint.className = 'admin-hint';
-    hint.textContent = 'Click a character to set them active.';
-    charactersPlayerOwnListEl.appendChild(hint);
+  if (charactersSetActiveHintEl) {
+    charactersSetActiveHintEl.innerHTML = '';
+    if (state.charactersPickingActive) {
+      const hint = document.createElement('p');
+      hint.className = 'admin-hint';
+      hint.textContent = 'Click a character to set them active.';
+      charactersSetActiveHintEl.appendChild(hint);
+    }
   }
+
+  charactersPlayerOwnListEl.innerHTML = '';
   if (!own.length) {
     const p = document.createElement('p');
     p.className = 'lore-empty';
