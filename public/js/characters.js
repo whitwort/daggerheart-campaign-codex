@@ -1025,6 +1025,14 @@ function renderCharactersPlayerView(ctx) {
     updateDoc(doc(db, 'players', ctx.email), { activeCharacterId: own[0].id }).catch(function () {});
   }
 
+  // Default-select guard: if the player owns at least one character but
+  // charactersSelectedId is unset/stale, auto-select the first character
+  // (same sorted order as the list) into the detail pane. Client-only
+  // state, no write -- just falls through to the render below.
+  if (own.length && !own.some(function (e) { return e.id === state.charactersSelectedId; })) {
+    state.charactersSelectedId = own[0].id;
+  }
+
   if (charactersSetActiveBtnEl) {
     charactersSetActiveBtnEl.textContent = state.charactersPickingActive ? 'Cancel' : 'Set active';
     charactersSetActiveBtnEl.classList.toggle('picking', state.charactersPickingActive);
