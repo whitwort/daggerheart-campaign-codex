@@ -20,7 +20,10 @@ height, with NO per-context exceptions, except:**
    tabs (`#admin-db-tabs button`).
 3. Inline text-link-style buttons — no border, no background, styled
    as a link: `.related-chip`, `.entity-map-link`,
-   `.map-breadcrumb-link`, `.collapse-toggle`.
+   `.map-breadcrumb-link`, `.collapse-toggle`, `.lore-item-show-toggle`/
+   `.lore-item-popout-icon-btn` (Phase 14 S8, the long-lore-item
+   show/hide + pop-out bar — replaces the earlier
+   `.lore-item-expand-row` two-button version).
 4. Small icon-only circular buttons — `.image-lightbox-close`,
    `.vis-kebab-btn` (Phase 14 S2, the GM 3-state visibility control's
    "..." menu; height matched to `.toggle-switch` at 1.4rem as of S8),

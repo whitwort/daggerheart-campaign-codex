@@ -181,32 +181,41 @@ function openLoreItemEdit(entity, item, isNote, entityAuthority) {
 // the viewer has some edit path on this item (entityAuthority OR
 // isNoteAuthor OR shared-element edit) -- caller passes hasChrome, which
 // already encodes exactly that.
-const LORE_ITEM_COLLAPSE_PX = 320;
+// Phase 14 S8: threshold doubled (was 320px/20rem, too aggressive per
+// Gregg) -- 640px/40rem lets roughly twice as many lines through before
+// collapsing.
+const LORE_ITEM_COLLAPSE_PX = 640;
 function attachLoreItemExpand(bodyDiv, itemDiv, entity, item, ctx, editable, isNote, entityAuthority) {
   if (bodyDiv.scrollHeight <= LORE_ITEM_COLLAPSE_PX) return;
   bodyDiv.classList.add('lore-item-body-collapsed');
 
-  const row = document.createElement('div');
-  row.className = 'lore-item-expand-row';
+  // Phase 14 S8 redesign: one thin full-width bar (was two separate
+  // 9rem buttons in a row) -- "Show..."/"Hide" fills most of the bar as
+  // its own click target, a small standard pop-out icon sits at the
+  // right edge for "open in window". Soft/low-profile on purpose (a
+  // subtle affordance under the fade, not another heavy action button).
+  const bar = document.createElement('div');
+  bar.className = 'lore-item-show-bar';
 
   const toggleBtn = document.createElement('button');
   toggleBtn.type = 'button';
-  toggleBtn.className = 'lore-item-btn';
-  toggleBtn.textContent = 'Show more';
+  toggleBtn.className = 'lore-item-show-toggle';
+  toggleBtn.textContent = 'Show\u2026';
   toggleBtn.addEventListener('click', function () {
     const collapsed = bodyDiv.classList.toggle('lore-item-body-collapsed');
-    toggleBtn.textContent = collapsed ? 'Show more' : 'Show less';
+    toggleBtn.textContent = collapsed ? 'Show\u2026' : 'Hide';
   });
-  row.appendChild(toggleBtn);
+  bar.appendChild(toggleBtn);
 
   const popBtn = document.createElement('button');
   popBtn.type = 'button';
-  popBtn.className = 'lore-item-btn';
-  popBtn.textContent = 'Open in window';
+  popBtn.className = 'lore-item-popout-icon-btn';
+  popBtn.title = 'Open in window';
+  popBtn.innerHTML = CONFIG.icons.popout;
   popBtn.addEventListener('click', function () { openLoreItemPopout(entity, item, ctx, editable, isNote, entityAuthority); });
-  row.appendChild(popBtn);
+  bar.appendChild(popBtn);
 
-  itemDiv.insertBefore(row, bodyDiv.nextSibling);
+  itemDiv.insertBefore(bar, bodyDiv.nextSibling);
 }
 
 function openLoreItemPopout(entity, item, ctx, editable, isNote, entityAuthority) {
