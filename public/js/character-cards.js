@@ -200,9 +200,7 @@ function ancestryFeatureLabel(statEntity, groupKey) {
 // cards.ancestryIds/[0,1] schema throughout, no data-shape change.
 function buildAncestrySlotEditor(entity, cards, ancestryEntities) {
   const wrap = document.createElement('div');
-  const label = document.createElement('label');
-  label.textContent = 'Ancestry';
-  wrap.appendChild(label);
+  wrap.className = 'character-ancestry-field';
 
   const flavorIds = normalizeAncestryIds(cards);
   const firstId = flavorIds[0] || null;
@@ -214,12 +212,25 @@ function buildAncestrySlotEditor(entity, cards, ancestryEntities) {
     saveCardsPatch(entity, { ancestryIds: newFlavorIds, ancestryFeaturePicks: newPicks || {} });
   }
 
+  // Single row: "Ancestry" label, then the dropdown(s)/button inline --
+  // three states only (S9 layout fix, per Gregg's exact spec):
+  //   1. no ancestry:      Ancestry   [-- none --]
+  //   2. one ancestry:     Ancestry   [SOMETHING]        [Add Ancestry]
+  //   3. two ancestries:   Ancestry   [SOMETHING]  [SOMETHING ELSE]
+  // No separate Remove/Cancel button in state 3 -- clearing EITHER
+  // dropdown back to "-- none --" is itself the way out (first
+  // clearing promotes the second into the sole slot -> state 2; second
+  // clearing just drops it -> state 2; clearing the sole slot in state
+  // 2 -> state 1). Both dropdowns share one flex row so they're the
+  // same size, not stacked on separate rows.
+  const row = document.createElement('div');
+  row.className = 'character-ancestry-row related-edit-add';
+  const label = document.createElement('label');
+  label.textContent = 'Ancestry';
+  row.appendChild(label);
+
   // Slot 1: always a single dropdown. Its own option list excludes
   // whatever's picked in slot 2 (can't pick the same ancestry twice).
-  // Clearing it back to "-- none --": if a second ancestry is set,
-  // that one is PROMOTED into slot 1 (state 3 -> state 2, per Gregg's
-  // rule 4) rather than wiping both; otherwise (nothing else set)
-  // clears to none (rule 5).
   const firstSelect = document.createElement('select');
   const firstNoneOpt = document.createElement('option');
   firstNoneOpt.value = '';
@@ -243,17 +254,16 @@ function buildAncestrySlotEditor(entity, cards, ancestryEntities) {
     }
     save(secondId ? [newFirst, secondId] : [newFirst], picks);
   });
-  wrap.appendChild(firstSelect);
+  row.appendChild(firstSelect);
 
-  // Slot 2: "Add ancestry" button (exactly one picked, add-picker not
-  // yet open, and at least one candidate would keep the FUNCTIONAL
-  // ancestry count at or under 2 -- a meta ancestry can resolve one
-  // flavor pick to 2 functional ancestries on its own, in which case
-  // there's nothing eligible to add and the button doesn't appear at
-  // all) OR the second dropdown itself (add-picker open, or a second
-  // ancestry is already picked -- shown immediately on reopen, not just
-  // mid-pick). Clearing slot 2 back to "-- none --" demotes to state 2
-  // (slot 1 stays as-is, per rule 4) rather than clearing anything else.
+  // Slot 2, same row: "Add ancestry" button (exactly one picked,
+  // add-picker not yet open, and at least one candidate would keep the
+  // FUNCTIONAL ancestry count at or under 2 -- a meta ancestry can
+  // resolve one flavor pick to 2 functional ancestries on its own, in
+  // which case there's nothing eligible to add and the button doesn't
+  // appear at all) OR the second dropdown itself (add-picker open, or
+  // a second ancestry is already picked -- shown immediately on
+  // reopen, not just mid-pick).
   const secondCandidates = ancestryEntities.filter(function (e) {
     if (e.id === firstId) return false;
     const candidateFunctional = resolveFunctionalAncestryIds(e.id);
@@ -263,19 +273,17 @@ function buildAncestrySlotEditor(entity, cards, ancestryEntities) {
   if (firstId && !secondId && !state.charactersAncestryAddOpen && secondCandidates.length) {
     const addBtn = document.createElement('button');
     addBtn.type = 'button';
-    addBtn.textContent = 'Add ancestry';
+    addBtn.textContent = 'Add Ancestry';
     addBtn.addEventListener('click', function () {
       state.charactersAncestryAddOpen = true;
       if (typeof entity.__rerenderCards === 'function') entity.__rerenderCards();
     });
-    wrap.appendChild(addBtn);
+    row.appendChild(addBtn);
   } else if (firstId && (secondId || state.charactersAncestryAddOpen)) {
-    const secondRow = document.createElement('div');
-    secondRow.className = 'related-edit-add';
     const secondSelect = document.createElement('select');
     const secondNoneOpt = document.createElement('option');
     secondNoneOpt.value = '';
-    secondNoneOpt.textContent = '-- choose --';
+    secondNoneOpt.textContent = '-- none --';
     secondSelect.appendChild(secondNoneOpt);
     secondCandidates.forEach(function (e) {
       const opt = document.createElement('option');
@@ -294,18 +302,9 @@ function buildAncestrySlotEditor(entity, cards, ancestryEntities) {
       }
       save([firstId, newSecond], picks);
     });
-    secondRow.appendChild(secondSelect);
-    const cancelBtn = document.createElement('button');
-    cancelBtn.type = 'button';
-    cancelBtn.textContent = secondId ? 'Remove' : 'Cancel';
-    cancelBtn.addEventListener('click', function () {
-      state.charactersAncestryAddOpen = false;
-      if (secondId) save([firstId], {});
-      else if (typeof entity.__rerenderCards === 'function') entity.__rerenderCards();
-    });
-    secondRow.appendChild(cancelBtn);
-    wrap.appendChild(secondRow);
+    row.appendChild(secondSelect);
   }
+  wrap.appendChild(row);
 
   // ANCESTRY FEATURES section (S9 restructure): heading, then per
   // functional ancestry, its label+dropdown immediately followed by
