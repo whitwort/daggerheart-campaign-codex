@@ -97,15 +97,18 @@ function buildVisibilityControl(opts) {
   const wrap = document.createElement('span');
   wrap.className = 'vis-control';
 
-  // Badge dot (Phase 14 S8): shown only in the "Specific character"
-  // state (character-targeted, toggle off) -- the character's own
-  // badgeColor (or generated default), same visual language as
-  // .vis-kebab-char-dot in the popover list below. Appended before
-  // `label` so it sits to its left in this flex row.
-  const badgeDot = document.createElement('span');
-  badgeDot.className = 'vis-label-badge-dot';
-  badgeDot.hidden = true;
-  wrap.appendChild(badgeDot);
+  // Character badge (Phase 14 S8, upgraded from a bare dot to a named
+  // tag box): shown only in the "Specific character" state (character-
+  // targeted, toggle off) -- same tag-box look as .character-badge
+  // elsewhere (colored background, character's own badgeColor/
+  // generated default, white text), own class since .character-badge's
+  // margin-left is tuned for sitting right of .source-label, not as a
+  // flex child with its own gap here. Appended before `label` so it
+  // sits to its left in this flex row.
+  const charBadge = document.createElement('span');
+  charBadge.className = 'vis-label-char-badge';
+  charBadge.hidden = true;
+  wrap.appendChild(charBadge);
 
   const label = document.createElement('span');
   wrap.appendChild(label);
@@ -182,12 +185,11 @@ function buildVisibilityControl(opts) {
     radios.forEach(function (r) { r.input.checked = (r.value === (currentCharId || '')); });
   }
 
-  // Current target character's badgeColor (or generated default) --
-  // same fallback pattern as buildCharacterBadge/partyCharacterOptions.
-  function currentCharacterBadgeColor() {
+  // Current target character entity (for name + badgeColor) -- same
+  // fallback pattern as buildCharacterBadge/partyCharacterOptions.
+  function currentCharacterEntity() {
     if (!currentCharId) return null;
-    const char = state.allEntities.find(function (e) { return e.id === currentCharId; });
-    return char ? (char.badgeColor || generateDefaultBadgeColor(char.name)) : null;
+    return state.allEntities.find(function (e) { return e.id === currentCharId; }) || null;
   }
 
   function refresh() {
@@ -204,10 +206,12 @@ function buildVisibilityControl(opts) {
     label.className = 'toggle-switch-label ' + cls;
     label.textContent = text;
     if (characterMode && !visible) {
-      badgeDot.style.background = currentCharacterBadgeColor() || 'var(--badge-default)';
-      badgeDot.hidden = false;
+      const char = currentCharacterEntity();
+      charBadge.textContent = (char && char.name) || 'Unknown';
+      charBadge.style.setProperty('--badge-color', (char && char.badgeColor) || generateDefaultBadgeColor(char && char.name));
+      charBadge.hidden = false;
     } else {
-      badgeDot.hidden = true;
+      charBadge.hidden = true;
     }
     switchLabel.className = 'toggle-switch' + (characterMode ? ' mode-character' : '');
     switchInput.checked = visible;
