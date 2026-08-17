@@ -19,6 +19,12 @@
   --seafoam:        #4EA88E;
   --seafoam-glow:   rgba(78,168,142,0.45);
 
+  /* Phase 14 S8: default badgeColor swatch/dot color when a Character
+     has none set -- light grey, deliberately NOT seafoam (the old
+     fallback made every un-set badge look like a deliberate color
+     choice rather than "none picked yet"). */
+  --badge-default:  #B7B2A6;
+
   --notice:         #B5543C;
   --notice-glow:    rgba(181,84,60,0.5);
 
@@ -878,7 +884,7 @@ select {
    long character name never squeezes it. */
 .vis-kebab-char-dot {
   width: 0.55rem; height: 0.55rem; border-radius: 50%; flex-shrink: 0;
-  background: var(--badge-color, var(--seafoam));
+  background: var(--badge-color, var(--badge-default));
 }
 .vis-kebab-player-name { font-size: 0.72rem; color: var(--ink-soft); }
 
@@ -1602,7 +1608,8 @@ button:disabled:hover { border-color: var(--void-line); }
    a PLAYER chose to share it -- a characterShared element or a cannon
    note -- never a GM-set state. Color comes from the character's own
    badgeColor (S5's owner-picked swatch; --badge-color falls back to
-   --seafoam until then, set inline per-badge via buildCharacterBadge).
+   --badge-default (light grey, S8) until one is set, via
+   buildCharacterBadge).
    Sits inline with .source-label (right of it, or alone when the item
    has no source), so it's sized/spaced like that row's other small
    attribution text rather than like .meta-tag's heavier toggle-state
@@ -1612,7 +1619,7 @@ button:disabled:hover { border-color: var(--void-line); }
   font-size: 0.7rem;
   font-weight: 600;
   color: #fff;
-  background: var(--badge-color, var(--seafoam));
+  background: var(--badge-color, var(--badge-default));
   border-radius: 3px;
   padding: 0.1rem 0.45rem;
   margin-left: 0.5rem;
@@ -1656,6 +1663,14 @@ button:disabled:hover { border-color: var(--void-line); }
 .characters-assign-picker { margin: 0.2rem 0 0.6rem; }
 .characters-assign-picker li.lore-empty { cursor: default; }
 .characters-assign-picker li.lore-empty:hover { background: none; }
+/* Character-list badge dot (S8): same size/shape as the Codex tab's own
+   .entity-group-dot, but per-CHARACTER (badgeColor) rather than per-
+   category. Grouped with .entity-name in a flex sub-container so the
+   dot+name sit together on the left of the row, with .entity-right-col
+   still pinned right via the row's own justify-content:space-between. */
+.characters-name-group { display: flex; align-items: center; gap: 0.4rem; min-width: 0; flex: 1 1 auto; }
+.characters-name-group .entity-name { min-width: 0; }
+.character-badge-dot { width: 0.5625rem; height: 0.5625rem; border-radius: 50%; flex-shrink: 0; }
 .characters-claim-popup {
   margin-top: 0.75rem; padding: 0.75rem; border-radius: 8px;
   background: var(--void); border: 1px solid var(--void-line);
@@ -1709,12 +1724,34 @@ button:disabled:hover { border-color: var(--void-line); }
    base `button` rule's width:13rem otherwise wins via cascade fallthrough
    regardless of this class existing (documented gotcha, same one the
    button-width-consistency pass already caught once). */
-.character-badge-swatch-row { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.3rem; }
+.character-badge-swatch-row { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.3rem; align-items: center; }
 .character-badge-swatch {
   width: 1.6rem; min-width: 1.6rem; height: 1.6rem; padding: 0; border-radius: 50%;
   border: 2px solid transparent; box-shadow: none; cursor: pointer;
 }
 .character-badge-swatch.selected { border-color: var(--parchment); }
+/* "Default" swatch (S8): explicit reset to badgeColor:null, shown as
+   the same light-grey --badge-default every unset badge/dot already
+   falls back to elsewhere. */
+.character-badge-swatch-default { background: var(--badge-default); }
+/* Custom color swatch (S8): a <label> wrapping a native
+   <input type="color">, styled to LOOK like the other circular swatch
+   buttons rather than the browser's default rectangular color-picker
+   control. WebKit-specific pseudo-elements are required here (not just
+   nice-to-have) since iPad Safari is Gregg's primary dev/test surface
+   (project convention) -- ::-webkit-color-swatch-wrapper/-swatch strip
+   the native padding/border that would otherwise break the circular
+   shape on iOS. */
+.character-badge-swatch-custom {
+  width: 1.6rem; height: 1.6rem; border-radius: 50%; border: 2px solid transparent;
+  padding: 0; cursor: pointer; overflow: hidden; display: inline-block;
+  background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
+}
+.character-badge-swatch-custom.selected { border-color: var(--parchment); }
+.character-badge-swatch-custom input[type="color"] {
+  width: 100%; height: 100%; padding: 0; border: none; cursor: pointer;
+  opacity: 0; /* the conic-gradient wrapper IS the visible swatch; the input just captures the tap and opens the OS picker */
+}
 
 /* --- Phase 14 S6: Messages tray + Campaign digest ------------------------
    Docked bottom-RIGHT (mockup approved this session): the collapsed strip
