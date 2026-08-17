@@ -599,10 +599,14 @@ function buildAdHocCardButton(entity) {
 }
 
 // Owner-picked badge color (D3/S4's badge mechanism gains its picker
-// here -- every badge rendered seafoam-fallback until this session).
-// Palette is the app's own existing --cat-* category accent family
-// (styles.css) -- already a curated, visually distinct 12-hue set that
-// matches the established aesthetic, not a new ad-hoc palette.
+// here -- every badge rendered light-grey (--badge-default) until this
+// session). Palette is the app's own existing --cat-* category accent
+// family (styles.css) -- already a curated, visually distinct 12-hue
+// set that matches the established aesthetic, not a new ad-hoc palette.
+// S8 adds an explicit "Default" swatch (badgeColor -> null, the same
+// light-grey fallback every other display already uses when unset) and
+// a custom RGB/hex picker (native <input type="color">) for anything
+// outside the curated 12.
 const BADGE_COLORS = [
   '#6E8E7A', '#B0785A', '#C2A24D', '#7A6C9E', '#9A5F6B', '#5E8296',
   '#8C8072', '#7C7A45', '#5A7690', '#8E6A4F', '#5C5A66', '#4F7A6E'
@@ -616,6 +620,22 @@ function buildBadgeColorPicker(entity) {
   wrap.appendChild(label);
   const row = document.createElement('div');
   row.className = 'character-badge-swatch-row';
+
+  function save(color) {
+    trackWrite(
+      updateDoc(doc(db, 'entities', entity.id), { badgeColor: color, updatedAt: serverTimestamp() }),
+      'Saving badge color'
+    ).catch(function (err) { window.alert('Save failed: ' + err.message); });
+  }
+
+  const defaultBtn = document.createElement('button');
+  defaultBtn.type = 'button';
+  defaultBtn.className = 'character-badge-swatch character-badge-swatch-default';
+  if (!entity.badgeColor) defaultBtn.classList.add('selected');
+  defaultBtn.title = 'Default (none set)';
+  defaultBtn.addEventListener('click', function () { save(null); });
+  row.appendChild(defaultBtn);
+
   BADGE_COLORS.forEach(function (color) {
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -623,14 +643,27 @@ function buildBadgeColorPicker(entity) {
     if ((entity.badgeColor || '') === color) btn.classList.add('selected');
     btn.style.background = color;
     btn.title = color;
-    btn.addEventListener('click', function () {
-      trackWrite(
-        updateDoc(doc(db, 'entities', entity.id), { badgeColor: color, updatedAt: serverTimestamp() }),
-        'Saving badge color'
-      ).catch(function (err) { window.alert('Save failed: ' + err.message); });
-    });
+    btn.addEventListener('click', function () { save(color); });
     row.appendChild(btn);
   });
+
+  // Custom color: badgeColor is already stored as a hex string
+  // everywhere (the 12 presets above are hex literals), so the native
+  // color input's value format is a direct match -- no conversion
+  // needed either direction. 'change' (fires once the picker closes),
+  // not 'input' (fires continuously while dragging), to avoid a write
+  // per pixel of drag.
+  const isCustom = !!entity.badgeColor && BADGE_COLORS.indexOf(entity.badgeColor) === -1;
+  const customLabel = document.createElement('label');
+  customLabel.className = 'character-badge-swatch character-badge-swatch-custom' + (isCustom ? ' selected' : '');
+  customLabel.title = 'Custom color';
+  const customInput = document.createElement('input');
+  customInput.type = 'color';
+  customInput.value = isCustom ? entity.badgeColor : '#B7B2A6';
+  customInput.addEventListener('change', function () { save(customInput.value); });
+  customLabel.appendChild(customInput);
+  row.appendChild(customLabel);
+
   wrap.appendChild(row);
   return wrap;
 }
@@ -715,15 +748,30 @@ function buildCardSlotViewer(entity) {
 // entity-row markup exactly (entity-name / entity-right-col) -- see
 // codex.js's buildEntityLi. Reused for every character row across GM/
 // player views and the Claim popup, per Gregg's explicit styling-parity
+// Small solid dot showing a character's badgeColor, same visual language
+// as the Codex tab's entity-group-dot (category-color cue). Defaults to
+// --badge-default (light grey) when unset, same fallback as
+// .character-badge/.vis-kebab-char-dot elsewhere.
+function buildBadgeDot(entity) {
+  const dot = document.createElement('span');
+  dot.className = 'character-badge-dot';
+  dot.style.background = entity.badgeColor || 'var(--badge-default)';
+  return dot;
+}
+
 // ask (S8): Codex category headers <-> Characters tab player headers,
 // Codex entity rows <-> Characters tab character rows.
 function buildCharacterLi(entity, rightColBuilder) {
   const li = document.createElement('li');
   if (entity.id === state.charactersSelectedId) li.classList.add('active');
+  const nameGroup = document.createElement('div');
+  nameGroup.className = 'characters-name-group';
+  nameGroup.appendChild(buildBadgeDot(entity));
   const nameDiv = document.createElement('div');
   nameDiv.className = 'entity-name';
   nameDiv.textContent = entity.name;
-  li.appendChild(nameDiv);
+  nameGroup.appendChild(nameDiv);
+  li.appendChild(nameGroup);
   const rightCol = document.createElement('div');
   rightCol.className = 'entity-right-col';
   rightColBuilder(rightCol);
@@ -815,10 +863,14 @@ function renderCharactersGmView(ctx) {
         } else {
           assignable.forEach(function (e) {
             const li = document.createElement('li');
+            const nameGroup = document.createElement('div');
+            nameGroup.className = 'characters-name-group';
+            nameGroup.appendChild(buildBadgeDot(e));
             const nameDiv = document.createElement('div');
             nameDiv.className = 'entity-name';
             nameDiv.textContent = e.name;
-            li.appendChild(nameDiv);
+            nameGroup.appendChild(nameDiv);
+            li.appendChild(nameGroup);
             li.addEventListener('click', function () {
               assignCharacterToPlayer(e.id, email);
               state.charactersAssignOpenPlayerEmail = null;
@@ -944,10 +996,14 @@ function renderClaimPopup(ctx) {
     ul.className = 'entity-group-list';
     available.forEach(function (e) {
       const li = document.createElement('li');
+      const nameGroup = document.createElement('div');
+      nameGroup.className = 'characters-name-group';
+      nameGroup.appendChild(buildBadgeDot(e));
       const nameDiv = document.createElement('div');
       nameDiv.className = 'entity-name';
       nameDiv.textContent = e.name;
-      li.appendChild(nameDiv);
+      nameGroup.appendChild(nameDiv);
+      li.appendChild(nameGroup);
       const rightCol = document.createElement('div');
       rightCol.className = 'entity-right-col';
       const pendingReq = state.myTransferRequests.find(function (r) { return r.characterId === e.id; });
