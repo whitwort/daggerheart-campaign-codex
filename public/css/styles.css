@@ -1661,6 +1661,12 @@ button:disabled:hover { border-color: var(--void-line); }
   background: var(--void); border: 1px solid var(--void-line);
 }
 .characters-claim-popup h4 { margin: 0 0 0.5rem; font-size: 0.85rem; color: var(--ink-soft); }
+/* Player view's Claim/+ New buttons (Phase 14 S8): the base
+   .action-btn-compact 9rem width (sized for "+ New images" elsewhere)
+   makes two buttons wrap to their own line inside the 300px list-pane.
+   Labels are short ("Claim"/"+ New") -- narrower fixed width, both
+   matching, lets them sit side by side on one row instead. */
+#characters-list-pane .actions-row-right .action-btn-compact { width: 5.5rem; min-width: 5.5rem; }
 /* GM view's "Players & Characters" list: no per-row dot (Codex's dot is
    a category-color cue that doesn't apply to players) -- the freed
    horizontal space goes to a deeper indent instead, so characters read
