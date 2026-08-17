@@ -76,6 +76,11 @@ height, with NO per-context exceptions, except:**
 15. Characters tab GM view's "+ New Entity" — `#characters-gm-new-btn`
     (Phase 14 S8). Single button, no sibling group to match, same as
     exception 9 — `width: auto; min-width: 0;`.
+16. Map tab legend rows — `.map-pin-legend-row` (Phase 14 S8). Full-
+    width flat rows (not action buttons), one per entry-type category,
+    click-to-toggle that category's pins on/off. Same
+    `width: auto; min-width: 0; text-align: left` pattern as
+    `.timeline-row`/`.related-chip`.
 
 Base width lowered from 13rem to 12rem as of the "+ New party member"
 → "+ New member" rename (that label no longer defines the floor).
