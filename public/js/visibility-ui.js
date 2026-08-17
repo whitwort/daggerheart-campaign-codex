@@ -340,7 +340,7 @@ function buildCharacterBadge(characterId) {
   badge.className = 'character-badge';
   badge.textContent = (character && character.name) || 'Unknown';
   badge.title = 'What your character would share with the party in casual conversation.';
-  badge.style.setProperty('--badge-color', (character && character.badgeColor) || 'var(--seafoam)');
+  badge.style.setProperty('--badge-color', (character && character.badgeColor) || 'var(--badge-default)');
   return badge;
 }
 
