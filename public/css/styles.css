@@ -948,6 +948,12 @@ select {
   padding: 0.4rem 0.6rem; background: var(--parchment-edge); border-radius: 6px; margin-bottom: 0.35rem; font-size: 0.85rem;
 }
 .related-edit-add { display: flex; gap: 0.4rem; margin-top: 0.4rem; align-items: center; }
+/* Suggest Related popup (Phase 14 S8): checkbox + name per suggestion,
+   reusing .related-edit-list's own li chip styling as the row
+   background -- the label just needs to lay its checkbox/text out
+   inline and make the whole row (not just the tiny checkbox hit area)
+   clickable/toggleable. */
+.related-suggest-row { display: flex; align-items: center; gap: 0.5rem; width: 100%; cursor: pointer; }
 .related-edit-add select { flex: 1; margin-top: 0; }
 
 .image-edit-status { font-size: 0.8rem; color: var(--ink-soft); margin: 0.4rem 0 0; display: block; }
