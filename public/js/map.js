@@ -14,6 +14,7 @@ import { attachListener, detachListener, safeSnapshotHandler } from './listeners
 import { trackWrite } from './connectivity.js';
 import { renderSourceLabel } from './sources.js';
 import { canSee, viewerContext } from './visibility.js';
+import { createEntityImagesCache } from './entity-images-cache.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -258,6 +259,15 @@ if (window.document && document.fonts && document.fonts.ready) {
   document.fonts.ready.then(fitMapTabLayoutIfActive);
 }
 
+// Phase 14 S8 bugfix: independent per-entity images cache for this
+// card pane specifically (see entity-images-cache.js header comment) --
+// retargeted every render to whichever entity is currently shown here,
+// so its portrait/gallery images are available on first view rather
+// than only after the same entity has been opened on the Codex tab.
+// onChange re-renders this pane, same as codex.js's own
+// renderDetailForSelected does when ITS images listener resolves.
+const mapCardImagesCache = createEntityImagesCache(function () { renderMapCardPane(); });
+
 function renderMapCardPane() {
   const ctx = viewerContext();
   mapCardPaneEl.innerHTML = '';
@@ -278,12 +288,14 @@ function renderMapCardPane() {
     if (mapEntity && canSee(mapEntity, ctx)) entity = mapEntity;
   }
   if (!entity) {
+    mapCardImagesCache.setTarget(null);
     const emptyP = document.createElement('p');
     emptyP.className = 'lore-empty map-card-empty';
     emptyP.textContent = 'No map selected.';
     mapCardPaneEl.appendChild(emptyP);
     return;
   }
+  mapCardImagesCache.setTarget(entity.id);
 
   const card = document.createElement('div');
   card.className = 'codex-entity-card';
@@ -318,6 +330,7 @@ function renderMapCardPane() {
   renderEntityViewCard(card, entity, ctx, {
     allowEdit: false,
     hideSubTabs: true,
+    images: mapCardImagesCache.getImages(),
     onRelatedClick: function (id) { openEntityInMapCard(id); },
     headingRightExtra: headingRightExtra,
     topLeftExtra: topLeftExtra,
@@ -1057,6 +1070,7 @@ function teardownMapRuntime() {
     state.mapImageUnsub();
     state.mapImageUnsub = null;
   }
+  mapCardImagesCache.destroy();
   state.currentMapImageDims = null;
   state.loadedMapId = null;
   state.loadedMapGmView = null;
