@@ -816,6 +816,54 @@ function entityMapIconVisible(entity, ctx) {
   return entity.category === 'Location' && !!entity.hasMapImage && (ctx.gmView || !!entity.mapImageVisibleToPlayers);
 }
 
+// Ancestor-chain depth (number of parentId hops to the root) -- used
+// only to pick the "highest level" map when an entity has pins on more
+// than one map (see resolveMapIconTarget below). Smaller depth = closer
+// to the root of the Location tree = higher level (e.g. a world map
+// beats a room-level local map). Lightweight local walk, same
+// parentId-chain idea as map.js's buildBreadcrumbChain, duplicated
+// rather than shared since that function lives in map.js (which
+// imports FROM codex.js, not the other way around) and returns the
+// full chain array where only its length is needed here.
+function mapEntityAncestorDepth(entity) {
+  let depth = 0;
+  let cur = entity;
+  const seen = {};
+  while (cur && cur.parentId && !seen[cur.id]) {
+    seen[cur.id] = true;
+    cur = state.allEntities.find(function (e) { return e.id === cur.parentId; });
+    depth++;
+  }
+  return depth;
+}
+
+// Standardized entry-card map-icon target (S14): wherever an entry
+// card is shown (Codex, Map, Timeline), the map icon now covers three
+// cases rather than only the first:
+//  (a) the entity itself is a Location with a (player-visible unless
+//      GM) map image -- link to its own map, same as before.
+//  (b) the entity isn't a map itself, but is linked to a pin on
+//      someone else's map -- link to that pin's map instead.
+//  (c) the entity has pins on more than one map -- pick the pin whose
+//      map sits highest in the Location parentId tree (smallest
+//      ancestor depth), not just whichever pin was created first.
+// Returns the entity id to pass to mapNavigationHandler, or null if no
+// map icon should show at all (neither case applies, or the only
+// candidate map(s) aren't player-visible to this viewer).
+function resolveMapIconTarget(entity, ctx) {
+  if (entityMapIconVisible(entity, ctx)) return entity.id;
+  const pins = state.allPins.filter(function (p) { return p.entityId === entity.id; });
+  if (!pins.length) return null;
+  let best = null, bestDepth = Infinity;
+  pins.forEach(function (pin) {
+    const mapEntity = state.allEntities.find(function (e) { return e.id === pin.mapEntityId; });
+    if (!mapEntity || !entityMapIconVisible(mapEntity, ctx)) return;
+    const depth = mapEntityAncestorDepth(mapEntity);
+    if (depth < bestDepth) { bestDepth = depth; best = mapEntity.id; }
+  });
+  return best;
+}
+
 // --- List pane (Table of Contents) ---------------------------------------
 
 // Shared by the main Entry Browser search box and the map pin panel's
@@ -4200,14 +4248,15 @@ function renderEntityViewCard(container, entity, ctx, opts) {
     codexLink.addEventListener('click', function () { opts.onOpenInCodex(); });
     rightCol.appendChild(codexLink);
   }
-  if (entityMapIconVisible(entity, ctx)) {
+  if (resolveMapIconTarget(entity, ctx)) {
     const mapLink = document.createElement('button');
     mapLink.type = 'button';
     mapLink.className = 'entity-map-link';
     mapLink.title = 'Open map';
     mapLink.innerHTML = CONFIG.icons.map;
     mapLink.addEventListener('click', function () {
-      if (mapNavigationHandler) mapNavigationHandler(entity.id);
+      const targetId = resolveMapIconTarget(entity, ctx);
+      if (mapNavigationHandler && targetId) mapNavigationHandler(targetId);
     });
     rightCol.appendChild(mapLink);
   }
