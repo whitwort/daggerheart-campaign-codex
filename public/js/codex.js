@@ -1621,9 +1621,19 @@ CONFIG.categories.forEach(function (cat) {
   entityNewCategoryEl.appendChild(opt);
 });
 
-function openNewEntityDialog() {
+// preset (optional): { category, tags } -- Phase 14 S8, Characters tab's
+// "+ New Entity"/"+ Create Character" buttons pre-fill category (locked
+// to Character, since that's the only category either button ever
+// wants) and stash tags for saveNewEntity to write (the mini dialog has
+// no tags field of its own; the tags become visible once the post-save
+// edit form opens, same "already selected"/"already in tag list" as the
+// category preselect).
+let pendingNewEntityPreset = null;
+function openNewEntityDialog(preset) {
+  pendingNewEntityPreset = preset || null;
   entityNewNameEl.value = '';
-  entityNewCategoryEl.value = CONFIG.categories[0];
+  entityNewCategoryEl.value = (preset && preset.category) || CONFIG.categories[0];
+  entityNewCategoryEl.disabled = !!(preset && preset.category);
   entityNewErrorEl.style.display = 'none';
   entityNewErrorEl.textContent = '';
   entityNewOverlayEl.classList.add('open');
@@ -1632,6 +1642,8 @@ function openNewEntityDialog() {
 
 function closeNewEntityDialog() {
   entityNewOverlayEl.classList.remove('open');
+  entityNewCategoryEl.disabled = false;
+  pendingNewEntityPreset = null;
 }
 
 function showNewEntityError(message) {
@@ -1650,9 +1662,19 @@ function saveNewEntity() {
     showNewEntityError('Name is required.');
     return;
   }
+  const ctx = viewerContext();
   const cat = entityNewCategoryEl.value;
+  const presetTags = (pendingNewEntityPreset && pendingNewEntityPreset.tags) || [];
   entityNewSaveBtn.disabled = true;
   const newId = doc(collection(db, 'entities')).id;
+  // Player creation is rules-restricted to category=='Character' with
+  // ownerId==self set in the SAME write (firestore.rules) -- the
+  // Characters tab's player-facing "+ Create Character" button routes
+  // here via the preset path, so ownerId must be set now, not left for
+  // a later updateDoc (which the player-edit rule forbids touching
+  // anyway). GM-triggered creates (this dialog's normal path, and the
+  // Characters tab's GM "+ New Entity") leave ownerId unset -- the GM
+  // assigns ownership afterward via the Players & Characters panel.
   const entityData = {
     slug: slugify(name),
     name: name,
@@ -1665,7 +1687,7 @@ function saveNewEntity() {
     relatedIds: [],
     visibility: 'gm-only',
     hasMapImage: false,
-    tags: [],
+    tags: presetTags.slice(),
     sourceId: (sortedSources()[0] && sortedSources()[0].id) || null,
     useTemplate: false,
     details: {},
@@ -1674,6 +1696,9 @@ function saveNewEntity() {
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   };
+  if (cat === 'Character' && !ctx.gmView) {
+    entityData.ownerId = ctx.email;
+  }
   // Phase 13: don't gate closing this dialog / opening the new entity
   // on the write Promise resolving -- while offline that Promise stays
   // pending until reconnect (Firestore's own local-mutation snapshot
@@ -1693,12 +1718,23 @@ function saveNewEntity() {
   state.loreEdit = null;
   state.noteEdit = null;
   state.detailEditMode = true;
-  state.detailEditDraft = buildEntityDraft({ name: name, category: cat, ancestry: '', aliases: [], date: '', parentId: null, tags: [], relatedIds: [] });
+  state.detailEditDraft = buildEntityDraft({
+    name: name, category: cat, ancestry: '', aliases: [], date: '', parentId: null,
+    tags: presetTags, relatedIds: [], ownerId: entityData.ownerId || ''
+  });
   renderList();
   renderDetailForSelected();
+  // Always land on the Codex tab with the new entity selected -- a no-op
+  // when this dialog was already opened from Codex (the normal GM "+ New
+  // entry" path), but required when opened from the Characters tab's "+
+  // New Entity"/"+ Create Character" buttons (Phase 14 S8).
+  document.querySelectorAll('nav#tabs button').forEach(function (b) { b.classList.remove('active'); });
+  document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
+  document.getElementById('tab-btn-codex').classList.add('active');
+  document.getElementById('codex-panel').classList.add('active');
 }
 
-newEntityBtn.addEventListener('click', openNewEntityDialog);
+newEntityBtn.addEventListener('click', function () { openNewEntityDialog(); });
 entityNewCancelBtn.addEventListener('click', closeNewEntityDialog);
 entityNewSaveBtn.addEventListener('click', saveNewEntity);
 entityNewOverlayEl.addEventListener('click', function (e) {
@@ -3617,31 +3653,19 @@ function renderDetailForSelected() {
 
     leftCol.appendChild(makeEditField('Aliases (comma-separated)', draft.aliases, function (v) { draft.aliases = v; }));
 
-    // ownerId is NOT player-editable (§6.2/rules, same reasoning as
-    // category above) -- GM-only field, simply omitted for a non-GM
-    // editor rather than shown read-only (nothing useful for a player
-    // to see here about their own character).
+    // Phase 14 S8: Player <-> Character assignment moved to the
+    // Characters tab's "Players & Characters" panel (GM-only assign/
+    // unassign UI there) -- no longer editable from this card, GM or
+    // player. draft.ownerId still round-trips through buildEntityDraft/
+    // saveEntityEdit unchanged (whatever the entity already has), just
+    // nothing on this form writes to it anymore.
     if (ctx.gmView) {
-      const ownerWrap = document.createElement('div');
-      ownerWrap.className = 'entity-edit-field';
-      const ownerLabel = document.createElement('label');
-      ownerLabel.textContent = 'Owned by party member';
-      ownerWrap.appendChild(ownerLabel);
-      const ownerSelect = document.createElement('select');
-      const noneOpt = document.createElement('option');
-      noneOpt.value = '';
-      noneOpt.textContent = '-- unassigned --';
-      ownerSelect.appendChild(noneOpt);
-      (state.allPlayers || []).slice().sort(function (a, b) { return a.id.localeCompare(b.id); }).forEach(function (p) {
-        const opt = document.createElement('option');
-        opt.value = p.id;
-        opt.textContent = p.displayName ? (p.displayName + ' (' + p.id + ')') : p.id;
-        ownerSelect.appendChild(opt);
-      });
-      ownerSelect.value = draft.ownerId;
-      ownerSelect.addEventListener('change', function () { draft.ownerId = ownerSelect.value; });
-      ownerWrap.appendChild(ownerSelect);
-      leftCol.appendChild(ownerWrap);
+      const ownerHint = document.createElement('p');
+      ownerHint.className = 'admin-hint';
+      ownerHint.textContent = draft.ownerId
+        ? ('Owned by: ' + draft.ownerId + ' -- reassign on the Characters tab.')
+        : 'Unowned -- assign a party member on the Characters tab.';
+      leftCol.appendChild(ownerHint);
     }
   }
   if (draft.category === 'Ancestry') {
@@ -4067,5 +4091,6 @@ export {
   isEntityPlayerVisible, registerVisibilityChangeHandler, registerMapNavigationHandler,
   clearCodexSearchInput, buildEntityPreviewCard, categoryGroupLabel, entityMatchesQuery,
   renderEntityViewCard, applyWikiLinks, enterEntityEditMode, appendDateSegments,
-  fitCodexTabHeight, footerReserve, switchToCodexTabForEntity, notifyVisibilityChange
+  fitCodexTabHeight, footerReserve, switchToCodexTabForEntity, notifyVisibilityChange,
+  openNewEntityDialog
 };

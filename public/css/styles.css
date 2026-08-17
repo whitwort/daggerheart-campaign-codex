@@ -847,8 +847,12 @@ select {
    inline flex child, no positioning of its own). */
 .vis-control { display: inline-flex; align-items: center; gap: 0.3rem; }
 .vis-kebab-wrap { position: relative; display: inline-block; }
+/* Phase 14 S8 (global UI pass item 2): height matched to .toggle-switch
+   (1.4rem) -- previously 1.15rem, visibly shorter than the toggle it
+   sits beside. Kept circular (width == height) rather than just
+   growing height, so the "..." stays a dot, not an oval. */
 .vis-kebab-btn {
-  width: 1.15rem; min-width: 1.15rem; height: 1.15rem; border-radius: 50%;
+  width: 1.4rem; min-width: 1.4rem; height: 1.4rem; border-radius: 50%;
   border: 1px solid var(--ink-soft); background: transparent; color: var(--ink-soft);
   box-shadow: none; font-size: 0.85rem; line-height: 1; cursor: pointer; padding: 0;
   display: flex; align-items: center; justify-content: center;
@@ -1614,22 +1618,45 @@ button:disabled:hover { border-color: var(--void-line); }
   margin-left: 0.5rem;
 }
 
-/* Characters tab (Phase 14 S5). Deliberately NOT the viewport-height-fit
-   flex layout #codex-tab uses (no fitCodexTabHeight-style JS sizing) --
-   this content flows/scrolls with the page naturally, lower risk, and
-   nothing here needs a pinned-height map/canvas well. */
+/* Characters tab (Phase 14 S5, restyled S8). Deliberately NOT the
+   viewport-height-fit flex layout #codex-tab uses (no fitCodexTabHeight-
+   style JS sizing) -- this content flows/scrolls with the page
+   naturally, lower risk, and nothing here needs a pinned-height map/
+   canvas well. S8: both list and detail panes reuse .admin-card (Admin
+   tab's well styling, QOL item 1 -- previously bare/backgroundless). */
 .characters-layout { display: flex; align-items: flex-start; gap: 1rem; margin-top: 1rem; }
 .characters-list-pane {
-  flex: 0 0 300px; background: var(--void-raised); border: 1px solid var(--void-line);
-  border-radius: 14px; padding: 1.25rem; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-  max-height: 34rem; overflow-y: auto;
+  flex: 0 0 300px; max-height: 34rem; overflow-y: auto;
 }
 .characters-detail-pane { flex: 1; min-width: 0; }
+.characters-flipper-group-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.4rem;
+  margin: 0.9rem 0 0.3rem;
+}
+.characters-flipper-group-head:first-child { margin-top: 0; }
 .characters-flipper-group-label {
   font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
-  color: var(--ink-soft); margin: 0.9rem 0 0.3rem; font-family: var(--font-display), sans-serif;
+  color: var(--ink-soft); font-family: var(--font-display), sans-serif;
 }
-.characters-flipper-group-label:first-child { margin-top: 0; }
+/* .characters-add-btn / .characters-remove-btn: small icon-only circular
+   buttons, same exception family as .vis-kebab-btn (QOL-BACKLOG
+   exception 4) -- need their own width:auto/min-width:0 override since
+   the base `button` rule's fixed width:13rem otherwise wins via cascade
+   fallthrough (see QOL-BACKLOG's "Any new button" note). */
+.characters-add-btn, .characters-remove-btn {
+  width: 1.4rem; min-width: 1.4rem; height: 1.4rem; border-radius: 50%;
+  border: 1px solid var(--ink-soft); background: transparent; color: var(--ink-soft);
+  box-shadow: none; font-size: 0.9rem; line-height: 1; cursor: pointer; padding: 0;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.characters-add-btn:hover { background: var(--seafoam); color: #fff; border-color: var(--seafoam); }
+.characters-remove-btn:hover { background: var(--fear); color: #fff; border-color: var(--fear); }
+.characters-assign-row { margin: 0.3rem 0 0.9rem; }
+.characters-claim-popup {
+  margin-top: 0.75rem; padding: 0.75rem; border-radius: 8px;
+  background: var(--void); border: 1px solid var(--void-line);
+}
+.characters-claim-popup h4 { margin: 0 0 0.5rem; font-size: 0.85rem; color: var(--ink-soft); }
 .characters-flipper-item {
   display: block; width: 100%; min-width: 0; text-align: left;
   background: transparent; border: none; box-shadow: none;

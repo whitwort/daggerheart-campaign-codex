@@ -317,6 +317,14 @@ service cloud.firestore {
       // reassign/recategorize your own PC out from under the rules model).
       allow update: if isPlayer() && isValidEntity() && ownsCharacter(entityId)
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['ownerId', 'category']);
+      // Self-release: a player may drop their own Character's ownerId to
+      // null (and nothing else in the same write) -- the inverse of the
+      // lock above. Characters tab (Phase 14 S8) "remove from my
+      // characters" self-service, without deleting the entity or
+      // requiring a GM-side action first.
+      allow update: if isPlayer() && isValidEntity() && ownsCharacter(entityId)
+        && request.resource.data.ownerId == null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ownerId', 'updatedAt']);
       // characterShared-only flip on an element the GM shared with the
       // player's active character (§6.2) -- never visibility/characterId
       // themselves, those stay GM-controlled via the kebab (S2).
