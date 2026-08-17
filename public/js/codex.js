@@ -3636,35 +3636,52 @@ function appendDateSegments(container, raw) {
   });
 }
 
-// Shared "Also known as / Date / Owned by" meta line, used by both the
-// small map-pin/preview card and the full entity view card -- was
+// Shared "Also known as / Date" + "Owned by" meta lines, used by both
+// the small map-pin/preview card and the full entity view card -- was
 // duplicated inline in both places before; centralized here so the
 // date-formatting treatment (spacing + bold "a") only needs applying
-// once. Returns the built <div> (caller appends it), or null if there's
-// nothing to show.
+// once. "Owned by" renders as its OWN line below Also-known-as/Date
+// (not joined onto the same line with " · ") -- distinct enough
+// information (GM-only account/assignment context vs. narrative alias/
+// date) that it reads better on its own row. Returns a wrapping <div>
+// containing 1-2 line divs (caller appends it), or null if there's
+// nothing to show at all.
 function buildEntityMetaLine(entity, ctx) {
   const bits = [];
   if (entity.aliases && entity.aliases.length) bits.push({ kind: 'text', text: 'Also known as: ' + entity.aliases.join(', ') });
   if (entity.date) bits.push({ kind: 'date', label: 'Date: ', date: entity.date, dateEnd: entity.dateEnd || null });
-  if (entity.ownerId && ctx.gmView) bits.push({ kind: 'text', text: 'Owned by: ' + entity.ownerId });
-  if (!bits.length) return null;
+  const showOwner = entity.ownerId && ctx.gmView;
+  if (!bits.length && !showOwner) return null;
 
-  const metaDiv = document.createElement('div');
-  metaDiv.className = 'entity-meta-line';
-  bits.forEach(function (bit, i) {
-    if (i > 0) metaDiv.appendChild(document.createTextNode(' \u00b7 '));
-    if (bit.kind === 'date') {
-      metaDiv.appendChild(document.createTextNode(bit.label));
-      appendDateSegments(metaDiv, bit.date);
-      if (bit.dateEnd) {
-        metaDiv.appendChild(document.createTextNode(' \u2013 ')); // en dash, "to"
-        appendDateSegments(metaDiv, bit.dateEnd);
+  const wrap = document.createElement('div');
+
+  if (bits.length) {
+    const metaDiv = document.createElement('div');
+    metaDiv.className = 'entity-meta-line';
+    bits.forEach(function (bit, i) {
+      if (i > 0) metaDiv.appendChild(document.createTextNode(' \u00b7 '));
+      if (bit.kind === 'date') {
+        metaDiv.appendChild(document.createTextNode(bit.label));
+        appendDateSegments(metaDiv, bit.date);
+        if (bit.dateEnd) {
+          metaDiv.appendChild(document.createTextNode(' \u2013 ')); // en dash, "to"
+          appendDateSegments(metaDiv, bit.dateEnd);
+        }
+      } else {
+        metaDiv.appendChild(document.createTextNode(bit.text));
       }
-    } else {
-      metaDiv.appendChild(document.createTextNode(bit.text));
-    }
-  });
-  return metaDiv;
+    });
+    wrap.appendChild(metaDiv);
+  }
+
+  if (showOwner) {
+    const ownerDiv = document.createElement('div');
+    ownerDiv.className = 'entity-meta-line';
+    ownerDiv.textContent = 'Owned by: ' + entity.ownerId;
+    wrap.appendChild(ownerDiv);
+  }
+
+  return wrap;
 }
 
 function buildEntityPreviewCard(entity, ctx) {
