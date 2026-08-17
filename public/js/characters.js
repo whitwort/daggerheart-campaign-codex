@@ -772,8 +772,6 @@ function renderCharactersGmView(ctx) {
       const ownedList = (byPlayer[email] || []).slice().sort(byName);
       const header = document.createElement('div');
       header.className = 'entity-group-header';
-      const dotSpan = document.createElement('span');
-      dotSpan.className = 'entity-group-dot';
       const titleSpan = document.createElement('span');
       titleSpan.className = 'entity-group-title';
       titleSpan.textContent = player.displayName || email;
@@ -790,7 +788,6 @@ function renderCharactersGmView(ctx) {
         state.charactersAssignOpenPlayerEmail = (state.charactersAssignOpenPlayerEmail === email) ? null : email;
         renderCharactersTab();
       });
-      header.appendChild(dotSpan);
       header.appendChild(titleSpan);
       header.appendChild(countSpan);
       header.appendChild(addBtn);
