@@ -1680,6 +1680,11 @@ button:disabled:hover { border-color: var(--void-line); }
   background: var(--void); border: 1px solid var(--void-line);
 }
 .characters-claim-popup h4 { margin: 0 0 0.5rem; font-size: 0.85rem; color: var(--ink-soft); }
+/* Characters tab GM view's "+ New Entity" (Phase 14 S8): single button,
+   no sibling group to match widths with -- same shape as exception 9
+   (#sign-out-btn/#codex-new-btn) -- .action-btn-compact's fixed 9rem
+   was wrapping the label to two lines. */
+#characters-gm-new-btn { width: auto; min-width: 0; }
 /* Player view's Claim/+ New buttons (Phase 14 S8): the base
    .action-btn-compact 9rem width (sized for "+ New images" elsewhere)
    makes two buttons wrap to their own line inside the 300px list-pane.
