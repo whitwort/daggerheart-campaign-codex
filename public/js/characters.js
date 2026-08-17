@@ -171,6 +171,7 @@ function buildCharacterLi(entity, rightColBuilder, onClickOverride) {
   li.addEventListener('click', function () {
     if (onClickOverride) { onClickOverride(); return; }
     state.charactersSelectedId = entity.id;
+    state.charactersSelectedAutoPicked = false;
     renderCharactersTab();
   });
   return li;
@@ -364,11 +365,30 @@ function renderCharactersPlayerView(ctx) {
   }
 
   // Default-select guard: if the player owns at least one character but
-  // charactersSelectedId is unset/stale, auto-select the first character
-  // (same sorted order as the list) into the detail pane. Client-only
-  // state, no write -- just falls through to the render below.
-  if (own.length && !own.some(function (e) { return e.id === state.charactersSelectedId; })) {
-    state.charactersSelectedId = own[0].id;
+  // charactersSelectedId is unset/stale, auto-select their ACTIVE
+  // character (S13 -- was always own[0]/first-alphabetically, which on
+  // app load is usually just an artifact of name sort, not what the
+  // player is actually playing right now). Falls back to own[0] if
+  // activeCharacterId isn't valid/known yet. Client-only state, no
+  // write -- just falls through to the render below.
+  //
+  // activeCharacterId arrives via its own live listener (auth.js) that
+  // can genuinely lag one render behind this one, especially right on
+  // app load -- charactersSelectedAutoPicked tracks whether the CURRENT
+  // selection was this guard's own fallback pick (not a real click), so
+  // if activeCharacterId shows up valid on a later render, an interim
+  // own[0] pick still gets corrected to the real active character. Once
+  // the player actually clicks a character, buildCharacterLi clears the
+  // flag and this guard never touches the selection again.
+  if (own.length) {
+    const stillValid = own.some(function (e) { return e.id === state.charactersSelectedId; });
+    const activeIsValid = own.some(function (e) { return e.id === state.activeCharacterId; });
+    const shouldCorrectToActive = state.charactersSelectedAutoPicked && activeIsValid && state.charactersSelectedId !== state.activeCharacterId;
+    if (!stillValid || shouldCorrectToActive) {
+      const activeMatch = own.find(function (e) { return e.id === state.activeCharacterId; });
+      state.charactersSelectedId = (activeMatch || own[0]).id;
+      state.charactersSelectedAutoPicked = true;
+    }
   }
 
   // S11: with only one character, there's nothing to switch between --
