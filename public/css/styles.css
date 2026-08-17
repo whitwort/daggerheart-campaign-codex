@@ -1457,7 +1457,21 @@ button:disabled:hover { border-color: var(--void-line); }
    and those can change independently of this file. Recomputed on
    tab-open, data refresh, and window resize. */
 .timeline-layout { display: flex; align-items: stretch; gap: 1.25rem; min-height: 0; }
-.timeline-well-col { display: flex; flex-direction: column; flex: 1 1 45%; min-width: 0; height: 100%; }
+/* Well column is now the single bordered panel (Gregg's ask, S14) --
+   header instructions, the timeline well, and the List all/Fit all
+   buttons all live inside one #map-well-style box (background/border/
+   radius/shadow/padding) instead of the timeline well alone having its
+   own border floating loose above unboxed text/buttons. Mirrors
+   #map-well exactly (14px radius, 1rem padding, same shadow). The
+   timeline-well-inner canvas below keeps its own background (the
+   per-render fear/hope gradient) but no longer needs its own border --
+   same relationship as #map-well -> #map-container. */
+.timeline-well-col {
+  display: flex; flex-direction: column; flex: 1 1 45%; min-width: 0; height: 100%;
+  background: var(--void-raised); border: 1px solid var(--void-line);
+  border-radius: 14px; padding: 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  box-sizing: border-box;
+}
 .timeline-well-actions { display: flex; justify-content: flex-start; gap: 0.5rem; margin-top: 0.6rem; flex-shrink: 0; }
 /* Narrow, content-sized buttons (not the app-wide 12rem width) -- same
    exception pattern as portrait-picker/pin-panel buttons (QOL-BACKLOG
@@ -1475,8 +1489,8 @@ button:disabled:hover { border-color: var(--void-line); }
 .timeline-well-wrap { position: relative; flex: 1; min-width: 0; overscroll-behavior: contain; touch-action: none; }
 .timeline-well-inner {
   position: absolute; inset: 0; overflow: hidden;
-  border: 1px solid var(--void-line); border-radius: 14px;
-  background: var(--void-raised); /* replaced per-render by the fear/hope gradient */
+  border-radius: 8px;
+  background: var(--void); /* replaced per-render by the fear/hope gradient */
   touch-action: none;
   user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
