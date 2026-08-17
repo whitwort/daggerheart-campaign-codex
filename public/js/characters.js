@@ -805,47 +805,28 @@ function renderCharactersGmView(ctx) {
       charactersFlipperListEl.appendChild(ul);
 
       if (state.charactersAssignOpenPlayerEmail === email) {
-        const addRow = document.createElement('div');
-        addRow.className = 'related-edit-add characters-assign-row';
-        const select = document.createElement('select');
+        const assignList = document.createElement('ul');
+        assignList.className = 'entity-group-list characters-assign-picker';
         if (!assignable.length) {
-          const opt = document.createElement('option');
-          opt.textContent = '(no unassigned PC-tagged characters)';
-          opt.disabled = true;
-          select.appendChild(opt);
+          const li = document.createElement('li');
+          li.className = 'lore-empty';
+          li.textContent = '(no unassigned PC-tagged characters)';
+          assignList.appendChild(li);
         } else {
-          const placeholder = document.createElement('option');
-          placeholder.value = '';
-          placeholder.textContent = '-- choose --';
-          select.appendChild(placeholder);
           assignable.forEach(function (e) {
-            const opt = document.createElement('option');
-            opt.value = e.id;
-            opt.textContent = e.name;
-            select.appendChild(opt);
+            const li = document.createElement('li');
+            const nameDiv = document.createElement('div');
+            nameDiv.className = 'entity-name';
+            nameDiv.textContent = e.name;
+            li.appendChild(nameDiv);
+            li.addEventListener('click', function () {
+              assignCharacterToPlayer(e.id, email);
+              state.charactersAssignOpenPlayerEmail = null;
+            });
+            assignList.appendChild(li);
           });
         }
-        const assignBtn = document.createElement('button');
-        assignBtn.type = 'button';
-        assignBtn.className = 'action-btn-compact';
-        assignBtn.textContent = 'Assign';
-        assignBtn.addEventListener('click', function () {
-          if (!select.value) return;
-          assignCharacterToPlayer(select.value, email);
-          state.charactersAssignOpenPlayerEmail = null;
-        });
-        const cancelBtn = document.createElement('button');
-        cancelBtn.type = 'button';
-        cancelBtn.className = 'action-btn-compact';
-        cancelBtn.textContent = 'Cancel';
-        cancelBtn.addEventListener('click', function () {
-          state.charactersAssignOpenPlayerEmail = null;
-          renderCharactersTab();
-        });
-        addRow.appendChild(select);
-        addRow.appendChild(assignBtn);
-        addRow.appendChild(cancelBtn);
-        charactersFlipperListEl.appendChild(addRow);
+        charactersFlipperListEl.appendChild(assignList);
       }
     });
   }
