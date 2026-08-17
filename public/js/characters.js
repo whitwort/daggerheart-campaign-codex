@@ -79,6 +79,7 @@ const charactersPlayerSelectedEl = document.getElementById('characters-player-se
 const charactersClaimBtnEl = document.getElementById('characters-claim-btn');
 const charactersCreateBtnEl = document.getElementById('characters-create-btn');
 const charactersClaimPopupEl = document.getElementById('characters-claim-popup');
+const charactersSetActiveBtnEl = document.getElementById('characters-set-active-btn');
 
 // --- transferRequests: player-scoped listener (own requests only) --------
 function attachCharacterTransferListeners() {
@@ -763,10 +764,13 @@ function buildBadgeDot(entity) {
 }
 
 // ask (S8): Codex category headers <-> Characters tab player headers,
-// Codex entity rows <-> Characters tab character rows.
-function buildCharacterLi(entity, rightColBuilder) {
+// Codex entity rows <-> Characters tab character rows. onClickOverride,
+// when given, replaces the default "select for viewing" click behavior
+// -- used by the player view's "Set active" picking mode (S8).
+function buildCharacterLi(entity, rightColBuilder, onClickOverride) {
   const li = document.createElement('li');
   if (entity.id === state.charactersSelectedId) li.classList.add('active');
+  if (entity.id === state.activeCharacterId) li.classList.add('characters-active-pc');
   const nameGroup = document.createElement('div');
   nameGroup.className = 'characters-name-group';
   nameGroup.appendChild(buildBadgeDot(entity));
@@ -779,7 +783,11 @@ function buildCharacterLi(entity, rightColBuilder) {
   rightCol.className = 'entity-right-col';
   rightColBuilder(rightCol);
   if (rightCol.children.length) li.appendChild(rightCol);
-  li.addEventListener('click', function () { state.charactersSelectedId = entity.id; renderCharactersTab(); });
+  li.addEventListener('click', function () {
+    if (onClickOverride) { onClickOverride(); return; }
+    state.charactersSelectedId = entity.id;
+    renderCharactersTab();
+  });
   return li;
 }
 
@@ -907,7 +915,30 @@ function renderCharactersPlayerView(ctx) {
     .filter(function (e) { return e.category === 'Character' && e.ownerId === ctx.email; })
     .sort(byName);
 
+  // Default-active guard (S8): if the player owns at least one character
+  // but activeCharacterId is unset OR points at something they no longer
+  // own (stale after an unassign/reassign elsewhere), fall back to the
+  // first character in the same sorted order the list itself uses. Runs
+  // every render, but only ever WRITES when the condition is actually
+  // true -- the resulting player-doc update lands back here via the live
+  // listener with a now-valid activeCharacterId, so the condition goes
+  // false and this is self-limiting, not a render loop.
+  if (ctx.email && own.length && !own.some(function (e) { return e.id === state.activeCharacterId; })) {
+    updateDoc(doc(db, 'players', ctx.email), { activeCharacterId: own[0].id }).catch(function () {});
+  }
+
+  if (charactersSetActiveBtnEl) {
+    charactersSetActiveBtnEl.textContent = state.charactersPickingActive ? 'Cancel' : 'Set active';
+    charactersSetActiveBtnEl.classList.toggle('picking', state.charactersPickingActive);
+  }
+
   charactersPlayerOwnListEl.innerHTML = '';
+  if (state.charactersPickingActive) {
+    const hint = document.createElement('p');
+    hint.className = 'admin-hint';
+    hint.textContent = 'Click a character to set them active.';
+    charactersPlayerOwnListEl.appendChild(hint);
+  }
   if (!own.length) {
     const p = document.createElement('p');
     p.className = 'lore-empty';
@@ -917,28 +948,17 @@ function renderCharactersPlayerView(ctx) {
     const ul = document.createElement('ul');
     ul.className = 'entity-group-list';
     own.forEach(function (e) {
+      const onClickOverride = state.charactersPickingActive ? function () {
+        trackWrite(updateDoc(doc(db, 'players', ctx.email), { activeCharacterId: e.id }), 'Setting active character')
+          .catch(function (err) { window.alert('Save failed: ' + err.message); });
+        state.charactersPickingActive = false;
+        renderCharactersTab();
+      } : null;
       ul.appendChild(buildCharacterLi(e, function (rightCol) {
-        if (e.id === state.activeCharacterId) {
-          const activeLabel = document.createElement('span');
-          activeLabel.className = 'characters-active-label';
-          activeLabel.textContent = 'Active';
-          rightCol.appendChild(activeLabel);
-        } else {
-          const setActiveBtn = document.createElement('button');
-          setActiveBtn.type = 'button';
-          setActiveBtn.className = 'action-btn-compact';
-          setActiveBtn.textContent = 'Set active';
-          setActiveBtn.addEventListener('click', function (ev) {
-            ev.stopPropagation();
-            trackWrite(updateDoc(doc(db, 'players', ctx.email), { activeCharacterId: e.id }), 'Setting active character')
-              .catch(function (err) { window.alert('Save failed: ' + err.message); });
-          });
-          rightCol.appendChild(setActiveBtn);
-        }
         rightCol.appendChild(buildRemoveIconBtn('Remove from your characters', function () {
           unassignCharacterSelf(e);
         }));
-      }));
+      }, onClickOverride));
     });
     charactersPlayerOwnListEl.appendChild(ul);
   }
@@ -1088,6 +1108,12 @@ if (charactersCreateBtnEl) {
 if (charactersClaimBtnEl) {
   charactersClaimBtnEl.addEventListener('click', function () {
     state.charactersClaimPopupOpen = !state.charactersClaimPopupOpen;
+    renderCharactersTab();
+  });
+}
+if (charactersSetActiveBtnEl) {
+  charactersSetActiveBtnEl.addEventListener('click', function () {
+    state.charactersPickingActive = !state.charactersPickingActive;
     renderCharactersTab();
   });
 }

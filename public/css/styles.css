@@ -1675,6 +1675,14 @@ button:disabled:hover { border-color: var(--void-line); }
 .characters-name-group { display: flex; align-items: center; gap: 0.4rem; min-width: 0; flex: 1 1 auto; }
 .characters-name-group .entity-name { min-width: 0; }
 .character-badge-dot { width: 0.5625rem; height: 0.5625rem; border-radius: 50%; flex-shrink: 0; }
+/* Active-character outline (S8): the player's CURRENT activeCharacterId
+   (players/{email}.activeCharacterId -- the roleplay-active PC, a
+   different concept from li.active's "currently selected for viewing in
+   the detail pane" background). An inset box-shadow rather than border
+   so it doesn't shift row height/alignment against un-highlighted rows;
+   composes cleanly with li.active's hope-glow background if a row is
+   both selected AND the active character at once. */
+.entity-group-list li.characters-active-pc { box-shadow: inset 0 0 0 2px var(--hope); }
 .characters-claim-popup {
   margin-top: 0.75rem; padding: 0.75rem; border-radius: 8px;
   background: var(--void); border: 1px solid var(--void-line);
@@ -1685,6 +1693,12 @@ button:disabled:hover { border-color: var(--void-line); }
    (#sign-out-btn/#codex-new-btn) -- .action-btn-compact's fixed 9rem
    was wrapping the label to two lines. */
 #characters-gm-new-btn { width: auto; min-width: 0; }
+/* Player view's "Set active" button (Phase 14 S8): sits in the pane's
+   .pane-title-row alongside the "Your Characters" heading -- same
+   auto-width shape as exception 9, since a fixed 9rem plus the heading
+   text overflows the row. */
+#characters-set-active-btn { width: auto; min-width: 0; padding: 0.3rem 0.7rem; flex-shrink: 0; }
+#characters-set-active-btn.picking { border-color: var(--hope); color: var(--hope); }
 /* Player view's Claim/+ New buttons (Phase 14 S8): the base
    .action-btn-compact 9rem width (sized for "+ New images" elsewhere)
    makes two buttons wrap to their own line inside the 300px list-pane.
