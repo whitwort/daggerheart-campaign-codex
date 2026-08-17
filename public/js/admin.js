@@ -9,6 +9,7 @@ import { runSrdImport } from './srd-import.js';
 import { renderMarkdownInto } from './markdown.js';
 import { addSource, updateSource, deleteSource, reorderSources, sortedSources, registerSourcesChangeHandler } from './sources.js';
 import { renderCharactersTab } from './characters.js';
+import { approveTransferRequest, rejectTransferRequest } from './transfer-requests.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -190,6 +191,7 @@ const adminSourceErrorEl = document.getElementById('admin-source-error');
             state.allTransferRequests.push(Object.assign({ id: docSnap.id }, docSnap.data()));
           });
           renderAdminJoinRequests();
+          renderCharactersTab();  // Characters tab GM view duplicates the pending-claims notification (Phase 14 S8) -- needs its own re-render on every transferRequests change, not just Admin's queue
         }), function (err) {
           console.error('transferRequests listener failed:', err.message);
         });
@@ -263,17 +265,6 @@ const adminSourceErrorEl = document.getElementById('admin-source-error');
       });
     }
 
-    function approveTransferRequest(req) {
-      updateDoc(doc(db, 'entities', req.characterId), { ownerId: req.toEmail, updatedAt: serverTimestamp() })
-        .then(function () { return deleteDoc(doc(db, 'transferRequests', req.id)); })
-        .catch(function (err) { alert('Approve failed: ' + err.message); });
-    }
-
-    function rejectTransferRequest(req) {
-      deleteDoc(doc(db, 'transferRequests', req.id)).catch(function (err) {
-        alert('Reject failed: ' + err.message);
-      });
-    }
 
     function acceptJoinRequest(req) {
       setDoc(doc(db, 'players', req.email), {
