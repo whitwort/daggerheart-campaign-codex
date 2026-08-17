@@ -55,8 +55,9 @@ import { attachListener, detachListener, safeSnapshotHandler } from './listeners
 import { trackWrite } from './connectivity.js';
 import { viewerContext, canSee } from './visibility.js';
 import { buildCharacterBadge } from './visibility-ui.js';
-import { switchToCodexTabForEntity } from './codex.js';
+import { switchToCodexTabForEntity, applyWikiLinks } from './codex.js';
 import { generateDefaultBadgeColor } from './badge-color.js';
+import { renderMarkdownInto } from './markdown.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -506,6 +507,7 @@ function renderMessagesTray() {
   }
   trayEl.style.display = 'block';
   trayEl.innerHTML = '';
+  const ctx = viewerContext();
 
   const defs = threadTabDefs();
   const campUnread = campaignUnreadCount() > 0;
@@ -572,13 +574,31 @@ function renderMessagesTray() {
       const bubble = document.createElement('div');
       bubble.className = 'msg-bubble ' + (m.authorRole === myRole ? 'mine' : 'theirs');
       const text = document.createElement('div');
-      text.textContent = m.text || '';
+      text.className = 'msg-text';
+      // Markdown + auto wiki-links (Phase 14 S8), same rendering pair
+      // every other markdown-carrying surface uses. currentEntityId is
+      // null here -- a chat message isn't scoped to any one entity, so
+      // nothing needs excluding from candidate name-matching the way
+      // applyWikiLinks' other callers exclude "this entity itself".
+      renderMarkdownInto(text, m.text || '').then(function () {
+        applyWikiLinks(text, null, ctx);
+      });
       bubble.appendChild(text);
       const time = document.createElement('div');
       time.className = 'msg-time';
       time.textContent = formatClock(tsMs(m.createdAt));
       bubble.appendChild(time);
       body.appendChild(bubble);
+    });
+    // Delegated: one handler for every wiki-link a message might contain
+    // -- same click-to-open-Codex pattern as the digest's own entity
+    // links just above (switchToCodexTabForEntity), not a per-message
+    // listener.
+    body.addEventListener('click', function (ev) {
+      const a = ev.target.closest ? ev.target.closest('a.wiki-link') : null;
+      if (!a) return;
+      ev.preventDefault();
+      switchToCodexTabForEntity(a.dataset.entityId);
     });
     panel.appendChild(body);
 
