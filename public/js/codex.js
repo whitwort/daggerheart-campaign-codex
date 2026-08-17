@@ -1740,6 +1740,18 @@ entityNewSaveBtn.addEventListener('click', saveNewEntity);
 entityNewOverlayEl.addEventListener('click', function (e) {
   if (e.target === entityNewOverlayEl) closeNewEntityDialog();
 });
+// Enter-to-save (name field or category select) -- name/category
+// validity is saveNewEntity's own job (shows "Name is required." same
+// as a Save-button click with an empty name), this just wires the key.
+// Shift/Ctrl/Meta+Enter excluded in case a future revision adds a
+// multi-line field here that wants its own Enter behavior.
+function handleNewEntityEnterKey(ev) {
+  if (ev.key !== 'Enter' || ev.shiftKey || ev.ctrlKey || ev.metaKey) return;
+  ev.preventDefault();
+  saveNewEntity();
+}
+entityNewNameEl.addEventListener('keydown', handleNewEntityEnterKey);
+entityNewCategoryEl.addEventListener('keydown', handleNewEntityEnterKey);
 
 // Deleting an entity also deletes its loreItems and images (no orphans).
 // Batched: atomic, and total op count here is far below the 500-op batch
