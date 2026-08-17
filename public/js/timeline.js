@@ -101,6 +101,12 @@ function fmtTick(offsetSeconds, granularity) {
 function buildShell() {
   panelEl.innerHTML = '';
 
+  const layout = document.createElement('div');
+  layout.className = 'timeline-layout';
+
+  const wellCol = document.createElement('div');
+  wellCol.className = 'timeline-well-col';
+
   const introP = document.createElement('p');
   introP.className = 'admin-hint timeline-intro';
   introP.appendChild(document.createTextNode('Dates use the campaign\u2019s shorthand notation \u2014 see '));
@@ -120,13 +126,7 @@ function buildShell() {
     introP.appendChild(document.createTextNode('\u201cDates and Times\u201d (Game Mechanics)'));
   }
   introP.appendChild(document.createTextNode(' for the full explanation.'));
-  panelEl.appendChild(introP);
-
-  const layout = document.createElement('div');
-  layout.className = 'timeline-layout';
-
-  const wellCol = document.createElement('div');
-  wellCol.className = 'timeline-well-col';
+  wellCol.appendChild(introP);
 
   // Outer wrap has NO overflow:hidden -- that's what was clipping the
   // hover preview popup (and its title, the first thing to go since the
