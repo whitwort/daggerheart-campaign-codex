@@ -383,9 +383,10 @@ every commit, handoff doc at end.
 | **S4** | Notes: kind:'note', Notes tab build-out, +New Note, cannon flow, Lore-tab projection + badge | **Sonnet** | Mirrors existing lore-item patterns. |
 | **S5** | Characters tab (GM flipper + assignment; player list/create/cards/tier), transferRequests + unified Requests queue | **Sonnet** | Largest UI session but pattern-following; card pickers reuse template rendering. |
 | **S6** | Messages tray + threads/notifications collections + fan-out hooks in sharing.js + Campaign tab digest | **Sonnet first**; escalate to **Fable** if fan-out edge cases or the first-subcollection listener plumbing bite | If S1's sharing.js seam is clean, this is chunk-able; the risk was pre-paid in S1. |
-| **S7** | Integration polish, copy fixes (Player ID/Name), QOL sweep, cross-feature testing as player+GM | **Sonnet** | |
+| **S7** | New feature injection (§11): mixed/meta ancestry, ad hoc character cards, lore-item expand/collapse+pop-out, Narrative Backstory meta tag, PC-tagged claiming, class-scoped subclass/ability filtering, badge-color propagation | **Sonnet** — design pre-scoped in §11; most items need no schema/rules work (verified against live SRD data before scoping) | |
+| **S8** | Integration polish, copy fixes (Player ID/Name — already landed in S5), QOL sweep, cross-feature testing as player+GM | **Sonnet** | |
 
-Rough dependency graph: S1 -> S2 -> S3 -> {S4, S5} (parallel-safe) -> S6 -> S7.
+Rough dependency graph: S1 -> S2 -> S3 -> {S4, S5} (parallel-safe) -> S6 -> S7 -> S8.
 
 ## 9. Acceptance criteria (per session, testable on dev)
 
@@ -425,3 +426,172 @@ Rough dependency graph: S1 -> S2 -> S3 -> {S4, S5} (parallel-safe) -> S6 -> S7.
   known-exempt writes documented in its header; S6 test matrix.
 - **R5 Preview-as-(player,character) cache staleness** — player-preview
   bypasses the map image cache (accepted GM-only cost).
+
+## 11. S7 — New feature injection (design, post-S6)
+
+Scoped mid-Phase-14 (after S6, before the original integration-polish S7,
+which becomes S8). Seven items; verified against live SRD JSON before
+finalizing so scope reflects what actually needs to change vs. what
+already works.
+
+### 11.1 Mixed ancestry (1 or 2 ancestries per character)
+
+**`templates.js`**: `'Ancestry/'` schema gains
+`featureGroups: [{key:'first',label:'First'},{key:'second',label:'Second'}]`
+(mirrors the subclass tier pattern). The generic Features editor
+(`codex.js`, already built for subclass tiers off `schema.featureGroups`)
+picks this up automatically — homebrew ancestries get a First/Second
+editor with zero new UI code.
+
+**`srd-import.js`**: SRD ancestry records carry a flat `feature[]` of
+exactly 2 items (verified all 18 current SRD ancestries), not per-tier
+keyed arrays like subclasses use. `buildTemplateData` needs a new branch:
+when `schema.featureGroups` is set AND the source uses a flat array (not
+per-key arrays), map by position — `feature[0]` -> `group:'first'`,
+`feature[1]` -> `group:'second'`. Running "Update entries" (existing
+idempotent reimport) then backfills `group` on every ancestry with no
+manual edit or separate migration script. Guard: if a source record's
+`feature` array isn't length 2, leave `group` unset on the overflow/
+missing rather than throwing (defensive, shouldn't occur in practice).
+
+**`entities.cards` (Character docs)**:
+- `ancestryIds: string[]` (1 or 2) — replaces `ancestryId`. Read-compat
+  everywhere `cards.ancestryId` is read: normalize via
+  `cards.ancestryIds || (cards.ancestryId ? [cards.ancestryId] : [])`.
+- `ancestryFeaturePicks: { [ancestryId]: 'first'|'second' }` — populated
+  only when 2 ancestries are selected (after meta-resolution, see 11.2).
+
+**Rules**: none. `cards` stays an opaque whitelisted key on `entities`
+(no structural validation inside it) — same as every other `cards`
+sub-field.
+
+**UI (`characters.js`)**: Ancestry picker becomes a 1-2 slot add/remove
+list (same UX as the existing Abilities picker). When 2 are selected,
+each gets a First/Second radio; picks must differ (UI-enforced, not
+rules-enforced — consistent with Phase 14's write-integrity model).
+`buildCardSlot`/`slotStatMarkdown` already take a generic group filter
+param (`opts.tier` for subclass) — reuse it for the ancestry pick instead
+of adding a new param name.
+
+### 11.2 Meta ancestries
+
+**Schema**: Ancestry entities gain optional
+`metaAncestryTargetIds: string[]` (0, 1, or 2). Empty/absent = normal
+ancestry. When set: display name/lore stay this entity's own; mechanical
+features/details resolve through the target ancestries instead of this
+entity's own `features`/`details`.
+
+**Resolution**: at card-render/feature-computation time, each entry in
+`cards.ancestryIds[]` is expanded — non-meta ancestry -> itself; meta
+ancestry -> its `metaAncestryTargetIds`. **Chaining disallowed** (a meta
+ancestry's targets must themselves be non-meta) — enforced by excluding
+already-meta ancestries from the "Functional ancestry" picker's options.
+This also means "meta can be mixed": a single meta pick whose target list
+has 2 entries (e.g. "Goat" -> [Faun, Merfolk]) automatically produces the
+2-ancestry First/Second-pick flow keyed on the *target* ids, without the
+player having picked "mixed" explicitly.
+
+**Rules**: add `metaAncestryTargetIds` to `isValidEntity()`'s
+`keys().hasOnly([...])` whitelist. One line.
+
+**UI**: Ancestry entity's edit form (`codex.js`) gains a 0-2-slot
+"Functional ancestry" picker, category-filtered to `Ancestry` and
+excluding any ancestry that itself has `metaAncestryTargetIds` set.
+Character card's ancestry slot still displays the flavor entity's name;
+feature text is pulled from the resolved target(s).
+
+### 11.3 Ad hoc character cards
+
+No new schema, no new rules — this is the existing `visibility:'character'`
+mechanism applied to `Game Mechanics/abilities` entities. Workflow: GM
+creates a normal ability entity, sets `visibility:'character'` +
+`characterId` via the existing kebab control; it surfaces in that PC's
+ability picker (Characters tab) automatically once `canSee` passes,
+exactly like any other character-scoped element.
+
+**New convenience UI**: "+ New card for this character" button in the
+Characters tab detail pane (GM's flipper and the player's own-character
+view), pre-filling category `Game Mechanics`, subtype `abilities`,
+`visibility:'character'`, and `characterId` to the current PC — skips the
+GM having to leave the tab and use the general Codex "+ New entity" flow
++ kebab manually. Scoped to abilities only (not a general any-category
+card system) — confirmed no "max abilities" cap exists to work around, so
+no exemption/counting logic needed either.
+
+### 11.4 Lore item expand/collapse + pop-out edit
+
+Pure UI, no schema/rules changes.
+- **Collapse**: `.lore-item-body` gets a height cap; when rendered content
+  `scrollHeight` exceeds a threshold, apply a fade mask + "Show more" /
+  "Show less" toggle.
+- **Pop-out**: new "Expand" affordance opens a draggable floating panel
+  (reusing the existing `gallery-picker-panel` pattern — same touchstone
+  cited elsewhere in this doc) showing the full item, with the existing
+  edit box rendered inside the panel instead of inline when the viewer has
+  edit authority.
+
+### 11.5 New meta tag: "Narrative Backstory"
+
+Add `'meta-narrative-backstory'` to the meta enum: `metaBadgeLabel`,
+`normalizeMetaForEdit`, the edit dropdown options list (`codex.js`), and
+`isValidLoreItem()`'s meta enum in `firestore.rules`. Plain badge, same
+treatment as generic `'meta'` — no auto-synthesis behavior (that's
+specific to `meta-details`/`meta-features`, unchanged).
+
+**Rules**: one enum-value addition.
+
+### 11.6 Claiming filtered to `PC`-tagged characters
+
+`characters.js`'s "available characters" list (unowned, GM-shared
+Character entities eligible for transfer-request claiming) adds a tag
+filter: `.filter(e => (e.tags||[]).some(t => t.toLowerCase() === 'pc'))`.
+Case-insensitive match on the existing free-text `tags` array — no
+schema/rules change, just a tagging convention going forward (GM tags
+claimable PCs with "PC").
+
+### 11.7 Class-scoped subclass/ability filtering
+
+**No schema/rules changes** — verified `class.details.subclass_1`/
+`subclass_2` and `ability.details.domain` are already plain strings that
+exact-match Subclass/Domain entity names (e.g. Bard's `subclass_1` ==
+`"Troubadour"`, matching the Subclass entity named "Troubadour").
+
+**UI (`characters.js`, `buildCardSlotEditor`)**: once `cards.classId` is
+set —
+- Subclass picker filters to
+  `subclasses.filter(s => s.name === cls.details.subclass_1 || s.name === cls.details.subclass_2)`.
+- Abilities picker filters to
+  `abilities.filter(a => [cls.details.domain_1, cls.details.domain_2].includes(a.details.domain))`.
+  Character-scoped ad hoc cards (11.3) bypass this filter always (already
+  gated by ownership, not meant to compete with domain access).
+
+Before a class is chosen: both pickers show empty (Gregg's call — "don't
+populate until class is chosen"), rather than unfiltered. Refining the
+picker UI further (e.g. visual grouping) is deferred to a later UI-focused
+pass, not this session.
+
+### 11.8 Badge color propagation
+
+**Share popup (`visibility-ui.js`)**: `partyCharacterOptions()` already
+builds the party-PC list for the kebab popover — add `badgeColor` to each
+returned option and render a small dot before the name in
+`buildOptionRow`, same CSS-var pattern `buildCharacterBadge` already uses
+elsewhere. UI-only.
+
+**Messages tray tab underline**: threads are keyed by player email, not
+character (a player can own multiple PCs) — color a player's tab using
+their **active character's** `badgeColor` (fallback to the current
+default when unset or no active character). Confirmed as the right
+tradeoff despite the tab color shifting if the player switches active
+character mid-session. UI-only.
+
+### Net schema/rules delta for S7
+
+- New entity fields: `metaAncestryTargetIds` (Ancestry only),
+  `cards.ancestryIds`, `cards.ancestryFeaturePicks` (Character `cards`
+  sub-object, unvalidated).
+- Rules changes: 2 one-line additions —
+  `isValidEntity()` key whitelist gains `metaAncestryTargetIds`;
+  `isValidLoreItem()`'s meta enum gains `'meta-narrative-backstory'`.
+- Everything else (11.3, 11.4, 11.6, 11.7, 11.8) is UI/filter logic
+  against fields that already exist — no schema or rules touched.
