@@ -711,6 +711,27 @@ function buildCardSlotViewer(entity) {
   return wrap;
 }
 
+// Builds a `.entity-group-list` <li> matching the Codex tab's own
+// entity-row markup exactly (entity-name / entity-right-col) -- see
+// codex.js's buildEntityLi. Reused for every character row across GM/
+// player views and the Claim popup, per Gregg's explicit styling-parity
+// ask (S8): Codex category headers <-> Characters tab player headers,
+// Codex entity rows <-> Characters tab character rows.
+function buildCharacterLi(entity, rightColBuilder) {
+  const li = document.createElement('li');
+  if (entity.id === state.charactersSelectedId) li.classList.add('active');
+  const nameDiv = document.createElement('div');
+  nameDiv.className = 'entity-name';
+  nameDiv.textContent = entity.name;
+  li.appendChild(nameDiv);
+  const rightCol = document.createElement('div');
+  rightCol.className = 'entity-right-col';
+  rightColBuilder(rightCol);
+  if (rightCol.children.length) li.appendChild(rightCol);
+  li.addEventListener('click', function () { state.charactersSelectedId = entity.id; renderCharactersTab(); });
+  return li;
+}
+
 // --- GM view: "Players & Characters" ------------------------------------
 function buildRemoveIconBtn(title, onClick) {
   const btn = document.createElement('button');
@@ -748,39 +769,43 @@ function renderCharactersGmView(ctx) {
   } else {
     playersSorted.forEach(function (player) {
       const email = player.id;
-      const groupHead = document.createElement('div');
-      groupHead.className = 'characters-flipper-group-head';
-      const groupLabel = document.createElement('span');
-      groupLabel.className = 'characters-flipper-group-label';
-      groupLabel.textContent = player.displayName || email;
-      groupHead.appendChild(groupLabel);
+      const ownedList = (byPlayer[email] || []).slice().sort(byName);
+      const header = document.createElement('div');
+      header.className = 'entity-group-header';
+      const dotSpan = document.createElement('span');
+      dotSpan.className = 'entity-group-dot';
+      const titleSpan = document.createElement('span');
+      titleSpan.className = 'entity-group-title';
+      titleSpan.textContent = player.displayName || email;
+      const countSpan = document.createElement('span');
+      countSpan.className = 'entity-group-count';
+      countSpan.textContent = '(' + ownedList.length + ')';
       const addBtn = document.createElement('button');
       addBtn.type = 'button';
       addBtn.className = 'characters-add-btn';
       addBtn.title = 'Assign a character to ' + (player.displayName || email);
       addBtn.textContent = '+';
-      addBtn.addEventListener('click', function () {
+      addBtn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
         state.charactersAssignOpenPlayerEmail = (state.charactersAssignOpenPlayerEmail === email) ? null : email;
         renderCharactersTab();
       });
-      groupHead.appendChild(addBtn);
-      charactersFlipperListEl.appendChild(groupHead);
+      header.appendChild(dotSpan);
+      header.appendChild(titleSpan);
+      header.appendChild(countSpan);
+      header.appendChild(addBtn);
+      charactersFlipperListEl.appendChild(header);
 
-      (byPlayer[email] || []).sort(byName).forEach(function (e) {
-        const row = document.createElement('div');
-        row.className = 'characters-flipper-item characters-own-row';
-        if (e.id === state.charactersSelectedId) row.classList.add('selected');
-        const nameBtn = document.createElement('button');
-        nameBtn.type = 'button';
-        nameBtn.className = 'character-name-chip';
-        nameBtn.textContent = e.name;
-        nameBtn.addEventListener('click', function () { state.charactersSelectedId = e.id; renderCharactersTab(); });
-        row.appendChild(nameBtn);
-        row.appendChild(buildRemoveIconBtn('Remove from ' + (player.displayName || email), function () {
-          unassignCharacterGm(e);
+      const ul = document.createElement('ul');
+      ul.className = 'entity-group-list';
+      ownedList.forEach(function (e) {
+        ul.appendChild(buildCharacterLi(e, function (rightCol) {
+          rightCol.appendChild(buildRemoveIconBtn('Remove from ' + (player.displayName || email), function () {
+            unassignCharacterGm(e);
+          }));
         }));
-        charactersFlipperListEl.appendChild(row);
       });
+      charactersFlipperListEl.appendChild(ul);
 
       if (state.charactersAssignOpenPlayerEmail === email) {
         const addRow = document.createElement('div');
@@ -856,37 +881,33 @@ function renderCharactersPlayerView(ctx) {
     p.textContent = 'No characters yet -- claim or create one below.';
     charactersPlayerOwnListEl.appendChild(p);
   } else {
+    const ul = document.createElement('ul');
+    ul.className = 'entity-group-list';
     own.forEach(function (e) {
-      const row = document.createElement('div');
-      row.className = 'characters-flipper-item characters-own-row';
-      if (e.id === state.charactersSelectedId) row.classList.add('selected');
-      const nameBtn = document.createElement('button');
-      nameBtn.type = 'button';
-      nameBtn.className = 'character-name-chip';
-      nameBtn.textContent = e.name;
-      nameBtn.addEventListener('click', function () { state.charactersSelectedId = e.id; renderCharactersTab(); });
-      row.appendChild(nameBtn);
-      if (e.id === state.activeCharacterId) {
-        const activeLabel = document.createElement('span');
-        activeLabel.className = 'characters-active-label';
-        activeLabel.textContent = 'Active';
-        row.appendChild(activeLabel);
-      } else {
-        const setActiveBtn = document.createElement('button');
-        setActiveBtn.type = 'button';
-        setActiveBtn.className = 'action-btn-compact';
-        setActiveBtn.textContent = 'Set active';
-        setActiveBtn.addEventListener('click', function () {
-          trackWrite(updateDoc(doc(db, 'players', ctx.email), { activeCharacterId: e.id }), 'Setting active character')
-            .catch(function (err) { window.alert('Save failed: ' + err.message); });
-        });
-        row.appendChild(setActiveBtn);
-      }
-      row.appendChild(buildRemoveIconBtn('Remove from your characters', function () {
-        unassignCharacterSelf(e);
+      ul.appendChild(buildCharacterLi(e, function (rightCol) {
+        if (e.id === state.activeCharacterId) {
+          const activeLabel = document.createElement('span');
+          activeLabel.className = 'characters-active-label';
+          activeLabel.textContent = 'Active';
+          rightCol.appendChild(activeLabel);
+        } else {
+          const setActiveBtn = document.createElement('button');
+          setActiveBtn.type = 'button';
+          setActiveBtn.className = 'action-btn-compact';
+          setActiveBtn.textContent = 'Set active';
+          setActiveBtn.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            trackWrite(updateDoc(doc(db, 'players', ctx.email), { activeCharacterId: e.id }), 'Setting active character')
+              .catch(function (err) { window.alert('Save failed: ' + err.message); });
+          });
+          rightCol.appendChild(setActiveBtn);
+        }
+        rightCol.appendChild(buildRemoveIconBtn('Remove from your characters', function () {
+          unassignCharacterSelf(e);
+        }));
       }));
-      charactersPlayerOwnListEl.appendChild(row);
     });
+    charactersPlayerOwnListEl.appendChild(ul);
   }
 
   charactersPlayerSelectedEl.innerHTML = '';
@@ -941,27 +962,29 @@ function renderClaimPopup(ctx) {
     p.textContent = 'None available right now.';
     charactersClaimPopupEl.appendChild(p);
   } else {
+    const ul = document.createElement('ul');
+    ul.className = 'entity-group-list';
     available.forEach(function (e) {
-      const row = document.createElement('div');
-      row.className = 'characters-flipper-item characters-own-row';
-      const nameBtn = document.createElement('button');
-      nameBtn.type = 'button';
-      nameBtn.className = 'character-name-chip';
-      nameBtn.textContent = e.name;
-      nameBtn.addEventListener('click', function () { switchToCodexTabForEntity(e.id); });
-      row.appendChild(nameBtn);
+      const li = document.createElement('li');
+      const nameDiv = document.createElement('div');
+      nameDiv.className = 'entity-name';
+      nameDiv.textContent = e.name;
+      li.appendChild(nameDiv);
+      const rightCol = document.createElement('div');
+      rightCol.className = 'entity-right-col';
       const pendingReq = state.myTransferRequests.find(function (r) { return r.characterId === e.id; });
       if (pendingReq) {
         const pendingLabel = document.createElement('span');
         pendingLabel.className = 'characters-active-label';
         pendingLabel.textContent = '(pending)';
-        row.appendChild(pendingLabel);
+        rightCol.appendChild(pendingLabel);
       }
       const reqBtn = document.createElement('button');
       reqBtn.type = 'button';
       reqBtn.className = 'action-btn-compact';
       reqBtn.textContent = pendingReq ? 'Cancel request' : 'Request transfer';
-      reqBtn.addEventListener('click', function () {
+      reqBtn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
         if (pendingReq) {
           deleteDoc(doc(db, 'transferRequests', pendingReq.id)).catch(function (err) { window.alert('Cancel failed: ' + err.message); });
         } else {
@@ -969,9 +992,12 @@ function renderClaimPopup(ctx) {
             .catch(function (err) { window.alert('Request failed: ' + err.message); });
         }
       });
-      row.appendChild(reqBtn);
-      charactersClaimPopupEl.appendChild(row);
+      rightCol.appendChild(reqBtn);
+      li.appendChild(rightCol);
+      li.addEventListener('click', function () { switchToCodexTabForEntity(e.id); });
+      ul.appendChild(li);
     });
+    charactersClaimPopupEl.appendChild(ul);
   }
 
   const closeBtn = document.createElement('button');

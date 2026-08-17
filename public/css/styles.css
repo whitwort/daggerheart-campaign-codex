@@ -1623,21 +1623,20 @@ button:disabled:hover { border-color: var(--void-line); }
    style JS sizing) -- this content flows/scrolls with the page
    naturally, lower risk, and nothing here needs a pinned-height map/
    canvas well. S8: both list and detail panes reuse .admin-card (Admin
-   tab's well styling, QOL item 1 -- previously bare/backgroundless). */
+   tab's well styling, QOL item 1 -- previously bare/backgroundless).
+   S8 (styling-parity pass): player/character rows now reuse the Codex
+   tab's OWN .entity-group-header/.entity-group-list li classes verbatim
+   (see codex.js's renderList/buildEntityLi) rather than bespoke
+   .characters-flipper-* rules -- Codex category header <-> Characters
+   tab player header, Codex entity row <-> Characters tab character row,
+   per Gregg's explicit ask. Those Codex classes are plain (unscoped)
+   class selectors, not `#codex-entities`-prefixed, so they're safe to
+   reuse here unmodified. */
 .characters-layout { display: flex; align-items: flex-start; gap: 1rem; margin-top: 1rem; }
 .characters-list-pane {
   flex: 0 0 300px; max-height: 34rem; overflow-y: auto;
 }
 .characters-detail-pane { flex: 1; min-width: 0; }
-.characters-flipper-group-head {
-  display: flex; align-items: center; justify-content: space-between; gap: 0.4rem;
-  margin: 0.9rem 0 0.3rem;
-}
-.characters-flipper-group-head:first-child { margin-top: 0; }
-.characters-flipper-group-label {
-  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
-  color: var(--ink-soft); font-family: var(--font-display), sans-serif;
-}
 /* .characters-add-btn / .characters-remove-btn: small icon-only circular
    buttons, same exception family as .vis-kebab-btn (QOL-BACKLOG
    exception 4) -- need their own width:auto/min-width:0 override since
@@ -1657,15 +1656,6 @@ button:disabled:hover { border-color: var(--void-line); }
   background: var(--void); border: 1px solid var(--void-line);
 }
 .characters-claim-popup h4 { margin: 0 0 0.5rem; font-size: 0.85rem; color: var(--ink-soft); }
-.characters-flipper-item {
-  display: block; width: 100%; min-width: 0; text-align: left;
-  background: transparent; border: none; box-shadow: none;
-  padding: 0.35rem 0.5rem; border-radius: 6px; color: var(--parchment); cursor: pointer;
-}
-.characters-flipper-item:hover { background: rgba(255,255,255,0.06); }
-.characters-flipper-item.selected { background: rgba(78,168,142,0.18); color: var(--seafoam); }
-.characters-own-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-.characters-own-row .related-chip { width: auto; min-width: 0; }
 /* .character-name-chip (Phase 14 S5): a standalone class, NOT a reuse of
    the existing .related-chip's actual CSS -- that class's real pill
    styling (including its width:auto override, needed to beat the base
