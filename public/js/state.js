@@ -31,6 +31,7 @@ export const state = {
   charactersAssignOpenPlayerEmail: null, // Phase 14 S8 -- GM view: which player's inline "+" assign row is expanded, if any
   charactersClaimPopupOpen: false,       // Phase 14 S8 -- player view: whether the "Claim Character" popup is open
   charactersPickingActive: false,        // Phase 14 S8 -- player view: "Set active" picking mode -- next character clicked becomes activeCharacterId
+  charactersAncestryAddOpen: false,      // Phase 14 S8 -- character edit panel: whether the second-ancestry picker is expanded (progressive-reveal ancestry UI)
   threadsUnsub: null,        // Phase 14 S6 -- GM: full threads collection; player: own threads/{email} doc (messages.js)
   allThreads: [],            // thread docs (GM: all; player: at most own), {id: playerEmail, lastMessageAt, lastMessagePreview, gmLastReadAt, playerLastReadAt}
   threadMessagesUnsub: null, // per-open-thread messages subcollection listener -- manual lifecycle (target changes with the open tab), like entityImagesUnsub; the app's first subcollection listener
