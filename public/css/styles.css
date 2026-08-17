@@ -997,9 +997,10 @@ select {
 .lore-item-body { font-size: 0.906rem; line-height: 1.6; color: var(--ink); font-weight: 400; }
 /* Phase 14 S7 (§11.4): collapse only applied (via JS, post-render height
    check) to items long enough to need it -- short items never get this
-   class or the expand row at all. */
+   class or the expand row at all. S8: threshold doubled (was 20rem) --
+   see LORE_ITEM_COLLAPSE_PX in codex.js. */
 .lore-item-body-collapsed {
-  max-height: 20rem; overflow: hidden; position: relative;
+  max-height: 40rem; overflow: hidden; position: relative;
 }
 .lore-item-body-collapsed::after {
   content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 3.5rem;
@@ -1007,7 +1008,32 @@ select {
   pointer-events: none;
 }
 .entity-preview-card .lore-item-body-collapsed::after { background: linear-gradient(to bottom, rgba(253,248,238,0), var(--parchment-edge)); }
-.lore-item-expand-row { display: flex; gap: 0.4rem; margin-top: 0.4rem; }
+/* Show/Hide + pop-out bar (Phase 14 S8 redesign -- replaces the earlier
+   two-9rem-button .lore-item-expand-row): one thin, soft, full-width
+   bar. The toggle fills most of the width as its own click target
+   (exception-3-like inline/link-style button, not a boxed action
+   button); the pop-out icon sits in a small zone at the right edge.
+   Subtle tinted background (not a bordered button) so it reads as part
+   of the fade cue, not another heavyweight action alongside Edit/
+   Delete. */
+.lore-item-show-bar {
+  display: flex; align-items: stretch; justify-content: space-between;
+  margin-top: 0.3rem; border-radius: 5px; overflow: hidden;
+  background: rgba(58,46,34,0.06);
+}
+.lore-item-show-toggle {
+  flex: 1; text-align: left; background: none; border: none; box-shadow: none;
+  width: auto; min-width: 0; padding: 0.28rem 0.65rem; font-size: 0.78rem;
+  color: var(--ink-soft); cursor: pointer;
+}
+.lore-item-show-toggle:hover { color: var(--ink); background: rgba(58,46,34,0.09); }
+.lore-item-popout-icon-btn {
+  flex-shrink: 0; width: auto; min-width: 0; background: none; border: none; box-shadow: none;
+  padding: 0.28rem 0.55rem; display: flex; align-items: center; justify-content: center;
+  color: var(--ink-soft); cursor: pointer;
+}
+.lore-item-popout-icon-btn:hover { color: var(--ink); background: rgba(58,46,34,0.09); }
+.lore-item-popout-icon-btn svg { width: 0.85rem; height: 0.85rem; }
 /* Pop-out panel body: reuses .gallery-picker-panel/.gallery-picker-body
    (see that rule's comment) -- own scroll region since a long lore item
    can exceed the panel's fixed footprint, and its own button-row
