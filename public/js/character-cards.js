@@ -1,35 +1,32 @@
-// character-cards.js — Phase 14 S9. Shared "cards" editing UI for
+// character-cards.js — Phase 14 S9/S10. Shared "cards" editing UI for
 // Character-category entities (ancestry, community, class/subclass/
 // tier, abilities, badge color).
 //
-// Previously this lived entirely inside characters.js and was only
-// reachable from the player-view Characters tab; the Codex tab's own
-// entity edit form had a much thinner, divergent ancestry-only field.
-// This module is the single implementation now -- codex.js's entity
-// edit form (GM or player editing a Character, from the Codex tab) and
-// characters.js's player-view detail pane both call the SAME functions
-// here, so the two surfaces render byte-identical DOM/behavior. Zero
-// dependency on codex.js or characters.js (same "small shared module"
-// pattern as badge-color.js/transfer-requests.js/entity-images-cache.js)
-// to avoid an import cycle -- codex.js imports from here, characters.js
-// imports from here, this module imports from neither.
+// S10 (per Gregg, after S9 caused more confusion than it fixed): this
+// is now the ONLY place character cards are viewed or edited, full
+// stop. Characters tab no longer has its own viewer (GM) or editor
+// (player) -- both were dropped. The single surface is: Codex tab ->
+// select a Character entry -> Edit -> change fields -> Save/Cancel.
 //
-// buildCardSlot's "open in Codex" name-chip is opt-in via a caller-
-// supplied onOpenInCodex callback rather than a direct import of
-// switchToCodexTabForEntity, for the same cycle-avoidance reason.
+// Also S10: this editor no longer writes to Firestore directly on
+// every field change. It mutates the SAME draft object codex.js's
+// entity edit form already uses for name/tags/aliases/etc (draft.cards,
+// draft.badgeColor), so Save commits everything in one write and Cancel
+// discards everything -- previously cards fields wrote immediately,
+// independent of the surrounding form's Save/Cancel, which meant
+// Cancel silently did NOT revert an ancestry/class/ability change (bug
+// Gregg caught) and every card edit fought with the edit form's own
+// "saved elsewhere" conflict detector (fixed in S9, now moot -- there's
+// no more immediate write to race against).
+//
+// Zero dependency on codex.js (same "small shared module" pattern as
+// badge-color.js/transfer-requests.js/entity-images-cache.js).
 
-import {
-  getFirestore, doc, updateDoc, serverTimestamp
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
-import { trackWrite } from './connectivity.js';
 import { canSee } from './visibility.js';
 import { getTemplateSchema } from './templates.js';
 import { renderMarkdownInto } from './markdown.js';
 import { generateDefaultBadgeColor } from './badge-color.js';
-
-const db = getFirestore(firebaseApp);
 
 function byName(a, b) { return (a.name || '').localeCompare(b.name || ''); }
 
@@ -122,14 +119,14 @@ export function resolveFunctionalIds(flavorIds) {
   return out.slice(0, 2);
 }
 
-export function saveCardsPatch(entity, patch, onWriteStart) {
-  const cards = Object.assign({}, DEFAULT_CARDS, entity.cards || {}, patch);
-  if (onWriteStart) onWriteStart();
-  trackWrite(
-    updateDoc(doc(db, 'entities', entity.id), { cards: cards, updatedAt: serverTimestamp() }),
-    'Saving character card'
-  ).catch(function (err) { window.alert('Save failed: ' + err.message); });
-}
+// Cards field changes mutate the SAME draft object as the rest of this
+// entity's edit form (S10) -- no direct Firestore write here. Save
+// commits everything together; Cancel discards the draft, which
+// discards these too. patchCards() (used by buildCharacterCardEditor
+// and threaded down to buildAncestrySlotEditor) merges a partial patch
+// into draft.cards and re-renders; DEFAULT_CARDS keeps the merge total
+// (a field never touched this session still resolves to its default,
+// same as it always did against the live entity pre-S10).
 
 // tierFilter: a single featureGroups key (equality -- ancestry feature
 // picks, always exactly one of 'first'/'second'), or an array of keys
@@ -162,35 +159,18 @@ function slotStatMarkdown(entity, tierFilter) {
 }
 
 // A single "card": description text for the given stat entity, tier-
-// filtered where relevant. opts.skipNameChip (edit contexts -- S9):
-// the entity's name is already shown by the dropdown/list that picked
-// it, so the name-chip button here would just re-display the same
-// info with no added value; the description text below it is what
-// actually helps the user verify they picked the right thing, so that
-// stays either way. Viewer contexts (opts.onOpenInCodex given, no
-// skipNameChip) keep the full chip -- there's no dropdown there to
-// already show the name.
+// filtered where relevant. Every remaining caller is inside this edit
+// form's own dropdown/list, which already shows the picked name --
+// so there's no separate name-chip button here (S10, once the read-
+// only Characters-tab viewer that needed one was removed entirely);
+// this is description-only, purely to help verify the right thing got
+// picked. entity==null renders nothing (an empty "-- none --" slot
+// needs no placeholder of its own here).
 export function buildCardSlot(entity, opts) {
   const o = opts || {};
   const wrap = document.createElement('div');
   wrap.className = 'character-card-slot';
-  if (!entity) {
-    if (o.skipNameChip) return wrap; // nothing to verify against -- empty, no placeholder needed alongside a "-- none --" select
-    const none = document.createElement('p');
-    none.className = 'lore-empty';
-    none.textContent = '\u2014 none selected \u2014';
-    wrap.appendChild(none);
-    return wrap;
-  }
-  if (!o.skipNameChip) {
-    const nameBtn = document.createElement('button');
-    nameBtn.type = 'button';
-    nameBtn.className = 'character-name-chip';
-    nameBtn.textContent = entity.name;
-    nameBtn.title = 'Open in Codex';
-    nameBtn.addEventListener('click', function () { if (o.onOpenInCodex) o.onOpenInCodex(entity.id); });
-    wrap.appendChild(nameBtn);
-  }
+  if (!entity) return wrap;
   const md = slotStatMarkdown(entity, o.tier);
   if (md) {
     const body = document.createElement('div');
@@ -221,7 +201,7 @@ function ancestryFeatureLabel(statEntity, groupKey) {
 // other (single-slot state), not a wipe of both -- clearing the sole
 // remaining slot from there drops to none. Same underlying
 // cards.ancestryIds/[0,1] schema throughout, no data-shape change.
-function buildAncestrySlotEditor(entity, cards, ancestryEntities, onWriteStart) {
+function buildAncestrySlotEditor(cards, ancestryEntities, patchCards, rerender) {
   const wrap = document.createElement('div');
   wrap.className = 'character-ancestry-field';
 
@@ -232,7 +212,7 @@ function buildAncestrySlotEditor(entity, cards, ancestryEntities, onWriteStart) 
   const picks = cards.ancestryFeaturePicks || {};
 
   function save(newFlavorIds, newPicks) {
-    saveCardsPatch(entity, { ancestryIds: newFlavorIds, ancestryFeaturePicks: newPicks || {} }, onWriteStart);
+    patchCards({ ancestryIds: newFlavorIds, ancestryFeaturePicks: newPicks || {} });
   }
 
   // Single row: "Ancestry" label, then the dropdown(s)/button inline --
@@ -299,7 +279,7 @@ function buildAncestrySlotEditor(entity, cards, ancestryEntities, onWriteStart) 
     addBtn.textContent = 'Add Ancestry';
     addBtn.addEventListener('click', function () {
       state.charactersAncestryAddOpen = true;
-      if (typeof entity.__rerenderCards === 'function') entity.__rerenderCards();
+      if (typeof rerender === 'function') rerender();
     });
     row.appendChild(addBtn);
   } else if (firstId && (secondId || state.charactersAncestryAddOpen)) {
@@ -320,7 +300,7 @@ function buildAncestrySlotEditor(entity, cards, ancestryEntities, onWriteStart) 
       state.charactersAncestryAddOpen = false;
       if (!newSecond) {
         if (secondId) save([firstId], {});
-        else if (typeof entity.__rerenderCards === 'function') entity.__rerenderCards();
+        else if (typeof rerender === 'function') rerender();
         return;
       }
       save([firstId, newSecond], picks);
@@ -623,7 +603,7 @@ const BADGE_COLORS = [
   '#8C8072', '#7C7A45', '#5A7690', '#8E6A4F', '#5C5A66', '#4F7A6E'
 ];
 
-export function buildBadgeColorPicker(entity, onWriteStart) {
+export function buildBadgeColorPicker(draft, entityName, rerender) {
   const wrap = document.createElement('div');
   wrap.className = 'entity-edit-field';
   const label = document.createElement('label');
@@ -633,18 +613,15 @@ export function buildBadgeColorPicker(entity, onWriteStart) {
   row.className = 'character-badge-swatch-row';
 
   function save(color) {
-    if (onWriteStart) onWriteStart();
-    trackWrite(
-      updateDoc(doc(db, 'entities', entity.id), { badgeColor: color, updatedAt: serverTimestamp() }),
-      'Saving badge color'
-    ).catch(function (err) { window.alert('Save failed: ' + err.message); });
+    draft.badgeColor = color;
+    rerender();
   }
 
   const defaultBtn = document.createElement('button');
   defaultBtn.type = 'button';
   defaultBtn.className = 'character-badge-swatch character-badge-swatch-default';
-  defaultBtn.style.background = generateDefaultBadgeColor(entity.name);
-  if (!entity.badgeColor) defaultBtn.classList.add('selected');
+  defaultBtn.style.background = generateDefaultBadgeColor(entityName);
+  if (!draft.badgeColor) defaultBtn.classList.add('selected');
   defaultBtn.title = 'Default (auto, from name)';
   defaultBtn.addEventListener('click', function () { save(null); });
   row.appendChild(defaultBtn);
@@ -653,7 +630,7 @@ export function buildBadgeColorPicker(entity, onWriteStart) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'character-badge-swatch';
-    if ((entity.badgeColor || '') === color) btn.classList.add('selected');
+    if ((draft.badgeColor || '') === color) btn.classList.add('selected');
     btn.style.background = color;
     btn.title = color;
     btn.addEventListener('click', function () { save(color); });
@@ -664,15 +641,15 @@ export function buildBadgeColorPicker(entity, onWriteStart) {
   // everywhere (the 12 presets above are hex literals), so the native
   // color input's value format is a direct match -- no conversion
   // needed either direction. 'change' (fires once the picker closes),
-  // not 'input' (fires continuously while dragging), to avoid a write
-  // per pixel of drag.
-  const isCustom = !!entity.badgeColor && BADGE_COLORS.indexOf(entity.badgeColor) === -1;
+  // not 'input' (fires continuously while dragging), to avoid a
+  // re-render per pixel of drag.
+  const isCustom = !!draft.badgeColor && BADGE_COLORS.indexOf(draft.badgeColor) === -1;
   const customLabel = document.createElement('label');
   customLabel.className = 'character-badge-swatch character-badge-swatch-custom' + (isCustom ? ' selected' : '');
   customLabel.title = 'Custom color';
   const customInput = document.createElement('input');
   customInput.type = 'color';
-  customInput.value = isCustom ? entity.badgeColor : '#B7B2A6';
+  customInput.value = isCustom ? draft.badgeColor : '#B7B2A6';
   customInput.addEventListener('change', function () { save(customInput.value); });
   customLabel.appendChild(customInput);
   row.appendChild(customLabel);
@@ -686,38 +663,31 @@ export function buildBadgeColorPicker(entity, onWriteStart) {
 // tab's entity edit form and the Characters tab, not just the latter as
 // before), ancestry (progressive 1-2 slot picker + Ancestry Features),
 // Community, Class, Subclass (hidden entirely with no class selected)
-// + Subclass tier (hidden with no subclass selected), Abilities. Single
-// assembly function so both call sites render identical DOM in
-// identical order -- see module header. ctx must be the REAL viewer's
-// ctx (never a synthesized preview identity); callers already only
-// reach this when hasFullAuthority is true, this doesn't re-check.
+// + Subclass tier (hidden with no subclass selected), Abilities.
 //
-// entity.__rerenderCards: a caller-supplied no-arg callback this module
-// invokes for UI-only state changes that don't themselves write to
-// Firestore (e.g. opening the second-ancestry add picker) -- setting a
-// throwaway property on the plain entity object avoids a third
-// parameter threaded through every nested builder for something that's
-// only needed by two buttons deep inside the ancestry editor.
-//
-// onWriteStart (optional, S9): called synchronously right before each
-// Firestore write this editor issues (ancestry/community/class/
-// subclass/tier/abilities/badge). codex.js passes a callback that bumps
-// state.detailEditPendingCardWrites -- these writes happen immediately,
-// independent of this entity's own Codex-tab edit-form Save/Cancel
-// flow, and were otherwise indistinguishable from someone ELSE editing
-// the same entity, tripping the "saved elsewhere" conflict banner on
-// every single card change made through this very form. characters.js
-// has no such banner and passes nothing.
-export function buildCharacterCardEditor(entity, ctx, rerender, onWriteStart) {
+// S10: entity is read-only here (id/name/ownerId -- identity and the
+// badge-color gate, never mutated). All actual edits mutate `draft`
+// (draft.cards, draft.badgeColor) via the local patchCards() closure
+// below; rerender() is called after every change to redraw with the
+// updated draft, same re-render-on-every-keystroke pattern the rest of
+// this entity's edit form already uses. Nothing here writes to
+// Firestore -- codex.js's saveEntityEdit does, in the same single write
+// as name/tags/aliases/etc, when the user clicks Save; Cancel discards
+// the whole draft, cards included.
+export function buildCharacterCardEditor(entity, draft, ctx, rerender) {
   const wrap = document.createElement('div');
   wrap.className = 'character-card-editor';
-  entity.__rerenderCards = rerender;
 
-  if (entity.ownerId) {
-    wrap.appendChild(buildBadgeColorPicker(entity, onWriteStart));
+  function patchCards(patch) {
+    draft.cards = Object.assign({}, DEFAULT_CARDS, draft.cards || {}, patch);
+    rerender();
   }
 
-  const cards = Object.assign({}, DEFAULT_CARDS, entity.cards || {});
+  if (entity.ownerId) {
+    wrap.appendChild(buildBadgeColorPicker(draft, entity.name, rerender));
+  }
+
+  const cards = Object.assign({}, DEFAULT_CARDS, draft.cards || {});
   const visible = function (e) { return ctx.gmView || canSee(e, ctx); };
   const ancestries = state.allEntities.filter(function (e) { return e.category === 'Ancestry' && visible(e); }).sort(byName);
   const communities = state.allEntities.filter(function (e) { return e.category === 'Community' && visible(e); }).sort(byName);
@@ -725,15 +695,15 @@ export function buildCharacterCardEditor(entity, ctx, rerender, onWriteStart) {
   const subclasses = state.allEntities.filter(function (e) { return e.category === 'Game Mechanics' && e.subtype === 'subclasses' && visible(e); }).sort(byName);
   const abilities = state.allEntities.filter(function (e) { return e.category === 'Game Mechanics' && e.subtype === 'abilities' && visible(e); });
 
-  wrap.appendChild(buildAncestrySlotEditor(entity, cards, ancestries, onWriteStart));
+  wrap.appendChild(buildAncestrySlotEditor(cards, ancestries, patchCards, rerender));
 
   wrap.appendChild(buildSingleEntityPicker('Community', communities, cards.communityId,
-    function (v) { saveCardsPatch(entity, { communityId: v }, onWriteStart); }));
-  wrap.appendChild(buildCardSlot(communities.find(function (e) { return e.id === cards.communityId; }), { skipNameChip: true }));
+    function (v) { patchCards({ communityId: v }); }));
+  wrap.appendChild(buildCardSlot(communities.find(function (e) { return e.id === cards.communityId; })));
 
   wrap.appendChild(buildSingleEntityPicker('Class', classes, cards.classId,
-    function (v) { saveCardsPatch(entity, { classId: v }, onWriteStart); }));
-  wrap.appendChild(buildCardSlot(classes.find(function (e) { return e.id === cards.classId; }), { skipNameChip: true }));
+    function (v) { patchCards({ classId: v }); }));
+  wrap.appendChild(buildCardSlot(classes.find(function (e) { return e.id === cards.classId; })));
 
   // Phase 14 S7 (§11.7): class.details.subclass_1/subclass_2 and
   // ability.details.domain are plain strings that already exact-match
@@ -751,7 +721,7 @@ export function buildCharacterCardEditor(entity, ctx, rerender, onWriteStart) {
       return s.name === d.subclass_1 || s.name === d.subclass_2;
     });
     wrap.appendChild(buildSingleEntityPicker('Subclass', subclassOptions, cards.subclassId,
-      function (v) { saveCardsPatch(entity, { subclassId: v }, onWriteStart); }));
+      function (v) { patchCards({ subclassId: v }); }));
 
     const selectedSubclass = subclasses.find(function (e) { return e.id === cards.subclassId; });
     if (selectedSubclass) {
@@ -768,10 +738,10 @@ export function buildCharacterCardEditor(entity, ctx, rerender, onWriteStart) {
         tierSelect.appendChild(opt);
       });
       tierSelect.value = cards.subclassTier || 'foundation';
-      tierSelect.addEventListener('change', function () { saveCardsPatch(entity, { subclassTier: tierSelect.value }, onWriteStart); });
+      tierSelect.addEventListener('change', function () { patchCards({ subclassTier: tierSelect.value }); });
       tierWrap.appendChild(tierSelect);
       wrap.appendChild(tierWrap);
-      wrap.appendChild(buildCardSlot(selectedSubclass, { tier: cumulativeTierKeys(cards.subclassTier), skipNameChip: true }));
+      wrap.appendChild(buildCardSlot(selectedSubclass, { tier: cumulativeTierKeys(cards.subclassTier) }));
     }
   }
 
@@ -790,46 +760,13 @@ export function buildCharacterCardEditor(entity, ctx, rerender, onWriteStart) {
     return abilityOptions.findIndex(function (b) { return b.id === a.id; }) === i;
   });
 
-  wrap.appendChild(buildAbilitiesPicker(cards, abilities, function (ids) { saveCardsPatch(entity, { abilityIds: ids }, onWriteStart); }, abilityOptionsDeduped));
-  const abilityCardsWrap = document.createElement('div');
-  cards.abilityIds.forEach(function (id) {
-    const a = abilities.find(function (e) { return e.id === id; });
-    if (a) abilityCardsWrap.appendChild(buildCardSlot(a, { skipNameChip: true }));
-  });
-  wrap.appendChild(abilityCardsWrap);
+  // S10: no per-ability description dump below the list -- Domain/
+  // Level/Type bullets for every chosen ability read as clutter, not
+  // verification aid (unlike ancestry/community/class/subclass, which
+  // keep their single description card -- see buildCardSlot's own
+  // header comment). The picker's own domain/tier-grouped popup is
+  // where a player confirms what they're adding, not this list.
+  wrap.appendChild(buildAbilitiesPicker(cards, abilities, function (ids) { patchCards({ abilityIds: ids }); }, abilityOptionsDeduped));
 
-  return wrap;
-}
-
-// Read-only card-slot viewer (GM's "Players & Characters" detail pane —
-// unaffected by the S9 editor-unification ask, kept as-is). Full name
-// chips (onOpenInCodex) since there's no dropdown here already showing
-// the name.
-export function buildCardSlotViewer(entity, onOpenInCodex) {
-  const wrap = document.createElement('div');
-  wrap.className = 'character-card-editor';
-  const cards = Object.assign({}, DEFAULT_CARDS, entity.cards || {});
-  const flavorIds = normalizeAncestryIds(cards);
-  const functionalIds = resolveFunctionalIds(flavorIds);
-  const picks = cards.ancestryFeaturePicks || {};
-  if (functionalIds.length) {
-    functionalIds.forEach(function (fid) {
-      const statEntity = state.allEntities.find(function (e) { return e.id === fid; });
-      const groupFilter = functionalIds.length === 2 ? (picks[fid] || null) : null;
-      wrap.appendChild(buildCardSlot(statEntity, { tier: groupFilter, onOpenInCodex: onOpenInCodex }));
-    });
-  } else {
-    wrap.appendChild(buildCardSlot(null));
-  }
-  wrap.appendChild(buildCardSlot(state.allEntities.find(function (e) { return e.id === cards.communityId; }), { onOpenInCodex: onOpenInCodex }));
-  wrap.appendChild(buildCardSlot(state.allEntities.find(function (e) { return e.id === cards.classId; }), { onOpenInCodex: onOpenInCodex }));
-  wrap.appendChild(buildCardSlot(
-    state.allEntities.find(function (e) { return e.id === cards.subclassId; }),
-    { tier: cumulativeTierKeys(cards.subclassTier), onOpenInCodex: onOpenInCodex }
-  ));
-  (cards.abilityIds || []).forEach(function (id) {
-    const a = state.allEntities.find(function (e) { return e.id === id; });
-    if (a) wrap.appendChild(buildCardSlot(a, { onOpenInCodex: onOpenInCodex }));
-  });
   return wrap;
 }

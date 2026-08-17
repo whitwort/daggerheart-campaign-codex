@@ -1,28 +1,32 @@
-// characters.js — Phase 14 S5, restyled S8. The Characters tab.
+// characters.js — Phase 14 S5, restyled S8, cards UI removed S10. The
+// Characters tab.
+//
+// S10 (per Gregg): the Characters tab no longer shows or edits card
+// data at all -- that briefly lived here (S5-S9 -- editable in the
+// player's own view, read-only in the GM's), then moved to be shared
+// with the Codex tab's entity edit form (S9), and finally got dropped
+// from this tab entirely (S10) once having it in two places caused
+// more confusion than it solved. The ONLY place character cards are
+// viewed/edited now is: Codex tab -> select a Character entry -> Edit
+// -> Save/Cancel (character-cards.js). Both detail panes below are
+// deliberately left empty on selection for now -- Gregg's planned
+// "character deck" viewer (a different, not-yet-designed feature) will
+// live here later.
 //
 // GM view ("Players & Characters"): left pane lists every party member
 // with an inline "+ assign"/"x remove" UI for the ownerId association
 // (moved here from the Codex-tab entity-edit form in S8 -- see codex.js);
-// right pane is a READ-ONLY card-slot viewer (buildCardSlotViewer) for
-// whichever character is selected -- deliberately NOT the editable
-// buildCharacterCardEditor (GM doesn't edit Character entries from this tab;
-// that capacity already exists on the Codex tab) and NOT a re-mount of
-// the Codex tab's own stateful renderEntityViewCard (that component owns
-// several genuinely singular pieces of global state -- state.selectedId,
-// state.entityImagesTargetId/currentEntityImages, a single live
-// Firestore query pointed at ONE entity's images at a time -- two
-// simultaneously-mounted instances would fight over it, and tab panels
-// hide via CSS, not unmount, so both CAN be on screen at once).
+// right pane just shows the selected character's name for now (see
+// above -- no card viewer).
 //
 // Player view: left pane lists the player's own characters (name +
 // active-toggle + self-release "x", same pattern as the GM pane's
-// remove); right pane is the editable buildCharacterCardEditor (shared
-// with codex.js's own entity-edit form, see character-cards.js -- Phase
-// 14 S9) for whichever is selected; "Claim Character"/"+ Create
-// Character" live at the bottom (S8) -- Claim opens a popup over the
-// existing PC-tagged/unowned/visible transferRequests flow, Create
-// routes through codex.js's New Entity dialog (category Character, tag
-// PC preset).
+// remove); right pane just shows the selected character's name for now
+// (see above -- no card editor); "Claim Character"/"+ Create Character"
+// live at the bottom (S8) -- Claim opens a popup over the existing
+// PC-tagged/unowned/visible transferRequests flow, Create routes
+// through codex.js's New Entity dialog (category Character, tag PC
+// preset).
 //
 // The GM's FULL transferRequests collection listener (unfiltered --
 // needed for the unified Requests queue) lives in admin.js beside
@@ -36,7 +40,7 @@
 // button, and to show a "(pending)" label in the Claim popup.
 
 import {
-  getFirestore, doc, collection, addDoc, deleteDoc, updateDoc, setDoc,
+  getFirestore, doc, collection, addDoc, deleteDoc, updateDoc,
   onSnapshot, query, where, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp } from './firebase.js';
@@ -47,17 +51,8 @@ import { canSee, viewerContext, hasFullAuthority } from './visibility.js';
 import { switchToCodexTabForEntity, openNewEntityDialog } from './codex.js';
 import { generateDefaultBadgeColor } from './badge-color.js';
 import { approveTransferRequest, rejectTransferRequest } from './transfer-requests.js';
-import { buildCharacterCardEditor, buildCardSlotViewer } from './character-cards.js';
 
 const db = getFirestore(firebaseApp);
-
-// Kept in sync with the copy in codex.js/srd-import.js -- small, not
-// worth a shared-utils module split, same convention as humanizeKey.
-function slugify(name) {
-  return name.toLowerCase().trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
 
 function byName(a, b) { return (a.name || '').localeCompare(b.name || ''); }
 
@@ -96,41 +91,6 @@ function detachCharacterTransferListeners() {
   detachListener('myTransferRequestsUnsub');
 }
 
-
-// Phase 14 S7 (§11.3): convenience creation of a character-scoped ad hoc
-// "card" (e.g. a campaign-specific mechanic like Aether Touched) without
-// leaving the Characters tab to use the general Codex "+ New entity"
-// flow + kebab manually. No new schema/rules -- this is exactly the
-// existing visibility:'character' mechanism, pre-filled. Scoped to
-// Game Mechanics/abilities only (matches the domain-optgroup UI it'll
-// surface in); intentionally minimal (name-only prompt, same "stub now,
-// fill in mechanics text via Codex" pattern as "+ New character") since
-// there's no character-sheet ability cap this needs to respect or be
-// exempted from.
-function buildAdHocCardButton(entity) {
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'action-btn-compact';
-  btn.textContent = '+ New card for this character';
-  btn.addEventListener('click', function () {
-    const name = window.prompt('Card name (e.g. "Aether Touched"):');
-    if (!name || !name.trim()) return;
-    const trimmed = name.trim();
-    const newId = doc(collection(db, 'entities')).id;
-    const entityData = {
-      slug: slugify(trimmed), name: trimmed, category: 'Game Mechanics', subtype: 'abilities',
-      ancestry: null, aliases: [], date: null, dateSort: null, dateEnd: null, dateEndSort: null,
-      parentId: null, relatedIds: [], visibility: 'character', characterId: entity.id, characterShared: false,
-      hasMapImage: false, mapImageVisibleToPlayers: false, tags: [], sourceId: null,
-      useTemplate: false, details: {}, features: [], searchIndex: [],
-      createdAt: serverTimestamp(), updatedAt: serverTimestamp()
-    };
-    trackWrite(setDoc(doc(db, 'entities', newId), entityData), 'Creating card')
-      .then(function () { switchToCodexTabForEntity(newId); })
-      .catch(function (err) { window.alert('Create failed: ' + err.message); });
-  });
-  return btn;
-}
 
 // GM-only: assign an unowned PC-tagged Character to a player (Phase 14
 // S8's "Players & Characters" panel replaces the old owner-reassign
@@ -377,10 +337,12 @@ function renderCharactersGmView(ctx) {
     charactersDetailPaneEl.appendChild(p);
     return;
   }
+  // S10: no card viewer here anymore -- see module header. Just the
+  // name, confirming the selection landed; deck viewer (Gregg's planned
+  // feature, not yet designed) will replace this.
   const heading = document.createElement('h3');
   heading.textContent = selected.name;
   charactersDetailPaneEl.appendChild(heading);
-  charactersDetailPaneEl.appendChild(buildCardSlotViewer(selected, switchToCodexTabForEntity));
 }
 
 // --- Player view ---------------------------------------------------------
@@ -448,14 +410,17 @@ function renderCharactersPlayerView(ctx) {
   charactersPlayerSelectedEl.innerHTML = '';
   const selected = own.find(function (e) { return e.id === state.charactersSelectedId; });
   if (selected) {
+    // S10: no card editor here anymore -- see module header. Just the
+    // name, confirming the selection landed; deck viewer (Gregg's
+    // planned feature, not yet designed) will replace this. Editing now
+    // only happens via Codex tab -> Edit.
     const heading = document.createElement('h3');
     heading.textContent = selected.name;
     charactersPlayerSelectedEl.appendChild(heading);
-    charactersPlayerSelectedEl.appendChild(buildCharacterCardEditor(selected, ctx, renderCharactersTab));
   } else {
     const p = document.createElement('p');
     p.className = 'lore-empty';
-    p.textContent = 'Select a character to view or edit their cards.';
+    p.textContent = 'Select a character to view.';
     charactersPlayerSelectedEl.appendChild(p);
   }
 

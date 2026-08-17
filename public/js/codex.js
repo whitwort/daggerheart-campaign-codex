@@ -21,7 +21,7 @@ import {
 } from './visibility.js';
 import { shareEntityVisibility, shareLoreItemVisibility, shareImageVisibility, createLoreItemShared } from './sharing.js';
 import { buildVisibilityControl, buildSharedToggle, buildNoteToggle, buildCharacterBadge } from './visibility-ui.js';
-import { buildCharacterCardEditor, characterAncestryDisplayName } from './character-cards.js';
+import { buildCharacterCardEditor, characterAncestryDisplayName, DEFAULT_CARDS } from './character-cards.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -1194,7 +1194,19 @@ function buildEntityDraft(entity) {
     // group's feature list -- the editor filters on f.group === g.key,
     // and a stripped group never matches any key.
     features: (entity.features || []).map(function (f) { return { name: f.name || '', text: f.text || '', group: f.group || null }; }),
-    metaAncestryTargetIds: (entity.metaAncestryTargetIds || []).slice()
+    metaAncestryTargetIds: (entity.metaAncestryTargetIds || []).slice(),
+    // Phase 14 S10: Character "cards" (ancestry/community/class/
+    // subclass/tier/abilities) and badgeColor now edit through this
+    // SAME draft, same as every other field -- previously they wrote
+    // straight to Firestore on every change, independent of this
+    // form's own Save/Cancel (bug: Cancel didn't revert them). Shallow
+    // copy, not a reference to the live entity's object -- every write
+    // site (character-cards.js's patchCards) always replaces draft.cards
+    // wholesale with a fresh object/arrays, never mutates nested fields
+    // in place, so a shallow copy here is enough to keep the live
+    // entity's own doc from being touched before Save.
+    cards: entity.cards ? Object.assign({}, entity.cards) : null,
+    badgeColor: entity.badgeColor || null
   };
 }
 
@@ -1228,7 +1240,6 @@ function enterEntityEditMode(entity) {
   state.detailEditDraft = buildEntityDraft(entity);
   state.detailEditBaseUpdatedAtMs = updatedAtMs(entity);
   state.detailEditConflictDismissedAtMs = null;
-  state.detailEditPendingCardWrites = 0;
   renderDetailForSelected();
 }
 
@@ -1237,7 +1248,6 @@ function cancelEntityEdit() {
   state.detailEditDraft = null;
   state.detailEditBaseUpdatedAtMs = null;
   state.detailEditConflictDismissedAtMs = null;
-  state.detailEditPendingCardWrites = 0;
   renderDetailForSelected();
 }
 
@@ -1325,6 +1335,13 @@ function saveEntityEdit(entity) {
     // pattern as ancestry/ownerId above for other category-specific
     // fields.
     metaAncestryTargetIds: (cat === 'Ancestry') ? (draft.metaAncestryTargetIds || []) : [],
+    // Phase 14 S10: cards/badgeColor now save as part of this same
+    // write, same normalize-to-empty-for-other-categories pattern.
+    // DEFAULT_CARDS import keeps a from-scratch Character (never
+    // touched the cards editor this session, draft.cards still null)
+    // saving a complete, schema-valid cards object rather than null.
+    cards: (cat === 'Character') ? Object.assign({}, DEFAULT_CARDS, draft.cards || {}) : null,
+    badgeColor: (cat === 'Character') ? (draft.badgeColor || null) : null,
     updatedAt: serverTimestamp()
   };
   // Phase 13: close the edit form optimistically, not gated on the
@@ -1340,7 +1357,6 @@ function saveEntityEdit(entity) {
   state.detailEditDraft = null;
   state.detailEditBaseUpdatedAtMs = null;
   state.detailEditConflictDismissedAtMs = null;
-  state.detailEditPendingCardWrites = 0;
   renderDetailForSelected();
 }
 
@@ -3808,20 +3824,14 @@ function renderDetailForSelected() {
   // already isolates typed content from re-renders -- this is purely a
   // heads-up + explicit choice, not a race in the data itself.
   //
-  // S9: character-cards.js's ancestry/community/class/subclass/tier/
-  // abilities/badge writes happen immediately (independent of this
-  // form's own Save/Cancel), which -- before this reconciliation --
-  // looked identical to an external edit and tripped this banner on
-  // every single card change made through this very form. Each such
-  // write bumps detailEditPendingCardWrites (via onWriteStart) before
-  // it's issued; once the resulting updatedAt actually lands, silently
-  // re-baseline instead of flagging it, since it's this same session's
-  // own change, not someone else's.
+  // S9 had character-cards.js writing straight to Firestore on every
+  // field change, independent of this form's own Save/Cancel, which
+  // required a workaround here to stop those self-writes from tripping
+  // this same banner. S10 moved cards editing onto this form's own
+  // draft (see character-cards.js header) -- cards changes no longer
+  // write anything until Save, so that workaround is gone; this is
+  // back to only ever firing on a genuine external edit.
   const liveUpdatedAtMs = updatedAtMs(entity);
-  if (state.detailEditPendingCardWrites > 0 && liveUpdatedAtMs != null && liveUpdatedAtMs !== state.detailEditBaseUpdatedAtMs) {
-    state.detailEditBaseUpdatedAtMs = liveUpdatedAtMs;
-    state.detailEditPendingCardWrites -= 1;
-  }
   const hasConflict = state.detailEditBaseUpdatedAtMs != null &&
     liveUpdatedAtMs != null &&
     liveUpdatedAtMs !== state.detailEditBaseUpdatedAtMs &&
@@ -4032,18 +4042,15 @@ function renderDetailForSelected() {
   contentWrap.appendChild(headingRow);
 
   // Character "cards" (ancestry/community/class/subclass/abilities,
-  // badge color) -- Phase 14 S9: same shared builder characters.js's
-  // player-view detail pane calls, so this section is byte-identical
-  // whether reached from here (GM or player editing a Character on the
-  // Codex tab) or from the Characters tab. Writes immediately per
-  // change (saveCardsPatch/badge updateDoc), independent of this form's
-  // own draft/Save-button flow for name/tags/aliases/etc. below.
+  // badge color) -- Phase 14 S10: this is now the ONLY place cards are
+  // viewed or edited at all (Characters tab's own viewer/editor were
+  // removed -- see character-cards.js header). Edits mutate `draft`
+  // directly (draft.cards/draft.badgeColor), same as every other field
+  // below -- Save/Cancel govern these too now, not just name/tags/etc.
   if (draft.category === 'Character') {
     const cardsWrap = document.createElement('div');
     cardsWrap.className = 'codex-character-cards';
-    cardsWrap.appendChild(buildCharacterCardEditor(entity, ctx, renderDetailForSelected, function () {
-      state.detailEditPendingCardWrites += 1;
-    }));
+    cardsWrap.appendChild(buildCharacterCardEditor(entity, draft, ctx, renderDetailForSelected));
     contentWrap.appendChild(cardsWrap);
   }
 
