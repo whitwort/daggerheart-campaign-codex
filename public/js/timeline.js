@@ -335,7 +335,11 @@ function renderCardPane() {
     hideSubTabs: true,
     images: timelineCardImagesCache.getImages(),
     onRelatedClick: function (id) { openEntityInPanel(id); },
-    headingRightExtra: headingRightExtra
+    headingRightExtra: headingRightExtra,
+    // Any viewer (not just GM) -- distinct from the GM-only "Edit in
+    // Codex" text button above, which also enters edit mode. Standard
+    // Codex-icon link, same as Map's card (S14 parity pass).
+    onOpenInCodex: function () { switchToCodexEntity(entity.id); }
   });
 }
 
