@@ -1029,6 +1029,43 @@ select {
    class. */
 .lore-item-btn, .action-btn-compact { width: 9rem; min-width: 9rem; padding: 0.35rem 0.9rem; cursor: pointer; }
 .lore-item-body { font-size: 0.906rem; line-height: 1.6; color: var(--ink); font-weight: 400; }
+/* Markdown-rendered inline code & fenced code blocks (Phase 14 S8):
+   previously unstyled -- just the browser's own default monospace/no-
+   background rendering, which barely stood out against the parchment.
+   Global element selectors (not scoped to one container class) since
+   markdown renders into many different containers across the app
+   (lore items, notes, card-slot bodies, popout panels, entity preview
+   cards) -- .search-help-popup's own more specific `code` override
+   (font-size only, above) still wins on specificity for its own size,
+   while inheriting this background/color. Dark-panel contexts
+   (.admin-card, .gallery-picker-panel) get their own override below
+   since a dark-ink-on-light-tint scheme reads as almost invisible
+   against a near-black background. */
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 0.85em;
+  background: rgba(58,46,34,0.14);
+  color: #6E4A2E;
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+}
+pre {
+  background: rgba(58,46,34,0.1);
+  border: 1px solid var(--parchment-edge);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+  margin: 0.6rem 0;
+}
+pre code { background: none; padding: 0; border-radius: 0; color: inherit; }
+.admin-card code, .gallery-picker-panel code {
+  background: rgba(255,255,255,0.12);
+  color: #E9C097;
+}
+.admin-card pre, .gallery-picker-panel pre {
+  background: rgba(255,255,255,0.06);
+  border-color: var(--void-line);
+}
 /* Phase 14 S7 (§11.4): collapse only applied (via JS, post-render height
    check) to items long enough to need it -- short items never get this
    class or the expand row at all. S8: threshold doubled (was 20rem) --
