@@ -864,13 +864,20 @@ select {
    rows with align-items:center, so .vis-control just needs to be an
    inline flex child, no positioning of its own). */
 .vis-control { display: inline-flex; align-items: center; gap: 0.3rem; }
-/* Label badge dot (Phase 14 S8): character-targeted-and-hidden state's
-   own color cue, to the left of the "Specific character" label -- same
-   sizing as .vis-kebab-char-dot in the popover list. [hidden] override
-   needed since an author-stylesheet class selector otherwise beats the
-   UA stylesheet's own [hidden]{display:none} rule. */
-.vis-label-badge-dot { width: 0.55rem; height: 0.55rem; border-radius: 50%; flex-shrink: 0; display: inline-block; }
-.vis-label-badge-dot[hidden] { display: none; }
+/* Label character badge (Phase 14 S8, upgraded from a bare dot to a
+   named tag box): character-targeted-and-hidden state's own name+color
+   cue, to the left of the "Specific character" label -- same tag-box
+   look as .character-badge (colored background, white text) but its
+   own class since that one's margin-left is tuned for sitting right of
+   .source-label elsewhere, not as a flex child with .vis-control's own
+   gap here. [hidden] override needed since an author-stylesheet class
+   selector otherwise beats the UA stylesheet's own
+   [hidden]{display:none} rule. */
+.vis-label-char-badge {
+  display: inline-block; font-size: 0.7rem; font-weight: 600; color: #fff;
+  background: var(--badge-color, var(--badge-default)); border-radius: 3px; padding: 0.1rem 0.45rem;
+}
+.vis-label-char-badge[hidden] { display: none; }
 .vis-kebab-wrap { position: relative; display: inline-block; }
 /* Phase 14 S8 (global UI pass item 2): height matched to .toggle-switch
    (1.4rem) -- previously 1.15rem, visibly shorter than the toggle it
