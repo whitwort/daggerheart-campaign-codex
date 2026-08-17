@@ -1529,6 +1529,10 @@ function buildRelatedEditor(entityId, draft, ctx) {
   });
   wrap.appendChild(list);
 
+  const addRow = document.createElement('div');
+  addRow.className = 'actions-row';
+  const addRowRight = document.createElement('div');
+  addRowRight.className = 'actions-row-right';
   const addBtn = document.createElement('button');
   addBtn.type = 'button';
   addBtn.className = 'action-btn-compact';
@@ -1544,7 +1548,9 @@ function buildRelatedEditor(entityId, draft, ctx) {
       }
     });
   });
-  wrap.appendChild(addBtn);
+  addRowRight.appendChild(addBtn);
+  addRow.appendChild(addRowRight);
+  wrap.appendChild(addRow);
   return wrap;
 }
 
