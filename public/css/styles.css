@@ -422,7 +422,19 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
   border: 1px solid var(--void-line);
   box-shadow: 0 1px 4px rgba(0,0,0,0.5); font-size: 0.75rem; line-height: 1.5;
 }
-.map-pin-legend-row { display: flex; align-items: center; gap: 0.35rem; }
+.map-pin-legend-row {
+  display: flex; align-items: center; gap: 0.35rem;
+  width: auto; min-width: 0; text-align: left; padding: 0.1rem 0;
+  background: none; border: none; box-shadow: none; color: inherit; font-size: inherit;
+  cursor: pointer;
+}
+.map-pin-legend-row:hover { opacity: 0.8; }
+/* Click-to-toggle (Phase 14 S8): hidden category's row stays visible
+   (so it can be clicked back on) but visually recedes -- dimmed swatch/
+   label plus a strike-through, rather than disappearing, which would
+   leave no way to tell it was ever there or turn it back on. */
+.map-pin-legend-row.hidden-cat { opacity: 0.45; }
+.map-pin-legend-row.hidden-cat span:last-child { text-decoration: line-through; }
 .map-pin-legend-swatch { width: 0.7rem; height: 0.7rem; border-radius: 50%; display: inline-block; background: var(--pin-color, #888); }
 
 /* Generic modal (used by the New-entity dialog) */
