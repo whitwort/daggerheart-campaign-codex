@@ -32,7 +32,6 @@ export const state = {
   charactersClaimPopupOpen: false,       // Phase 14 S8 -- player view: whether the "Claim Character" popup is open
   charactersPickingActive: false,        // Phase 14 S8 -- player view: "Set active" picking mode -- next character clicked becomes activeCharacterId
   charactersAncestryAddOpen: false,      // Phase 14 S8 -- character edit panel: whether the second-ancestry picker is expanded (progressive-reveal ancestry UI)
-  detailEditPendingCardWrites: 0,        // Phase 14 S9 -- count of in-flight character-cards.js writes (ancestry/community/class/subclass/abilities/badge) made through THIS entity's own open Codex-tab edit form; used to auto-accept the resulting updatedAt drift instead of flagging it as an external edit-conflict (see renderDetailForSelected's hasConflict check)
   threadsUnsub: null,        // Phase 14 S6 -- GM: full threads collection; player: own threads/{email} doc (messages.js)
   allThreads: [],            // thread docs (GM: all; player: at most own), {id: playerEmail, lastMessageAt, lastMessagePreview, gmLastReadAt, playerLastReadAt}
   threadMessagesUnsub: null, // per-open-thread messages subcollection listener -- manual lifecycle (target changes with the open tab), like entityImagesUnsub; the app's first subcollection listener
