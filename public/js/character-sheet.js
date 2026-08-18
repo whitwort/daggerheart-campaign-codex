@@ -291,38 +291,21 @@ function buildSuggestionControl(suggestKey, currentValue, suggestion, snapshot, 
   return wrap;
 }
 
-// Trait mark toggle (§12.1's tier-up mechanic: "gain +1 to two
-// unmarked traits and mark them" / "clear all marks"). Reworked per
-// Gregg's feedback -- this used to be the WHOLE card silently toggling
-// on click, with no visible control or explanation. Now it's one small
-// explicit checkbox-style button with a tooltip spelling out what
-// marking means; the rest of the card is inert.
+// Trait value editing. No tier-up "mark" tracking here (removed, per
+// Gregg: which two traits to bump at tier-up is a call players make
+// for themselves at the table -- this app isn't enforcing/tracking
+// that rule). cards.sheet.traits[key].marked is still in the stored
+// schema (harmless, unread) rather than migrated out, so no existing
+// data is lost by this change.
 function buildTraitCard(entity, sheet, key, editable) {
   const trait = sheet.traits[key];
   const card = document.createElement('div');
-  card.className = 'character-sheet-trait-card' + (trait.marked ? ' marked' : '');
+  card.className = 'character-sheet-trait-card';
 
-  const headerRow = document.createElement('div');
-  headerRow.className = 'character-sheet-trait-header-row';
   const label = document.createElement('div');
   label.className = 'character-sheet-trait-label';
   label.textContent = TRAIT_LABELS[key];
-  headerRow.appendChild(label);
-
-  const markBtn = document.createElement('button');
-  markBtn.type = 'button';
-  markBtn.className = 'character-sheet-trait-mark-btn' + (trait.marked ? ' marked' : '');
-  markBtn.title = trait.marked
-    ? 'Marked for tier-up. Marks clear at the end of the tier.'
-    : 'Mark for tier-up: at the start of a new tier, gain +1 to two unmarked traits and mark them.';
-  markBtn.disabled = !editable;
-  markBtn.addEventListener('click', function () {
-    const newTraits = Object.assign({}, sheet.traits);
-    newTraits[key] = Object.assign({}, trait, { marked: !trait.marked });
-    patchSheet(entity, { traits: newTraits });
-  });
-  headerRow.appendChild(markBtn);
-  card.appendChild(headerRow);
+  card.appendChild(label);
 
   const valueInput = document.createElement('input');
   valueInput.type = 'number';

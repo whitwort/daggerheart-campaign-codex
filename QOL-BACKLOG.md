@@ -32,8 +32,7 @@ height, with NO per-context exceptions, except:**
    swatches), `.characters-add-btn`/`.characters-remove-btn` (Phase 14
    S8, Characters tab's inline assign/unassign icons),
    `.character-sheet-suggestion-icon` (Phase 14 S17, the Sheet tab's
-   per-field suggested-value (i) indicator), `.character-sheet-trait-
-   mark-btn` (Phase 14 S17, the Sheet tab's trait tier-up mark toggle),
+   per-field suggested-value (i) indicator),
    `.character-sheet-track-box` (Phase 14 S17, the Sheet tab's HP/
    Stress/Hope three-state boxes — small squares, not circular, but
    same "not a full-width action button" exception family).
