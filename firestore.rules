@@ -217,7 +217,10 @@ service cloud.firestore {
     }
     match /notifications/{notifId} {
       allow read: if isGM() || (request.auth != null && resource.data.recipientEmail == request.auth.token.email);
-      allow create: if isValidNotification() && (isGM() || isPlayer());
+      allow create: if isValidNotification() && (
+        (isGM() || isPlayer()) ||
+        (request.auth != null && request.resource.data.kind == 'joinRequest')
+      );
       allow update: if request.auth != null && resource.data.recipientEmail == request.auth.token.email
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt']);
       allow delete: if isGM();
