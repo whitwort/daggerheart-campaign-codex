@@ -197,20 +197,6 @@ function buildMiniCard(opts) {
   // .character-deck-card-controls in the outer header row.
   const titleGroup = document.createElement('div');
   titleGroup.className = 'character-deck-card-title-group';
-  // Every card type EXCEPT Experience (never Codex-backed, no entity
-  // to open). Conditions/Equipment only get one when linked to an
-  // actual entity (entityId set); a custom/free-text entry has
-  // nothing to open, so opts.codexEntityId is simply omitted for
-  // those and no icon renders.
-  if (opts.codexEntityId) {
-    const codexLink = document.createElement('button');
-    codexLink.type = 'button';
-    codexLink.className = 'character-deck-card-codex-link';
-    codexLink.title = 'Open in Codex';
-    codexLink.innerHTML = CONFIG.icons.codex;
-    codexLink.addEventListener('click', function () { switchToCodexTabForEntity(opts.codexEntityId); });
-    titleGroup.appendChild(codexLink);
-  }
   const h3 = document.createElement('h3');
   h3.appendChild(document.createTextNode(opts.title));
   if (opts.titleSuffix) {
@@ -220,6 +206,21 @@ function buildMiniCard(opts) {
     h3.appendChild(span);
   }
   titleGroup.appendChild(h3);
+  // Every card type EXCEPT Experience (never Codex-backed, no entity
+  // to open). Conditions/Equipment only get one when linked to an
+  // actual entity (entityId set); a custom/free-text entry has
+  // nothing to open, so opts.codexEntityId is simply omitted for
+  // those and no icon renders. Right of the name (S21 -- was left of
+  // it, S20).
+  if (opts.codexEntityId) {
+    const codexLink = document.createElement('button');
+    codexLink.type = 'button';
+    codexLink.className = 'character-deck-card-codex-link';
+    codexLink.title = 'Open in Codex';
+    codexLink.innerHTML = CONFIG.icons.codex;
+    codexLink.addEventListener('click', function () { switchToCodexTabForEntity(opts.codexEntityId); });
+    titleGroup.appendChild(codexLink);
+  }
   headerRow.appendChild(titleGroup);
   if (opts.controls && opts.controls.length) {
     const controls = document.createElement('div');

@@ -2278,11 +2278,12 @@ button:disabled:hover { border-color: var(--void-line); }
   position: absolute; bottom: 0.5rem; right: 0.5rem; background: var(--ink); color: var(--parchment);
   font-size: 0.6rem; font-weight: 600; border-radius: 4px; padding: 0.08rem 0.3rem;
 }
-/* Title group (S20): Codex link + name share one sub-row, inline and
-   left of the name -- moved from a bottom-left corner icon per
-   Gregg's follow-up. flex:1/min-width:0 here (not on h3 alone
-   anymore) so the name is still the thing that truncates/ellipsizes
-   when space is tight, not this whole group. */
+/* Title group (S20/S21): name + Codex link share one sub-row, the
+   icon right of the name (was left of it in S20, corrected per
+   Gregg's follow-up; originally a bottom-left corner icon in S19).
+   flex:1/min-width:0 here (not on h3 alone) so the name is still the
+   thing that truncates/ellipsizes when space is tight, not this whole
+   group. */
 .character-deck-card-title-group { display: flex; align-items: flex-start; gap: 0.3rem; flex: 1; min-width: 0; }
 /* Codex link: plain colored icon, no chrome -- same .entity-map-link
    idiom the app already uses for this exact icon elsewhere (Map/
