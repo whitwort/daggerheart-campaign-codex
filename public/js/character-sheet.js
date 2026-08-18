@@ -197,6 +197,21 @@ function buildResourcesBlock(entity, sheet, editable) {
   return wrap;
 }
 
+function buildGoldBlock(entity, sheet, editable) {
+  const wrap = document.createElement('div');
+  wrap.className = 'character-sheet-resources-row character-sheet-gold-row';
+  wrap.appendChild(buildNumberField('Handfuls', sheet.gold.handfuls, editable, function (v) {
+    patchSheet(entity, { gold: Object.assign({}, sheet.gold, { handfuls: v }) });
+  }));
+  wrap.appendChild(buildNumberField('Bags', sheet.gold.bags, editable, function (v) {
+    patchSheet(entity, { gold: Object.assign({}, sheet.gold, { bags: v }) });
+  }));
+  wrap.appendChild(buildNumberField('Chest', sheet.gold.chest, editable, function (v) {
+    patchSheet(entity, { gold: Object.assign({}, sheet.gold, { chest: v }) });
+  }));
+  return wrap;
+}
+
 export function buildCharacterSheet(entity, ctx, editable) {
   const sheet = resolveSheet(entity);
 
@@ -211,6 +226,12 @@ export function buildCharacterSheet(entity, ctx, editable) {
   wrap.appendChild(traitsRow);
 
   wrap.appendChild(buildResourcesBlock(entity, sheet, editable));
+
+  const goldLabel = document.createElement('div');
+  goldLabel.className = 'character-deck-section-title';
+  goldLabel.textContent = 'Gold';
+  wrap.appendChild(goldLabel);
+  wrap.appendChild(buildGoldBlock(entity, sheet, editable));
 
   return wrap;
 }
