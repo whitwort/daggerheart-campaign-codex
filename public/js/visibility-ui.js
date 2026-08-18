@@ -264,6 +264,10 @@ function buildVisibilityControl(opts) {
 // with their active character (§6.2) -- same toggle-switch styling as
 // buildVisibilityControl's switch, but no kebab (a player never sets
 // visibility/characterId themselves) and writes ONLY characterShared.
+// Phase 14 S16: updated label text ("Keep to myself"/"Share with party")
+// and toggle color (green for character-private state, blue for party-shared).
+// Turning on (share with party) requires confirmation popup warning that
+// only the GM can make it private again.
 // opts:
 //   getShared(): () => bool (current characterShared)
 //   onToggle(newShared): void
@@ -289,13 +293,21 @@ function buildSharedToggle(opts) {
   wrap.appendChild(switchLabel);
 
   function refresh() {
-    label.className = 'toggle-switch-label ' + (current ? 'state-visible' : 'state-hidden');
-    label.textContent = current ? 'Visible to party' : 'Hidden from party';
+    label.className = 'toggle-switch-label ' + (current ? 'state-visible' : 'state-character');
+    label.textContent = current ? 'Share with party' : 'Keep to myself';
     switchInput.checked = current;
   }
 
   switchInput.addEventListener('change', function () {
-    current = switchInput.checked;
+    const wantShared = switchInput.checked;
+    if (wantShared && !current) {
+      // Turning on: require confirmation
+      if (!confirm('Once shared with the party, only the GM can make it private again.')) {
+        switchInput.checked = false;
+        return;
+      }
+    }
+    current = wantShared;
     refresh();
     opts.onToggle(current);
   });
