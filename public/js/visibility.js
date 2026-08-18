@@ -218,11 +218,14 @@ function isShareableToWholeParty(element) {
 // Literal-state CSS class for GM-facing element chrome (lore-item/gallery-
 // item/entity-card wells): 'vis-visible' | 'vis-character' | 'vis-hidden'.
 // Same literal-not-per-viewer reasoning as isShareableToWholeParty above.
-// In S1 only 'vis-visible'/'vis-hidden' are reachable (no writer sets
-// visibility:'character' yet); S2 adds the seafoam CSS for 'vis-character'.
+// Phase 14 S16: when visibility='character' + characterShared=true (player
+// shared the element with the party), renders as 'vis-visible' (blue) not
+// 'vis-character' (seafoam) — reflects that the party now sees it.
 function visibilityStateClass(element) {
   if (element.visibility === 'all-players') return 'vis-visible';
-  if (element.visibility === 'character') return 'vis-character';
+  if (element.visibility === 'character') {
+    return element.characterShared ? 'vis-visible' : 'vis-character';
+  }
   return 'vis-hidden';
 }
 
