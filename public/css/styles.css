@@ -2332,7 +2332,7 @@ button:disabled:hover { border-color: var(--void-line); }
 
 /* Level dropdown (Phase 14 S17), header row -> level row -> Cards/Sheet
    tabs, dark-context styling matching the rest of this pane. */
-.character-detail-level-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
+.character-detail-level-row { display: flex; align-items: center; justify-content: flex-end; gap: 0.4rem; margin-bottom: 0.5rem; }
 .character-detail-level-row label {
   font-family: var(--font-display), sans-serif; font-size: 0.72rem; text-transform: uppercase;
   letter-spacing: 0.05em; color: var(--ink-soft);
