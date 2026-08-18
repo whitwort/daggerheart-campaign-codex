@@ -39,7 +39,7 @@
 import {
   getFirestore, doc, updateDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { firebaseApp } from './firebase.js';
+import { firebaseApp, CONFIG } from './firebase.js';
 import { state } from './state.js';
 import { canSee, hasFullAuthority } from './visibility.js';
 import { renderMarkdownInto } from './markdown.js';
@@ -232,6 +232,21 @@ function buildMiniCard(opts) {
     badge.className = 'character-deck-card-badge';
     badge.textContent = opts.badge;
     card.appendChild(badge);
+  }
+  // Codex link (S19): bottom-left, opposite the Tier/Level badge --
+  // every card type EXCEPT Experience (never Codex-backed, no entity
+  // to open). Conditions/Equipment only get one when linked to an
+  // actual entity (entityId set); a custom/free-text entry has
+  // nothing to open, so opts.codexEntityId is simply omitted for
+  // those and no icon renders.
+  if (opts.codexEntityId) {
+    const codexLink = document.createElement('button');
+    codexLink.type = 'button';
+    codexLink.className = 'character-deck-card-codex-link';
+    codexLink.title = 'Open in Codex';
+    codexLink.innerHTML = CONFIG.icons.codex;
+    codexLink.addEventListener('click', function () { switchToCodexTabForEntity(opts.codexEntityId); });
+    card.appendChild(codexLink);
   }
   return card;
 }
@@ -508,7 +523,8 @@ function buildHeritageSection(cards, ctx) {
         tray.appendChild(buildMiniCard({
           title: anc.name,
           titleSuffix: '\u2014 ' + pair[1],
-          bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(anc, ctx, pair[0]), { extraHeadingLines: ['First', 'Second'] })
+          bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(anc, ctx, pair[0]), { extraHeadingLines: ['First', 'Second'] }),
+          codexEntityId: anc.id
         }));
       });
     }
@@ -519,14 +535,19 @@ function buildHeritageSection(cards, ctx) {
       const group = picks[fid] || (i === 0 ? 'first' : 'second');
       tray.appendChild(buildMiniCard({
         title: anc.name,
-        bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(anc, ctx, group), { extraHeadingLines: ['First', 'Second'] })
+        bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(anc, ctx, group), { extraHeadingLines: ['First', 'Second'] }),
+        codexEntityId: anc.id
       }));
     });
   }
 
   const community = state.allEntities.find(function (e) { return e.id === cards.communityId; });
   if (community) {
-    tray.appendChild(buildMiniCard({ title: community.name, bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(community, ctx, null)) }));
+    tray.appendChild(buildMiniCard({
+      title: community.name,
+      bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(community, ctx, null)),
+      codexEntityId: community.id
+    }));
   }
 
   if (!tray.children.length) buildEmptyNote(tray, 'No heritage set.');
@@ -571,7 +592,8 @@ function buildClassSection(entity, cards, ctx, editable) {
       bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(cls, ctx, null), {
         stripSections: ['Background', 'Connection'],
         stripBulletLabels: ['Evasion', 'Hp', 'Domain ', 'Subclass ', 'Suggested ']
-      })
+      }),
+      codexEntityId: cls.id
     }));
   }
   if (subclass) {
@@ -582,7 +604,8 @@ function buildClassSection(entity, cards, ctx, editable) {
     subclassPane.appendChild(buildMiniCard({
       title: subclass.name,
       metaLines: ['Through ' + (tierLabel ? tierLabel.label : '')],
-      bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(subclass, ctx, cumulativeTierKeys(tierKey)))
+      bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(subclass, ctx, cumulativeTierKeys(tierKey))),
+      codexEntityId: subclass.id
     }));
   }
 
@@ -666,7 +689,8 @@ function buildAbilitiesSection(entity, cards, ctx, editable) {
       badge: d.level ? ('Lv ' + d.level) : null,
       metaLines: abilityMetaLines(d),
       bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(a, ctx, null), { stripBulletLabels: ['Domain', 'Level', 'Type', 'Recall'] }),
-      controls: controls
+      controls: controls,
+      codexEntityId: a.id
     });
   }
 
@@ -757,7 +781,8 @@ function buildAbilitiesSection(entity, cards, ctx, editable) {
           metaLines: beastformMetaLines(d),
           bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(bf, ctx, null), {
             stripBulletLabels: ['Tier', 'Trait Bonus', 'Evasion Bonus', 'Attack', 'Advantages', 'Examples']
-          })
+          }),
+          codexEntityId: bf.id
         }));
       });
     });
@@ -786,7 +811,8 @@ function buildConditionsSection(entity, cards, ctx, editable) {
       title: c.label,
       titleSuffix: c.note ? ('\u00d7' + c.note) : null,
       bodyMd: linked ? cleanCardMd(resolveEntityStatBlockMarkdown(linked, ctx, null)) : '',
-      controls: controls
+      controls: controls,
+      codexEntityId: linked ? linked.id : null
     }));
   });
 
@@ -850,7 +876,8 @@ function buildEquipmentSection(entity, cards, ctx, editable) {
     tray.appendChild(buildMiniCard(Object.assign({
       title: it.label,
       titleSuffix: it.qty && it.qty !== 1 ? ('\u00d7' + it.qty) : null,
-      controls: controls
+      controls: controls,
+      codexEntityId: linked ? linked.id : null
     }, typeOpts)));
   });
 
@@ -888,12 +915,16 @@ function buildDeckHeader(entity, ctx, editable) {
   const h2 = document.createElement('h2');
   h2.textContent = entity.name;
   header.appendChild(h2);
-  // Player view only (Gregg's explicit ask) -- GM already works out of
-  // the Codex tab directly, this is for a player's own owned character
-  // so they don't have to hunt for it in the Table of Contents. Same
-  // button/behavior as Map tab's GM-only "Edit in Codex" (map.js) --
-  // jumps to the Codex tab AND opens edit mode there, doesn't unlock
-  // any inline editing on this card itself.
+  // Player view: "Edit in Codex" (Gregg's explicit ask) -- GM already
+  // works out of the Codex tab directly, this is for a player's own
+  // owned character so they don't have to hunt for it in the Table of
+  // Contents. Same button/behavior as Map tab's GM-only "Edit in
+  // Codex" (map.js) -- jumps to the Codex tab AND opens edit mode
+  // there, doesn't unlock any inline editing on this card itself.
+  // GM view: "View in Codex" in the same spot (S19) -- opens the
+  // character's entry in VIEW mode, no edit mode entered (GM already
+  // has the Codex tab's own Edit affordance once there if they want
+  // it; this is a quick jump, not a shortcut into editing).
   if (!ctx.gmView && editable) {
     const editLink = document.createElement('button');
     editLink.type = 'button';
@@ -905,6 +936,14 @@ function buildDeckHeader(entity, ctx, editable) {
       enterEntityEditMode(entity);
     });
     header.appendChild(editLink);
+  } else if (ctx.gmView) {
+    const viewLink = document.createElement('button');
+    viewLink.type = 'button';
+    viewLink.className = 'entity-map-link timeline-edit-in-codex-link character-deck-edit-link';
+    viewLink.title = 'View in Codex';
+    viewLink.textContent = 'View in Codex';
+    viewLink.addEventListener('click', function () { switchToCodexTabForEntity(entity.id); });
+    header.appendChild(viewLink);
   }
   return header;
 }
