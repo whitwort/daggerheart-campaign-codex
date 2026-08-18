@@ -173,84 +173,16 @@ function openLoreItemEdit(entity, item, isNote, entityAuthority) {
   renderDetailForSelected();
 }
 
-// Phase 14 S7 (§11.4): long lore items get a collapse/expand toggle
-// (inline, height-capped with a fade) plus a "pop out" affordance that
-// opens the item full-size in a floating draggable panel (reusing
-// buildGalleryPickerPanel's drag/header/body pattern -- generic despite
-// its gallery-specific name). "Long" is measured post-render against
-// actual pixel height, not markdown source length. Editable=true means
-// the viewer has some edit path on this item (entityAuthority OR
-// isNoteAuthor OR shared-element edit) -- caller passes hasChrome, which
-// already encodes exactly that.
-// Phase 14 S8: threshold doubled (was 320px/20rem, too aggressive per
-// Gregg) -- 640px/40rem lets roughly twice as many lines through before
-// collapsing.
-const LORE_ITEM_COLLAPSE_PX = 640;
-function attachLoreItemExpand(bodyDiv, itemDiv, entity, item, ctx, editable, isNote, entityAuthority) {
-  if (bodyDiv.scrollHeight <= LORE_ITEM_COLLAPSE_PX) return;
-  bodyDiv.classList.add('lore-item-body-collapsed');
-
-  // Phase 14 S8 redesign: one thin full-width bar (was two separate
-  // 9rem buttons in a row) -- "Show..."/"Hide" fills most of the bar as
-  // its own click target, a small standard pop-out icon sits at the
-  // right edge for "open in window". Soft/low-profile on purpose (a
-  // subtle affordance under the fade, not another heavy action button).
-  const bar = document.createElement('div');
-  bar.className = 'lore-item-show-bar';
-
-  const toggleBtn = document.createElement('button');
-  toggleBtn.type = 'button';
-  toggleBtn.className = 'lore-item-show-toggle';
-  toggleBtn.textContent = 'Show\u2026';
-  toggleBtn.addEventListener('click', function () {
-    const collapsed = bodyDiv.classList.toggle('lore-item-body-collapsed');
-    toggleBtn.textContent = collapsed ? 'Show\u2026' : 'Hide';
-  });
-  bar.appendChild(toggleBtn);
-
-  const popBtn = document.createElement('button');
-  popBtn.type = 'button';
-  popBtn.className = 'lore-item-popout-icon-btn';
-  popBtn.title = 'Open in window';
-  popBtn.innerHTML = CONFIG.icons.popout;
-  popBtn.addEventListener('click', function () { openLoreItemPopout(entity, item, ctx, editable, isNote, entityAuthority); });
-  bar.appendChild(popBtn);
-
-  itemDiv.insertBefore(bar, bodyDiv.nextSibling);
-}
-
-function openLoreItemPopout(entity, item, ctx, editable, isNote, entityAuthority) {
-  if (document.querySelector('.gallery-picker-panel')) return;
-  const built = buildGalleryPickerPanel();
-  built.panel.classList.add('lore-item-popout-panel');
-  built.header.textContent = entity.name;
-  const fullBody = document.createElement('div');
-  fullBody.className = 'lore-item-body lore-item-popout-body';
-  built.body.appendChild(fullBody);
-  const items = state.allLoreItems.filter(function (it) { return it.entityId === entity.id; });
-  renderMarkdownInto(fullBody, resolveLoreItemMarkdown(entity, item, items)).then(function () {
-    applyWikiLinks(fullBody, entity.id, ctx);
-  });
-  if (editable) {
-    const editBtn = document.createElement('button');
-    editBtn.type = 'button';
-    editBtn.className = 'lore-item-btn';
-    editBtn.textContent = 'Edit';
-    editBtn.addEventListener('click', function () {
-      built.panel.remove();
-      openLoreItemEdit(entity, item, isNote, entityAuthority);
-    });
-    built.body.appendChild(editBtn);
-  }
-  const closeBtn = document.createElement('button');
-  closeBtn.type = 'button';
-  closeBtn.className = 'lore-item-btn';
-  closeBtn.textContent = 'Close';
-  closeBtn.addEventListener('click', function () { built.panel.remove(); });
-  built.body.appendChild(closeBtn);
-  document.addEventListener('keydown', function escHandler(e) {
-    if (e.key === 'Escape') { built.panel.remove(); document.removeEventListener('keydown', escHandler); }
-  });
+// Phase 14 S17: long lore items get an internal v-scroll instead of the
+// earlier S7/S8 collapse+fade+"Show..."+pop-out-window chrome (Gregg's
+// call -- simpler UX, no extra click/window management). "Long" is
+// measured post-render against actual pixel height, not markdown source
+// length -- a short paragraph with a big embedded image can be "long"
+// on screen even though a long line of prose might not be.
+const LORE_ITEM_SCROLL_PX = 640;
+function attachLoreItemExpand(bodyDiv) {
+  if (bodyDiv.scrollHeight <= LORE_ITEM_SCROLL_PX) return;
+  bodyDiv.classList.add('lore-item-body-scrollable');
 }
 
 // CSS class carrying the entry-type dot/pin color (see styles.css "Pin
@@ -2750,12 +2682,11 @@ function renderLoreTab(container, entity, ctx, readOnly) {
     bodyDiv.className = 'lore-item-body';
     renderMarkdownInto(bodyDiv, resolveLoreItemMarkdown(entity, item, items)).then(function () {
       applyWikiLinks(bodyDiv, entity.id, ctx);
-      // Phase 14 S7 (§11.4): only long items get collapse/pop-out chrome
-      // -- checked post-render since it depends on actual rendered
-      // height, not raw markdown length (a short paragraph with a big
-      // embedded image is "long" on screen; a long line of prose might
-      // not be).
-      attachLoreItemExpand(bodyDiv, itemDiv, entity, item, ctx, hasChrome && !anyActiveEdit, isNote, entityAuthority);
+      // Phase 14 S17: v-scroll applied post-render, since it depends on
+      // actual rendered height, not raw markdown length (a short
+      // paragraph with a big embedded image is "long" on screen; a long
+      // line of prose might not be).
+      attachLoreItemExpand(bodyDiv);
     });
     itemDiv.appendChild(bodyDiv);
 
