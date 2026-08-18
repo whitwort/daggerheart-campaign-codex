@@ -46,6 +46,8 @@ export const state = {
   allNotifications: [],      // notification docs per the listener scope above
   trayExpanded: false,       // Messages tray collapsed strip vs expanded panel
   trayTab: null,             // open tab: a playerEmail (thread) or 'campaign'
+  msgPanelWidthPx: null,     // Messages panel manual width (px) once the player drags the left-edge handle; null = auto-size to fit the tab strip (see messages.js applyPanelSizing). Session-only, not persisted.
+  msgPanelHeightPx: null,    // Messages panel manual height (px) once the player drags the top-edge handle; null = CSS default (min(24rem, 60vh)). Session-only, not persisted.
   adminSourceEditId: null,
   adminSourceEditDraft: '',
   adminSourceNewDraft: '',
