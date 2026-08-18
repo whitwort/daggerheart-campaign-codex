@@ -133,11 +133,23 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
     requestJoinBtn.addEventListener('click', function () {
       if (!state.currentUser || !state.currentUser.email) return;
       requestJoinBtn.disabled = true;
-      setDoc(doc(db, 'joinRequests', state.currentUser.email), {
-        email: state.currentUser.email,
+      const userEmail = state.currentUser.email;
+      const provider = (state.currentUser.providerData[0] && state.currentUser.providerData[0].providerId) || '';
+      setDoc(doc(db, 'joinRequests', userEmail), {
+        email: userEmail,
         displayName: state.currentUser.displayName || '',
-        provider: (state.currentUser.providerData[0] && state.currentUser.providerData[0].providerId) || '',
+        provider: provider,
         requestedAt: serverTimestamp()
+      }).then(function () {
+        // Write notification message to GM's campaign thread
+        const text = userEmail + ' (' + provider + ') <a href="#tab-btn-admin">Review request</a>';
+        return setDoc(doc(db, 'threads', CONFIG.gmEmail, 'messages', userEmail), {
+          authorRole: 'gm',
+          text: text,
+          createdAt: serverTimestamp(),
+          isSystemMessage: true,
+          referenceEmail: userEmail
+        });
       }).catch(function (err) {
         requestJoinBtn.disabled = false;
         alert('Request failed: ' + err.message);

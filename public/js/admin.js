@@ -1,7 +1,7 @@
 import {
   getFirestore, doc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { firebaseApp } from './firebase.js';
+import { firebaseApp, CONFIG } from './firebase.js';
 import { state } from './state.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
 import { trackWrite } from './connectivity.js';
@@ -272,13 +272,19 @@ const adminSourceErrorEl = document.getElementById('admin-source-error');
         displayName: req.displayName || ''
       }).then(function () {
         return deleteDoc(doc(db, 'joinRequests', req.id));
+      }).then(function () {
+        // Delete the notification message from GM's campaign thread
+        return deleteDoc(doc(db, 'threads', CONFIG.gmEmail, 'messages', req.email));
       }).catch(function (err) {
         alert('Accept failed: ' + err.message);
       });
     }
 
     function rejectJoinRequest(req) {
-      deleteDoc(doc(db, 'joinRequests', req.id)).catch(function (err) {
+      deleteDoc(doc(db, 'joinRequests', req.id)).then(function () {
+        // Delete the notification message from GM's campaign thread
+        return deleteDoc(doc(db, 'threads', CONFIG.gmEmail, 'messages', req.email));
+      }).catch(function (err) {
         alert('Reject failed: ' + err.message);
       });
     }
