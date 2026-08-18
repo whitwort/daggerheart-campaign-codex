@@ -2218,7 +2218,7 @@ button:disabled:hover { border-color: var(--void-line); }
    on the name). align-items:flex-start puts both on the same cross-
    axis start -- necessary but NOT sufficient on its own, see the h3
    rule below for the font-mismatch issue that also had to be fixed. */
-.character-deck-card-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.3rem; }
+.character-deck-card-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.3rem; min-height: 0; }
 /* line-height:1 (S17 follow-up): the flex-row alignment fix above
    wasn't enough on its own -- Comfortaa (--font-display) bakes in
    generous vertical metrics that create visible whitespace above the
@@ -2227,24 +2227,29 @@ button:disabled:hover { border-color: var(--void-line); }
    line-height:1 override. Not visible on the larger .codex-entity-
    card h2 (more padding to absorb it into), but glaring on this
    card's tight 0.55rem top padding. */
-/* line-height:1 alone still left a visible gap above the name text on
-   cards with swap/remove controls (S17, second follow-up) -- root
-   cause wasn't leftover line-height/margin at all, it was a FONT
-   mismatch: this h3 renders in Comfortaa (--font-display), but the
-   adjacent .character-deck-ctl icons set no font-family of their own
-   and inherit the body font (Inter) all the way up from <body>.
-   Comfortaa's internal ascent metrics sit well above Inter's for the
-   same nominal line-height:1, so even with identical flex-start
-   alignment the two glyphs' visible tops never lined up -- no CSS
-   margin/line-height tweak on ONE of the two elements can fix a
-   metrics mismatch BETWEEN two different fonts. Switching this h3 to
-   the body font (matching the icons/everything else on this card)
-   removes the mismatch outright instead of guessing at a compensating
-   offset. font-weight 600 keeps it reading as a title despite losing
-   the display font. */
+/* Font-family switched to match the icons (S17, second follow-up) --
+   Comfortaa's ascent metrics sit noticeably above Inter's at the same
+   nominal line-height:1, and a mismatch between two different fonts
+   can't be fixed by tweaking margin/line-height on just one side. */
+/* S18 follow-up (still not fixed per Gregg's devtools screenshot --
+   .character-deck-card-header-row measured 28px tall, roughly double
+   one line's expected ~14px, with the name text sitting low in that
+   box despite align-items:flex-start): most likely cause is the name
+   wrapping to a second line under some card widths/names, which
+   align-items:flex-start doesn't prevent -- it only aligns the START
+   of a (possibly multi-line) box, not a promise the box stays one
+   line. white-space:nowrap + text-overflow:ellipsis forces a single
+   line unconditionally, which both removes that failure mode outright
+   and is reasonable behavior for a card title regardless (truncates
+   long ability/item names instead of wrapping unpredictably).
+   min-height:0 / explicit align-self:flex-start on both children
+   added defensively alongside it -- not confirmed necessary, but rule
+   out other flexbox cross-axis sizing quirks at the same time rather
+   than another single-variable guess-and-check round. */
 .character-deck-card h3 {
   font-family: var(--font-body), sans-serif; font-weight: 600; font-size: 0.86rem;
-  line-height: 1; margin: 0 0 0.15rem; color: var(--ink); flex: 1; min-width: 0;
+  line-height: 1; margin: 0 0 0.15rem; color: var(--ink); flex: 1; min-width: 0; align-self: flex-start;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .character-deck-card-suffix { color: var(--ink-soft); font-weight: 400; font-size: 0.68rem; }
 .character-deck-card-meta { font-size: 0.64rem; color: var(--ink-soft); margin-bottom: 0.3rem; line-height: 1.35; }
@@ -2263,7 +2268,7 @@ button:disabled:hover { border-color: var(--void-line); }
 /* Swap/remove controls: no longer absolutely positioned (see
    .character-deck-card-header-row above) -- just a flex-shrink:0
    sibling of the name in that shared row now. */
-.character-deck-card-controls { display: flex; gap: 0.3rem; flex-shrink: 0; }
+.character-deck-card-controls { display: flex; gap: 0.3rem; flex-shrink: 0; align-self: flex-start; }
 .character-deck-ctl {
   background: none; border: none; box-shadow: none; padding: 0; cursor: pointer;
   font-size: 0.85rem; line-height: 1; width: auto; min-width: 0;
