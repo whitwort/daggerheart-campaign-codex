@@ -174,7 +174,7 @@ service cloud.firestore {
       return request.resource.data.keys().hasOnly(['lastMessageAt', 'lastMessagePreview', 'gmLastReadAt', 'playerLastReadAt']);
     }
     function isValidMessage() {
-      return request.resource.data.keys().hasOnly(['authorRole', 'text', 'createdAt', 'isSystemMessage', 'referenceEmail'])
+      return request.resource.data.keys().hasOnly(['authorRole', 'text', 'createdAt'])
         && request.resource.data.authorRole in ['gm', 'player']
         && request.resource.data.text is string
         && request.resource.data.text.size() > 0;
@@ -195,11 +195,9 @@ service cloud.firestore {
         allow read: if isGM() || (request.auth != null && request.auth.token.email == playerEmail);
         allow create: if isValidMessage() && (
           (isGM() && request.resource.data.authorRole == 'gm') ||
-          (request.auth != null && request.auth.token.email == playerEmail && request.resource.data.authorRole == 'player') ||
-          (request.auth != null && request.resource.data.isSystemMessage == true && request.resource.data.authorRole == 'gm')
+          (request.auth != null && request.auth.token.email == playerEmail && request.resource.data.authorRole == 'player')
         );
-        allow update: if false;
-        allow delete: if isGM() && resource.data.isSystemMessage == true;
+        allow update, delete: if false;
       }
     }
 
