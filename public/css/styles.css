@@ -2446,7 +2446,7 @@ button:disabled:hover { border-color: var(--void-line); }
    of the three allowed to shrink to make room, see .character-sheet-
    proficiency-field above). */
 .character-sheet-gold-icon-box {
-  flex: 0 0 auto; height: 1rem; width: auto; padding: 0;
+  flex: 0 0 auto; height: 1rem; width: auto; min-width: 0; padding: 0;
   border: none; background: none; box-shadow: none; cursor: pointer;
   display: flex; align-items: center; color: var(--ink-soft); opacity: 0.55;
 }
