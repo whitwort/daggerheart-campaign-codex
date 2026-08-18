@@ -753,13 +753,18 @@ function buildDetailsMarkdown(entity) {
   if (!lines.length) return '';
   return ['### Details'].concat(lines).join('\n');
 }
-function buildFeaturesMarkdown(entity) {
+function buildFeaturesMarkdown(entity, tierFilter) {
   const feats = entity.features || [];
   if (!feats.length) return '';
   const schema = getTemplateSchema(entity.category, entity.subtype);
   if (schema && schema.featureGroups) {
+    const groups = tierFilter
+      ? schema.featureGroups.filter(function (g) {
+          return Array.isArray(tierFilter) ? tierFilter.indexOf(g.key) !== -1 : g.key === tierFilter;
+        })
+      : schema.featureGroups;
     const lines = [];
-    schema.featureGroups.forEach(function (g) {
+    groups.forEach(function (g) {
       const groupFeats = feats.filter(function (f) { return f.group === g.key; });
       if (!groupFeats.length) return;
       lines.push('### ' + g.label);
@@ -788,6 +793,38 @@ function resolveLoreItemMarkdown(entity, item, items) {
     }
   }
   return item.content;
+}
+
+// Character deck viewer (Phase 14 S15): full "stat block" markdown for
+// an entity -- structured Details + tier-filtered Features (same
+// synthesis buildDetailsMarkdown/buildFeaturesMarkdown already do for
+// the Lore tab) PLUS any hand-authored leftover prose from the
+// entity's own meta-details/meta-features lore items (e.g. a weapon's
+// Damage bullet before that became a structured field, or GM-added
+// prose beyond the structured Features -- the "additional text below
+// Features in the parse" Gregg asked deck cards to include). This is
+// what character-cards.js's own slotStatMarkdown does NOT do -- that
+// one only reads entity.details/entity.features directly, skipping
+// lore items entirely, which was fine for the build-time editor's
+// verification-only card slots but not for the deck viewer's actual
+// reference cards. A lore item's raw .content IS its leftover already
+// (resolveLoreItemMarkdown only PREPENDS synthesis on top when
+// rendering the Lore tab) -- so this reads content directly rather
+// than resolving through that function, no synthesis duplication.
+function resolveEntityStatBlockMarkdown(entity, ctx, tierFilter) {
+  if (!entity) return '';
+  const detailsMd = buildDetailsMarkdown(entity);
+  const featsMd = buildFeaturesMarkdown(entity, tierFilter);
+  const items = loreItemsForEntity(entity.id, ctx);
+  const leftoverParts = [];
+  const seen = {};
+  items.forEach(function (it) {
+    if ((it.meta === 'meta-details' || it.meta === 'meta-features') && !seen[it.meta]) {
+      seen[it.meta] = true;
+      if (it.content) leftoverParts.push(it.content);
+    }
+  });
+  return [detailsMd, featsMd].concat(leftoverParts).filter(Boolean).join('\n\n');
 }
 
 // Exported shim for map.js/timeline.js: pins pointing at player-invisible
@@ -4439,5 +4476,5 @@ export {
   clearCodexSearchInput, buildEntityPreviewCard, categoryGroupLabel, entityMatchesQuery,
   renderEntityViewCard, applyWikiLinks, enterEntityEditMode, appendDateSegments,
   fitCodexTabHeight, footerReserve, switchToCodexTabForEntity, notifyVisibilityChange,
-  openNewEntityDialog
+  openNewEntityDialog, resolveEntityStatBlockMarkdown
 };

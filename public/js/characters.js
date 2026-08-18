@@ -1,29 +1,31 @@
-// characters.js — Phase 14 S5, restyled S8, cards UI removed S10. The
-// Characters tab.
+// characters.js — Phase 14 S5, restyled S8, cards UI removed S10,
+// character deck viewer added S15.
 //
-// S10 (per Gregg): the Characters tab no longer shows or edits card
-// data at all -- that briefly lived here (S5-S9 -- editable in the
-// player's own view, read-only in the GM's), then moved to be shared
-// with the Codex tab's entity edit form (S9), and finally got dropped
-// from this tab entirely (S10) once having it in two places caused
-// more confusion than it solved. The ONLY place character cards are
-// viewed/edited now is: Codex tab -> select a Character entry -> Edit
-// -> Save/Cancel (character-cards.js). Both detail panes below are
-// deliberately left empty on selection for now -- Gregg's planned
-// "character deck" viewer (a different, not-yet-designed feature) will
-// live here later.
+// S10 (per Gregg): the Characters tab no longer shows or edits BUILD-
+// time card data (ancestry/community/class/subclass/abilityIds/
+// badgeColor) at all -- that stays exclusively at Codex tab -> select
+// a Character entry -> Edit -> Save/Cancel (character-cards.js).
+//
+// S15: this tab's detail panes (both GM and player) now render the
+// character deck (character-deck.js) instead of sitting empty -- a
+// SEPARATE, play-time-state surface (current subclass tier, Active/
+// Vault ability split, Conditions, Equipment) that writes directly to
+// Firestore per interaction, not through a draft/Save-Cancel form.
+// Deliberately not a revival of the S9 two-editing-surfaces problem:
+// this owns a different, non-overlapping slice of `cards` (see that
+// module's own header comment for the full reasoning).
 //
 // GM view ("Players & Characters"): left pane lists every party member
 // with an inline "+ assign"/"x remove" UI for the ownerId association
 // (moved here from the Codex-tab entity-edit form in S8 -- see codex.js);
-// right pane just shows the selected character's name for now (see
-// above -- no card viewer).
+// right pane renders the selected character's deck (S15).
 //
 // Player view: left pane lists the player's own characters (name +
 // active-toggle + self-release "x", same pattern as the GM pane's
-// remove); right pane just shows the selected character's name for now
-// (see above -- no card editor); "Claim Character"/"+ Create Character"
-// live at the bottom (S8) -- Claim opens a popup over the existing
+// remove); right pane renders the selected character's deck (S15,
+// editable only when it's the player's own owned character); "Claim
+// Character"/"+ Create Character" live at the bottom (S8) -- Claim
+// opens a popup over the existing
 // PC-tagged/unowned/visible transferRequests flow, Create routes
 // through codex.js's New Entity dialog (category Character, tag PC
 // preset).
@@ -51,6 +53,7 @@ import { canSee, viewerContext, hasFullAuthority } from './visibility.js';
 import { switchToCodexTabForEntity, openNewEntityDialog } from './codex.js';
 import { generateDefaultBadgeColor } from './badge-color.js';
 import { approveTransferRequest, rejectTransferRequest } from './transfer-requests.js';
+import { buildCharacterDeck } from './character-deck.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -339,12 +342,7 @@ function renderCharactersGmView(ctx) {
     charactersDetailPaneEl.appendChild(p);
     return;
   }
-  // S10: no card viewer here anymore -- see module header. Just the
-  // name, confirming the selection landed; deck viewer (Gregg's planned
-  // feature, not yet designed) will replace this.
-  const heading = document.createElement('h3');
-  heading.textContent = selected.name;
-  charactersDetailPaneEl.appendChild(heading);
+  charactersDetailPaneEl.appendChild(buildCharacterDeck(selected, ctx));
 }
 
 // --- Player view ---------------------------------------------------------
@@ -446,13 +444,7 @@ function renderCharactersPlayerView(ctx) {
   charactersPlayerSelectedEl.innerHTML = '';
   const selected = own.find(function (e) { return e.id === state.charactersSelectedId; });
   if (selected) {
-    // S10: no card editor here anymore -- see module header. Just the
-    // name, confirming the selection landed; deck viewer (Gregg's
-    // planned feature, not yet designed) will replace this. Editing now
-    // only happens via Codex tab -> Edit.
-    const heading = document.createElement('h3');
-    heading.textContent = selected.name;
-    charactersPlayerSelectedEl.appendChild(heading);
+    charactersPlayerSelectedEl.appendChild(buildCharacterDeck(selected, ctx));
   } else {
     const p = document.createElement('p');
     p.className = 'lore-empty';

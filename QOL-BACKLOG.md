@@ -91,6 +91,20 @@ height, with NO per-context exceptions, except:**
     "Claim"/"Cancel" in the same pass). `width: auto; min-width: 0;`,
     same reasoning as exception 17 -- narrowest fit around a short label,
     not matched to any sibling group here (this button has none).
+19. Character deck viewer (Phase 14 S15) tray "+ Add" slot --
+    `.character-deck-add-slot`. Fixed at `178px` (matching the mini
+    parchment cards it sits alongside in the same tray -- an empty card
+    slot, not a text link), `min-width: 178px; text-align: center;`.
+    Deliberately NOT `width: auto` like most exceptions -- this one
+    needs a FIXED size, just not the base 12rem.
+20. Character deck viewer's per-card swap/remove icon buttons --
+    `.character-deck-ctl` (Phase 14 S15). Icon-only, same shape as
+    exception 4 -- `width: auto; min-width: 0;`.
+21. Character deck viewer's Abilities sub-tabs -- `.character-deck-
+    subtabs button` (Phase 14 S15, Active/Vault/Beastforms). Flat tab-
+    style buttons, same shape as exception 2 -- `width: auto;
+    min-width: 0; text-align: left;` (inherited from the shared rule,
+    not restated per-button).
 
 Base width lowered from 13rem to 12rem as of the "+ New party member"
 → "+ New member" rename (that label no longer defines the floor).
