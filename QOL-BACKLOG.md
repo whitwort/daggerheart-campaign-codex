@@ -230,6 +230,20 @@ scrollbar spot-check — accepted, no further action).
 
 ## Future phases (scoped, not started)
 
+**Phase renumbering (this session, per Gregg):** prod persistence
+rollout — previously "Phase 15" throughout the handoff chain — is now
+**Phase 16**. **Phase 15** is reassigned to a new scope: explore
+integration options with `daggerheart-encounter-builder` (or whatever
+Gregg means by "campaign-builder" — confirm the exact sibling repo at
+the start of that session; not yet scoped beyond "explore options,"
+no design work done). See codex-handoff_35.md.
+
+**Multi-image gallery upload edge case — CLOSED, marked passed by
+Gregg.** Carried as an open test item since handoff 27/28 without ever
+being explicitly re-confirmed in later sessions, re-surfacing in every
+status recap since. Gregg has tested this multiple times; treat as
+passed, don't re-list it.
+
 **Phase 12 — CLOSED.** All Phase 12/12b work (backup/export/migration
 infra, and the SRD import scaffolding + implementation that followed
 it) is done and verified. Next up: Phase 13.
