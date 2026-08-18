@@ -2278,19 +2278,26 @@ button:disabled:hover { border-color: var(--void-line); }
   position: absolute; bottom: 0.5rem; right: 0.5rem; background: var(--ink); color: var(--parchment);
   font-size: 0.6rem; font-weight: 600; border-radius: 4px; padding: 0.08rem 0.3rem;
 }
-/* Codex link (S19): bottom-left, opposite the Tier/Level badge. Plain
-   colored icon, no chrome -- same .entity-map-link idiom the app
-   already uses for this exact icon elsewhere (Map/Timeline cards). */
+/* Title group (S20): Codex link + name share one sub-row, inline and
+   left of the name -- moved from a bottom-left corner icon per
+   Gregg's follow-up. flex:1/min-width:0 here (not on h3 alone
+   anymore) so the name is still the thing that truncates/ellipsizes
+   when space is tight, not this whole group. */
+.character-deck-card-title-group { display: flex; align-items: flex-start; gap: 0.3rem; flex: 1; min-width: 0; }
+/* Codex link: plain colored icon, no chrome -- same .entity-map-link
+   idiom the app already uses for this exact icon elsewhere (Map/
+   Timeline cards). flex-shrink:0 so a long name truncates before this
+   icon ever gets squeezed. */
 .character-deck-card-codex-link {
-  position: absolute; bottom: 0.5rem; left: 0.65rem; color: var(--fear);
-  background: none; border: none; box-shadow: none; padding: 0; cursor: pointer;
-  width: auto; min-width: 0; font-size: 1rem; line-height: 1; display: flex; align-items: center;
+  color: var(--fear); background: none; border: none; box-shadow: none; padding: 0; cursor: pointer;
+  width: auto; min-width: 0; flex-shrink: 0; font-size: 1rem; line-height: 1; display: flex; align-items: center;
+  margin-top: 0.1rem;
 }
 .character-deck-card-codex-link:hover { opacity: 0.75; }
 .character-deck-card-codex-link svg { width: 0.95rem; height: 0.95rem; display: block; }
 /* Swap/remove controls: no longer absolutely positioned (see
    .character-deck-card-header-row above) -- just a flex-shrink:0
-   sibling of the name in that shared row now. */
+   sibling of the title group in that shared row now. */
 .character-deck-card-controls { display: flex; gap: 0.3rem; flex-shrink: 0; align-self: flex-start; }
 .character-deck-ctl {
   background: none; border: none; box-shadow: none; padding: 0; cursor: pointer;
