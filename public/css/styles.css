@@ -2322,6 +2322,25 @@ button:disabled:hover { border-color: var(--void-line); }
 .character-detail-tabs button.active { color: var(--hope); border-bottom-color: var(--hope); }
 .character-detail-tab-panel { padding-top: 0.1rem; }
 
+/* Character Sheet tab (Phase 14 S17, commit 2: traits row). Mini
+   parchment cards, deliberately NOT reusing .character-deck-card --
+   that class's h3 override chain is scoped to .character-deck
+   .character-deck-tray ancestors (see the S18 admin-card h3 leak fix
+   above), which this tab sits outside of. Self-contained instead. */
+.character-sheet-traits-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
+.character-sheet-trait-card {
+  background: var(--parchment); color: var(--ink); border: 1px solid var(--parchment-edge);
+  border-radius: 8px; box-shadow: 0 3px 10px rgba(0,0,0,0.35); padding: 0.5rem 0.6rem;
+  flex: 1 1 90px; min-width: 80px; max-width: 120px; box-sizing: border-box;
+  text-align: center; cursor: pointer;
+}
+.character-sheet-trait-card.marked { border-color: var(--hope); box-shadow: 0 0 0 2px var(--hope) inset; }
+.character-sheet-trait-label {
+  font-family: var(--font-display), sans-serif; font-size: 0.68rem; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--ink-soft); margin-bottom: 0.3rem;
+}
+.character-sheet-trait-value { width: 100%; text-align: center; font-size: 1.05rem; font-weight: 600; box-sizing: border-box; }
+
 .character-deck-subtabs { display: flex; gap: 1rem; border-bottom: 1px solid var(--void-line); margin-bottom: 0.6rem; }
 .character-deck-subtabs button {
   background: none; border: none; border-radius: 0; box-shadow: none; padding: 0.3rem 0.1rem; font-size: 0.8rem;
