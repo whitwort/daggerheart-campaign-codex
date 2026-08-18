@@ -2177,9 +2177,17 @@ button:disabled:hover { border-color: var(--void-line); }
    control icons start at the exact same vertical position regardless
    of font metrics, per Gregg's explicit "top aligned" ask. */
 .character-deck-card-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.3rem; }
+/* line-height:1 (S17 follow-up): the flex-row alignment fix above
+   wasn't enough on its own -- Comfortaa (--font-display) bakes in
+   generous vertical metrics that create visible whitespace above the
+   glyphs under this card's inherited line-height:1.4, same issue the
+   app's own header h1 already works around with the identical
+   line-height:1 override. Not visible on the larger .codex-entity-
+   card h2 (more padding to absorb it into), but glaring on this
+   card's tight 0.55rem top padding. */
 .character-deck-card h3 {
   font-family: var(--font-display), sans-serif; font-weight: 400; font-size: 0.86rem;
-  margin: 0 0 0.15rem; color: var(--ink); flex: 1; min-width: 0;
+  line-height: 1; margin: 0 0 0.15rem; color: var(--ink); flex: 1; min-width: 0;
 }
 .character-deck-card-suffix { color: var(--ink-soft); font-weight: 400; font-size: 0.68rem; }
 .character-deck-card-meta { font-size: 0.64rem; color: var(--ink-soft); margin-bottom: 0.3rem; line-height: 1.35; }
