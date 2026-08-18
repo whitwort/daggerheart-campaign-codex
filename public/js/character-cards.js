@@ -67,8 +67,10 @@ export const DEFAULT_CARDS = {
   // links a Codex entry when picked from one (Game Mechanics/
   // conditions, or any Equipment subtype), null for a free-text
   // custom entry; label is always stored so a renamed/deleted linked
-  // entity doesn't break display.
-  vaultAbilityIds: [], conditions: [], equipment: []
+  // entity doesn't break display. Experiences are ALWAYS freeform
+  // (name+text typed by the player) -- no entityId at all, unlike
+  // conditions/equipment, since no Codex entry ever backs one.
+  vaultAbilityIds: [], conditions: [], equipment: [], experiences: []
 };
 
 // Tier progression order: Foundation (unlocked at character creation)
