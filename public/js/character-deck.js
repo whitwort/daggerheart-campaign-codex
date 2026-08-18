@@ -285,6 +285,54 @@ function openCardPickerPopup(opts) {
   }
 }
 
+// Experience add popup: no candidates, no search, no linking -- an
+// Experience is always freeform (Name + Text), never Codex-backed, so
+// this is a much simpler form than openCardPickerPopup's linked-or-
+// custom flow, not a variant of it.
+function openExperiencePickerPopup(onAdd) {
+  if (document.querySelector('.entity-picker-panel')) return;
+  const built = buildFloatingPickerPanel();
+  built.header.textContent = 'Add experience';
+
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.placeholder = 'Experience name';
+  built.body.appendChild(nameInput);
+
+  const textInput = document.createElement('textarea');
+  textInput.placeholder = 'Experience text';
+  textInput.rows = 3;
+  built.body.appendChild(textInput);
+
+  const confirmBtn = document.createElement('button');
+  confirmBtn.type = 'button';
+  confirmBtn.textContent = 'Add';
+  confirmBtn.addEventListener('click', function () {
+    const name = nameInput.value.trim();
+    if (!name) return;
+    onAdd(name, textInput.value.trim());
+    close();
+  });
+  built.body.appendChild(confirmBtn);
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', close);
+  built.body.appendChild(cancelBtn);
+
+  nameInput.focus();
+  function onDocClick(ev) { if (!built.panel.contains(ev.target)) close(); }
+  function onKeydown(ev) { if (ev.key === 'Escape') close(); }
+  setTimeout(function () { document.addEventListener('click', onDocClick); }, 0);
+  document.addEventListener('keydown', onKeydown);
+  function close() {
+    document.removeEventListener('click', onDocClick);
+    document.removeEventListener('keydown', onKeydown);
+    built.panel.remove();
+  }
+}
+
 // Items/Consumables carry no templates.js schema at all -- their card
 // text is just the entity's own lore content, unlike every other
 // equipment subtype. Some hand-authored entries (pre-dating this
@@ -435,7 +483,7 @@ function buildAbilitiesSection(entity, cards, ctx, editable) {
   const selectedClass = state.allEntities.find(function (e) { return e.id === cards.classId; });
   const isDruid = !!selectedClass && (selectedClass.name || '').trim() === 'Druid';
 
-  const tabs = [['active', 'Active'], ['vault', 'Vault']];
+  const tabs = [['active', 'Active'], ['vault', 'Vault'], ['experience', 'Experience']];
   if (isDruid) tabs.push(['beastforms', 'Beastforms']);
   if (!tabs.some(function (t) { return t[0] === state.characterDeckAbilityTab; })) {
     state.characterDeckAbilityTab = 'active';
@@ -528,6 +576,33 @@ function buildAbilitiesSection(entity, cards, ctx, editable) {
     panels[key] = panel;
     section.appendChild(panel);
   });
+
+  // Experience tab: always-freeform name+text, never Codex-backed --
+  // no picker/search popup, just a small "Name" + "Text" form.
+  {
+    const panel = document.createElement('div');
+    panel.className = 'character-deck-tab-panel' + (state.characterDeckAbilityTab === 'experience' ? ' active' : '');
+    const tray = buildTray();
+    const experiences = cards.experiences || [];
+    experiences.forEach(function (exp) {
+      const controls = editable ? [{
+        icon: '&times;', title: 'Remove', cls: 'ctl-remove',
+        onClick: function () { patchCards(entity, { experiences: experiences.filter(function (x) { return x.id !== exp.id; }) }); }
+      }] : [];
+      tray.appendChild(buildMiniCard({ title: exp.name, bodyMd: exp.text, controls: controls }));
+    });
+    if (editable) {
+      tray.appendChild(buildAddSlot('+ Add experience', function () {
+        openExperiencePickerPopup(function (name, text) {
+          patchCards(entity, { experiences: experiences.concat([{ id: newLocalId(), name: name, text: text }]) });
+        });
+      }));
+    }
+    if (!tray.children.length && !editable) buildEmptyNote(tray, 'No experiences.');
+    panel.appendChild(tray);
+    panels.experience = panel;
+    section.appendChild(panel);
+  }
 
   if (isDruid) {
     const panel = document.createElement('div');

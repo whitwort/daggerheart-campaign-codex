@@ -813,9 +813,20 @@ function resolveLoreItemMarkdown(entity, item, items) {
 // than resolving through that function, no synthesis duplication.
 function resolveEntityStatBlockMarkdown(entity, ctx, tierFilter) {
   if (!entity) return '';
+  const schema = getTemplateSchema(entity.category, entity.subtype);
+  const items = loreItemsForEntity(entity.id, ctx);
+  // No structured schema (Conditions, Items, Consumables, or any
+  // entity that hasn't opted into useTemplate): there's no Details/
+  // Features to synthesize, so just show the entity's own visible
+  // lore content directly -- this was the actual bug behind Condition
+  // cards showing no text at all (their lore items carry no
+  // meta-details/meta-features tag, so the templated branch below
+  // found nothing to show).
+  if (!schema || !entity.useTemplate) {
+    return items.map(function (it) { return it.content; }).filter(Boolean).join('\n\n');
+  }
   const detailsMd = buildDetailsMarkdown(entity);
   const featsMd = buildFeaturesMarkdown(entity, tierFilter);
-  const items = loreItemsForEntity(entity.id, ctx);
   const leftoverParts = [];
   const seen = {};
   items.forEach(function (it) {
