@@ -1103,9 +1103,14 @@ pre code { background: none; border: none; padding: 0; border-radius: 0; color: 
    to items long enough to need it -- short items never get this class.
    Replaces the earlier S7/S8 collapse+fade+"Show..."+pop-out-window
    design; scrolling in place is simpler and avoids the extra click/
-   window-management overhead. See LORE_ITEM_SCROLL_PX in codex.js. */
+   window-management overhead. See LORE_ITEM_SCROLL_PX in codex.js.
+   max-height is capped against viewport height (60vh), not just a flat
+   40rem -- #codex-detail-pane is itself a scroll container, and a flat
+   rem cap taller than the pane's own visible height caused double
+   scrollbars (inner lore-item scroll AND outer page/pane scroll) on
+   shorter viewports. */
 .lore-item-body-scrollable {
-  max-height: 40rem; overflow-y: auto;
+  max-height: min(40rem, 60vh); overflow-y: auto;
 }
 .lore-item-body > :first-child { margin-top: 0; }
 .lore-item-body > :last-child { margin-bottom: 0; }
