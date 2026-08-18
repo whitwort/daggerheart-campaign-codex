@@ -2396,10 +2396,17 @@ button:disabled:hover { border-color: var(--void-line); }
    stay clickable (not disabled) since double-click is how they unlock;
    only Checked boxes are inert to double-click (no defined transition).
    Hope never renders the dotted state (allowLocked:false) -- all 6
-   boxes are always either empty or filled. */
+   boxes are always either empty or filled.
+   Boxes fill the row's full width (Gregg's ask) rather than sitting as
+   fixed-size squares with dead space on the right -- flex-basis:1rem
+   is what the browser wraps against (how many fit per row), flex-
+   grow:1 then stretches every box on a row, including a short last
+   row, to use the remainder evenly. .character-sheet-track-field's
+   existing 0.4rem/0.6rem padding is the "appropriate margin" around
+   the whole row. */
 .character-sheet-track-boxes { display: flex; flex-wrap: wrap; gap: 0.22rem; }
 .character-sheet-track-box {
-  width: 1.1rem; height: 1.1rem; min-width: 0; border-radius: 2px; padding: 0;
+  flex: 1 1 1rem; height: 1.1rem; min-width: 0; border-radius: 2px; padding: 0;
   border: 1.5px solid var(--parchment); background: none; box-shadow: none; cursor: pointer;
 }
 .character-sheet-track-box.marked { background: var(--parchment); }
