@@ -800,6 +800,12 @@ correctly describe what shipped at the time.
 - **Proficiency suggestion (6th suggestible field)**: `proficiency =
   tierForCharacterLevel(cards.level)` — not SRD-sourced like the other
   five, but same suggestion-icon mechanics apply.
+- **Suggested damage roll**, appended below the Proficiency field:
+  `[current proficiency][primary/secondary weapon's damage string]`,
+  e.g. proficiency 2 + weapon damage "d8+3 phy" → "2d8+3 phy". Reads the
+  Primary-slot item if present, else Secondary; em dash if no matching
+  weapon or its `details.damage` is empty. Live display only, not its
+  own stored field or suggestion icon.
 - **Equipment slot assignment moved from Cards to Sheet tab**: the
   per-item `<select>` on Equipment mini-cards (12.2 as originally
   shipped) didn't have room on those cards and wasn't legible in
