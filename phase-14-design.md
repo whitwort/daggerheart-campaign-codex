@@ -595,3 +595,180 @@ character mid-session. UI-only.
   `isValidLoreItem()`'s meta enum gains `'meta-narrative-backstory'`.
 - Everything else (11.3, 11.4, 11.6, 11.7, 11.8) is UI/filter logic
   against fields that already exist — no schema or rules touched.
+
+## 12. S17 — Character sheet (design)
+
+Scope locked with Gregg: **passive tracking form** (option 2) **+ inline
+per-field suggestion indicator** (option 3, cheap route — no live
+recompute, no effects engine). Fields and grouping cross-checked against
+the official
+Daggerheart character sheet PDF (Darrington Press, May 2025 printing) — the
+front-page field set is identical across all 9 class sheets + the generic
+blank sheet, confirming one schema covers every class. Layout/art is
+Darrington Press's own IP; only the field set and grouping informed this
+design, not their visual template.
+
+Out of scope for S17 (explicitly deferred, not forgotten):
+- Live/dynamic recompute of derived stats (option 4) — no structured
+  modifier data exists on subclass/ancestry/community features or most
+  items to drive it (see prior message's viability writeup).
+- Tier-up progression text, background questions, description prompts —
+  static rules reference / one-time chargen flavor, not per-character
+  tracked state. Not modeled here.
+- Druid Beastform / Ranger Companion supplemental tracking — subclass-
+  specific bolt-on mechanics with their own state; future session.
+- Parsing the PDF's "Suggested Traits" prose per class into structured
+  data — currently unstructured leftover markdown on the Class entity
+  (`detailsLeftoverMd`, per §3.6/templates.js), would need its own SRD
+  schema addition. Not needed for S17's suggested-defaults scope, which
+  only touches HP/Evasion/Armor Score/Thresholds (see 12.2).
+
+### 12.1 New schema: `cards.sheet`
+
+Character `cards`-only, unvalidated blob (same pattern as `equipment`/
+`conditions`/`experiences` — no `firestore.rules` change needed).
+
+```
+cards.sheet: {
+  traits: {
+    agility:  { value: number, marked: bool },
+    strength: { value: number, marked: bool },
+    finesse:  { value: number, marked: bool },
+    instinct: { value: number, marked: bool },
+    presence: { value: number, marked: bool },
+    knowledge:{ value: number, marked: bool }
+  },
+  evasion: number,
+  armorScore: number,
+  proficiency: number,
+  hp:      { max: number, marked: number },
+  stress:  { max: number, marked: number },
+  hope:    { max: number, marked: number },
+  thresholds: { major: number, severe: number },
+  gold: { handfuls: number, bags: number, chest: number }
+}
+```
+
+All fields default to `0`/`false`/empty on first read (no migration —
+absent `cards.sheet` renders as a blank sheet, same "tolerant of missing
+keys" convention `cards.equipment`/`cards.experiences` already use).
+`traits.*.marked` mirrors the PDF's tier-up mechanic ("gain +1 to two
+unmarked traits and mark them" / "clear all marks") — display-only
+checkbox, no rules enforcement of the 2-per-tier-up limit (same
+"UI nudges, don't enforce" philosophy as `cards.abilityIds`' 2-ability
+minimum, §3.1).
+
+### 12.2 Equipment slot model (extends existing `cards.equipment`)
+
+PDF distinguishes Primary weapon / Secondary weapon / 2 generic inventory
+weapon slots / 1 active armor slot, vs. today's flat undifferentiated
+`cards.equipment` list (§ handoff 30 — `{id, entityId|null, label, qty}`,
+no slot concept). Add one field to each item, no new array:
+
+```
+cards.equipment[i].slot: 'primary' | 'secondary' | 'armor' | null
+```
+
+`null` = unassigned / general inventory (covers the PDF's 2 generic
+weapon slots and any non-weapon item — potions, tools, etc., unchanged
+from today). UI enforces at most one item with `slot:'primary'`, one
+`'secondary'`, one `'armor'` (same non-enforced-by-rules convention as
+12.1's trait-marking cap) — picking a new item for an occupied slot
+prompts to swap, doesn't silently duplicate.
+
+### 12.3 Suggested-value indicator (inline, per-field — not a global button)
+
+Per Gregg's direction: no bulk "Reset to suggested" action. Instead, every
+field with a computable suggestion gets a small **(i) icon** beside its
+input, in one of two states:
+
+- **Match** — the field's current value equals the live-computed
+  suggestion right now. Calm/settled treatment (e.g. muted, low-contrast
+  dot/icon — exact color TBD at implementation, app's existing amber/
+  parchment accent palette is the likely fit).
+- **Updated** — the live-computed suggestion has changed since this field
+  was last set (by hand or by clicking the icon), and the field's current
+  value no longer matches it. "Calm but noticeable" per Gregg — a
+  distinct accent color, not an alert/error treatment.
+
+If the field's current value differs from the live suggestion **but the
+suggestion hasn't changed since the value was last set**, no icon shows
+at all — this is a deliberate player override, not staleness, and
+shouldn't nag. This is a 3-way render outcome from 2 stored booleans-
+worth of state (below), not a 3rd persisted state.
+
+**Storage** — one snapshot object recording what the suggestion *was* at
+the time each suggestible field was last written (whether via manual
+edit or via clicking the icon to apply it):
+
+```
+cards.sheet.suggestedSnapshot: {
+  hpMax: number|null, evasion: number|null, armorScore: number|null,
+  thresholdMajor: number|null, thresholdSevere: number|null
+}
+```
+
+Render logic per field, comparing `liveSuggestion` (computed fresh every
+render, same sources as below) against `field.value` and
+`suggestedSnapshot[key]`:
+- `field.value === liveSuggestion` → **Match**.
+- `field.value !== liveSuggestion && liveSuggestion !== suggestedSnapshot[key]` → **Updated**.
+- otherwise (value diverges, but suggestion hasn't moved since) → no icon.
+
+A brand-new character (no `cards.sheet` yet, `suggestedSnapshot[key]`
+`undefined`) naturally renders **Updated** wherever a suggestion exists —
+correct behavior, surfaces "there's a suggestion here" on first view
+without a special-cased empty state.
+
+**Click behavior**: clicking the icon applies `liveSuggestion` to that
+one field only (writes both the field and `suggestedSnapshot[key]` in
+the same `patchCards` call) and flips it to Match. No field is ever
+overwritten without the player/GM clicking its own icon.
+
+**Live-suggestion sources** (same as before, unchanged — data already
+structured today, §3.6/templates.js, no new SRD schema needed):
+- `hpMax` ← linked Class entity's `details.hp`
+- `evasion` ← linked Class entity's `details.evasion`
+- `armorScore` ← the `equipment` item with `slot:'armor'`'s linked Armor
+  entity's `details.base_score` (no suggestion — icon omitted — if no
+  armor equipped)
+- `thresholdMajor`/`thresholdSevere` ← that same Armor entity's
+  `details.base_thresholds` **plus the character's current level** (PDF:
+  "Add your current level to your damage thresholds"), recomputed live
+  on every render (cheap — no write until clicked).
+
+Traits, proficiency, hope, gold, stress have no structured source (per
+12's "out of scope" list) — no icon on those fields, pure manual same as
+today's Conditions/Experience tabs.
+
+### 12.4 UI placement — Cards / Sheet tabs
+
+Per Gregg's direction: the character detail panel (both
+`#characters-detail-pane` GM view and `#characters-player-selected`
+player view) becomes a **two-tab layout**, mirroring the in-fiction
+"look at your cards" vs. "look at your sheet" context switch at the
+table:
+- **Cards** tab — exactly today's `character-deck.js` render, unchanged
+  (Heritage+Conditions, Class, Abilities, Equipment). Default/first tab.
+- **Sheet** tab — new content from this section: traits row (6 small
+  toggleable cards) → HP/Stress/Hope/Thresholds/Evasion/Armor
+  Score/Proficiency block, each suggestible field carrying its (i) icon
+  → Gold counter.
+
+Tab strip follows the existing flat tab-button convention (QOL-BACKLOG
+exception 2 — no border/background/box-shadow, same as Entry Card tabs/
+Admin DB tabs); new selector added to that exception list rather than a
+new one-off pattern. Weapon/Armor slot picker stays in the Cards tab's
+existing Equipment section (12.2) — not duplicated into Sheet, one place
+to edit each item.
+
+### Net schema/rules delta for S17
+
+- New field: `cards.sheet` (Character `cards` sub-object, unvalidated —
+  no `firestore.rules` change).
+- Changed field: `cards.equipment[i]` gains optional `slot` key
+  (unvalidated, no rules change).
+- No SRD import/schema changes required — 12.3's suggested-defaults
+  button reads fields already present since S15 (`class.details.hp`/
+  `evasion`) and the armor schema pilot (`armor.details.base_score`/
+  `base_thresholds`).
