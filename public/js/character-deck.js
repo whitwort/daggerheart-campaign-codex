@@ -945,44 +945,13 @@ function equipmentCardOptsForLinked(e, ctx) {
   // Items/Consumables: no templates.js schema at all -- text only.
   return { metaLines: [], bodyMd: cleanCardMd(stripLoneRollDetails(resolveEntityStatBlockMarkdown(e, ctx, null))) };
 }
-// Weapon/Armor slot picker (§12.2, commit 5). Only offered for Codex-
-// linked Weapon/Armor items -- a custom/unlinked entry has no subtype
-// to key off, so it can't be told apart from a generic inventory item;
-// stays slot:null/general inventory, same as today. Selecting a slot
-// already held by another item clears that item's slot in the same
-// write (an item's dropdown will visibly reset to blank next render) --
-// satisfies "doesn't silently duplicate" from §12.2 without a separate
-// confirm dialog.
-const SLOT_OPTIONS = {
-  weapons: [['', '(none)'], ['primary', 'Primary'], ['secondary', 'Secondary']],
-  armor: [['', '(none)'], ['armor', 'Armor']]
-};
-function applyEquipmentSlot(entity, equipment, itemId, slot) {
-  const newEquipment = equipment.map(function (it) {
-    if (it.id === itemId) return Object.assign({}, it, { slot: slot || null });
-    if (slot && it.slot === slot) return Object.assign({}, it, { slot: null });
-    return it;
-  });
-  patchCards(entity, { equipment: newEquipment });
-}
-function buildEquipmentSlotPicker(entity, equipment, it, linked, editable) {
-  const options = SLOT_OPTIONS[linked.subtype];
-  if (!options) return null;
-  const select = document.createElement('select');
-  select.className = 'character-deck-equipment-slot-select';
-  select.disabled = !editable;
-  options.forEach(function (pair) {
-    const opt = document.createElement('option');
-    opt.value = pair[0];
-    opt.textContent = pair[1];
-    if ((it.slot || '') === pair[0]) opt.selected = true;
-    select.appendChild(opt);
-  });
-  select.addEventListener('change', function () {
-    applyEquipmentSlot(entity, equipment, it.id, select.value || null);
-  });
-  return select;
-}
+// Weapon/Armor slot ASSIGNMENT lives on the Sheet tab now (S17 follow-
+// up) -- character-sheet.js's Equipped panel, to the right of the
+// stats block. The per-card <select> that used to live here (commit 5)
+// didn't have room on these cramped mini-cards and was confusing in
+// practice; cards.equipment[i].slot itself is unchanged, just the
+// control that sets it moved. This section stays read-only display of
+// what's carried, same as Conditions/Experience.
 function buildEquipmentSection(entity, cards, ctx, editable) {
   const section = buildSection('Equipment');
   const tray = buildTray();
@@ -1002,10 +971,6 @@ function buildEquipmentSection(entity, cards, ctx, editable) {
       codexEntityId: linked ? linked.id : null,
       reorderId: editable ? it.id : null
     }, typeOpts));
-    if (linked) {
-      const slotPicker = buildEquipmentSlotPicker(entity, equipment, it, linked, editable);
-      if (slotPicker) miniCard.appendChild(slotPicker);
-    }
     tray.appendChild(miniCard);
   });
 

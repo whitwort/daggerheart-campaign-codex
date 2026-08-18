@@ -2258,14 +2258,6 @@ button:disabled:hover { border-color: var(--void-line); }
   position: absolute; bottom: 0.5rem; right: 0.5rem; background: var(--ink); color: var(--parchment);
   font-size: 0.6rem; font-weight: 600; border-radius: 4px; padding: 0.08rem 0.3rem;
 }
-/* Weapon/Armor slot picker (§12.2, S17 commit 5) -- bottom-left,
-   opposite the Tier/Level badge (bottom-right) so the two never
-   collide; only rendered for Codex-linked Weapon/Armor items. */
-.character-deck-equipment-slot-select {
-  position: absolute; bottom: 0.5rem; left: 0.65rem; font-size: 0.62rem;
-  background: var(--parchment); border: 1px solid var(--parchment-edge); border-radius: 4px;
-  padding: 0.05rem 0.15rem; color: var(--ink); max-width: 5.5rem;
-}
 /* Title group (S20/S21): name + Codex link share one sub-row, the
    icon right of the name (was left of it in S20, corrected per
    Gregg's follow-up; originally a bottom-left corner icon in S19).
@@ -2370,10 +2362,13 @@ button:disabled:hover { border-color: var(--void-line); }
    Same self-contained-under-.character-sheet approach as the traits
    row above -- no .character-deck-card reuse. */
 .character-sheet-resources { display: flex; flex-direction: column; gap: 0.6rem; }
+.character-sheet-resources-main { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: flex-start; }
+.character-sheet-resources-main .character-sheet-resources-row { flex: 1 1 260px; }
 .character-sheet-resources-row { display: flex; flex-wrap: wrap; gap: 0.6rem; }
 .character-sheet-field, .character-sheet-track-field {
   background: var(--void); border: 1px solid var(--void-line); border-radius: 8px;
   padding: 0.4rem 0.6rem; flex: 1 1 100px; min-width: 90px; box-sizing: border-box;
+  position: relative; /* anchors the suggestion popup below */
 }
 .character-sheet-field-label-row { display: flex; align-items: center; justify-content: space-between; gap: 0.3rem; }
 .character-sheet-field-label {
@@ -2387,12 +2382,29 @@ button:disabled:hover { border-color: var(--void-line); }
 .character-sheet-track-slash { color: var(--ink-soft); }
 .character-sheet-gold-row { margin-top: 0.2rem; }
 
-/* Suggested-value indicator (§12.3, commit 6). Small round (i), two
-   calm-but-distinct states -- Match uses the muted ink-soft tone,
-   Updated uses the app's existing hope accent (not an error/alert
-   color, per Gregg's "calm but noticeable" direction). No icon at all
-   is the 3rd render outcome (deliberate override) -- simply omitted,
-   not a CSS state. */
+/* Equipped slot panel (moved here from the Cards tab's per-item
+   Equipment select, which didn't have room on the mini-cards). Sits
+   to the right of the stats row inside .character-sheet-resources-main
+   above -- narrower, fixed-ish width rather than flex:1 like the stats
+   fields, since it's 3 short rows not a grid of boxes. */
+.character-sheet-slots {
+  background: var(--void); border: 1px solid var(--void-line); border-radius: 8px;
+  padding: 0.4rem 0.6rem; flex: 1 1 180px; max-width: 240px; box-sizing: border-box;
+}
+.character-sheet-slot-row { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; margin-top: 0.3rem; }
+.character-sheet-slot-row:first-of-type { margin-top: 0.15rem; }
+.character-sheet-slot-row-label { font-size: 0.72rem; color: var(--ink-soft); flex: 0 0 auto; }
+.character-sheet-slot-select { width: auto; min-width: 0; max-width: 9rem; font-size: 0.72rem; padding: 0.2rem 1.4rem 0.2rem 0.5rem; overflow: hidden; text-overflow: ellipsis; }
+
+/* Suggested-value indicator (§12.3). Small round (i), two calm-but-
+   distinct states -- Match uses the muted ink-soft tone, Updated uses
+   the app's existing hope accent (not an error/alert color, per
+   Gregg's "calm but noticeable" direction). No icon at all is the 3rd
+   render outcome (deliberate override) -- simply omitted, not a CSS
+   state. Reworked (S17 follow-up): first hover/tap opens a popup
+   showing the suggested value + its source WITHOUT applying; a second
+   click/tap (popup already open) applies it -- see buildSuggestionControl,
+   character-sheet.js. */
 .character-sheet-suggestion-icon {
   width: 1.1rem; height: 1.1rem; min-width: 0; border-radius: 50%; padding: 0; flex: 0 0 auto;
   display: flex; align-items: center; justify-content: center; font-size: 0.62rem; font-style: italic;
@@ -2401,6 +2413,15 @@ button:disabled:hover { border-color: var(--void-line); }
 }
 .character-sheet-suggestion-icon.match { color: var(--ink-soft); border-color: var(--void-line); }
 .character-sheet-suggestion-icon.updated { color: var(--hope); border-color: var(--hope); }
+.character-sheet-suggestion-popup {
+  position: absolute; top: 100%; right: 0; margin-top: 0.25rem; z-index: 5;
+  background: var(--parchment); color: var(--ink); border: 1px solid var(--parchment-edge);
+  border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,0.4); padding: 0.4rem 0.55rem;
+  font-size: 0.7rem; line-height: 1.35; white-space: nowrap;
+}
+.character-sheet-suggestion-popup-value { font-weight: 600; }
+.character-sheet-suggestion-popup-source { color: #6B4A1E; font-size: 0.66rem; margin-top: 0.1rem; }
+
 
 .character-deck-subtabs { display: flex; gap: 1rem; border-bottom: 1px solid var(--void-line); margin-bottom: 0.6rem; }
 .character-deck-subtabs button {
