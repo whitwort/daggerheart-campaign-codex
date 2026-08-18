@@ -988,7 +988,7 @@ function buildEquipmentSection(entity, cards, ctx, editable) {
 }
 
 // --- Top-level assembly ------------------------------------------------
-function buildDeckHeader(entity, ctx, editable) {
+export function buildDeckHeader(entity, ctx, editable) {
   const header = document.createElement('div');
   header.className = 'character-deck-header';
   const dot = document.createElement('span');
@@ -1037,7 +1037,6 @@ export function buildCharacterDeck(entity, ctx) {
 
   const wrap = document.createElement('div');
   wrap.className = 'character-deck';
-  wrap.appendChild(buildDeckHeader(entity, ctx, editable));
   wrap.appendChild(buildSplitRow(
     buildHeritageSection(cards, ctx),
     buildConditionsSection(entity, cards, ctx, editable),
