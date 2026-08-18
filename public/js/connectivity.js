@@ -85,50 +85,88 @@ function detachConnectivityListener() {
   update();
 }
 
-// hasPendingWrites indicator (Phase 13 §B): call from a save action to
-// show "Saving…" while a write is still local-only. Firestore resolves
-// the returned promise once the write reaches the server OR is queued
-// locally when offline — it does NOT wait for server ack when offline,
-// so callers can't tell success from queued via the promise alone.
-// This just centralizes the visual language; callers own when to call it.
-function flashPendingWrite(label) {
-  if (!statusEl || currentState === 'offline') return; // offline pill already covers it
-  const prevText = statusEl.textContent;
-  const prevDisplay = statusEl.style.display;
-  const prevClass = statusEl.className;
+// hasPendingWrites indicator (Phase 13 §B): show "Saving…" while a
+// write is still local-only. Firestore resolves the returned promise
+// once the write reaches the server OR is queued locally when offline
+// -- it does NOT wait for server ack when offline, so callers can't
+// tell success from queued via the promise alone. This centralizes the
+// visual language; callers own when to call it (via trackWrite below).
+//
+// Bug fix: the original version had each flashPendingWrite() call
+// independently snapshot the pill's current display/class/text and
+// schedule its OWN setTimeout to restore that snapshot. Two writes
+// firing within the same ~1.2s window meant the second call's snapshot
+// was taken WHILE the first write's "Saving…" was still showing --
+// its restore target was the pending state, not the true original
+// hidden state. Whichever call's timer fired last would then re-apply
+// that stale mid-flight snapshot, sometimes leaving the badge stuck
+// visible until some unrelated render() call (a genuine connectivity
+// state change) happened to overwrite it. Player report matched this
+// exactly: "stuck ... until another event shows and then hides it."
+//
+// Fixed by making pendingWriteCount (below) the single source of truth
+// for whether the badge should be showing at all, with ONE shared
+// hide-timer instead of one per call -- a second write starting always
+// cancels any pending hide from a write that just finished, and a hide
+// is only ever scheduled once the counter actually reaches zero.
+// MIN_BADGE_VISIBLE_MS still guarantees a fast write doesn't just
+// flash for a few ms, measured from this write's own show time rather
+// than a per-call snapshot.
+const MIN_BADGE_VISIBLE_MS = 700;
+let badgeHideTimer = null;
+let badgeShownAt = 0;
+
+function showSavingBadge(label) {
+  if (!statusEl) return;
+  if (badgeHideTimer) { clearTimeout(badgeHideTimer); badgeHideTimer = null; }
+  badgeShownAt = Date.now();
   statusEl.style.display = '';
   statusEl.className = 'connectivity-pill connectivity-pending';
   statusEl.textContent = (label || 'Saving') + '…';
-  setTimeout(function () {
-    if (currentState === 'online') {
-      statusEl.style.display = prevDisplay;
-      statusEl.className = prevClass;
-      statusEl.textContent = prevText;
-    } else {
-      render();
-    }
-  }, 1200);
+}
+
+function scheduleHideSavingBadge() {
+  if (badgeHideTimer) clearTimeout(badgeHideTimer);
+  const wait = Math.max(0, MIN_BADGE_VISIBLE_MS - (Date.now() - badgeShownAt));
+  badgeHideTimer = setTimeout(function () {
+    badgeHideTimer = null;
+    render(); // restores whatever the real connectivity state is (hidden if online)
+  }, wait);
+}
+
+// Standalone flash, unused internally (trackWrite below drives the
+// badge itself) but kept exported for any future direct caller --
+// shares showSavingBadge/scheduleHideSavingBadge's single-timer state
+// with trackWrite, so calling both concurrently stays race-free.
+function flashPendingWrite(label) {
+  if (!statusEl || currentState === 'offline') return;
+  showSavingBadge(label);
+  scheduleHideSavingBadge();
 }
 
 // Pending-write counter: separate from (but paired with) the visual
-// flashPendingWrite above. Every New/Edit save handler in this app
-// closes its edit UI optimistically, synchronously, right after
-// initiating the write -- NOT gated on the write Promise resolving
-// (the offline-duplicate-save fix, Phase 13). That's correct for the
-// edit UI, but it means "no edit form is open" stopped being a
-// reliable signal for "safe to reload": version.js's dev auto-reload
-// was checking only the former, so a reload landing in the window
-// between "Save clicked, form closed" and "write actually reached
-// Firestore" could tear down the page mid-request -- worse than a
-// merely-annoying reload, this one could genuinely lose the edit.
-// trackWrite() wraps a write promise so version.js has a real signal
-// for "a write is still in flight" to check instead/as well.
+// badge above. Every New/Edit save handler in this app closes its edit
+// UI optimistically, synchronously, right after initiating the write
+// -- NOT gated on the write Promise resolving (the offline-duplicate-
+// save fix, Phase 13). That's correct for the edit UI, but it means
+// "no edit form is open" stopped being a reliable signal for "safe to
+// reload": version.js's dev auto-reload was checking only the former,
+// so a reload landing in the window between "Save clicked, form
+// closed" and "write actually reached Firestore" could tear down the
+// page mid-request -- worse than a merely-annoying reload, this one
+// could genuinely lose the edit. trackWrite() wraps a write promise so
+// version.js has a real signal for "a write is still in flight" to
+// check instead/as well, and now also drives the Saving badge directly
+// (see the fix note above) instead of going through flashPendingWrite.
 let pendingWriteCount = 0;
 function hasPendingWrites() { return pendingWriteCount > 0; }
 function trackWrite(promise, label) {
   pendingWriteCount++;
-  flashPendingWrite(label);
-  const settle = function () { pendingWriteCount = Math.max(0, pendingWriteCount - 1); };
+  if (currentState !== 'offline') showSavingBadge(label);
+  const settle = function () {
+    pendingWriteCount = Math.max(0, pendingWriteCount - 1);
+    if (pendingWriteCount === 0 && currentState !== 'offline') scheduleHideSavingBadge();
+  };
   promise.then(settle, settle);
   return promise;
 }
