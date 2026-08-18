@@ -45,7 +45,7 @@ import { canSee, hasFullAuthority } from './visibility.js';
 import { renderMarkdownInto } from './markdown.js';
 import { trackWrite } from './connectivity.js';
 import { generateDefaultBadgeColor } from './badge-color.js';
-import { resolveEntityStatBlockMarkdown } from './codex.js';
+import { resolveEntityStatBlockMarkdown, switchToCodexTabForEntity, enterEntityEditMode } from './codex.js';
 import {
   DEFAULT_CARDS, TIER_OPTIONS, normalizeAncestryIds, resolveFunctionalIds,
   cumulativeTierKeys, buildFloatingPickerPanel, openAbilityPickerPopup
@@ -740,7 +740,7 @@ function buildEquipmentSection(entity, cards, ctx, editable) {
 }
 
 // --- Top-level assembly ------------------------------------------------
-function buildDeckHeader(entity) {
+function buildDeckHeader(entity, ctx, editable) {
   const header = document.createElement('div');
   header.className = 'character-deck-header';
   const dot = document.createElement('span');
@@ -750,6 +750,24 @@ function buildDeckHeader(entity) {
   const h2 = document.createElement('h2');
   h2.textContent = entity.name;
   header.appendChild(h2);
+  // Player view only (Gregg's explicit ask) -- GM already works out of
+  // the Codex tab directly, this is for a player's own owned character
+  // so they don't have to hunt for it in the Table of Contents. Same
+  // button/behavior as Map tab's GM-only "Edit in Codex" (map.js) --
+  // jumps to the Codex tab AND opens edit mode there, doesn't unlock
+  // any inline editing on this card itself.
+  if (!ctx.gmView && editable) {
+    const editLink = document.createElement('button');
+    editLink.type = 'button';
+    editLink.className = 'entity-map-link timeline-edit-in-codex-link character-deck-edit-link';
+    editLink.title = 'Edit in Codex';
+    editLink.textContent = 'Edit in Codex';
+    editLink.addEventListener('click', function () {
+      switchToCodexTabForEntity(entity.id);
+      enterEntityEditMode(entity);
+    });
+    header.appendChild(editLink);
+  }
   return header;
 }
 
@@ -759,7 +777,7 @@ export function buildCharacterDeck(entity, ctx) {
 
   const wrap = document.createElement('div');
   wrap.className = 'character-deck';
-  wrap.appendChild(buildDeckHeader(entity));
+  wrap.appendChild(buildDeckHeader(entity, ctx, editable));
   wrap.appendChild(buildHeritageSection(cards, ctx));
   wrap.appendChild(buildClassSection(entity, cards, ctx, editable));
   wrap.appendChild(buildAbilitiesSection(entity, cards, ctx, editable));
