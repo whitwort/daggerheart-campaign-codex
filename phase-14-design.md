@@ -830,11 +830,14 @@ correctly describe what shipped at the time.
   to apply. Only the pre-existing "deliberate override" case (a
   calculable suggestion the player has knowingly diverged from, unchanged
   since) still omits the icon entirely — unaffected by this addition.
-- **Trait mark control reworked**: the original whole-card click-to-
-  mark (still §12.1's design) read as an unexplained clickable box with
-  no visible affordance. Replaced with one small explicit checkbox-
-  style button in the card header, with a tooltip spelling out the
-  tier-up mechanic. The rest of the card carries no click handler.
+- **Trait mark ("tier-up") tracking removed entirely.** §12.1's
+  original design and its first rework (whole-card click, then a small
+  explicit mark button) both tried to track which two traits get +1 at
+  tier-up. Per Gregg: which traits to bump is a call players make for
+  themselves at the table — out of scope for this app to enforce or
+  track. Trait cards are now label + value only, no mark UI.
+  `cards.sheet.traits[key].marked` stays in the stored schema (unread,
+  harmless) rather than migrated out, so no existing data is lost.
 - **HP/Stress/Hope: three-state box UI**, replacing the Max/Marked
   number-input pair `cards.sheet.hp/stress/hope` still use as their
   storage shape (unchanged: `{max, marked}`). Boxes render per fixed
