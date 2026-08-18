@@ -30,7 +30,9 @@ height, with NO per-context exceptions, except:**
    "..." menu; height matched to `.toggle-switch` at 1.4rem as of S8),
    `.character-badge-swatch` (Phase 14 S5, the badgeColor picker's color
    swatches), `.characters-add-btn`/`.characters-remove-btn` (Phase 14
-   S8, Characters tab's inline assign/unassign icons).
+   S8, Characters tab's inline assign/unassign icons),
+   `.character-sheet-suggestion-icon` (Phase 14 S17, the Sheet tab's
+   per-field suggested-value (i) indicator).
 5. Buttons inside a small floating panel too narrow for the fixed
    13rem width — `.gallery-picker-body button` (Set portrait / Set map
    picker panel — shared by both since they were unified onto one
