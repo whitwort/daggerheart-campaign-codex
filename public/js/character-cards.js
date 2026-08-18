@@ -451,6 +451,77 @@ function abilityLevelTier(entity) {
   return 4;
 }
 
+// Experience add popup: no candidates, no search, no linking -- an
+// Experience is always freeform (Name + Text), never Codex-backed.
+// Shared by BOTH the Characters tab deck viewer's Experience tab
+// (character-deck.js) and this module's own Codex-tab edit-form
+// Experiences editor below -- one dialog, one layout, not two near-
+// duplicates. Layout is deliberately explicit block rows (each field
+// wrapped in .entity-edit-field, same as every other edit-form field
+// in this app) rather than appending input/textarea/button directly
+// into .gallery-picker-body -- those are inline-level by default with
+// no layout of their own, which is what made the previous version
+// look "strange" (fields and buttons packed onto one line instead of
+// stacking). Save/Cancel in a right-aligned .modal-actions row, Save
+// first in DOM (same order every other Save/Cancel pair in the app
+// uses, e.g. codex.js's gallery upload dialog) -- flex-end packs it
+// left of Cancel.
+export function openExperiencePickerPopup(onAdd) {
+  if (document.querySelector('.entity-picker-panel')) return;
+  const built = buildFloatingPickerPanel();
+  built.header.textContent = 'Add experience';
+
+  const nameField = document.createElement('div');
+  nameField.className = 'entity-edit-field';
+  const nameLabel = document.createElement('label');
+  nameLabel.textContent = 'Experience name';
+  nameField.appendChild(nameLabel);
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameField.appendChild(nameInput);
+  built.body.appendChild(nameField);
+
+  const textField = document.createElement('div');
+  textField.className = 'entity-edit-field';
+  const textLabel = document.createElement('label');
+  textLabel.textContent = 'Experience text';
+  textField.appendChild(textLabel);
+  const textInput = document.createElement('textarea');
+  textInput.rows = 4;
+  textField.appendChild(textInput);
+  built.body.appendChild(textField);
+
+  const actions = document.createElement('div');
+  actions.className = 'modal-actions';
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.textContent = 'Save';
+  saveBtn.addEventListener('click', function () {
+    const name = nameInput.value.trim();
+    if (!name) return;
+    onAdd(name, textInput.value.trim());
+    close();
+  });
+  actions.appendChild(saveBtn);
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', close);
+  actions.appendChild(cancelBtn);
+  built.body.appendChild(actions);
+
+  nameInput.focus();
+  function onDocClick(ev) { if (!built.panel.contains(ev.target)) close(); }
+  function onKeydown(ev) { if (ev.key === 'Escape') close(); }
+  setTimeout(function () { document.addEventListener('click', onDocClick); }, 0);
+  document.addEventListener('keydown', onKeydown);
+  function close() {
+    document.removeEventListener('click', onDocClick);
+    document.removeEventListener('keydown', onKeydown);
+    built.panel.remove();
+  }
+}
+
 export function openAbilityPickerPopup(title, candidates, onSelect) {
   if (document.querySelector('.entity-picker-panel')) return;
   const built = buildFloatingPickerPanel();
@@ -596,6 +667,57 @@ function buildAbilitiesPicker(cards, displayEntities, onChange, addCandidates) {
   addBtn.addEventListener('click', function () {
     openAbilityPickerPopup('Add ability', available, function (e) {
       if (abilityIds.indexOf(e.id) === -1) onChange(abilityIds.concat([e.id]));
+    });
+  });
+  addRowRight.appendChild(addBtn);
+  addRow.appendChild(addRowRight);
+  wrap.appendChild(addRow);
+  return wrap;
+}
+
+// Experiences editor: flat add/remove list (S16 -- previously only
+// existed in the Characters tab deck viewer's Experience tab; Gregg's
+// ask was for parity here too). No Active/Vault split -- that's a
+// deck-viewer-only, play-time concept, this is the same flat-list
+// pattern buildAbilitiesPicker above already uses. Shares the exact
+// same add popup (openExperiencePickerPopup) as the deck viewer.
+export function buildExperiencesEditor(cards, onChange) {
+  const wrap = document.createElement('div');
+  wrap.className = 'entity-edit-field';
+  const label = document.createElement('label');
+  label.textContent = 'Experiences';
+  wrap.appendChild(label);
+
+  const experiences = cards.experiences || [];
+  const list = document.createElement('ul');
+  list.className = 'related-edit-list';
+  experiences.forEach(function (exp) {
+    const li = document.createElement('li');
+    const span = document.createElement('span');
+    span.textContent = exp.name;
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.textContent = 'Remove';
+    removeBtn.addEventListener('click', function () {
+      onChange(experiences.filter(function (x) { return x.id !== exp.id; }));
+    });
+    li.appendChild(span);
+    li.appendChild(removeBtn);
+    list.appendChild(li);
+  });
+  wrap.appendChild(list);
+
+  const addRow = document.createElement('div');
+  addRow.className = 'actions-row';
+  const addRowRight = document.createElement('div');
+  addRowRight.className = 'actions-row-right';
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'action-btn-compact';
+  addBtn.textContent = '+ Add experience';
+  addBtn.addEventListener('click', function () {
+    openExperiencePickerPopup(function (name, text) {
+      onChange(experiences.concat([{ id: 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), name: name, text: text }]));
     });
   });
   addRowRight.appendChild(addBtn);
@@ -782,6 +904,7 @@ export function buildCharacterCardEditor(entity, draft, ctx, rerender) {
   // header comment). The picker's own domain/tier-grouped popup is
   // where a player confirms what they're adding, not this list.
   wrap.appendChild(buildAbilitiesPicker(cards, abilities, function (ids) { patchCards({ abilityIds: ids }); }, abilityOptionsDeduped));
+  wrap.appendChild(buildExperiencesEditor(cards, function (experiences) { patchCards({ experiences: experiences }); }));
 
   return wrap;
 }
