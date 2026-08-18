@@ -2310,6 +2310,18 @@ button:disabled:hover { border-color: var(--void-line); }
 /* Abilities sub-tabs: dark-context version of .codex-detail-tabs'
    flat/bottom-border/hope-active idiom -- that variant is parchment-
    scoped, this strip sits directly on the void panel instead. */
+/* Cards/Sheet top-level tabs (Phase 14 S17) -- same dark-context flat-tab
+   idiom as .character-deck-subtabs above, one level up (wraps the whole
+   deck, not the Abilities sub-tabs inside it). */
+.character-detail-tabs { display: flex; gap: 1rem; border-bottom: 1px solid var(--void-line); margin-bottom: 0.6rem; }
+.character-detail-tabs button {
+  background: none; border: none; border-radius: 0; box-shadow: none; padding: 0.3rem 0.1rem; font-size: 0.85rem;
+  color: var(--ink-soft); border-bottom: 2px solid transparent; cursor: pointer;
+  width: auto; min-width: 0; text-align: left; font-family: var(--font-display), sans-serif;
+}
+.character-detail-tabs button.active { color: var(--hope); border-bottom-color: var(--hope); }
+.character-detail-tab-panel { padding-top: 0.1rem; }
+
 .character-deck-subtabs { display: flex; gap: 1rem; border-bottom: 1px solid var(--void-line); margin-bottom: 0.6rem; }
 .character-deck-subtabs button {
   background: none; border: none; border-radius: 0; box-shadow: none; padding: 0.3rem 0.1rem; font-size: 0.8rem;
