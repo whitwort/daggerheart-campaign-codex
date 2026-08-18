@@ -38,13 +38,12 @@ Weapons/Armor/Abilities/Ancestry/Community/etc. This doc is that model.
 | D6 | Custom adversaries/environments are NOT a separate mechanism. Creating an `Adversary`/`Environment` entity through the existing Codex entry editor with `useTemplate: true` **is** "custom adversary" — same structured detail/feature editor already built for the pilot template types. This replaces encounter-builder's bespoke custom-adversary/environment editor dialogs outright. |
 | D7 | SRD import reuses `runSrdImport`/`processType`/`buildTemplateData` verbatim. Only new work: two `SRD_TYPES` entries + a pre-processing normalizer for the two source-specific string encodings (`"+3"` atk modifier, `"8/15"` thresholds, `"Name - Type"` feature strings) — ported near-verbatim from encounter-builder's `mapAdversaryFromSRD`/`mapEnvironmentFromSRD`/`mapFeatureFromSRD`. |
 
-## 3. Open items (confirm before implementation)
+## 3. Open items
 
-- **OI1 — `attack_range` standalone indexing.** Proposed `standalone: true`
-  for `attack_range` (values: Melee/Very Close/Close/Far/Very Far — same
-  categorical shape as weapons' `range`). Flag if Gregg wants this
-  narrower.
-- **OI2 — feature-type schema scope.** D5 makes `hasFeatureType` a general
+- **OI1 — RESOLVED.** `attack_range` is `standalone: true` (matches
+  weapons' `range` precedent; categorical values, no collision risk
+  identified).
+- **OI2 — feature-type schema scope (open, hold for implementation).** D5 makes `hasFeatureType` a general
   schema capability rather than Adversary/Environment-only. Confirm no
   objection before touching the shared feature-editor UI in codex.js
   (search for existing `features` render/edit code first — this is a
