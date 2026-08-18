@@ -1990,7 +1990,12 @@ function showNewEntityError(message) {
 // drag-order (sortedSources()[0]) — hand-created entities default to
 // it rather than "no source", since most campaign content shares one
 // dominant attribution (homebrew). Deliberately UI-level-only, applied
-// at creation time; never backfilled onto existing entities.
+// at creation time; never backfilled onto existing entities. The same
+// value must also be threaded into the post-save edit-form draft below
+// (buildEntityDraft's seed object) — that draft doesn't read the just-
+// written Firestore doc, so without this the form that pops open
+// immediately after Save showed "no source" despite the doc itself
+// being correct.
 function saveNewEntity() {
   const name = entityNewNameEl.value.trim();
   if (!name) {
@@ -2055,7 +2060,7 @@ function saveNewEntity() {
   state.detailEditMode = true;
   state.detailEditDraft = buildEntityDraft({
     name: name, category: cat, ancestry: '', aliases: [], date: '', parentId: null,
-    tags: presetTags, relatedIds: [], ownerId: entityData.ownerId || ''
+    tags: presetTags, relatedIds: [], ownerId: entityData.ownerId || '', sourceId: entityData.sourceId
   });
   renderList();
   renderDetailForSelected();
