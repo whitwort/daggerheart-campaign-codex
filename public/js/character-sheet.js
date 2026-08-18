@@ -598,6 +598,7 @@ function buildResourcesBlock(entity, sheet, editable, suggestions, topCards) {
   mainRow.className = 'character-sheet-resources-main';
   mainRow.appendChild(statsRow);
   mainRow.appendChild(buildEquipmentSlotsPanel(entity, topCards, editable));
+  mainRow.appendChild(buildGoldBlock(entity, sheet, editable));
   wrap.appendChild(mainRow);
 
   return wrap;
@@ -650,6 +651,10 @@ function buildGoldRow(entity, sheet, def, editable) {
 function buildGoldBlock(entity, sheet, editable) {
   const wrap = document.createElement('div');
   wrap.className = 'character-sheet-gold-panel';
+  const title = document.createElement('div');
+  title.className = 'character-sheet-field-label';
+  title.textContent = 'Gold';
+  wrap.appendChild(title);
   GOLD_ROWS.forEach(function (def) {
     wrap.appendChild(buildGoldRow(entity, sheet, def, editable));
   });
@@ -672,12 +677,6 @@ export function buildCharacterSheet(entity, ctx, editable) {
   wrap.appendChild(traitsRow);
 
   wrap.appendChild(buildResourcesBlock(entity, sheet, editable, suggestions, topCards));
-
-  const goldLabel = document.createElement('div');
-  goldLabel.className = 'character-deck-section-title';
-  goldLabel.textContent = 'Gold';
-  wrap.appendChild(goldLabel);
-  wrap.appendChild(buildGoldBlock(entity, sheet, editable));
 
   // Standing disclaimer (Gregg's ask): nothing on this tab recomputes
   // itself -- values are only what the player/GM last set, the (i)
