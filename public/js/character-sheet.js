@@ -508,6 +508,25 @@ function buildEquipmentSlotsPanel(entity, topCards, editable) {
   return wrap;
 }
 
+// Suggested damage roll (Gregg's ask, appended below Proficiency):
+// [current proficiency][primary/secondary weapon's damage string],
+// e.g. proficiency 2 + weapon damage "d8+3 phy" -> "2d8+3 phy". Primary
+// wins when both a Primary and a Secondary are equipped; falls back to
+// Secondary if only that slot is filled. Purely a live display -- not
+// its own stored field, no suggestion icon of its own (Proficiency's
+// icon already covers the number this is built from).
+function computeSuggestedDamageRoll(topCards, proficiencyValue) {
+  const equipment = topCards.equipment || [];
+  const primary = equipment.find(function (it) { return it.slot === 'primary'; });
+  const secondary = equipment.find(function (it) { return it.slot === 'secondary'; });
+  const chosen = primary || secondary;
+  if (!chosen || !chosen.entityId) return null;
+  const weapon = state.allEntities.find(function (e) { return e.id === chosen.entityId; });
+  const damage = weapon && weapon.details && weapon.details.damage;
+  if (!damage) return null;
+  return { text: String(proficiencyValue) + damage, weaponName: weapon.name };
+}
+
 function buildResourcesBlock(entity, sheet, editable, suggestions, topCards) {
   const wrap = document.createElement('div');
   wrap.className = 'character-sheet-resources';
@@ -527,9 +546,20 @@ function buildResourcesBlock(entity, sheet, editable, suggestions, topCards) {
   statsRow.appendChild(buildNumberField('Armor Score', sheet.armorScore, editable, function (v, suggestKey, suggestValue) {
     patchSuggestibleField(entity, sheet, { armorScore: v }, suggestKey, suggestValue);
   }, { suggestKey: 'armorScore', suggestion: suggestions.armorScore, snapshot: sheet.suggestedSnapshot }));
-  statsRow.appendChild(buildNumberField('Proficiency', sheet.proficiency, editable, function (v, suggestKey, suggestValue) {
+  const proficiencyField = buildNumberField('Proficiency', sheet.proficiency, editable, function (v, suggestKey, suggestValue) {
     patchSuggestibleField(entity, sheet, { proficiency: v }, suggestKey, suggestValue);
-  }, { suggestKey: 'proficiency', suggestion: suggestions.proficiency, snapshot: sheet.suggestedSnapshot }));
+  }, { suggestKey: 'proficiency', suggestion: suggestions.proficiency, snapshot: sheet.suggestedSnapshot });
+  const damageRoll = computeSuggestedDamageRoll(topCards, sheet.proficiency);
+  const damageLabel = document.createElement('div');
+  damageLabel.className = 'character-sheet-field-label character-sheet-damage-roll-label';
+  damageLabel.textContent = 'Damage';
+  proficiencyField.appendChild(damageLabel);
+  const damageValue = document.createElement('div');
+  damageValue.className = 'character-sheet-damage-roll-value';
+  damageValue.textContent = damageRoll ? damageRoll.text : '\u2014';
+  if (damageRoll) damageValue.title = 'From ' + damageRoll.weaponName;
+  proficiencyField.appendChild(damageValue);
+  statsRow.appendChild(proficiencyField);
   statsRow.appendChild(buildNumberField('Major Threshold', sheet.thresholds.major, editable, function (v, suggestKey, suggestValue) {
     patchSuggestibleField(entity, sheet, { thresholds: Object.assign({}, sheet.thresholds, { major: v }) }, suggestKey, suggestValue);
   }, { suggestKey: 'thresholdMajor', suggestion: suggestions.thresholdMajor, snapshot: sheet.suggestedSnapshot }));

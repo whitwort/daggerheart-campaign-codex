@@ -2388,6 +2388,12 @@ button:disabled:hover { border-color: var(--void-line); }
 .character-sheet-field-value { width: 100%; text-align: center; font-size: 0.95rem; box-sizing: border-box; }
 .character-sheet-gold-row { margin-top: 0.2rem; }
 
+/* Suggested damage roll caption, appended below the Proficiency field
+   (Gregg's ask): [proficiency][weapon damage], e.g. "2d8+3 phy". Reuses
+   .character-sheet-field-label for its own small "Damage" caption. */
+.character-sheet-damage-roll-label { margin-top: 0.35rem; }
+.character-sheet-damage-roll-value { text-align: center; font-size: 0.85rem; color: var(--parchment); word-break: break-word; }
+
 /* HP/Stress/Hope three-state boxes (S17 rework, replaces the old Max/
    Marked number-input pair): solid-empty = available/unmarked, solid-
    filled = available/marked, dotted-empty = not-yet-unlocked (beyond
