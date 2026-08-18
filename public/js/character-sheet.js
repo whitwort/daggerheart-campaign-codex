@@ -42,13 +42,17 @@ const TRAIT_LABELS = {
 const DEFAULT_SHEET = {
   traits: TRAIT_KEYS.reduce(function (acc, k) { acc[k] = { value: 0, marked: false }; return acc; }, {}),
   evasion: 0, armorScore: 0, proficiency: 0,
-  hp: { max: 0, marked: 0 }, stress: { max: 0, marked: 0 }, hope: { max: 0, marked: 0 },
+  // Starting Active/Starting Checked, per Gregg: HP is class-defined (0
+  // until a class suggestion is applied), Stress starts with 6 of its
+  // 12 boxes active, Hope starts with 6 of its 6 active and 2 already
+  // checked. Ceiling (12/12/6) is a fixed game-rule constant, not
+  // stored -- see HP_CEILING/STRESS_CEILING/HOPE_CEILING below.
+  hp: { max: 0, marked: 0 }, stress: { max: 6, marked: 0 }, hope: { max: 6, marked: 2 },
   thresholds: { major: 0, severe: 0 },
   gold: { handfuls: 0, bags: 0, chest: 0 },
-  // §12.3, commit 6: what liveSuggestion WAS at the time each
-  // suggestible field was last written (manual edit or icon-click-
-  // apply, both go through patchSuggestibleField below). null = never
-  // set. Keys match SUGGESTIBLE_KEYS.
+  // §12.3: what liveSuggestion WAS at the time each suggestible field
+  // was last written (manual edit or icon-click-apply, both go through
+  // patchSuggestibleField below). null = never set.
   suggestedSnapshot: { hpMax: null, evasion: null, armorScore: null, thresholdMajor: null, thresholdSevere: null }
 };
 
@@ -153,16 +157,20 @@ function computeLiveSuggestions(entity, ctx) {
 // closes whatever the first one had open.
 let closeOpenSuggestionPopup = null;
 
-// Suggested-value indicator (§12.3, reworked per Gregg's direction):
-// first hover (desktop) or tap (touch) shows a popup with the
-// suggested value + where it came from, WITHOUT applying anything.
-// Hovering-then-clicking, or a second tap with the popup already open,
-// applies it. This is one click handler doing double duty for both
-// input styles -- desktop hover already opens the popup, so a
-// subsequent click always finds one open and applies; touch has no
-// hover, so a first tap opens it and a second tap (finding it already
-// open) applies.
-function buildSuggestionControl(fieldContainer, suggestKey, currentValue, suggestion, snapshot, onApply) {
+// Suggested-value indicator (§12.3). Icon sits inside its own small
+// position:relative wrapper (NOT the whole field box) -- same
+// icon-wrap/popover anchoring convention as .vis-kebab-wrap/
+// .vis-kebab-popover elsewhere in the app: popup hangs directly off
+// the icon's own bottom-right corner, not pinned to the far edge of
+// whatever container happens to hold it.
+//
+// Interaction: first hover (desktop) or tap (touch) shows the popup
+// with the suggested value + where it came from, WITHOUT applying
+// anything. Hovering-then-clicking, or a second tap with the popup
+// already open, applies it -- one click handler serves both input
+// styles, since desktop hover already opens the popup, so a click
+// there always finds one open and applies.
+function buildSuggestionControl(suggestKey, currentValue, suggestion, snapshot, onApply) {
   if (!suggestion) return null;
   const liveValue = suggestion.value;
   let cls;
@@ -174,14 +182,18 @@ function buildSuggestionControl(fieldContainer, suggestKey, currentValue, sugges
     return null; // deliberate override, suggestion hasn't moved -- don't nag
   }
 
+  const wrap = document.createElement('span');
+  wrap.className = 'character-sheet-suggestion-wrap';
+
   const icon = document.createElement('button');
   icon.type = 'button';
   icon.className = 'character-sheet-suggestion-icon ' + cls;
   icon.textContent = 'i';
+  wrap.appendChild(icon);
 
   let popup = null;
   function onDocClick(ev) {
-    if (popup && !popup.contains(ev.target) && ev.target !== icon) closePopup();
+    if (popup && !wrap.contains(ev.target)) closePopup();
   }
   function closePopup() {
     if (!popup) return;
@@ -205,7 +217,7 @@ function buildSuggestionControl(fieldContainer, suggestKey, currentValue, sugges
       sourceLine.textContent = suggestion.source;
       popup.appendChild(sourceLine);
     }
-    fieldContainer.appendChild(popup);
+    wrap.appendChild(popup);
     closeOpenSuggestionPopup = closePopup;
     setTimeout(function () { document.addEventListener('click', onDocClick); }, 0);
   }
@@ -221,28 +233,47 @@ function buildSuggestionControl(fieldContainer, suggestKey, currentValue, sugges
     }
   });
 
-  return icon;
+  return wrap;
 }
 
+// Trait mark toggle (§12.1's tier-up mechanic: "gain +1 to two
+// unmarked traits and mark them" / "clear all marks"). Reworked per
+// Gregg's feedback -- this used to be the WHOLE card silently toggling
+// on click, with no visible control or explanation. Now it's one small
+// explicit checkbox-style button with a tooltip spelling out what
+// marking means; the rest of the card is inert.
 function buildTraitCard(entity, sheet, key, editable) {
   const trait = sheet.traits[key];
   const card = document.createElement('div');
   card.className = 'character-sheet-trait-card' + (trait.marked ? ' marked' : '');
 
+  const headerRow = document.createElement('div');
+  headerRow.className = 'character-sheet-trait-header-row';
   const label = document.createElement('div');
   label.className = 'character-sheet-trait-label';
   label.textContent = TRAIT_LABELS[key];
-  card.appendChild(label);
+  headerRow.appendChild(label);
+
+  const markBtn = document.createElement('button');
+  markBtn.type = 'button';
+  markBtn.className = 'character-sheet-trait-mark-btn' + (trait.marked ? ' marked' : '');
+  markBtn.title = trait.marked
+    ? 'Marked for tier-up. Marks clear at the end of the tier.'
+    : 'Mark for tier-up: at the start of a new tier, gain +1 to two unmarked traits and mark them.';
+  markBtn.disabled = !editable;
+  markBtn.addEventListener('click', function () {
+    const newTraits = Object.assign({}, sheet.traits);
+    newTraits[key] = Object.assign({}, trait, { marked: !trait.marked });
+    patchSheet(entity, { traits: newTraits });
+  });
+  headerRow.appendChild(markBtn);
+  card.appendChild(headerRow);
 
   const valueInput = document.createElement('input');
   valueInput.type = 'number';
   valueInput.className = 'character-sheet-trait-value';
   valueInput.value = trait.value;
   valueInput.disabled = !editable;
-  // Editing the value shouldn't also toggle the mark -- the card's own
-  // click handler (below) owns marking, this stops that click from
-  // bubbling up from the input.
-  valueInput.addEventListener('click', function (e) { e.stopPropagation(); });
   valueInput.addEventListener('change', function () {
     const v = parseInt(valueInput.value, 10) || 0;
     const newTraits = Object.assign({}, sheet.traits);
@@ -250,18 +281,6 @@ function buildTraitCard(entity, sheet, key, editable) {
     patchSheet(entity, { traits: newTraits });
   });
   card.appendChild(valueInput);
-
-  // Whole-card click toggles marked -- mirrors the PDF's tier-up
-  // mechanic (mark two traits, clear all marks later), §12.1. No
-  // enforcement of the 2-per-tier-up cap here, same "UI nudges, rules
-  // don't" convention as abilityIds' 2-ability minimum.
-  if (editable) {
-    card.addEventListener('click', function () {
-      const newTraits = Object.assign({}, sheet.traits);
-      newTraits[key] = Object.assign({}, trait, { marked: !trait.marked });
-      patchSheet(entity, { traits: newTraits });
-    });
-  }
 
   return card;
 }
@@ -277,10 +296,10 @@ function buildNumberField(labelText, value, editable, onChange, opts) {
   label.textContent = labelText;
   labelRow.appendChild(label);
   if (opts.suggestKey && opts.suggestion) {
-    const icon = buildSuggestionControl(field, opts.suggestKey, value, opts.suggestion, opts.snapshot, function () {
+    const control = buildSuggestionControl(opts.suggestKey, value, opts.suggestion, opts.snapshot, function () {
       onChange(opts.suggestion.value, opts.suggestKey, opts.suggestion.value);
     });
-    if (icon) labelRow.appendChild(icon);
+    if (control) labelRow.appendChild(control);
   }
   field.appendChild(labelRow);
   const input = document.createElement('input');
@@ -295,16 +314,30 @@ function buildNumberField(labelText, value, editable, onChange, opts) {
   return field;
 }
 
-// HP/Stress/Hope: Max + Marked pair, one Firestore write shape
-// ({max, marked}) shared by all three (§12.1). Marked isn't clamped to
-// max here -- same "UI nudges, rules don't enforce" convention as the
-// rest of this module; a player over-marking is visible, not blocked.
-// suggestion (commit 6): only HP's max carries a suggestion (Class
-// details.hp) -- Stress/Hope have no structured source, callers simply
-// omit it.
-function buildTrackField(entity, sheet, key, labelText, editable, suggestKey, suggestion) {
+// HP/Stress/Hope tracks, per Gregg's redesign: three-state boxes
+// instead of Max/Marked number inputs.
+//   - solid border, unfilled  = available box, unmarked
+//   - solid border, filled    = available box, marked
+//   - dotted border, unfilled = not-yet-unlocked (beyond Active count)
+// Hope is the one exception -- it never shows the dotted/not-yet-
+// unlocked state (its Active count is always its own ceiling in
+// practice; enforced defensively here regardless of stored value).
+// Ceiling is a fixed game-rule constant per track (12/12/6), not
+// character data. Active count stays a plain number input (level-ups
+// and features can grant more boxes over time, and it's what the HP
+// suggestion icon writes to); clicking a box sets Marked to fill-
+// through-that-box (click the last marked box again to unmark it).
+const HP_CEILING = 12;
+const STRESS_CEILING = 12;
+const HOPE_CEILING = 6;
+function buildTrackBoxes(entity, sheet, key, labelText, editable, ceiling, allowLocked, suggestKey, suggestion) {
+  const track = sheet[key];
+  const active = Math.max(0, Math.min(ceiling, track.max || 0));
+  const marked = Math.max(0, Math.min(active, track.marked || 0));
+
   const wrap = document.createElement('div');
   wrap.className = 'character-sheet-track-field';
+
   const labelRow = document.createElement('div');
   labelRow.className = 'character-sheet-field-label-row';
   const label = document.createElement('div');
@@ -312,45 +345,45 @@ function buildTrackField(entity, sheet, key, labelText, editable, suggestKey, su
   label.textContent = labelText;
   labelRow.appendChild(label);
   if (suggestKey && suggestion) {
-    const icon = buildSuggestionControl(wrap, suggestKey, sheet[key].max, suggestion, sheet.suggestedSnapshot, function () {
-      patchSuggestibleField(entity, sheet, { [key]: Object.assign({}, sheet[key], { max: suggestion.value }) }, suggestKey, suggestion.value);
+    const control = buildSuggestionControl(suggestKey, active, suggestion, sheet.suggestedSnapshot, function () {
+      const v = Math.max(0, Math.min(ceiling, suggestion.value));
+      patchSuggestibleField(entity, sheet, { [key]: Object.assign({}, track, { max: v, marked: Math.min(marked, v) }) }, suggestKey, suggestion.value);
     });
-    if (icon) labelRow.appendChild(icon);
+    if (control) labelRow.appendChild(control);
   }
   wrap.appendChild(labelRow);
 
-  const row = document.createElement('div');
-  row.className = 'character-sheet-track-row';
-
-  const maxInput = document.createElement('input');
-  maxInput.type = 'number';
-  maxInput.className = 'character-sheet-field-value';
-  maxInput.title = 'Max';
-  maxInput.value = sheet[key].max;
-  maxInput.disabled = !editable;
-  maxInput.addEventListener('change', function () {
-    const v = parseInt(maxInput.value, 10) || 0;
-    patchSuggestibleField(entity, sheet, { [key]: Object.assign({}, sheet[key], { max: v }) }, suggestKey, suggestion ? suggestion.value : null);
+  const activeInput = document.createElement('input');
+  activeInput.type = 'number';
+  activeInput.className = 'character-sheet-track-active-input';
+  activeInput.title = 'Active';
+  activeInput.value = active;
+  activeInput.min = '0';
+  activeInput.max = String(ceiling);
+  activeInput.disabled = !editable;
+  activeInput.addEventListener('change', function () {
+    const v = Math.max(0, Math.min(ceiling, parseInt(activeInput.value, 10) || 0));
+    patchSuggestibleField(entity, sheet, { [key]: Object.assign({}, track, { max: v, marked: Math.min(marked, v) }) }, suggestKey, suggestion ? suggestion.value : null);
   });
-  row.appendChild(maxInput);
+  wrap.appendChild(activeInput);
 
-  const slash = document.createElement('span');
-  slash.className = 'character-sheet-track-slash';
-  slash.textContent = '/';
-  row.appendChild(slash);
+  const boxesRow = document.createElement('div');
+  boxesRow.className = 'character-sheet-track-boxes';
+  for (let i = 0; i < ceiling; i++) {
+    const locked = allowLocked && i >= active;
+    const box = document.createElement('button');
+    box.type = 'button';
+    box.className = 'character-sheet-track-box' + (i < marked ? ' marked' : '') + (locked ? ' locked' : '');
+    box.disabled = !editable || locked;
+    box.title = locked ? 'Not yet unlocked' : (i < marked ? 'Marked -- click to unmark' : 'Click to mark');
+    box.addEventListener('click', function () {
+      const newMarked = (marked === i + 1) ? i : i + 1;
+      patchSheet(entity, { [key]: Object.assign({}, track, { marked: newMarked }) });
+    });
+    boxesRow.appendChild(box);
+  }
+  wrap.appendChild(boxesRow);
 
-  const markedInput = document.createElement('input');
-  markedInput.type = 'number';
-  markedInput.className = 'character-sheet-field-value';
-  markedInput.title = 'Marked';
-  markedInput.value = sheet[key].marked;
-  markedInput.disabled = !editable;
-  markedInput.addEventListener('change', function () {
-    patchSheet(entity, { [key]: Object.assign({}, sheet[key], { marked: parseInt(markedInput.value, 10) || 0 }) });
-  });
-  row.appendChild(markedInput);
-
-  wrap.appendChild(row);
   return wrap;
 }
 
@@ -426,9 +459,9 @@ function buildResourcesBlock(entity, sheet, editable, suggestions, topCards) {
 
   const trackRow = document.createElement('div');
   trackRow.className = 'character-sheet-resources-row';
-  trackRow.appendChild(buildTrackField(entity, sheet, 'hp', 'HP', editable, 'hpMax', suggestions.hpMax));
-  trackRow.appendChild(buildTrackField(entity, sheet, 'stress', 'Stress', editable));
-  trackRow.appendChild(buildTrackField(entity, sheet, 'hope', 'Hope', editable));
+  trackRow.appendChild(buildTrackBoxes(entity, sheet, 'hp', 'HP', editable, HP_CEILING, true, 'hpMax', suggestions.hpMax));
+  trackRow.appendChild(buildTrackBoxes(entity, sheet, 'stress', 'Stress', editable, STRESS_CEILING, true));
+  trackRow.appendChild(buildTrackBoxes(entity, sheet, 'hope', 'Hope', editable, HOPE_CEILING, false));
   wrap.appendChild(trackRow);
 
   const statsRow = document.createElement('div');
