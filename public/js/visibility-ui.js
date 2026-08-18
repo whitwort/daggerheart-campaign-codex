@@ -295,6 +295,7 @@ function buildSharedToggle(opts) {
   function refresh() {
     label.className = 'toggle-switch-label ' + (current ? 'state-visible' : 'state-character');
     label.textContent = current ? 'Share with party' : 'Keep to myself';
+    switchLabel.classList.toggle('mode-character', !current);
     switchInput.checked = current;
   }
 
