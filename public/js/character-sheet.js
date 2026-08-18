@@ -468,16 +468,22 @@ function buildTrackBoxes(entity, sheet, key, labelText, editable, ceiling, allow
 
 // Weapon/Armor slot assignment (moved here from the Cards tab's
 // Equipment section -- that per-item <select> didn't have room on the
-// cramped mini-cards and wasn't legible in practice). One row per slot
+// mini-cards and wasn't legible in practice). One row per slot
 // (not per item) -- clearer framing: "what's in my Primary slot" reads
 // better than hunting each inventory card for a dropdown. Candidates
 // are the character's own cards.equipment items whose linked entity's
 // subtype matches the slot (Weapons for primary/secondary, Armor for
 // armor); unlinked/custom items have no subtype to key off and can't
-// be assigned a slot, same limitation as before.
+// be assigned a slot, same limitation as before. Primary/Secondary are
+// further filtered by the weapon's own details.primary_or_secondary
+// schema field (SRD: every weapon is categorized as one or the other,
+// never both) -- a Primary weapon can't be offered for the Secondary
+// slot and vice versa. A weapon missing that field entirely (data gap,
+// not an SRD weapon) stays unfiltered for both, same "absent =
+// unfiltered" convention as the Add Ability/Add Item level-gate.
 const SLOT_DEFS = [
-  { slot: 'primary', label: 'Primary', subtype: 'weapons' },
-  { slot: 'secondary', label: 'Secondary', subtype: 'weapons' },
+  { slot: 'primary', label: 'Primary', subtype: 'weapons', category: 'primary' },
+  { slot: 'secondary', label: 'Secondary', subtype: 'weapons', category: 'secondary' },
   { slot: 'armor', label: 'Armor', subtype: 'armor' }
 ];
 function applyEquipmentSlotAssignment(entity, equipment, slot, itemId) {
@@ -514,7 +520,10 @@ function buildEquipmentSlotsPanel(entity, topCards, editable) {
     select.appendChild(noneOpt);
     const candidates = equipment.filter(function (it) {
       const linked = it.entityId ? state.allEntities.find(function (e) { return e.id === it.entityId; }) : null;
-      return linked && linked.subtype === def.subtype;
+      if (!linked || linked.subtype !== def.subtype) return false;
+      if (!def.category) return true;
+      const tag = linked.details && linked.details.primary_or_secondary;
+      return !tag || tag.trim().toLowerCase() === def.category;
     });
     candidates.forEach(function (it) {
       const opt = document.createElement('option');
