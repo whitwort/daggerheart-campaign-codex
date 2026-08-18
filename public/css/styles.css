@@ -2258,6 +2258,14 @@ button:disabled:hover { border-color: var(--void-line); }
   position: absolute; bottom: 0.5rem; right: 0.5rem; background: var(--ink); color: var(--parchment);
   font-size: 0.6rem; font-weight: 600; border-radius: 4px; padding: 0.08rem 0.3rem;
 }
+/* Weapon/Armor slot picker (§12.2, S17 commit 5) -- bottom-left,
+   opposite the Tier/Level badge (bottom-right) so the two never
+   collide; only rendered for Codex-linked Weapon/Armor items. */
+.character-deck-equipment-slot-select {
+  position: absolute; bottom: 0.5rem; left: 0.65rem; font-size: 0.62rem;
+  background: var(--parchment); border: 1px solid var(--parchment-edge); border-radius: 4px;
+  padding: 0.05rem 0.15rem; color: var(--ink); max-width: 5.5rem;
+}
 /* Title group (S20/S21): name + Codex link share one sub-row, the
    icon right of the name (was left of it in S20, corrected per
    Gregg's follow-up; originally a bottom-left corner icon in S19).
