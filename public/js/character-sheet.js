@@ -25,6 +25,7 @@ import { trackWrite } from './connectivity.js';
 import { state } from './state.js';
 import { canSee } from './visibility.js';
 import { DEFAULT_CARDS, tierForCharacterLevel } from './character-cards.js';
+import { renderMarkdownInto } from './markdown.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -562,15 +563,11 @@ function buildResourcesBlock(entity, sheet, editable, suggestions, topCards) {
     patchSuggestibleField(entity, sheet, { proficiency: v }, suggestKey, suggestValue);
   }, { suggestKey: 'proficiency', suggestion: suggestions.proficiency });
   const damageRoll = computeSuggestedDamageRoll(topCards, sheet.proficiency);
-  const damageLabel = document.createElement('div');
-  damageLabel.className = 'character-sheet-field-label character-sheet-damage-roll-label';
-  damageLabel.textContent = 'Damage';
-  proficiencyField.appendChild(damageLabel);
-  const damageValue = document.createElement('div');
-  damageValue.className = 'character-sheet-damage-roll-value';
-  damageValue.textContent = damageRoll ? damageRoll.text : '\u2014';
-  if (damageRoll) damageValue.title = 'From ' + damageRoll.weaponName;
-  proficiencyField.appendChild(damageValue);
+  const damageCaption = document.createElement('p');
+  damageCaption.className = 'admin-hint character-sheet-damage-roll';
+  damageCaption.textContent = 'Damage: ' + (damageRoll ? damageRoll.text : '\u2014');
+  if (damageRoll) damageCaption.title = 'From ' + damageRoll.weaponName;
+  proficiencyField.appendChild(damageCaption);
   statsRow.appendChild(proficiencyField);
   statsRow.appendChild(buildNumberField('Major Threshold', sheet.thresholds.major, editable, function (v, suggestKey, suggestValue) {
     patchSuggestibleField(entity, sheet, { thresholds: Object.assign({}, sheet.thresholds, { major: v }) }, suggestKey, suggestValue);
@@ -625,6 +622,16 @@ export function buildCharacterSheet(entity, ctx, editable) {
   goldLabel.textContent = 'Gold';
   wrap.appendChild(goldLabel);
   wrap.appendChild(buildGoldBlock(entity, sheet, editable));
+
+  // Standing disclaimer (Gregg's ask): nothing on this tab recomputes
+  // itself -- values are only what the player/GM last set, the (i)
+  // suggestions are a starting point, not a rules engine. Markdown for
+  // the Download link; small/muted like the rest of this tab's hint
+  // text, not styled as a warning.
+  const footnote = document.createElement('div');
+  footnote.className = 'admin-hint character-sheet-footnote';
+  renderMarkdownInto(footnote, 'Note: this sheet does not update automatically, you need to changes values yourself. See (i) popups for suggested values, that may not take everything into account for your character. [Download](https://www.daggerheart.com/downloads/) character sheets here.');
+  wrap.appendChild(footnote);
 
   return wrap;
 }
