@@ -56,6 +56,14 @@ function humanizeKey(key) {
 export const DEFAULT_CARDS = {
   ancestryId: null, ancestryIds: [], ancestryFeaturePicks: {}, communityId: null, classId: null, subclassId: null,
   subclassTier: 'foundation', abilityIds: [],
+  // Phase 14 S17: character level (1-10), independent of subclassTier
+  // (foundation/specialization/mastery is a WITHIN-tier progression
+  // marker, not the numeric level). Editable from both this build-time
+  // editor AND the Characters tab's play-time detail pane (characters.js)
+  // -- see tierForCharacterLevel below for the level->tier mapping used
+  // to filter Add Ability/Add Item candidates and the Sheet tab's
+  // threshold suggestion (§12.3 addendum).
+  level: 1,
   // Phase 14 S15 (character deck viewer): vaultAbilityIds is a SUBSET
   // of abilityIds -- Active is derived as "abilityIds minus
   // vaultAbilityIds", not stored as its own separate list. One source
@@ -86,6 +94,21 @@ export const TIER_OPTIONS = [
   { key: 'specialization', label: 'Specialization' },
   { key: 'mastery', label: 'Mastery' }
 ];
+
+// Character level (1-10) -> campaign tier (1-4), per Gregg's mapping:
+// Tier 1: Level 1. Tier 2: Levels 2-4. Tier 3: Levels 5-7.
+// Tier 4: Levels 8-10. Drives Add Ability/Add Item filtering (character-
+// deck.js) and the Sheet tab's threshold suggestion (character-sheet.js)
+// -- an ability/item with no level/tier of its own is always available
+// (unfiltered), one above the character's current tier is hidden.
+export const CHARACTER_LEVEL_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+export function tierForCharacterLevel(level) {
+  const n = parseInt(level, 10) || 1;
+  if (n <= 1) return 1;
+  if (n <= 4) return 2;
+  if (n <= 7) return 3;
+  return 4;
+}
 
 // Current tier + every tier below it, in TIER_OPTIONS order -- e.g.
 // 'specialization' -> ['foundation', 'specialization']. A character at
@@ -826,6 +849,27 @@ export function buildCharacterCardEditor(entity, draft, ctx, rerender) {
 
   const cards = Object.assign({}, DEFAULT_CARDS, draft.cards || {});
   const visible = function (e) { return ctx.gmView || canSee(e, ctx); };
+
+  // Level (Phase 14 S17): plain 1-10 dropdown, independent of the
+  // Ancestry/Community/Class/Subclass build-out below -- placed first
+  // since it applies regardless of what else is picked yet.
+  const levelWrap = document.createElement('div');
+  levelWrap.className = 'entity-edit-field';
+  const levelLabel = document.createElement('label');
+  levelLabel.textContent = 'Level';
+  levelWrap.appendChild(levelLabel);
+  const levelSelect = document.createElement('select');
+  CHARACTER_LEVEL_OPTIONS.forEach(function (n) {
+    const opt = document.createElement('option');
+    opt.value = String(n);
+    opt.textContent = String(n);
+    levelSelect.appendChild(opt);
+  });
+  levelSelect.value = String(cards.level || 1);
+  levelSelect.addEventListener('change', function () { patchCards({ level: parseInt(levelSelect.value, 10) || 1 }); });
+  levelWrap.appendChild(levelSelect);
+  wrap.appendChild(levelWrap);
+
   const ancestries = state.allEntities.filter(function (e) { return e.category === 'Ancestry' && visible(e); }).sort(byName);
   const communities = state.allEntities.filter(function (e) { return e.category === 'Community' && visible(e); }).sort(byName);
   const classes = state.allEntities.filter(function (e) { return e.category === 'Game Mechanics' && e.subtype === 'classes' && visible(e); }).sort(byName);
