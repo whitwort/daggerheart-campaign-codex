@@ -2375,13 +2375,12 @@ button:disabled:hover { border-color: var(--void-line); }
 }
 .character-sheet-trait-value { width: 100%; text-align: center; font-size: 1.05rem; font-weight: 600; box-sizing: border-box; }
 
-/* Resources block: HP/Stress/Hope tracks (boxes, see below) +
-   Evasion/Armor Score/Proficiency/Thresholds, plain labeled fields.
-   Same self-contained-under-.character-sheet approach as the traits
-   row above -- no .character-deck-card reuse. */
+/* Resources block: 4 explicit rows -- (2) HP/Stress/Hope tracks, (3)
+   Evasion/Armor Score/Major+Severe Threshold, (4) Equipped/Proficiency/
+   Gold panels sharing a row. Same self-contained-under-.character-sheet
+   approach as the traits row above -- no .character-deck-card reuse. */
 .character-sheet-resources { display: flex; flex-direction: column; gap: 0.6rem; }
 .character-sheet-resources-main { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: flex-start; }
-.character-sheet-resources-main .character-sheet-resources-row { flex: 1 1 260px; }
 .character-sheet-resources-row { display: flex; flex-wrap: wrap; gap: 0.6rem; }
 .character-sheet-field, .character-sheet-track-field {
   background: var(--void); border: 1px solid var(--void-line); border-radius: 8px;
@@ -2443,12 +2442,12 @@ button:disabled:hover { border-color: var(--void-line); }
 .character-sheet-track-box:disabled { cursor: default; }
 
 /* Equipped slot panel (moved here from the Cards tab's per-item
-   Equipment select, which didn't have room on the mini-cards). Sits
-   inside .character-sheet-resources-main alongside the stats row and
-   the Gold panel -- narrower, fixed-ish width rather than flex:1 like
-   the stats fields, since it's 3 short rows not a grid of boxes. Same
-   sizing as .character-sheet-gold-panel so the two can share a row
-   (Gregg's ask) when there's width for both. */
+   Equipment select, which didn't have room on the mini-cards). Row 4
+   of the resources block: Equipped, Proficiency, Gold share
+   .character-sheet-resources-main -- narrower, fixed-ish width rather
+   than flex:1 like a plain stat field, since it's 3 short rows not a
+   grid of boxes. Same sizing as .character-sheet-gold-panel so the two
+   can share a row when there's width for both. */
 .character-sheet-slots {
   background: var(--void); border: 1px solid var(--void-line); border-radius: 8px;
   padding: 0.4rem 0.6rem; flex: 1 1 180px; max-width: 240px; box-sizing: border-box;

@@ -554,6 +554,7 @@ function buildResourcesBlock(entity, sheet, editable, suggestions, topCards) {
   const wrap = document.createElement('div');
   wrap.className = 'character-sheet-resources';
 
+  // Row 2: HP, Stress, Hope
   const trackRow = document.createElement('div');
   trackRow.className = 'character-sheet-resources-row';
   trackRow.appendChild(buildTrackBoxes(entity, sheet, 'hp', 'HP', editable, HP_CEILING, true, 'hpMax', suggestions.hpMax));
@@ -561,6 +562,7 @@ function buildResourcesBlock(entity, sheet, editable, suggestions, topCards) {
   trackRow.appendChild(buildTrackBoxes(entity, sheet, 'hope', 'Hope', editable, HOPE_CEILING, false));
   wrap.appendChild(trackRow);
 
+  // Row 3: Evasion, Armor Score, Major Threshold, Severe Threshold
   const statsRow = document.createElement('div');
   statsRow.className = 'character-sheet-resources-row';
   statsRow.appendChild(buildNumberField('Evasion', sheet.evasion, editable, function (v, suggestKey, suggestValue) {
@@ -569,6 +571,15 @@ function buildResourcesBlock(entity, sheet, editable, suggestions, topCards) {
   statsRow.appendChild(buildNumberField('Armor Score', sheet.armorScore, editable, function (v, suggestKey, suggestValue) {
     patchSuggestibleField(entity, sheet, { armorScore: v }, suggestKey, suggestValue);
   }, { suggestKey: 'armorScore', suggestion: suggestions.armorScore }));
+  statsRow.appendChild(buildNumberField('Major Threshold', sheet.thresholds.major, editable, function (v, suggestKey, suggestValue) {
+    patchSuggestibleField(entity, sheet, { thresholds: Object.assign({}, sheet.thresholds, { major: v }) }, suggestKey, suggestValue);
+  }, { suggestKey: 'thresholdMajor', suggestion: suggestions.thresholdMajor }));
+  statsRow.appendChild(buildNumberField('Severe Threshold', sheet.thresholds.severe, editable, function (v, suggestKey, suggestValue) {
+    patchSuggestibleField(entity, sheet, { thresholds: Object.assign({}, sheet.thresholds, { severe: v }) }, suggestKey, suggestValue);
+  }, { suggestKey: 'thresholdSevere', suggestion: suggestions.thresholdSevere }));
+  wrap.appendChild(statsRow);
+
+  // Row 4: Equipped, Proficiency, Gold
   const proficiencyField = buildNumberField('Proficiency', sheet.proficiency, editable, function (v, suggestKey, suggestValue) {
     patchSuggestibleField(entity, sheet, { proficiency: v }, suggestKey, suggestValue);
   }, { suggestKey: 'proficiency', suggestion: suggestions.proficiency });
@@ -586,20 +597,13 @@ function buildResourcesBlock(entity, sheet, editable, suggestions, topCards) {
     secondaryCaption.title = 'From ' + secondaryRoll.weaponName;
     proficiencyField.appendChild(secondaryCaption);
   }
-  statsRow.appendChild(proficiencyField);
-  statsRow.appendChild(buildNumberField('Major Threshold', sheet.thresholds.major, editable, function (v, suggestKey, suggestValue) {
-    patchSuggestibleField(entity, sheet, { thresholds: Object.assign({}, sheet.thresholds, { major: v }) }, suggestKey, suggestValue);
-  }, { suggestKey: 'thresholdMajor', suggestion: suggestions.thresholdMajor }));
-  statsRow.appendChild(buildNumberField('Severe Threshold', sheet.thresholds.severe, editable, function (v, suggestKey, suggestValue) {
-    patchSuggestibleField(entity, sheet, { thresholds: Object.assign({}, sheet.thresholds, { severe: v }) }, suggestKey, suggestValue);
-  }, { suggestKey: 'thresholdSevere', suggestion: suggestions.thresholdSevere }));
 
-  const mainRow = document.createElement('div');
-  mainRow.className = 'character-sheet-resources-main';
-  mainRow.appendChild(statsRow);
-  mainRow.appendChild(buildEquipmentSlotsPanel(entity, topCards, editable));
-  mainRow.appendChild(buildGoldBlock(entity, sheet, editable));
-  wrap.appendChild(mainRow);
+  const bottomRow = document.createElement('div');
+  bottomRow.className = 'character-sheet-resources-main';
+  bottomRow.appendChild(buildEquipmentSlotsPanel(entity, topCards, editable));
+  bottomRow.appendChild(proficiencyField);
+  bottomRow.appendChild(buildGoldBlock(entity, sheet, editable));
+  wrap.appendChild(bottomRow);
 
   return wrap;
 }
