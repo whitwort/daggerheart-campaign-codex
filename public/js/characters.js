@@ -55,10 +55,21 @@ import { generateDefaultBadgeColor } from './badge-color.js';
 import { approveTransferRequest, rejectTransferRequest } from './transfer-requests.js';
 import { buildCharacterDeck, buildDeckHeader } from './character-deck.js';
 import { buildCharacterSheet } from './character-sheet.js';
+import { DEFAULT_CARDS, CHARACTER_LEVEL_OPTIONS } from './character-cards.js';
 
 const db = getFirestore(firebaseApp);
 
 function byName(a, b) { return (a.name || '').localeCompare(b.name || ''); }
+
+// Direct play-time write for cards.level (Phase 14 S17) -- same full-
+// DEFAULT_CARDS-backfill convention as character-deck.js's own local
+// patchCards, not duplicated as an import since it's a one-field-wide
+// use here.
+function patchCardLevel(entity, level) {
+  const cards = Object.assign({}, DEFAULT_CARDS, entity.cards || {}, { level: level });
+  trackWrite(updateDoc(doc(db, 'entities', entity.id), { cards: cards, updatedAt: serverTimestamp() }), 'Saving character')
+    .catch(function (err) { window.alert('Save failed: ' + err.message); });
+}
 
 // Phase 14 S17: Cards/Sheet tab shell wrapping buildCharacterDeck. Shared
 // by both the GM detail pane and the player selected-character pane (see
@@ -71,6 +82,32 @@ function buildCharacterDetailShell(entity, ctx) {
 
   const editable = hasFullAuthority(entity, ctx);
   wrap.appendChild(buildDeckHeader(entity, ctx, editable));
+
+  // Level dropdown (Phase 14 S17): per Gregg's placement -- right side,
+  // below the badge/name/View-Edit-in-Codex row, just above the Cards/
+  // Sheet tab strip. Mirrors the same field's editor in the Codex
+  // build-time form (character-cards.js's buildCharacterCardEditor);
+  // this one writes straight to Firestore, no draft/Save-Cancel.
+  const cardsForLevel = Object.assign({}, DEFAULT_CARDS, entity.cards || {});
+  const levelRow = document.createElement('div');
+  levelRow.className = 'character-detail-level-row';
+  const levelLabel = document.createElement('label');
+  levelLabel.textContent = 'Level';
+  levelRow.appendChild(levelLabel);
+  const levelSelect = document.createElement('select');
+  CHARACTER_LEVEL_OPTIONS.forEach(function (n) {
+    const opt = document.createElement('option');
+    opt.value = String(n);
+    opt.textContent = String(n);
+    levelSelect.appendChild(opt);
+  });
+  levelSelect.value = String(cardsForLevel.level || 1);
+  levelSelect.disabled = !editable;
+  levelSelect.addEventListener('change', function () {
+    patchCardLevel(entity, parseInt(levelSelect.value, 10) || 1);
+  });
+  levelRow.appendChild(levelSelect);
+  wrap.appendChild(levelRow);
 
   const tabsRow = document.createElement('div');
   tabsRow.className = 'character-detail-tabs';
