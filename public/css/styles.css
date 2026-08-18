@@ -2172,10 +2172,9 @@ button:disabled:hover { border-color: var(--void-line); }
 /* Name + swap/remove controls share one flex row (S17 -- previously
    two independently-positioned elements, the name in normal flow and
    controls absolutely positioned over it via padding-right reserved
-   on the name -- close but not guaranteed pixel-identical top
-   alignment). align-items:flex-start guarantees the name text and the
-   control icons start at the exact same vertical position regardless
-   of font metrics, per Gregg's explicit "top aligned" ask. */
+   on the name). align-items:flex-start puts both on the same cross-
+   axis start -- necessary but NOT sufficient on its own, see the h3
+   rule below for the font-mismatch issue that also had to be fixed. */
 .character-deck-card-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.3rem; }
 /* line-height:1 (S17 follow-up): the flex-row alignment fix above
    wasn't enough on its own -- Comfortaa (--font-display) bakes in
@@ -2185,8 +2184,23 @@ button:disabled:hover { border-color: var(--void-line); }
    line-height:1 override. Not visible on the larger .codex-entity-
    card h2 (more padding to absorb it into), but glaring on this
    card's tight 0.55rem top padding. */
+/* line-height:1 alone still left a visible gap above the name text on
+   cards with swap/remove controls (S17, second follow-up) -- root
+   cause wasn't leftover line-height/margin at all, it was a FONT
+   mismatch: this h3 renders in Comfortaa (--font-display), but the
+   adjacent .character-deck-ctl icons set no font-family of their own
+   and inherit the body font (Inter) all the way up from <body>.
+   Comfortaa's internal ascent metrics sit well above Inter's for the
+   same nominal line-height:1, so even with identical flex-start
+   alignment the two glyphs' visible tops never lined up -- no CSS
+   margin/line-height tweak on ONE of the two elements can fix a
+   metrics mismatch BETWEEN two different fonts. Switching this h3 to
+   the body font (matching the icons/everything else on this card)
+   removes the mismatch outright instead of guessing at a compensating
+   offset. font-weight 600 keeps it reading as a title despite losing
+   the display font. */
 .character-deck-card h3 {
-  font-family: var(--font-display), sans-serif; font-weight: 400; font-size: 0.86rem;
+  font-family: var(--font-body), sans-serif; font-weight: 600; font-size: 0.86rem;
   line-height: 1; margin: 0 0 0.15rem; color: var(--ink); flex: 1; min-width: 0;
 }
 .character-deck-card-suffix { color: var(--ink-soft); font-weight: 400; font-size: 0.68rem; }
