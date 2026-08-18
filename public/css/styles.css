@@ -2137,6 +2137,7 @@ button:disabled:hover { border-color: var(--void-line); }
    on-the-table metaphor Gregg asked for, not a generic settings-panel look. */
 .character-deck-header { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; margin-bottom: 1rem; }
 .character-deck-header h2 { margin: 0; font-size: 1.4rem; font-family: var(--font-display), sans-serif; font-weight: 400; }
+.character-deck-edit-link { margin-left: auto; }
 
 .character-deck-section { margin-top: 1.2rem; }
 .character-deck-section:first-of-type { margin-top: 0; }
