@@ -202,6 +202,21 @@ input, select, textarea {
 }
 input::placeholder, textarea::placeholder { color: var(--ink-soft); }
 
+/* Hide native number-input spinner arrows app-wide. Cross-browser
+   inconsistency was actively bad: always-visible in Firefox, invisible
+   until hover in Chrome (which still reserves the blank space even
+   when not hovering, throwing off the input's apparent padding), only
+   iOS Safari already omitted them by default. Two separate rules
+   needed -- Firefox uses the appearance:textfield property on the
+   input itself, Chrome/Safari/Edge use the ::-webkit-*-spin-button
+   pseudo-elements -- neither alone covers both engines. */
+input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 /* Nav strip: distinct near-black full-bleed band with twinkling stars.
    Full-bleed by countering body's own horizontal padding with
    percentage-based width — 100% of body's content box tracks the
