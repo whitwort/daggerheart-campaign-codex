@@ -350,10 +350,29 @@ function stripSections(md, headings) {
 // opts.extraHeadingLines: additional bare heading LINES to drop (kept
 // content), beyond the always-dropped Details/Features.
 // opts.stripSections: whole sections to drop entirely (heading + body).
+// stripBulletLabels: drops "- **Label:** value" bullet lines whose
+// data already appears elsewhere on the card (a meta line, a badge)
+// -- listing it again in the Details bullets is pure duplication on a
+// card this compact. A trailing space on an entry (e.g. 'Domain ')
+// matches by PREFIX, not exact label -- covers numbered/suffixed
+// variants (Domain 1/Domain 2, Suggested Armor/Primary/Secondary)
+// without listing every one out.
+function stripBulletLines(md, labels) {
+  if (!md) return md;
+  return md.split('\n').filter(function (line) {
+    const m = /^- \*\*([^:]+):\*\*/.exec(line.trim());
+    if (!m) return true;
+    const label = m[1];
+    return !labels.some(function (pat) {
+      return pat.charAt(pat.length - 1) === ' ' ? label.indexOf(pat) === 0 : label === pat;
+    });
+  }).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
 function cleanCardMd(md, opts) {
   opts = opts || {};
   let out = stripHeadingLines(md, ['Details', 'Features'].concat(opts.extraHeadingLines || []));
   if (opts.stripSections) out = stripSections(out, opts.stripSections);
+  if (opts.stripBulletLabels) out = stripBulletLines(out, opts.stripBulletLabels);
   return out;
 }
 
@@ -467,7 +486,10 @@ function buildClassSection(entity, cards, ctx, editable) {
     tray.appendChild(buildMiniCard({
       title: cls.name,
       metaLines: metaLines,
-      bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(cls, ctx, null), { stripSections: ['Background', 'Connection'] })
+      bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(cls, ctx, null), {
+        stripSections: ['Background', 'Connection'],
+        stripBulletLabels: ['Evasion', 'Hp', 'Domain ', 'Subclass ', 'Suggested ']
+      })
     }));
   }
   if (subclass) {
@@ -550,7 +572,7 @@ function buildAbilitiesSection(entity, cards, ctx, editable) {
       title: a.name,
       badge: d.level ? ('Lv ' + d.level) : null,
       metaLines: abilityMetaLines(d),
-      bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(a, ctx, null)),
+      bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(a, ctx, null), { stripBulletLabels: ['Domain', 'Level', 'Type', 'Recall'] }),
       controls: controls
     });
   }
@@ -640,7 +662,9 @@ function buildAbilitiesSection(entity, cards, ctx, editable) {
           title: bf.name,
           badge: d.tier ? ('T' + d.tier) : null,
           metaLines: beastformMetaLines(d),
-          bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(bf, ctx, null))
+          bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(bf, ctx, null), {
+            stripBulletLabels: ['Tier', 'Trait Bonus', 'Evasion Bonus', 'Attack', 'Advantages', 'Examples']
+          })
         }));
       });
     });
@@ -702,10 +726,18 @@ function buildConditionsSection(entity, cards, ctx, editable) {
 function equipmentCardOptsForLinked(e, ctx) {
   const details = e.details || {};
   if (e.subtype === 'weapons') {
-    return { badge: details.tier ? ('T' + details.tier) : null, metaLines: weaponMetaLines(details), bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(e, ctx, null)) };
+    return {
+      badge: details.tier ? ('T' + details.tier) : null, metaLines: weaponMetaLines(details),
+      bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(e, ctx, null), {
+        stripBulletLabels: ['Burden', 'Physical Or Magical', 'Primary Or Secondary', 'Range', 'Tier', 'Trait', 'Damage']
+      })
+    };
   }
   if (e.subtype === 'armor') {
-    return { badge: details.tier ? ('T' + details.tier) : null, metaLines: armorMetaLines(details), bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(e, ctx, null)) };
+    return {
+      badge: details.tier ? ('T' + details.tier) : null, metaLines: armorMetaLines(details),
+      bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(e, ctx, null), { stripBulletLabels: ['Tier', 'Base Score', 'Base Thresholds'] })
+    };
   }
   // Items/Consumables: no templates.js schema at all -- text only.
   return { metaLines: [], bodyMd: cleanCardMd(stripLoneRollDetails(resolveEntityStatBlockMarkdown(e, ctx, null))) };
