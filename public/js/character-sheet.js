@@ -214,12 +214,17 @@ let closeOpenSuggestionPopup = null;
 // still gets an icon -- a distinct 'unavailable' style -- so the
 // player can see a suggestion EXISTS for this field and find out what
 // it needs (e.g. "Needs Armor equipped"). Clicking it just shows/hides
-// that explanation; there's nothing to apply. The ONE case that still
-// omits the icon entirely is the pre-existing "deliberate override"
-// state -- a calculable suggestion the player has knowingly diverged
-// from and which hasn't changed since -- that's unrelated to this and
-// stays as designed.
-function buildSuggestionControl(suggestKey, currentValue, suggestion, snapshot, onApply) {
+// that explanation; there's nothing to apply.
+//
+// The icon is NEVER hidden (per Gregg -- an earlier "deliberate
+// override, suggestion hasn't moved, don't nag" case used to omit it
+// entirely; that's gone). Three visible states now: unavailable (not
+// yet calculable), match (current value equals the live suggestion),
+// updated (current value differs from the live suggestion, whether
+// that's because the suggestion just changed or because the player set
+// something else entirely -- both look and behave the same: click to
+// apply the live suggestion).
+function buildSuggestionControl(currentValue, suggestion, onApply) {
   if (!suggestion) return null;
   const liveValue = suggestion.value;
   let cls, canApply;
@@ -229,11 +234,9 @@ function buildSuggestionControl(suggestKey, currentValue, suggestion, snapshot, 
   } else if (currentValue === liveValue) {
     cls = 'match';
     canApply = true;
-  } else if (liveValue !== snapshot[suggestKey]) {
+  } else {
     cls = 'updated';
     canApply = true;
-  } else {
-    return null; // deliberate override, suggestion hasn't moved -- don't nag
   }
 
   const wrap = document.createElement('span');
@@ -334,7 +337,7 @@ function buildNumberField(labelText, value, editable, onChange, opts) {
   label.textContent = labelText;
   labelRow.appendChild(label);
   if (opts.suggestKey && opts.suggestion) {
-    const control = buildSuggestionControl(opts.suggestKey, value, opts.suggestion, opts.snapshot, function () {
+    const control = buildSuggestionControl(value, opts.suggestion, function () {
       onChange(opts.suggestion.value, opts.suggestKey, opts.suggestion.value);
     });
     if (control) labelRow.appendChild(control);
@@ -397,7 +400,7 @@ function buildTrackBoxes(entity, sheet, key, labelText, editable, ceiling, allow
   label.textContent = labelText;
   labelRow.appendChild(label);
   if (suggestKey && suggestion) {
-    const control = buildSuggestionControl(suggestKey, active, suggestion, sheet.suggestedSnapshot, function () {
+    const control = buildSuggestionControl(active, suggestion, function () {
       const v = Math.max(0, Math.min(ceiling, suggestion.value));
       patchSuggestibleField(entity, sheet, { [key]: Object.assign({}, track, { max: v, marked: Math.min(marked, v) }) }, suggestKey, suggestion.value);
     });
@@ -551,13 +554,13 @@ function buildResourcesBlock(entity, sheet, editable, suggestions, topCards) {
   statsRow.className = 'character-sheet-resources-row';
   statsRow.appendChild(buildNumberField('Evasion', sheet.evasion, editable, function (v, suggestKey, suggestValue) {
     patchSuggestibleField(entity, sheet, { evasion: v }, suggestKey, suggestValue);
-  }, { suggestKey: 'evasion', suggestion: suggestions.evasion, snapshot: sheet.suggestedSnapshot }));
+  }, { suggestKey: 'evasion', suggestion: suggestions.evasion }));
   statsRow.appendChild(buildNumberField('Armor Score', sheet.armorScore, editable, function (v, suggestKey, suggestValue) {
     patchSuggestibleField(entity, sheet, { armorScore: v }, suggestKey, suggestValue);
-  }, { suggestKey: 'armorScore', suggestion: suggestions.armorScore, snapshot: sheet.suggestedSnapshot }));
+  }, { suggestKey: 'armorScore', suggestion: suggestions.armorScore }));
   const proficiencyField = buildNumberField('Proficiency', sheet.proficiency, editable, function (v, suggestKey, suggestValue) {
     patchSuggestibleField(entity, sheet, { proficiency: v }, suggestKey, suggestValue);
-  }, { suggestKey: 'proficiency', suggestion: suggestions.proficiency, snapshot: sheet.suggestedSnapshot });
+  }, { suggestKey: 'proficiency', suggestion: suggestions.proficiency });
   const damageRoll = computeSuggestedDamageRoll(topCards, sheet.proficiency);
   const damageLabel = document.createElement('div');
   damageLabel.className = 'character-sheet-field-label character-sheet-damage-roll-label';
@@ -571,10 +574,10 @@ function buildResourcesBlock(entity, sheet, editable, suggestions, topCards) {
   statsRow.appendChild(proficiencyField);
   statsRow.appendChild(buildNumberField('Major Threshold', sheet.thresholds.major, editable, function (v, suggestKey, suggestValue) {
     patchSuggestibleField(entity, sheet, { thresholds: Object.assign({}, sheet.thresholds, { major: v }) }, suggestKey, suggestValue);
-  }, { suggestKey: 'thresholdMajor', suggestion: suggestions.thresholdMajor, snapshot: sheet.suggestedSnapshot }));
+  }, { suggestKey: 'thresholdMajor', suggestion: suggestions.thresholdMajor }));
   statsRow.appendChild(buildNumberField('Severe Threshold', sheet.thresholds.severe, editable, function (v, suggestKey, suggestValue) {
     patchSuggestibleField(entity, sheet, { thresholds: Object.assign({}, sheet.thresholds, { severe: v }) }, suggestKey, suggestValue);
-  }, { suggestKey: 'thresholdSevere', suggestion: suggestions.thresholdSevere, snapshot: sheet.suggestedSnapshot }));
+  }, { suggestKey: 'thresholdSevere', suggestion: suggestions.thresholdSevere }));
 
   const mainRow = document.createElement('div');
   mainRow.className = 'character-sheet-resources-main';
