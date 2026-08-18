@@ -2379,7 +2379,20 @@ button:disabled:hover { border-color: var(--void-line); }
 }
 .character-sheet-field-label-row .character-sheet-field-label { margin-bottom: 0; }
 .character-sheet-field-value { width: 100%; text-align: center; font-size: 0.95rem; box-sizing: border-box; }
-.character-sheet-gold-row { margin-top: 0.2rem; }
+/* Gold panel: one bordered box, three rows of checked/unchecked boxes
+   (Handfuls x9, Bags x9, Chest x1) -- replaces the old three separate
+   number-input fields. No locked state (unlike HP/Stress/Hope) since
+   all boxes in a row are always available; reuses .character-sheet-
+   track-box's plain/marked styling, .locked never applied here.
+   Icon choices pending Gregg's pick -- plain checkboxes for now. */
+.character-sheet-gold-panel {
+  background: var(--void); border: 1px solid var(--void-line); border-radius: 8px;
+  padding: 0.5rem 0.6rem; display: flex; flex-direction: column; gap: 0.4rem;
+}
+.character-sheet-gold-row-line { display: flex; align-items: center; gap: 0.5rem; }
+.character-sheet-gold-row-label { flex: 0 0 4.2rem; font-size: 0.72rem; color: var(--ink-soft); }
+.character-sheet-gold-boxes { flex: 1 1 auto; }
+.character-sheet-gold-boxes .character-sheet-track-box { flex: 1 1 0.7rem; }
 .character-sheet-footnote { margin-top: 1rem; }
 
 /* Suggested damage roll: [proficiency][weapon damage], e.g.
