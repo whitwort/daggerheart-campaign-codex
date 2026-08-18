@@ -737,9 +737,12 @@ structured today, §3.6/templates.js, no new SRD schema needed):
   "Add your current level to your damage thresholds"), recomputed live
   on every render (cheap — no write until clicked).
 
-Traits, proficiency, hope, gold, stress have no structured source (per
+Traits, hope, gold, stress have no structured source (per
 12's "out of scope" list) — no icon on those fields, pure manual same as
-today's Conditions/Experience tabs.
+today's Conditions/Experience tabs. Proficiency was added as a 6th
+suggestible field in a post-S17 addendum: campaign tier at the
+character's current level (T1=1, T2=2, T3=3, T4=4), derived from
+cards.level (see the Level addendum below), not from SRD data.
 
 ### 12.4 UI placement — Cards / Sheet tabs
 
@@ -758,9 +761,9 @@ table:
 Tab strip follows the existing flat tab-button convention (QOL-BACKLOG
 exception 2 — no border/background/box-shadow, same as Entry Card tabs/
 Admin DB tabs); new selector added to that exception list rather than a
-new one-off pattern. Weapon/Armor slot picker stays in the Cards tab's
-existing Equipment section (12.2) — not duplicated into Sheet, one place
-to edit each item.
+new one-off pattern. Weapon/Armor slot ASSIGNMENT moved to the Sheet
+tab post-launch (see §12.5) — the Cards tab's Equipment section stays
+read-only display of what's carried, same as Conditions/Experience.
 
 ### Net schema/rules delta for S17
 
@@ -772,3 +775,63 @@ to edit each item.
   button reads fields already present since S15 (`class.details.hp`/
   `evasion`) and the armor schema pilot (`armor.details.base_score`/
   `base_thresholds`).
+
+### 12.5 Post-launch addendum (live-tested with Gregg, same session)
+
+Several gaps and UX issues surfaced once S17 was live-tested that
+weren't caught in the original design pass. Captured here rather than
+retroactively rewriting 12.1–12.4 above, since those sections still
+correctly describe what shipped at the time.
+
+- **`cards.level` (new field, Character `cards`, unvalidated, 1-10,
+  default 1)**: §12.3's threshold suggestion needs "base thresholds +
+  current level" but no level field existed anywhere. Added to
+  `DEFAULT_CARDS` (character-cards.js) alongside a `tierForCharacterLevel`
+  mapping (T1=level 1, T2=levels 2-4, T3=levels 5-7, T4=levels 8-10) and
+  `CHARACTER_LEVEL_OPTIONS` (1-10 dropdown). Editable from both the
+  Codex build-time entity editor (draft-based) and the Characters tab
+  detail pane (direct write) — the latter positioned below the badge/
+  name/View-Edit-in-Codex row, right-aligned, above the Cards/Sheet tab
+  strip.
+- **Add Ability / Add Item filtering**: candidates are hidden if their
+  `details.level` (abilities) or `details.tier` (items, via
+  `tierForCharacterLevel`) exceeds the character's current level/tier.
+  Candidates with no level/tier of their own stay unfiltered.
+- **Proficiency suggestion (6th suggestible field)**: `proficiency =
+  tierForCharacterLevel(cards.level)` — not SRD-sourced like the other
+  five, but same suggestion-icon mechanics apply.
+- **Equipment slot assignment moved from Cards to Sheet tab**: the
+  per-item `<select>` on Equipment mini-cards (12.2 as originally
+  shipped) didn't have room on those cards and wasn't legible in
+  practice. Replaced with an "Equipped" panel on the Sheet tab, to the
+  right of the stats row — one row per slot (Primary/Secondary/Armor)
+  rather than per item. `cards.equipment[i].slot` data model unchanged.
+- **Suggestion icon UX rework**: first hover (desktop) or tap (touch)
+  opens a small popup showing the suggested value and its source,
+  without writing anything; a second click/tap with the popup already
+  open applies it. Popup anchors to the icon's own small position:
+  relative wrapper (bottom-right corner), not the enclosing field box —
+  same convention as `.vis-kebab-btn`/`.vis-kebab-popover` elsewhere.
+  Both Match and Updated render as filled circular badges now (not a
+  transparent/bordered-only Match state) — the original low-contrast
+  Match styling against the dark field background was likely reading as
+  the icon "disappearing."
+- **Trait mark control reworked**: the original whole-card click-to-
+  mark (still §12.1's design) read as an unexplained clickable box with
+  no visible affordance. Replaced with one small explicit checkbox-
+  style button in the card header, with a tooltip spelling out the
+  tier-up mechanic. The rest of the card carries no click handler.
+- **HP/Stress/Hope: three-state box UI**, replacing the Max/Marked
+  number-input pair `cards.sheet.hp/stress/hope` still use as their
+  storage shape (unchanged: `{max, marked}`). Boxes render per fixed
+  ceiling constants — HP 12, Stress 12, Hope 6 (game-rule constants,
+  NOT stored) — as solid-empty (available/unmarked), solid-filled
+  (available/marked), or dotted-empty (not-yet-unlocked, beyond the
+  track's own `max`/Active count). Hope never renders the dotted state
+  (its Active is always its own ceiling in practice). `max` (renamed
+  "Active" in the UI) stays a small number input above the boxes;
+  clicking a box fills-through-to-that-box, clicking the last marked
+  box again unmarks it. Starting defaults changed accordingly: HP
+  0 active/0 marked (class-defined via suggestion), Stress 6 active/0
+  marked, Hope 6 active/2 marked — previously all three defaulted to
+  0/0.
