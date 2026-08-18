@@ -2418,13 +2418,16 @@ button:disabled:hover { border-color: var(--void-line); }
 }
 .character-sheet-field-label-row .character-sheet-field-label { margin-bottom: 0; }
 .character-sheet-field-value { width: 100%; text-align: center; font-size: 0.95rem; box-sizing: border-box; }
-/* Gold panel: one bordered box, three rows of checked/unchecked boxes
-   (Handfuls x9, Bags x9, Chest x1) -- replaces the old three separate
-   number-input fields. No locked state (unlike HP/Stress/Hope) since
-   all boxes in a row are always available; reuses .character-sheet-
-   track-box's flex sizing, .locked never applied here. Each box IS its
-   row's icon (game-icons.net, see character-sheet.js's GOLD_ICONS) --
-   not a plain square with the icon sitting separately -- unfilled is a
+/* Gold panel: one bordered box, three rows of checked/unchecked icon
+   "boxes" (Handfuls x9, Bags x9, Chest x1) -- replaces the old three
+   separate number-input fields. No locked state (unlike HP/Stress/
+   Hope) since all boxes in a row are always available. Each box IS
+   its row's icon (game-icons.net, see character-sheet.js's
+   GOLD_ICONS) -- fully standalone from .character-sheet-track-box's
+   sizing (that class is a fixed square/rect meant for a plain color
+   fill; forcing an icon into it fought the icon's own proportions and
+   pushed the row wider than its container). Height-driven, width:auto,
+   so each icon renders at its own natural aspect ratio. Unfilled is a
    muted/dim rendering of the same silhouette, filled/marked switches
    it to full-brightness parchment, same "muted vs bright" language the
    plain boxes use for empty vs checked. */
@@ -2436,10 +2439,14 @@ button:disabled:hover { border-color: var(--void-line); }
 .character-sheet-gold-row-line { display: flex; align-items: center; gap: 0.5rem; }
 .character-sheet-gold-row-label { flex: 0 0 4.2rem; font-size: 0.72rem; color: var(--ink-soft); }
 .character-sheet-gold-boxes { flex: 1 1 auto; }
-.character-sheet-gold-boxes .character-sheet-track-box { flex: 1 1 0.7rem; }
-.character-sheet-gold-icon-box { border: none; background: none; padding: 0.05rem; color: var(--ink-soft); opacity: 0.55; }
-.character-sheet-gold-icon-box svg { width: 100%; height: 100%; display: block; }
+.character-sheet-gold-icon-box {
+  flex: 0 0 auto; height: 1.3rem; width: auto; padding: 0;
+  border: none; background: none; box-shadow: none; cursor: pointer;
+  display: flex; align-items: center; color: var(--ink-soft); opacity: 0.55;
+}
+.character-sheet-gold-icon-box svg { height: 100%; width: auto; display: block; }
 .character-sheet-gold-icon-box.marked { color: var(--parchment); opacity: 1; }
+.character-sheet-gold-icon-box:disabled { cursor: default; }
 .character-sheet-footnote { margin-top: 1rem; }
 
 /* Suggested damage roll: [proficiency][weapon damage], e.g.

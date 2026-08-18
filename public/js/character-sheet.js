@@ -659,18 +659,22 @@ function buildGoldRow(entity, sheet, def, editable) {
   label.textContent = def.label;
   row.appendChild(label);
 
-  // Each box IS the icon now (Gregg's ask), not a plain square with the
-  // icon sitting off to the side -- unfilled/filled are the same icon
-  // at two different colors/opacities (.marked), same "muted vs bright
-  // parchment" language the plain HP/Stress/Hope/gold boxes already use
-  // for empty vs checked, just applied to a shape instead of a fill.
+  // The icon itself IS the clickable checkbox (Gregg's follow-up: the
+  // first pass still nested the icon inside a square box borrowed from
+  // .character-sheet-track-box, whose fixed flex-basis/height didn't
+  // match the icons' own proportions and pushed the row wider than its
+  // container). .character-sheet-gold-icon-box is fully standalone now
+  // -- no shared sizing with the plain HP/Stress/Hope boxes -- height-
+  // driven with width:auto so each icon renders at its own natural
+  // aspect ratio instead of being force-stretched into a fixed square.
+  // Unfilled/filled are still the same icon at two colors/opacities.
   const boxesRow = document.createElement('div');
   boxesRow.className = 'character-sheet-track-boxes character-sheet-gold-boxes';
   for (let i = 0; i < def.count; i++) {
     const checked = i < current;
     const box = document.createElement('button');
     box.type = 'button';
-    box.className = 'character-sheet-track-box character-sheet-gold-icon-box' + (checked ? ' marked' : '');
+    box.className = 'character-sheet-gold-icon-box' + (checked ? ' marked' : '');
     box.innerHTML = def.icon;
     box.disabled = !editable;
     box.title = checked ? 'Checked -- click to uncheck' : 'Click to check';
