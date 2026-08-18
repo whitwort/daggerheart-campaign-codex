@@ -2444,6 +2444,11 @@ button:disabled:hover { border-color: var(--void-line); }
 }
 .character-sheet-suggestion-icon.match { border: 1px solid var(--ink-soft); background: var(--void-raised); color: var(--parchment); }
 .character-sheet-suggestion-icon.updated { border: 1px solid var(--hope); background: var(--hope); color: var(--ink); }
+/* Not-yet-calculable suggestion (e.g. no Class/Armor selected yet) --
+   never hidden, per Gregg's direction; distinct dashed/muted style so
+   it doesn't compete visually with Match/Updated, but still visibly
+   present. Popup explains what's needed instead of a value to apply. */
+.character-sheet-suggestion-icon.unavailable { border: 1px dashed var(--void-line); background: none; color: var(--ink-soft); opacity: 0.75; }
 .character-sheet-suggestion-popup {
   position: absolute; top: calc(100% + 0.3rem); right: -0.3rem; z-index: 30;
   background: var(--parchment); color: var(--ink); border: 1px solid var(--parchment-edge);
