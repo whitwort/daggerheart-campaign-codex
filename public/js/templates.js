@@ -36,7 +36,14 @@ const TEMPLATE_SCHEMAS = {
       { key: 'primary_or_secondary', standalone: true, searchable: true },
       { key: 'range', standalone: true, searchable: true },
       { key: 'tier', standalone: false, searchable: true },
-      { key: 'trait', standalone: true, searchable: true }
+      { key: 'trait', standalone: true, searchable: true },
+      // Phase 14 (character deck viewer, S15): confirmed present in the
+      // raw SRD source as a compound string (e.g. "d8 phy"), previously
+      // unmapped -- same situation as abilities' recall/beastforms'
+      // examples above. standalone:false (a compound damage string
+      // isn't a meaningful bare search term, same reasoning as
+      // base_score/base_thresholds on armor below).
+      { key: 'damage', standalone: false, searchable: true }
     ],
     hasFeatures: true
   },
@@ -57,7 +64,15 @@ const TEMPLATE_SCHEMAS = {
     detailKeys: [
       { key: 'domain', standalone: true, searchable: true },
       { key: 'level', standalone: false, searchable: true },
-      { key: 'type', standalone: true, searchable: true }
+      { key: 'type', standalone: true, searchable: true },
+      // Phase 14 (character deck viewer, S15): confirmed present in the
+      // raw SRD source (seansbox/daggerheart-srd abilities.json) as a
+      // numeric string, just never mapped into structured details
+      // before now -- previously fell into the generic leftover-bullet
+      // catch-all in srd-import.js's buildTemplateData. standalone:false
+      // (a bare "1" collides with every leveled/tiered stat in the
+      // game, same reasoning as 'level' above).
+      { key: 'recall', standalone: false, searchable: true }
     ],
     hasFeatures: false
   },
@@ -92,7 +107,12 @@ const TEMPLATE_SCHEMAS = {
       { key: 'trait_bonus', standalone: false, searchable: true },
       { key: 'evasion_bonus', standalone: false, searchable: true },
       { key: 'attack', standalone: false, searchable: true },
-      { key: 'advantages', standalone: true, searchable: true }
+      { key: 'advantages', standalone: true, searchable: true },
+      // Phase 14 (character deck viewer, S15): confirmed present in the
+      // raw SRD source as a parenthetical creature list, e.g.
+      // "(Fox, Mouse, Weasel, etc.)" -- same previously-unmapped
+      // situation as abilities' recall/weapons' damage below.
+      { key: 'examples', standalone: true, searchable: true }
     ],
     hasFeatures: true
   },
