@@ -29,6 +29,7 @@ export const state = {
   myTransferRequestsUnsub: null,
   charactersSelectedId: null,     // Phase 14 S5 -- Characters tab's own selection, independent of the Codex tab's state.selectedId: the GM flipper's chosen PC, or a player's chosen own-character for the card-slot editor
   charactersSelectedAutoPicked: false, // Phase 14 S13 -- true when charactersSelectedId was set by the player-view default-select guard (not a real click); lets a later-arriving activeCharacterId correct an interim own[0] pick without ever overriding a deliberate user selection
+  charactersDetailTab: 'cards',   // Phase 14 S17 -- Cards/Sheet tab shell wrapping buildCharacterDeck in both GM and player detail panes; shared since only one pane is visible at a time, doesn't reset on selection change (unlike detailActiveTab)
   charactersAssignOpenPlayerEmail: null, // Phase 14 S8 -- GM view: which player's inline "+" assign row is expanded, if any
   charactersClaimPopupOpen: false,       // Phase 14 S8 -- player view: whether the "Claim Character" popup is open
   charactersPickingActive: false,        // Phase 14 S8 -- player view: "Set active" picking mode -- next character clicked becomes activeCharacterId

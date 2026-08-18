@@ -17,7 +17,8 @@ height, with NO per-context exceptions, except:**
 2. Flat tab-style buttons that are visually tabs, not action buttons —
    no border, no background, no box-shadow: main nav (`nav#tabs
    button`), Entry Card tabs (`#codex-detail-tabs button`), Admin DB
-   tabs (`#admin-db-tabs button`).
+   tabs (`#admin-db-tabs button`), Characters tab's Cards/Sheet shell
+   (`.character-detail-tabs button`, Phase 14 S17).
 3. Inline text-link-style buttons — no border, no background, styled
    as a link: `.related-chip`, `.entity-map-link`,
    `.map-breadcrumb-link`, `.collapse-toggle`, `.lore-item-show-toggle`/

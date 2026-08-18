@@ -59,6 +59,46 @@ const db = getFirestore(firebaseApp);
 
 function byName(a, b) { return (a.name || '').localeCompare(b.name || ''); }
 
+// Phase 14 S17: Cards/Sheet tab shell wrapping buildCharacterDeck. Shared
+// by both the GM detail pane and the player selected-character pane (see
+// call sites below) -- one selector, one state field (state.charactersDetailTab),
+// since only one of the two panes is ever visible at a time. Sheet tab is
+// a placeholder here; commit 2+ fills it in (see phase-14-design.md §12).
+function buildCharacterDetailShell(entity, ctx) {
+  const wrap = document.createElement('div');
+  wrap.className = 'character-detail-shell';
+
+  const tabsRow = document.createElement('div');
+  tabsRow.className = 'character-detail-tabs';
+  [['cards', 'Cards'], ['sheet', 'Sheet']].forEach(function (pair) {
+    const tabKey = pair[0];
+    const tabBtn = document.createElement('button');
+    tabBtn.type = 'button';
+    tabBtn.textContent = pair[1];
+    if (state.charactersDetailTab === tabKey) tabBtn.classList.add('active');
+    tabBtn.addEventListener('click', function () {
+      state.charactersDetailTab = tabKey;
+      renderCharactersTab();
+    });
+    tabsRow.appendChild(tabBtn);
+  });
+  wrap.appendChild(tabsRow);
+
+  const panel = document.createElement('div');
+  panel.className = 'character-detail-tab-panel';
+  if (state.charactersDetailTab === 'sheet') {
+    const p = document.createElement('p');
+    p.className = 'lore-empty';
+    p.textContent = 'Sheet coming soon.';
+    panel.appendChild(p);
+  } else {
+    panel.appendChild(buildCharacterDeck(entity, ctx));
+  }
+  wrap.appendChild(panel);
+
+  return wrap;
+}
+
 const charactersGmViewEl = document.getElementById('characters-gm-view');
 const charactersPlayerViewEl = document.getElementById('characters-player-view');
 const charactersFlipperListEl = document.getElementById('characters-flipper-list');
@@ -342,7 +382,7 @@ function renderCharactersGmView(ctx) {
     charactersDetailPaneEl.appendChild(p);
     return;
   }
-  charactersDetailPaneEl.appendChild(buildCharacterDeck(selected, ctx));
+  charactersDetailPaneEl.appendChild(buildCharacterDetailShell(selected, ctx));
 }
 
 // --- Player view ---------------------------------------------------------
@@ -444,7 +484,7 @@ function renderCharactersPlayerView(ctx) {
   charactersPlayerSelectedEl.innerHTML = '';
   const selected = own.find(function (e) { return e.id === state.charactersSelectedId; });
   if (selected) {
-    charactersPlayerSelectedEl.appendChild(buildCharacterDeck(selected, ctx));
+    charactersPlayerSelectedEl.appendChild(buildCharacterDetailShell(selected, ctx));
   } else {
     const p = document.createElement('p');
     p.className = 'lore-empty';
