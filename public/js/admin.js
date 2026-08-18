@@ -273,8 +273,8 @@ const adminSourceErrorEl = document.getElementById('admin-source-error');
       }).then(function () {
         return deleteDoc(doc(db, 'joinRequests', req.id));
       }).then(function () {
-        // Delete the notification message from GM's campaign thread
-        return deleteDoc(doc(db, 'threads', CONFIG.gmEmail, 'messages', req.email));
+        // Delete the join request notification from Campaign tab
+        return deleteDoc(doc(db, 'notifications', req.email + '-join-request'));
       }).catch(function (err) {
         alert('Accept failed: ' + err.message);
       });
@@ -282,8 +282,8 @@ const adminSourceErrorEl = document.getElementById('admin-source-error');
 
     function rejectJoinRequest(req) {
       deleteDoc(doc(db, 'joinRequests', req.id)).then(function () {
-        // Delete the notification message from GM's campaign thread
-        return deleteDoc(doc(db, 'threads', CONFIG.gmEmail, 'messages', req.email));
+        // Delete the join request notification from Campaign tab
+        return deleteDoc(doc(db, 'notifications', req.email + '-join-request'));
       }).catch(function (err) {
         alert('Reject failed: ' + err.message);
       });
