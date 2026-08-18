@@ -2388,6 +2388,7 @@ button:disabled:hover { border-color: var(--void-line); }
 .character-sheet-gold-panel {
   background: var(--void); border: 1px solid var(--void-line); border-radius: 8px;
   padding: 0.5rem 0.6rem; display: flex; flex-direction: column; gap: 0.4rem;
+  flex: 1 1 180px; max-width: 240px; box-sizing: border-box;
 }
 .character-sheet-gold-row-line { display: flex; align-items: center; gap: 0.5rem; }
 .character-sheet-gold-row-label { flex: 0 0 4.2rem; font-size: 0.72rem; color: var(--ink-soft); }
@@ -2428,9 +2429,11 @@ button:disabled:hover { border-color: var(--void-line); }
 
 /* Equipped slot panel (moved here from the Cards tab's per-item
    Equipment select, which didn't have room on the mini-cards). Sits
-   to the right of the stats row inside .character-sheet-resources-main
-   above -- narrower, fixed-ish width rather than flex:1 like the stats
-   fields, since it's 3 short rows not a grid of boxes. */
+   inside .character-sheet-resources-main alongside the stats row and
+   the Gold panel -- narrower, fixed-ish width rather than flex:1 like
+   the stats fields, since it's 3 short rows not a grid of boxes. Same
+   sizing as .character-sheet-gold-panel so the two can share a row
+   (Gregg's ask) when there's width for both. */
 .character-sheet-slots {
   background: var(--void); border: 1px solid var(--void-line); border-radius: 8px;
   padding: 0.4rem 0.6rem; flex: 1 1 180px; max-width: 240px; box-sizing: border-box;
