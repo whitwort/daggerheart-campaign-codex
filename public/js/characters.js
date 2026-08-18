@@ -53,7 +53,7 @@ import { canSee, viewerContext, hasFullAuthority } from './visibility.js';
 import { switchToCodexTabForEntity, openNewEntityDialog } from './codex.js';
 import { generateDefaultBadgeColor } from './badge-color.js';
 import { approveTransferRequest, rejectTransferRequest } from './transfer-requests.js';
-import { buildCharacterDeck } from './character-deck.js';
+import { buildCharacterDeck, buildDeckHeader } from './character-deck.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -67,6 +67,9 @@ function byName(a, b) { return (a.name || '').localeCompare(b.name || ''); }
 function buildCharacterDetailShell(entity, ctx) {
   const wrap = document.createElement('div');
   wrap.className = 'character-detail-shell';
+
+  const editable = hasFullAuthority(entity, ctx);
+  wrap.appendChild(buildDeckHeader(entity, ctx, editable));
 
   const tabsRow = document.createElement('div');
   tabsRow.className = 'character-detail-tabs';
