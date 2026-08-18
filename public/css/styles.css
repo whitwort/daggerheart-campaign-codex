@@ -2350,21 +2350,14 @@ button:disabled:hover { border-color: var(--void-line); }
   flex: 1 1 90px; min-width: 80px; max-width: 120px; box-sizing: border-box;
   text-align: center;
 }
-/* Trait mark control (S17 follow-up): reworked from a silent whole-
-   card click into one explicit small checkbox-style button with a
-   tooltip -- Gregg flagged the old version as an unexplained clickable
-   box. The card itself carries no cursor/click affordance now; only
-   this button does. */
-.character-sheet-trait-header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.3rem; }
+/* Trait cards: label + value only. Tier-up mark tracking removed
+   (Gregg: which traits to bump at tier-up is a player call, not
+   something this app enforces/tracks) -- was a small mark button here,
+   now just plain display + value input. */
 .character-sheet-trait-label {
   font-family: var(--font-display), sans-serif; font-size: 0.68rem; text-transform: uppercase;
-  letter-spacing: 0.05em; color: var(--ink-soft);
+  letter-spacing: 0.05em; color: var(--ink-soft); margin-bottom: 0.3rem;
 }
-.character-sheet-trait-mark-btn {
-  width: 0.85rem; height: 0.85rem; min-width: 0; border-radius: 2px; padding: 0; flex: 0 0 auto;
-  border: 1.5px solid #6B4A1E; background: none; box-shadow: none; cursor: pointer;
-}
-.character-sheet-trait-mark-btn.marked { background: var(--hope); border-color: var(--hope); }
 .character-sheet-trait-value { width: 100%; text-align: center; font-size: 1.05rem; font-weight: 600; box-sizing: border-box; }
 
 /* Resources block: HP/Stress/Hope tracks (boxes, see below) +
