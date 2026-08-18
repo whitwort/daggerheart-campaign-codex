@@ -264,13 +264,14 @@ function buildVisibilityControl(opts) {
 // with their active character (§6.2) -- same toggle-switch styling as
 // buildVisibilityControl's switch, but no kebab (a player never sets
 // visibility/characterId themselves) and writes ONLY characterShared.
-// Phase 14 S16: updated label text ("Keep to myself"/"Share with party")
-// and toggle color (green for character-private state, blue for party-shared).
-// Turning on (share with party) requires confirmation popup warning that
-// only the GM can make it private again.
+// Phase 14 S16: updated label text ("Keep to myself"/"Share with party"),
+// toggle color (green/blue), and behavior: toggle shows on/blue immediately,
+// confirmation popup appears, only commits to database on OK (changes visibility
+// to 'all-players' + characterShared=true). On cancel, visual state reverts.
 // opts:
 //   getShared(): () => bool (current characterShared)
-//   onToggle(newShared): void
+//   onToggle(patch): void — patch is { visibility, characterShared } on confirm,
+//     or { characterShared } on off (rare)
 // Returns a DOM node (span.vis-control, reusing the same wrapper class so
 // it drops into the same toggle-row layout as the GM control).
 function buildSharedToggle(opts) {
@@ -302,15 +303,24 @@ function buildSharedToggle(opts) {
   switchInput.addEventListener('change', function () {
     const wantShared = switchInput.checked;
     if (wantShared && !current) {
-      // Turning on: require confirmation
+      // Turning on: show visual state immediately (toggle on, label blue), then confirm before commit
+      current = wantShared;
+      refresh();
       if (!confirm('Once shared with the party, only the GM can make it private again.')) {
+        // User cancelled: revert visual state, don't commit to database
+        current = false;
         switchInput.checked = false;
+        refresh();
         return;
       }
+      // User confirmed: commit the change with visibility update to all-players
+      opts.onToggle({ visibility: 'all-players', characterShared: true });
+    } else if (!wantShared && current) {
+      // Turning off (shouldn't happen in normal flow, but handle for safety)
+      current = wantShared;
+      refresh();
+      opts.onToggle({ characterShared: false });
     }
-    current = wantShared;
-    refresh();
-    opts.onToggle(current);
   });
 
   refresh();
