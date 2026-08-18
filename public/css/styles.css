@@ -2359,6 +2359,7 @@ button:disabled:hover { border-color: var(--void-line); }
 .character-sheet-track-row { display: flex; align-items: center; gap: 0.3rem; }
 .character-sheet-track-row .character-sheet-field-value { width: 3.2rem; flex: 0 0 auto; }
 .character-sheet-track-slash { color: var(--ink-soft); }
+.character-sheet-gold-row { margin-top: 0.2rem; }
 
 .character-deck-subtabs { display: flex; gap: 1rem; border-bottom: 1px solid var(--void-line); margin-bottom: 0.6rem; }
 .character-deck-subtabs button {
