@@ -107,6 +107,18 @@ function buildAddSlot(label, onClick) {
 function buildMiniCard(opts) {
   const card = document.createElement('div');
   card.className = 'character-deck-card' + (opts.wide ? ' wide' : '');
+
+  const headerRow = document.createElement('div');
+  headerRow.className = 'character-deck-card-header-row';
+  const h3 = document.createElement('h3');
+  h3.appendChild(document.createTextNode(opts.title));
+  if (opts.titleSuffix) {
+    const span = document.createElement('span');
+    span.className = 'character-deck-card-suffix';
+    span.textContent = ' ' + opts.titleSuffix;
+    h3.appendChild(span);
+  }
+  headerRow.appendChild(h3);
   if (opts.controls && opts.controls.length) {
     const controls = document.createElement('div');
     controls.className = 'character-deck-card-controls';
@@ -119,17 +131,9 @@ function buildMiniCard(opts) {
       btn.addEventListener('click', c.onClick);
       controls.appendChild(btn);
     });
-    card.appendChild(controls);
+    headerRow.appendChild(controls);
   }
-  const h3 = document.createElement('h3');
-  h3.appendChild(document.createTextNode(opts.title));
-  if (opts.titleSuffix) {
-    const span = document.createElement('span');
-    span.className = 'character-deck-card-suffix';
-    span.textContent = ' ' + opts.titleSuffix;
-    h3.appendChild(span);
-  }
-  card.appendChild(h3);
+  card.appendChild(headerRow);
   (opts.metaLines || []).forEach(function (line) {
     if (!line) return;
     const m = document.createElement('div');
@@ -308,6 +312,51 @@ function stripLoneRollDetails(md) {
   }).trim();
 }
 
+// --- Deck-card markdown cleanup (S17): Gregg's ask is specifically
+// scoped to the compact deck cards, NOT the Codex tab's own Lore tab
+// (resolveEntityStatBlockMarkdown's output is otherwise unchanged --
+// these are post-processing steps applied only where a card's bodyMd
+// is actually assembled below). Two different operations:
+//  - stripHeadingLines: removes ONLY the heading line itself, keeping
+//    whatever content sits under it -- used for the generic "###
+//    Details"/"### Features" labels (redundant clutter on a card
+//    that's obviously details/features already) and, on Ancestry
+//    cards only, "### First"/"### Second" (redundant with the card's
+//    own titleSuffix, which already says "-- First"/"-- Second").
+//  - stripSections: removes the heading AND everything under it up to
+//    the next heading -- used for Class cards' Background/Connection
+//    roleplay-prompt question lists, which don't belong on a compact
+//    reference card at all.
+function stripHeadingLines(md, headings) {
+  if (!md) return md;
+  const targets = headings.map(function (h) { return '### ' + h; });
+  return md.split('\n').filter(function (line) { return targets.indexOf(line.trim()) === -1; })
+    .join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+function stripSections(md, headings) {
+  if (!md) return md;
+  const targets = headings.map(function (h) { return '### ' + h; });
+  let skipping = false;
+  const out = md.split('\n').filter(function (line) {
+    const trimmed = line.trim();
+    if (/^### /.test(trimmed)) {
+      skipping = targets.indexOf(trimmed) !== -1;
+      if (skipping) return false;
+    }
+    return !skipping;
+  });
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+// opts.extraHeadingLines: additional bare heading LINES to drop (kept
+// content), beyond the always-dropped Details/Features.
+// opts.stripSections: whole sections to drop entirely (heading + body).
+function cleanCardMd(md, opts) {
+  opts = opts || {};
+  let out = stripHeadingLines(md, ['Details', 'Features'].concat(opts.extraHeadingLines || []));
+  if (opts.stripSections) out = stripSections(out, opts.stripSections);
+  return out;
+}
+
 // --- Per-type meta-line builders (the "attributes at top" Gregg asked
 // for, one convention per entry type) -------------------------------------
 function abilityMetaLines(details) {
@@ -360,7 +409,7 @@ function buildHeritageSection(cards, ctx) {
         tray.appendChild(buildMiniCard({
           title: anc.name,
           titleSuffix: '\u2014 ' + pair[1],
-          bodyMd: resolveEntityStatBlockMarkdown(anc, ctx, pair[0])
+          bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(anc, ctx, pair[0]), { extraHeadingLines: ['First', 'Second'] })
         }));
       });
     }
@@ -369,13 +418,16 @@ function buildHeritageSection(cards, ctx) {
       const anc = state.allEntities.find(function (e) { return e.id === fid; });
       if (!anc) return;
       const group = picks[fid] || (i === 0 ? 'first' : 'second');
-      tray.appendChild(buildMiniCard({ title: anc.name, bodyMd: resolveEntityStatBlockMarkdown(anc, ctx, group) }));
+      tray.appendChild(buildMiniCard({
+        title: anc.name,
+        bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(anc, ctx, group), { extraHeadingLines: ['First', 'Second'] })
+      }));
     });
   }
 
   const community = state.allEntities.find(function (e) { return e.id === cards.communityId; });
   if (community) {
-    tray.appendChild(buildMiniCard({ title: community.name, bodyMd: resolveEntityStatBlockMarkdown(community, ctx, null) }));
+    tray.appendChild(buildMiniCard({ title: community.name, bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(community, ctx, null)) }));
   }
 
   if (!tray.children.length) buildEmptyNote(tray, 'No heritage set.');
@@ -412,7 +464,11 @@ function buildClassSection(entity, cards, ctx, editable) {
   if (cls) {
     const d = cls.details || {};
     const metaLines = (d.evasion || d.hp) ? ['Evasion ' + (d.evasion || '\u2014') + ' \u00b7 HP ' + (d.hp || '\u2014')] : [];
-    tray.appendChild(buildMiniCard({ title: cls.name, metaLines: metaLines, bodyMd: resolveEntityStatBlockMarkdown(cls, ctx, null) }));
+    tray.appendChild(buildMiniCard({
+      title: cls.name,
+      metaLines: metaLines,
+      bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(cls, ctx, null), { stripSections: ['Background', 'Connection'] })
+    }));
   }
   if (subclass) {
     const tierKey = cards.subclassTier || 'foundation';
@@ -421,7 +477,7 @@ function buildClassSection(entity, cards, ctx, editable) {
       title: subclass.name,
       wide: true,
       metaLines: ['Through ' + (tierLabel ? tierLabel.label : '')],
-      bodyMd: resolveEntityStatBlockMarkdown(subclass, ctx, cumulativeTierKeys(tierKey))
+      bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(subclass, ctx, cumulativeTierKeys(tierKey)))
     }));
   }
 
@@ -494,7 +550,7 @@ function buildAbilitiesSection(entity, cards, ctx, editable) {
       title: a.name,
       badge: d.level ? ('Lv ' + d.level) : null,
       metaLines: abilityMetaLines(d),
-      bodyMd: resolveEntityStatBlockMarkdown(a, ctx, null),
+      bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(a, ctx, null)),
       controls: controls
     });
   }
@@ -584,7 +640,7 @@ function buildAbilitiesSection(entity, cards, ctx, editable) {
           title: bf.name,
           badge: d.tier ? ('T' + d.tier) : null,
           metaLines: beastformMetaLines(d),
-          bodyMd: resolveEntityStatBlockMarkdown(bf, ctx, null)
+          bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(bf, ctx, null))
         }));
       });
     });
@@ -612,7 +668,7 @@ function buildConditionsSection(entity, cards, ctx, editable) {
     tray.appendChild(buildMiniCard({
       title: c.label,
       titleSuffix: c.note ? ('\u00d7' + c.note) : null,
-      bodyMd: linked ? resolveEntityStatBlockMarkdown(linked, ctx, null) : '',
+      bodyMd: linked ? cleanCardMd(resolveEntityStatBlockMarkdown(linked, ctx, null)) : '',
       controls: controls
     }));
   });
@@ -646,13 +702,13 @@ function buildConditionsSection(entity, cards, ctx, editable) {
 function equipmentCardOptsForLinked(e, ctx) {
   const details = e.details || {};
   if (e.subtype === 'weapons') {
-    return { badge: details.tier ? ('T' + details.tier) : null, metaLines: weaponMetaLines(details), bodyMd: resolveEntityStatBlockMarkdown(e, ctx, null) };
+    return { badge: details.tier ? ('T' + details.tier) : null, metaLines: weaponMetaLines(details), bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(e, ctx, null)) };
   }
   if (e.subtype === 'armor') {
-    return { badge: details.tier ? ('T' + details.tier) : null, metaLines: armorMetaLines(details), bodyMd: resolveEntityStatBlockMarkdown(e, ctx, null) };
+    return { badge: details.tier ? ('T' + details.tier) : null, metaLines: armorMetaLines(details), bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(e, ctx, null)) };
   }
   // Items/Consumables: no templates.js schema at all -- text only.
-  return { metaLines: [], bodyMd: stripLoneRollDetails(resolveEntityStatBlockMarkdown(e, ctx, null)) };
+  return { metaLines: [], bodyMd: cleanCardMd(stripLoneRollDetails(resolveEntityStatBlockMarkdown(e, ctx, null))) };
 }
 function buildEquipmentSection(entity, cards, ctx, editable) {
   const section = buildSection('Equipment');
