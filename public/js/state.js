@@ -34,6 +34,8 @@ export const state = {
   charactersPickingActive: false,        // Phase 14 S8 -- player view: "Set active" picking mode -- next character clicked becomes activeCharacterId
   charactersAncestryAddOpen: false,      // Phase 14 S8 -- character edit panel: whether the second-ancestry picker is expanded (progressive-reveal ancestry UI)
   characterDeckAbilityTab: 'active',     // Phase 14 S15 -- character deck viewer: which Abilities sub-tab is showing ('active' | 'vault' | 'beastforms'); shared across GM/player views since only one deck is ever open at a time
+  characterDeckHeritageConditionsSplit: 0.6, // Phase 14 S18 -- character deck viewer: Heritage/Conditions shared-row drag-split fraction (0-1, Heritage's share). Session-only, not persisted.
+  characterDeckClassSplit: 0.4,              // Phase 14 S18 -- character deck viewer: Class/Subclass shared-row drag-split fraction (0-1, Class's share). Session-only, not persisted.
   threadsUnsub: null,        // Phase 14 S6 -- GM: full threads collection; player: own threads/{email} doc (messages.js)
   allThreads: [],            // thread docs (GM: all; player: at most own), {id: playerEmail, lastMessageAt, lastMessagePreview, gmLastReadAt, playerLastReadAt}
   threadMessagesUnsub: null, // per-open-thread messages subcollection listener -- manual lifecycle (target changes with the open tab), like entityImagesUnsub; the app's first subcollection listener

@@ -97,13 +97,93 @@ function buildAddSlot(label, onClick) {
   return btn;
 }
 
+// Two elements side by side with a draggable vertical divider between
+// them (S18: Heritage/Conditions share a row, and Class/Subclass share
+// a row within the Class section). Percentage split communicated to
+// CSS via a --split-fraction custom property on the row (inherited
+// down to the pane rules) rather than inline flex-basis on the panes
+// directly -- keeps specificity low enough for the narrow-container
+// fallback (stacks to a column, hides the handle) to override it with
+// a plain class rule, no !important needed. Pointer Events (not
+// mouse/touch separately) so this works the same with a finger on
+// iPad as a mouse on desktop -- setPointerCapture keeps the drag
+// tracking even if the finger/cursor leaves the thin handle mid-drag.
+// stateKey is OPTIONAL session-only state (state.js) the fraction is
+// read from/written back to -- resets on reload, not persisted to
+// Firestore; this is a personal viewing preference, not campaign data.
+function buildSplitRow(leftEl, rightEl, opts) {
+  opts = opts || {};
+  const stateKey = opts.stateKey;
+  const defaultFraction = opts.defaultFraction !== undefined ? opts.defaultFraction : 0.5;
+  const minFraction = opts.minFraction !== undefined ? opts.minFraction : 0.2;
+  const maxFraction = opts.maxFraction !== undefined ? opts.maxFraction : 0.8;
+
+  const row = document.createElement('div');
+  row.className = 'character-deck-split-row';
+
+  const leftPane = document.createElement('div');
+  leftPane.className = 'character-deck-split-pane';
+  leftPane.appendChild(leftEl);
+
+  const handle = document.createElement('div');
+  handle.className = 'character-deck-split-handle';
+  handle.setAttribute('role', 'separator');
+  handle.setAttribute('aria-orientation', 'vertical');
+  handle.tabIndex = 0;
+
+  const rightPane = document.createElement('div');
+  rightPane.className = 'character-deck-split-pane';
+  rightPane.appendChild(rightEl);
+
+  row.appendChild(leftPane);
+  row.appendChild(handle);
+  row.appendChild(rightPane);
+
+  let fraction = (stateKey && typeof state[stateKey] === 'number') ? state[stateKey] : defaultFraction;
+  row.style.setProperty('--split-fraction', (fraction * 100) + '%');
+
+  let dragging = false, startX = 0, startFraction = fraction, containerWidth = 0;
+  handle.addEventListener('pointerdown', function (ev) {
+    dragging = true;
+    startX = ev.clientX;
+    startFraction = fraction;
+    containerWidth = row.getBoundingClientRect().width || 1;
+    try { handle.setPointerCapture(ev.pointerId); } catch (e) { /* unsupported, drag still works via document fallback below */ }
+    handle.classList.add('dragging');
+    ev.preventDefault();
+  });
+  handle.addEventListener('pointermove', function (ev) {
+    if (!dragging) return;
+    const dx = ev.clientX - startX;
+    let next = startFraction + (dx / containerWidth);
+    next = Math.max(minFraction, Math.min(maxFraction, next));
+    fraction = next;
+    row.style.setProperty('--split-fraction', (fraction * 100) + '%');
+  });
+  function endDrag(ev) {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    if (stateKey) state[stateKey] = fraction;
+    if (ev && ev.pointerId !== undefined) {
+      try { handle.releasePointerCapture(ev.pointerId); } catch (e) { /* already released */ }
+    }
+  }
+  handle.addEventListener('pointerup', endDrag);
+  handle.addEventListener('pointercancel', endDrag);
+
+  return row;
+}
+
 // The mini parchment card itself -- opts: title, titleSuffix (qty/note,
 // shown muted after the name), badge (Tier/Level, normalized to the
 // card's own bottom-right corner across every type that has one),
 // metaLines (array of strings, one per line, right under the name),
 // bodyMd (markdown, rendered via the same renderer everything else in
 // the app uses), controls (array of {icon,title,cls,onClick}, top-right
-// corner), wide (spans the tray's full width -- used for Subclass).
+// corner), wide (spans the tray's full width -- no current caller
+// since Subclass moved to its own split-row pane (S18), kept as a
+// general option).
 function buildMiniCard(opts) {
   const card = document.createElement('div');
   card.className = 'character-deck-card' + (opts.wide ? ' wide' : '');
@@ -478,12 +558,14 @@ function buildClassSection(entity, cards, ctx, editable) {
   }
 
   const section = buildSection('Class', tierPicker);
-  const tray = buildTray();
 
+  let classPane = null, subclassPane = null;
   if (cls) {
     const d = cls.details || {};
     const metaLines = (d.evasion || d.hp) ? ['Evasion ' + (d.evasion || '\u2014') + ' \u00b7 HP ' + (d.hp || '\u2014')] : [];
-    tray.appendChild(buildMiniCard({
+    classPane = buildTray();
+    classPane.classList.add('single');
+    classPane.appendChild(buildMiniCard({
       title: cls.name,
       metaLines: metaLines,
       bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(cls, ctx, null), {
@@ -495,16 +577,27 @@ function buildClassSection(entity, cards, ctx, editable) {
   if (subclass) {
     const tierKey = cards.subclassTier || 'foundation';
     const tierLabel = TIER_OPTIONS.find(function (t) { return t.key === tierKey; });
-    tray.appendChild(buildMiniCard({
+    subclassPane = buildTray();
+    subclassPane.classList.add('single');
+    subclassPane.appendChild(buildMiniCard({
       title: subclass.name,
-      wide: true,
       metaLines: ['Through ' + (tierLabel ? tierLabel.label : '')],
       bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(subclass, ctx, cumulativeTierKeys(tierKey)))
     }));
   }
 
-  if (!tray.children.length) buildEmptyNote(tray, 'No class set.');
-  section.appendChild(tray);
+  // Class + Subclass share a row (S18), 40/60 to start -- only when
+  // both exist; a lone card (no subclass picked yet, or somehow no
+  // class) just fills the section normally, same as before.
+  if (classPane && subclassPane) {
+    section.appendChild(buildSplitRow(classPane, subclassPane, { stateKey: 'characterDeckClassSplit', defaultFraction: 0.4 }));
+  } else if (classPane || subclassPane) {
+    section.appendChild(classPane || subclassPane);
+  } else {
+    const tray = buildTray();
+    buildEmptyNote(tray, 'No class set.');
+    section.appendChild(tray);
+  }
   return section;
 }
 
@@ -823,10 +916,13 @@ export function buildCharacterDeck(entity, ctx) {
   const wrap = document.createElement('div');
   wrap.className = 'character-deck';
   wrap.appendChild(buildDeckHeader(entity, ctx, editable));
-  wrap.appendChild(buildHeritageSection(cards, ctx));
+  wrap.appendChild(buildSplitRow(
+    buildHeritageSection(cards, ctx),
+    buildConditionsSection(entity, cards, ctx, editable),
+    { stateKey: 'characterDeckHeritageConditionsSplit', defaultFraction: 0.6 }
+  ));
   wrap.appendChild(buildClassSection(entity, cards, ctx, editable));
   wrap.appendChild(buildAbilitiesSection(entity, cards, ctx, editable));
-  wrap.appendChild(buildConditionsSection(entity, cards, ctx, editable));
   wrap.appendChild(buildEquipmentSection(entity, cards, ctx, editable));
   return wrap;
 }
