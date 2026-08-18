@@ -35,7 +35,10 @@ height, with NO per-context exceptions, except:**
    per-field suggested-value (i) indicator),
    `.character-sheet-track-box` (Phase 14 S17, the Sheet tab's HP/
    Stress/Hope three-state boxes — small squares, not circular, but
-   same "not a full-width action button" exception family).
+   same "not a full-width action button" exception family),
+   `.character-sheet-gold-icon-box` (Phase 14 S17, the Sheet tab's Gold
+   panel — each box is a small icon glyph, sized to its own content,
+   same exception family).
 5. Buttons inside a small floating panel too narrow for the fixed
    13rem width — `.gallery-picker-body button` (Set portrait / Set map
    picker panel — shared by both since they were unified onto one
