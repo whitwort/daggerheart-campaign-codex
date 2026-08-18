@@ -818,18 +818,20 @@ correctly describe what shipped at the time.
   open applies it. Popup anchors to the icon's own small position:
   relative wrapper (bottom-right corner), not the enclosing field box —
   same convention as `.vis-kebab-btn`/`.vis-kebab-popover` elsewhere.
-  Both Match and Updated render as filled circular badges now (not a
-  transparent/bordered-only Match state) — the original low-contrast
-  Match styling against the dark field background was likely reading as
-  the icon "disappearing." A 4th icon state, `unavailable` (dashed,
-  muted), was added for suggestions that can't be calculated yet (no
-  Class selected for HP/Evasion, no Armor equipped for Armor Score/
-  Thresholds) — this icon is NEVER hidden; its popup explains what's
-  missing ("Needs Armor equipped in the Armor slot") instead of showing
-  a value, and clicking it just toggles the popup since there's nothing
-  to apply. Only the pre-existing "deliberate override" case (a
-  calculable suggestion the player has knowingly diverged from, unchanged
-  since) still omits the icon entirely — unaffected by this addition.
+  Three states, NEVER hidden (a "deliberate override, don't nag" 4th
+  case that used to omit the icon entirely was removed per Gregg —
+  he wants it always visible): `unavailable` (dashed/muted — suggestion
+  can't be calculated yet, e.g. no Class selected or no Armor equipped;
+  popup explains what's missing instead of showing a value, clicking
+  just toggles the popup since there's nothing to apply), `match`
+  (filled neutral badge — current value equals the live suggestion),
+  `updated` (filled hope-colored badge — current value differs from the
+  live suggestion, for ANY reason, whether the suggestion just changed
+  or the player set something else entirely; click to apply either
+  way). Match/Updated render as filled circular badges rather than a
+  transparent/bordered-only style — the original low-contrast Match
+  styling against the dark field background was likely reading as the
+  icon "disappearing."
 - **Trait mark ("tier-up") tracking removed entirely.** §12.1's
   original design and its first rework (whole-card click, then a small
   explicit mark button) both tried to track which two traits get +1 at
