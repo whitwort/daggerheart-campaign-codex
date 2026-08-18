@@ -33,10 +33,10 @@
 // Unread: thread.lastMessageAt > my own read stamp (gmLastReadAt /
 // playerLastReadAt). Sending a message stamps the sender's own read field
 // in the same write, so unread only ever reflects the OTHER side's
-// messages. Campaign unread (player only): count of own notifications
-// with seenAt == null. The GM's Campaign tab has no unread state -- rules
-// only let a recipient flip their own seenAt, and the GM is never a
-// recipient.
+// messages. Campaign unread (player): count of own notifications with
+// seenAt == null. GM Campaign unread (Aug 2026 addition, join requests):
+// count of joinRequest-kind notifications (GM is recipientEmail on those,
+// unlike entity fan-out notifications which the GM only ever sends).
 //
 // No orderBy in any query here: messages sort client-side on createdAt
 // (a just-sent message's local snapshot echo has a null pending
@@ -139,8 +139,16 @@ function activeCharacterBadgeColor(player) {
 }
 
 function campaignUnreadCount() {
-  if (state.currentRole !== 'player') return 0;
-  return state.allNotifications.filter(function (n) { return !n.seenAt; }).length;
+  if (state.currentRole === 'player') {
+    return state.allNotifications.filter(function (n) { return !n.seenAt; }).length;
+  }
+  if (state.currentRole === 'gm') {
+    // GM is the recipient only for joinRequest notifications (§ Aug 2026
+    // addition) -- everything else in allNotifications is fan-out the GM
+    // sent, not received, so only joinRequest counts toward GM unread.
+    return state.allNotifications.filter(function (n) { return n.kind === 'joinRequest' && !n.seenAt; }).length;
+  }
+  return 0;
 }
 
 function formatRelative(ms) {
@@ -272,8 +280,10 @@ function markThreadRead(key) {
 }
 
 function markCampaignSeen() {
-  if (state.currentRole !== 'player') return;
-  const unseen = state.allNotifications.filter(function (n) { return !n.seenAt; });
+  if (state.currentRole !== 'player' && state.currentRole !== 'gm') return;
+  const unseen = state.currentRole === 'gm'
+    ? state.allNotifications.filter(function (n) { return n.kind === 'joinRequest' && !n.seenAt; })
+    : state.allNotifications.filter(function (n) { return !n.seenAt; });
   if (!unseen.length) return;
   campaignNewIds = {};
   const batch = writeBatch(db);
