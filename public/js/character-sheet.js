@@ -654,23 +654,24 @@ function buildGoldRow(entity, sheet, def, editable) {
   const row = document.createElement('div');
   row.className = 'character-sheet-gold-row-line';
 
-  const icon = document.createElement('span');
-  icon.className = 'character-sheet-gold-row-icon';
-  icon.innerHTML = def.icon;
-  row.appendChild(icon);
-
   const label = document.createElement('span');
   label.className = 'character-sheet-gold-row-label';
   label.textContent = def.label;
   row.appendChild(label);
 
+  // Each box IS the icon now (Gregg's ask), not a plain square with the
+  // icon sitting off to the side -- unfilled/filled are the same icon
+  // at two different colors/opacities (.marked), same "muted vs bright
+  // parchment" language the plain HP/Stress/Hope/gold boxes already use
+  // for empty vs checked, just applied to a shape instead of a fill.
   const boxesRow = document.createElement('div');
   boxesRow.className = 'character-sheet-track-boxes character-sheet-gold-boxes';
   for (let i = 0; i < def.count; i++) {
     const checked = i < current;
     const box = document.createElement('button');
     box.type = 'button';
-    box.className = 'character-sheet-track-box' + (checked ? ' marked' : '');
+    box.className = 'character-sheet-track-box character-sheet-gold-icon-box' + (checked ? ' marked' : '');
+    box.innerHTML = def.icon;
     box.disabled = !editable;
     box.title = checked ? 'Checked -- click to uncheck' : 'Click to check';
     box.addEventListener('click', function () {
