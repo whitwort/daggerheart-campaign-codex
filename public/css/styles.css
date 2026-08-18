@@ -2250,9 +2250,17 @@ button:disabled:hover { border-color: var(--void-line); }
    order or future edits to either rule, and every property .admin-
    card h3/h3:first-of-type touches is now explicitly declared here
    too, so there's nothing left uncontested to leak through. */
+/* line-height bumped 1 -> 1.2 (S19): line-height:1 was clipping
+   descenders (g/y/p/q/j) against overflow:hidden -- the line box was
+   exactly the em-square with no room below the baseline. 1.2 gives
+   descenders space to render while staying far tighter than the
+   original inherited 1.4 that caused the very first version of this
+   saga; the top-alignment bug was never actually about line-height
+   size, it was the .admin-card leak above, so this is safe to loosen
+   without reintroducing that. */
 .character-deck .character-deck-tray .character-deck-card h3 {
   font-family: var(--font-body), sans-serif; font-weight: 600; font-size: 0.86rem;
-  line-height: 1; margin: 0 0 0.15rem; color: var(--ink); flex: 1; min-width: 0; align-self: flex-start;
+  line-height: 1.2; margin: 0 0 0.15rem; color: var(--ink); flex: 1; min-width: 0; align-self: flex-start;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   text-transform: none; letter-spacing: normal;
 }
@@ -2270,6 +2278,16 @@ button:disabled:hover { border-color: var(--void-line); }
   position: absolute; bottom: 0.5rem; right: 0.5rem; background: var(--ink); color: var(--parchment);
   font-size: 0.6rem; font-weight: 600; border-radius: 4px; padding: 0.08rem 0.3rem;
 }
+/* Codex link (S19): bottom-left, opposite the Tier/Level badge. Plain
+   colored icon, no chrome -- same .entity-map-link idiom the app
+   already uses for this exact icon elsewhere (Map/Timeline cards). */
+.character-deck-card-codex-link {
+  position: absolute; bottom: 0.5rem; left: 0.65rem; color: var(--fear);
+  background: none; border: none; box-shadow: none; padding: 0; cursor: pointer;
+  width: auto; min-width: 0; font-size: 1rem; line-height: 1; display: flex; align-items: center;
+}
+.character-deck-card-codex-link:hover { opacity: 0.75; }
+.character-deck-card-codex-link svg { width: 0.95rem; height: 0.95rem; display: block; }
 /* Swap/remove controls: no longer absolutely positioned (see
    .character-deck-card-header-row above) -- just a flex-shrink:0
    sibling of the name in that shared row now. */
