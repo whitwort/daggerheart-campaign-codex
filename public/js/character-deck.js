@@ -175,6 +175,52 @@ function buildSplitRow(leftEl, rightEl, opts) {
   return row;
 }
 
+// Lazy-loads SortableJS (same pattern as codex.js's Gallery/Lore
+// reorder and admin.js's Sources reorder -- own local wrapper per
+// module around the shared state.sortableModulePromise, not a shared
+// function import, matching the established convention). iOS Safari
+// has no native HTML5 drag-and-drop touch support, hence a real
+// library instead of rolling this by hand.
+function loadSortable() {
+  if (!state.sortableModulePromise) {
+    state.sortableModulePromise = import('https://esm.sh/sortablejs@1.15.2')
+      .then(function (mod) { return mod.default || mod; });
+  }
+  return state.sortableModulePromise;
+}
+
+// Enables drag-reorder on a tray's cards (S22: Abilities' Active/Vault/
+// Experience tabs, Equipment). container's card children must each
+// carry a data-reorder-id (buildMiniCard's opts.reorderId) -- the "+
+// Add" slot has none, and is excluded from dragging via `filter` so it
+// stays put at the end of the tray rather than becoming reorderable
+// itself. preventOnFilter:false (SortableJS defaults this to true) so
+// the add-slot's own click handler keeps firing normally -- true would
+// swallow the initiating event on that element, which risks breaking
+// its click on touch. onReorder receives the new id order (add-slot
+// excluded) for the caller to write back to Firestore -- this module
+// never persists order itself, same "caller owns the Firestore write"
+// shape every other control in this file already uses.
+function enableCardReorder(container, onReorder) {
+  const items = Array.prototype.slice.call(container.children).filter(function (el) { return el.dataset && el.dataset.reorderId; });
+  if (items.length < 2) return;
+  loadSortable().then(function (Sortable) {
+    // eslint-disable-next-line no-new
+    new Sortable(container, {
+      filter: '.character-deck-add-slot',
+      preventOnFilter: false,
+      forceFallback: true,
+      animation: 150,
+      onEnd: function () {
+        const orderedIds = Array.prototype.slice.call(container.children)
+          .filter(function (el) { return el.dataset && el.dataset.reorderId; })
+          .map(function (el) { return el.dataset.reorderId; });
+        onReorder(orderedIds);
+      }
+    });
+  }).catch(function () { /* drag-reorder unavailable; add/remove/swap still work */ });
+}
+
 // The mini parchment card itself -- opts: title, titleSuffix (qty/note,
 // shown muted after the name), badge (Tier/Level, normalized to the
 // card's own bottom-right corner across every type that has one),
@@ -183,10 +229,14 @@ function buildSplitRow(leftEl, rightEl, opts) {
 // the app uses), controls (array of {icon,title,cls,onClick}, top-right
 // corner), wide (spans the tray's full width -- no current caller
 // since Subclass moved to its own split-row pane (S18), kept as a
-// general option).
+// general option), reorderId (drag-reorder key, see enableCardReorder).
 function buildMiniCard(opts) {
   const card = document.createElement('div');
   card.className = 'character-deck-card' + (opts.wide ? ' wide' : '');
+  // reorderId (S22): drag-reorder target key, read back by
+  // enableCardReorder's onEnd handler after a drop -- set whenever a
+  // caller passes one, harmless/unused otherwise.
+  if (opts.reorderId) card.dataset.reorderId = opts.reorderId;
 
   const headerRow = document.createElement('div');
   headerRow.className = 'character-deck-card-header-row';
@@ -698,7 +748,8 @@ function buildAbilitiesSection(entity, cards, ctx, editable) {
       metaLines: abilityMetaLines(d),
       bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(a, ctx, null), { stripBulletLabels: ['Domain', 'Level', 'Type', 'Recall'] }),
       controls: controls,
-      codexEntityId: a.id
+      codexEntityId: a.id,
+      reorderId: editable ? a.id : null
     });
   }
 
@@ -732,6 +783,15 @@ function buildAbilitiesSection(entity, cards, ctx, editable) {
     if (!tray.children.length && !editable) {
       buildEmptyNote(tray, key === 'active' ? 'No active abilities.' : 'Vault is empty.');
     }
+    if (editable) {
+      enableCardReorder(tray, function (orderedIds) {
+        if (key === 'active') {
+          patchCards(entity, { abilityIds: orderedIds.concat(vaultIds) });
+        } else {
+          patchCards(entity, { vaultAbilityIds: orderedIds });
+        }
+      });
+    }
     panel.appendChild(tray);
     panels[key] = panel;
     section.appendChild(panel);
@@ -749,7 +809,7 @@ function buildAbilitiesSection(entity, cards, ctx, editable) {
         icon: '&times;', title: 'Remove', cls: 'ctl-remove',
         onClick: function () { patchCards(entity, { experiences: experiences.filter(function (x) { return x.id !== exp.id; }) }); }
       }] : [];
-      tray.appendChild(buildMiniCard({ title: exp.name, bodyMd: exp.text, controls: controls }));
+      tray.appendChild(buildMiniCard({ title: exp.name, bodyMd: exp.text, controls: controls, reorderId: editable ? exp.id : null }));
     });
     if (editable) {
       tray.appendChild(buildAddSlot('+ Add experience', function () {
@@ -759,6 +819,13 @@ function buildAbilitiesSection(entity, cards, ctx, editable) {
       }));
     }
     if (!tray.children.length && !editable) buildEmptyNote(tray, 'No experiences.');
+    if (editable) {
+      enableCardReorder(tray, function (orderedIds) {
+        const byId = {};
+        experiences.forEach(function (e) { byId[e.id] = e; });
+        patchCards(entity, { experiences: orderedIds.map(function (id) { return byId[id]; }).filter(Boolean) });
+      });
+    }
     panel.appendChild(tray);
     panels.experience = panel;
     section.appendChild(panel);
@@ -885,7 +952,8 @@ function buildEquipmentSection(entity, cards, ctx, editable) {
       title: it.label,
       titleSuffix: it.qty && it.qty !== 1 ? ('\u00d7' + it.qty) : null,
       controls: controls,
-      codexEntityId: linked ? linked.id : null
+      codexEntityId: linked ? linked.id : null,
+      reorderId: editable ? it.id : null
     }, typeOpts)));
   });
 
@@ -908,6 +976,13 @@ function buildEquipmentSection(entity, cards, ctx, editable) {
     }));
   }
   if (!tray.children.length && !editable) buildEmptyNote(tray, 'No equipment.');
+  if (editable) {
+    enableCardReorder(tray, function (orderedIds) {
+      const byId = {};
+      equipment.forEach(function (e) { byId[e.id] = e; });
+      patchCards(entity, { equipment: orderedIds.map(function (id) { return byId[id]; }).filter(Boolean) });
+    });
+  }
   section.appendChild(tray);
   return section;
 }

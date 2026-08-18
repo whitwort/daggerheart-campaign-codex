@@ -2211,6 +2211,15 @@ button:disabled:hover { border-color: var(--void-line); }
   flex: 1 1 160px; min-width: 140px; max-width: 220px; box-sizing: border-box;
   font-size: 0.72rem; line-height: 1.4;
 }
+/* Drag-reorder cursor (S22): only cards that actually carry a
+   data-reorder-id are reorderable (set by buildMiniCard only when the
+   viewer has edit rights -- see enableCardReorder) -- an attribute
+   selector rather than a class keeps this correct without a separate
+   modifier class to thread through every call site. */
+.character-deck-card[data-reorder-id] { cursor: grab; }
+.character-deck-card[data-reorder-id]:active,
+.character-deck-card.sortable-chosen { cursor: grabbing; }
+.character-deck-card.sortable-ghost { opacity: 0.4; }
 .character-deck-card.wide { flex-basis: 100%; max-width: 100%; }
 /* Name + swap/remove controls share one flex row (S17 -- previously
    two independently-positioned elements, the name in normal flow and
