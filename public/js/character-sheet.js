@@ -532,20 +532,19 @@ function buildEquipmentSlotsPanel(entity, topCards, editable) {
   return wrap;
 }
 
-// Suggested damage roll (Gregg's ask, appended below Proficiency):
-// [current proficiency][primary/secondary weapon's damage string],
-// e.g. proficiency 2 + weapon damage "d8+3 phy" -> "2d8+3 phy". Primary
-// wins when both a Primary and a Secondary are equipped; falls back to
-// Secondary if only that slot is filled. Purely a live display -- not
-// its own stored field, no suggestion icon of its own (Proficiency's
+// Suggested damage rolls (appended below Proficiency): [current
+// proficiency][weapon's damage string], e.g. proficiency 2 + weapon
+// damage "d8+3 phy" -> "2d8+3 phy". Primary and Secondary are computed
+// and shown independently now -- Primary always shows (em dash if
+// nothing's equipped there), Secondary only shows a line at all when
+// something is actually equipped in that slot. Purely a live display --
+// not its own stored field, no suggestion icon of its own (Proficiency's
 // icon already covers the number this is built from).
-function computeSuggestedDamageRoll(topCards, proficiencyValue) {
+function weaponDamageRoll(topCards, slot, proficiencyValue) {
   const equipment = topCards.equipment || [];
-  const primary = equipment.find(function (it) { return it.slot === 'primary'; });
-  const secondary = equipment.find(function (it) { return it.slot === 'secondary'; });
-  const chosen = primary || secondary;
-  if (!chosen || !chosen.entityId) return null;
-  const weapon = state.allEntities.find(function (e) { return e.id === chosen.entityId; });
+  const item = equipment.find(function (it) { return it.slot === slot; });
+  if (!item || !item.entityId) return null;
+  const weapon = state.allEntities.find(function (e) { return e.id === item.entityId; });
   const damage = weapon && weapon.details && weapon.details.damage;
   if (!damage) return null;
   return { text: String(proficiencyValue) + damage, weaponName: weapon.name };
@@ -573,12 +572,20 @@ function buildResourcesBlock(entity, sheet, editable, suggestions, topCards) {
   const proficiencyField = buildNumberField('Proficiency', sheet.proficiency, editable, function (v, suggestKey, suggestValue) {
     patchSuggestibleField(entity, sheet, { proficiency: v }, suggestKey, suggestValue);
   }, { suggestKey: 'proficiency', suggestion: suggestions.proficiency });
-  const damageRoll = computeSuggestedDamageRoll(topCards, sheet.proficiency);
-  const damageCaption = document.createElement('p');
-  damageCaption.className = 'admin-hint character-sheet-damage-roll';
-  damageCaption.textContent = 'Damage: ' + (damageRoll ? damageRoll.text : '\u2014');
-  if (damageRoll) damageCaption.title = 'From ' + damageRoll.weaponName;
-  proficiencyField.appendChild(damageCaption);
+  const primaryRoll = weaponDamageRoll(topCards, 'primary', sheet.proficiency);
+  const primaryCaption = document.createElement('p');
+  primaryCaption.className = 'admin-hint character-sheet-damage-roll';
+  primaryCaption.textContent = 'Primary: ' + (primaryRoll ? primaryRoll.text : '\u2014');
+  if (primaryRoll) primaryCaption.title = 'From ' + primaryRoll.weaponName;
+  proficiencyField.appendChild(primaryCaption);
+  const secondaryRoll = weaponDamageRoll(topCards, 'secondary', sheet.proficiency);
+  if (secondaryRoll) {
+    const secondaryCaption = document.createElement('p');
+    secondaryCaption.className = 'admin-hint character-sheet-damage-roll';
+    secondaryCaption.textContent = 'Secondary: ' + secondaryRoll.text;
+    secondaryCaption.title = 'From ' + secondaryRoll.weaponName;
+    proficiencyField.appendChild(secondaryCaption);
+  }
   statsRow.appendChild(proficiencyField);
   statsRow.appendChild(buildNumberField('Major Threshold', sheet.thresholds.major, editable, function (v, suggestKey, suggestValue) {
     patchSuggestibleField(entity, sheet, { thresholds: Object.assign({}, sheet.thresholds, { major: v }) }, suggestKey, suggestValue);
