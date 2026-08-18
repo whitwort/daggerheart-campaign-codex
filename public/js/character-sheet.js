@@ -102,55 +102,91 @@ function patchSuggestibleField(entity, sheet, fieldPatch, suggestKey, liveSugges
 // the armor-slot equipment item's linked Armor entity's
 // details.base_score/base_thresholds + current cards.level. Recomputed
 // fresh on every render -- no write until the player clicks an icon.
-// Each returned entry is {value, source} (or null) -- source is shown
-// in the suggestion popup so the player can see WHERE a number came
-// from, not just what it is.
+//
+// Every field always returns an object now -- either {value, source}
+// (calculable) or {value: null, reason} (not yet calculable, e.g. no
+// class/armor selected). The icon itself is never hidden for the
+// "not yet calculable" case; only the pre-existing "deliberate
+// override" case (buildSuggestionControl) still omits the icon.
 function computeLiveSuggestions(entity, ctx) {
   const topCards = Object.assign({}, DEFAULT_CARDS, entity.cards || {});
   const visible = function (e) { return ctx.gmView || canSee(e, ctx); };
+  const level = parseInt(topCards.level, 10) || 1;
 
   const selectedClass = topCards.classId
     ? state.allEntities.find(function (e) { return e.id === topCards.classId && visible(e); })
     : null;
   const classDetails = selectedClass ? (selectedClass.details || {}) : {};
-  const hpMaxRaw = classDetails.hp ? parseInt(classDetails.hp, 10) : NaN;
-  const evasionRaw = classDetails.evasion ? parseInt(classDetails.evasion, 10) : NaN;
   const className = selectedClass ? selectedClass.name : null;
+
+  let hpMax, evasion;
+  if (!selectedClass) {
+    hpMax = { value: null, reason: 'Needs a Class selected (Cards tab \u2192 Class)' };
+    evasion = { value: null, reason: 'Needs a Class selected (Cards tab \u2192 Class)' };
+  } else {
+    const hpMaxRaw = classDetails.hp ? parseInt(classDetails.hp, 10) : NaN;
+    const evasionRaw = classDetails.evasion ? parseInt(classDetails.evasion, 10) : NaN;
+    hpMax = isNaN(hpMaxRaw)
+      ? { value: null, reason: className + ' has no HP value defined' }
+      : { value: hpMaxRaw, source: 'From ' + className + ' class' };
+    evasion = isNaN(evasionRaw)
+      ? { value: null, reason: className + ' has no Evasion value defined' }
+      : { value: evasionRaw, source: 'From ' + className + ' class' };
+  }
 
   const armorItem = (topCards.equipment || []).find(function (it) { return it.slot === 'armor'; });
   const armorEntity = armorItem && armorItem.entityId
     ? state.allEntities.find(function (e) { return e.id === armorItem.entityId && visible(e); })
     : null;
   const armorDetails = armorEntity ? (armorEntity.details || {}) : {};
-  const armorScoreRaw = armorDetails.base_score ? parseInt(armorDetails.base_score, 10) : NaN;
   const armorName = armorEntity ? armorEntity.name : null;
+  const noArmorReason = 'Needs Armor equipped in the Armor slot (Sheet tab \u2192 Equipped)';
+
+  let armorScore;
+  if (!armorEntity) {
+    armorScore = { value: null, reason: noArmorReason };
+  } else {
+    const armorScoreRaw = armorDetails.base_score ? parseInt(armorDetails.base_score, 10) : NaN;
+    armorScore = isNaN(armorScoreRaw)
+      ? { value: null, reason: armorName + ' has no base score defined' }
+      : { value: armorScoreRaw, source: 'From ' + armorName + ' (base score ' + armorScoreRaw + ')' };
+  }
 
   // base_thresholds is stored as the SRD's own "5 / 11" (major/severe)
   // string -- split on '/', trim, parse both sides; only a suggestion
   // if both parse cleanly.
-  let thresholdMajorRaw = NaN, thresholdSevereRaw = NaN, level = parseInt(topCards.level, 10) || 1;
-  let baseMajor = null, baseSevere = null;
-  if (armorDetails.base_thresholds) {
-    const parts = String(armorDetails.base_thresholds).split('/');
-    if (parts.length === 2) {
-      const major = parseInt(parts[0].trim(), 10);
-      const severe = parseInt(parts[1].trim(), 10);
-      if (!isNaN(major) && !isNaN(severe)) {
-        baseMajor = major; baseSevere = severe;
-        thresholdMajorRaw = major + level;
-        thresholdSevereRaw = severe + level;
+  let thresholdMajor, thresholdSevere;
+  if (!armorEntity) {
+    thresholdMajor = { value: null, reason: noArmorReason };
+    thresholdSevere = { value: null, reason: noArmorReason };
+  } else {
+    let baseMajor = null, baseSevere = null;
+    if (armorDetails.base_thresholds) {
+      const parts = String(armorDetails.base_thresholds).split('/');
+      if (parts.length === 2) {
+        const major = parseInt(parts[0].trim(), 10);
+        const severe = parseInt(parts[1].trim(), 10);
+        if (!isNaN(major) && !isNaN(severe)) { baseMajor = major; baseSevere = severe; }
       }
+    }
+    if (baseMajor === null) {
+      thresholdMajor = { value: null, reason: armorName + ' has no valid thresholds defined' };
+      thresholdSevere = { value: null, reason: armorName + ' has no valid thresholds defined' };
+    } else {
+      thresholdMajor = { value: baseMajor + level, source: armorName + ' base ' + baseMajor + ' + level ' + level };
+      thresholdSevere = { value: baseSevere + level, source: armorName + ' base ' + baseSevere + ' + level ' + level };
     }
   }
 
   return {
-    hpMax: isNaN(hpMaxRaw) ? null : { value: hpMaxRaw, source: 'From ' + className + ' class' },
-    evasion: isNaN(evasionRaw) ? null : { value: evasionRaw, source: 'From ' + className + ' class' },
-    armorScore: isNaN(armorScoreRaw) ? null : { value: armorScoreRaw, source: 'From ' + armorName + ' (base score ' + armorScoreRaw + ')' },
-    thresholdMajor: isNaN(thresholdMajorRaw) ? null : { value: thresholdMajorRaw, source: armorName + ' base ' + baseMajor + ' + level ' + level },
-    thresholdSevere: isNaN(thresholdSevereRaw) ? null : { value: thresholdSevereRaw, source: armorName + ' base ' + baseSevere + ' + level ' + level },
+    hpMax: hpMax,
+    evasion: evasion,
+    armorScore: armorScore,
+    thresholdMajor: thresholdMajor,
+    thresholdSevere: thresholdSevere,
     // Proficiency = campaign tier at the character's current level
-    // (T1=1, T2=2, T3=3, T4=4), per Gregg's direction.
+    // (T1=1, T2=2, T3=3, T4=4), per Gregg's direction. Always
+    // calculable -- cards.level always has a value (defaults to 1).
     proficiency: { value: tierForCharacterLevel(level), source: 'Tier ' + tierForCharacterLevel(level) + ' (level ' + level + ')' }
   };
 }
@@ -173,14 +209,29 @@ let closeOpenSuggestionPopup = null;
 // already open, applies it -- one click handler serves both input
 // styles, since desktop hover already opens the popup, so a click
 // there always finds one open and applies.
+//
+// A suggestion that isn't calculable yet (suggestion.value === null)
+// still gets an icon -- a distinct 'unavailable' style -- so the
+// player can see a suggestion EXISTS for this field and find out what
+// it needs (e.g. "Needs Armor equipped"). Clicking it just shows/hides
+// that explanation; there's nothing to apply. The ONE case that still
+// omits the icon entirely is the pre-existing "deliberate override"
+// state -- a calculable suggestion the player has knowingly diverged
+// from and which hasn't changed since -- that's unrelated to this and
+// stays as designed.
 function buildSuggestionControl(suggestKey, currentValue, suggestion, snapshot, onApply) {
   if (!suggestion) return null;
   const liveValue = suggestion.value;
-  let cls;
-  if (currentValue === liveValue) {
+  let cls, canApply;
+  if (liveValue === null) {
+    cls = 'unavailable';
+    canApply = false;
+  } else if (currentValue === liveValue) {
     cls = 'match';
+    canApply = true;
   } else if (liveValue !== snapshot[suggestKey]) {
     cls = 'updated';
+    canApply = true;
   } else {
     return null; // deliberate override, suggestion hasn't moved -- don't nag
   }
@@ -212,12 +263,13 @@ function buildSuggestionControl(suggestKey, currentValue, suggestion, snapshot, 
     popup.className = 'character-sheet-suggestion-popup';
     const valueLine = document.createElement('div');
     valueLine.className = 'character-sheet-suggestion-popup-value';
-    valueLine.textContent = 'Suggested: ' + liveValue;
+    valueLine.textContent = canApply ? ('Suggested: ' + liveValue) : 'Not yet available';
     popup.appendChild(valueLine);
-    if (suggestion.source) {
+    const detailText = canApply ? suggestion.source : suggestion.reason;
+    if (detailText) {
       const sourceLine = document.createElement('div');
       sourceLine.className = 'character-sheet-suggestion-popup-source';
-      sourceLine.textContent = suggestion.source;
+      sourceLine.textContent = detailText;
       popup.appendChild(sourceLine);
     }
     wrap.appendChild(popup);
@@ -229,7 +281,7 @@ function buildSuggestionControl(suggestKey, currentValue, suggestion, snapshot, 
   icon.addEventListener('click', function (e) {
     e.stopPropagation();
     if (popup) {
-      onApply();
+      if (canApply) onApply();
       closePopup();
     } else {
       openPopup();
