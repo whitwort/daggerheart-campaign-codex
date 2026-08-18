@@ -839,16 +839,29 @@ correctly describe what shipped at the time.
   `cards.sheet.traits[key].marked` stays in the stored schema (unread,
   harmless) rather than migrated out, so no existing data is lost.
 - **HP/Stress/Hope: three-state box UI**, replacing the Max/Marked
-  number-input pair `cards.sheet.hp/stress/hope` still use as their
-  storage shape (unchanged: `{max, marked}`). Boxes render per fixed
-  ceiling constants — HP 12, Stress 12, Hope 6 (game-rule constants,
-  NOT stored) — as solid-empty (available/unmarked), solid-filled
-  (available/marked), or dotted-empty (not-yet-unlocked, beyond the
-  track's own `max`/Active count). Hope never renders the dotted state
-  (its Active is always its own ceiling in practice). `max` (renamed
-  "Active" in the UI) stays a small number input above the boxes;
-  clicking a box fills-through-to-that-box, clicking the last marked
-  box again unmarks it. Starting defaults changed accordingly: HP
-  0 active/0 marked (class-defined via suggestion), Stress 6 active/0
-  marked, Hope 6 active/2 marked — previously all three defaulted to
-  0/0.
+  number-input pair entirely. `cards.sheet.hp/stress/hope` keep their
+  existing storage shape (`{max, marked}` — max = unlocked count,
+  marked = checked count, contiguous from the left, same as a physical
+  HP track) but there is NO number-input control of any kind anymore —
+  the boxes themselves are the only control, per Gregg's exact
+  interaction spec after two rounds of revision:
+  - Unlocked (solid, empty) → Checked (solid, filled): **single**
+    click/tap.
+  - Checked → Unlocked: **single** click/tap.
+  - Locked (dotted, empty) → Unlocked: **double** click/tap.
+  - Unlocked → Locked: **double** click/tap.
+  - Double-click/tap on a Checked box is a no-op (transition
+    undefined). Locked boxes stay enabled (not `disabled`), since
+    double-click is how they unlock — only single-click is a no-op on
+    them.
+  - Boxes render per fixed ceiling constants — HP 12, Stress 12, Hope 6
+    (game-rule constants, NOT stored). Hope never renders the Locked
+    state at all (double-click no-ops there too) — its Active count is
+    always its own ceiling.
+  - Double-click/tap is detected manually (click, then a short
+    `setTimeout` window, canceled by a second click) rather than the
+    native `dblclick` DOM event, which doesn't reliably fire from two
+    quick taps on iOS Safari — this app is iOS-first.
+  - Starting defaults: HP 0 active/0 marked (class-defined via
+    suggestion), Stress 6 active/0 marked, Hope 6 active/2 marked —
+    previously all three defaulted to 0/0.

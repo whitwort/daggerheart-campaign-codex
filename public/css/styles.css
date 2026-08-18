@@ -2387,22 +2387,22 @@ button:disabled:hover { border-color: var(--void-line); }
 .character-sheet-damage-roll-label { margin-top: 0.35rem; }
 .character-sheet-damage-roll-value { text-align: center; font-size: 0.85rem; color: var(--parchment); word-break: break-word; }
 
-/* HP/Stress/Hope three-state boxes (S17 rework, replaces the old Max/
-   Marked number-input pair): solid-empty = available/unmarked, solid-
-   filled = available/marked, dotted-empty = not-yet-unlocked (beyond
-   the track's own Active count). Active itself stays a small number
-   input above the boxes -- level-ups/features can still grant more of
-   them, and it's what the HP suggestion icon writes to. Hope never
-   renders the dotted state (character-sheet.js passes allowLocked:false
-   for it) -- all 6 boxes are always either empty or filled. */
-.character-sheet-track-active-input { width: 3rem; text-align: center; font-size: 0.85rem; margin-bottom: 0.35rem; }
+/* HP/Stress/Hope three-state boxes: solid-empty = Unlocked/unmarked,
+   solid-filled = Checked, dotted-empty = Locked (not-yet-unlocked).
+   No separate Active-count input -- the boxes themselves are the only
+   control (character-sheet.js: single click/tap toggles Unlocked<->
+   Checked, double click/tap toggles Locked<->Unlocked). Locked boxes
+   stay clickable (not disabled) since double-click is how they unlock;
+   only Checked boxes are inert to double-click (no defined transition).
+   Hope never renders the dotted state (allowLocked:false) -- all 6
+   boxes are always either empty or filled. */
 .character-sheet-track-boxes { display: flex; flex-wrap: wrap; gap: 0.22rem; }
 .character-sheet-track-box {
-  width: 0.9rem; height: 0.9rem; min-width: 0; border-radius: 2px; padding: 0;
+  width: 1.1rem; height: 1.1rem; min-width: 0; border-radius: 2px; padding: 0;
   border: 1.5px solid var(--parchment); background: none; box-shadow: none; cursor: pointer;
 }
 .character-sheet-track-box.marked { background: var(--parchment); }
-.character-sheet-track-box.locked { border-style: dotted; border-color: var(--void-line); cursor: default; }
+.character-sheet-track-box.locked { border-style: dotted; border-color: var(--void-line); }
 .character-sheet-track-box:disabled { cursor: default; }
 
 /* Equipped slot panel (moved here from the Cards tab's per-item
