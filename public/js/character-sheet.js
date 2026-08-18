@@ -582,7 +582,7 @@ function buildResourcesBlock(entity, sheet, editable, suggestions, topCards) {
   // Row 4: Equipped, Proficiency, Gold
   const proficiencyField = buildNumberField('Proficiency', sheet.proficiency, editable, function (v, suggestKey, suggestValue) {
     patchSuggestibleField(entity, sheet, { proficiency: v }, suggestKey, suggestValue);
-  }, { suggestKey: 'proficiency', suggestion: suggestions.proficiency });
+  }, { suggestKey: 'proficiency', suggestion: suggestions.proficiency, extraClass: 'character-sheet-proficiency-field' });
   const primaryRoll = weaponDamageRoll(topCards, 'primary', sheet.proficiency);
   const primaryCaption = document.createElement('p');
   primaryCaption.className = 'admin-hint character-sheet-damage-roll';

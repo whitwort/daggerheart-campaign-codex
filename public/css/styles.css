@@ -2388,6 +2388,16 @@ button:disabled:hover { border-color: var(--void-line); }
   background: var(--void); border: 1px solid var(--void-line); border-radius: 8px;
   padding: 0.4rem 0.6rem; flex: 1 1 100px; min-width: 90px; box-sizing: border-box;
 }
+/* Row 4 only: Equipped and Gold hold their natural content width and
+   never shrink below it (flex-shrink:0) -- Proficiency is the one that
+   compresses first to absorb whatever space is left, down to a lower
+   floor than the shared .character-sheet-field's 90px. Once even that
+   isn't enough room for all three, .character-sheet-resources-main's
+   flex-wrap takes over and drops them to their own lines -- the
+   "fluid relayout for phones" this is aiming for, rather than letting
+   Equipped/Gold's own internal rows (selects, checkbox tracks) get
+   squeezed and wrap awkwardly first. */
+.character-sheet-proficiency-field { flex: 1 1 70px; min-width: 70px; }
 .character-sheet-field-label-row { display: flex; align-items: center; justify-content: space-between; gap: 0.3rem; margin-bottom: 0.3rem; }
 .character-sheet-field-label {
   font-family: var(--font-display), sans-serif; font-size: 0.65rem; text-transform: uppercase;
@@ -2404,7 +2414,7 @@ button:disabled:hover { border-color: var(--void-line); }
 .character-sheet-gold-panel {
   background: var(--void); border: 1px solid var(--void-line); border-radius: 8px;
   padding: 0.5rem 0.6rem; display: flex; flex-direction: column; gap: 0.4rem;
-  flex: 1 1 180px; max-width: 240px; box-sizing: border-box;
+  flex: 0 0 auto; box-sizing: border-box;
 }
 .character-sheet-gold-row-line { display: flex; align-items: center; gap: 0.5rem; }
 .character-sheet-gold-row-label { flex: 0 0 4.2rem; font-size: 0.72rem; color: var(--ink-soft); }
@@ -2448,13 +2458,16 @@ button:disabled:hover { border-color: var(--void-line); }
 /* Equipped slot panel (moved here from the Cards tab's per-item
    Equipment select, which didn't have room on the mini-cards). Row 4
    of the resources block: Equipped, Proficiency, Gold share
-   .character-sheet-resources-main -- narrower, fixed-ish width rather
-   than flex:1 like a plain stat field, since it's 3 short rows not a
-   grid of boxes. Same sizing as .character-sheet-gold-panel so the two
-   can share a row when there's width for both. */
+   .character-sheet-resources-main. flex:0 0 auto -- sized to its
+   natural content width and never shrunk below it; Proficiency
+   (.character-sheet-proficiency-field above) absorbs the squeeze
+   instead. Once the row can't fit all three even with Proficiency
+   fully compressed, resources-main's flex-wrap drops everything to its
+   own line -- the intended "fluid relayout for phones", rather than
+   this panel's own select/rows getting cramped first. */
 .character-sheet-slots {
   background: var(--void); border: 1px solid var(--void-line); border-radius: 8px;
-  padding: 0.4rem 0.6rem; flex: 1 1 180px; max-width: 240px; box-sizing: border-box;
+  padding: 0.4rem 0.6rem; flex: 0 0 auto; box-sizing: border-box;
 }
 .character-sheet-slot-row { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; margin-top: 0.3rem; }
 .character-sheet-slot-row:first-of-type { margin-top: 0.15rem; }
