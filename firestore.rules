@@ -195,7 +195,8 @@ service cloud.firestore {
         allow read: if isGM() || (request.auth != null && request.auth.token.email == playerEmail);
         allow create: if isValidMessage() && (
           (isGM() && request.resource.data.authorRole == 'gm') ||
-          (request.auth != null && request.auth.token.email == playerEmail && request.resource.data.authorRole == 'player')
+          (request.auth != null && request.auth.token.email == playerEmail && request.resource.data.authorRole == 'player') ||
+          (request.auth != null && request.resource.data.isSystemMessage == true && request.resource.data.authorRole == 'gm')
         );
         allow update: if false;
         allow delete: if isGM() && resource.data.isSystemMessage == true;
