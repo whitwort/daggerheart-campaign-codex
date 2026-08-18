@@ -8,7 +8,8 @@ any Phase 14 session; each session also re-reads its own section + §Schema +
 
 All work targets the **dev** Firebase project only. Prod rollout (including
 the still-pending Phase 13 persistence rollout) is deferred wholesale to
-Phase 15.
+Phase 16 (renumbered — Phase 15 is now the campaign-builder integration
+exploration, see handoff 35).
 
 ---
 
