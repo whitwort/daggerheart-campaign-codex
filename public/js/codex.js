@@ -1109,6 +1109,15 @@ function renderList() {
         hiddenSpan.textContent = 'hidden';
         rightCol.appendChild(hiddenSpan);
       }
+      // Phase 14 S16: secret badge for entries shared with just this player's
+      // active character (player view only)
+      if (!ctx.gmView && entity.visibility === 'character' && entity.characterId && 
+          entity.characterId === ctx.activeCharacterId) {
+        const secretSpan = document.createElement('span');
+        secretSpan.className = 'entity-secret-badge';
+        secretSpan.textContent = 'secret';
+        rightCol.appendChild(secretSpan);
+      }
       if (rightCol.children.length) li.appendChild(rightCol);
 
       li.addEventListener('click', function () { selectEntity(entity.id); });
