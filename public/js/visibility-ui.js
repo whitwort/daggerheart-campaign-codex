@@ -272,11 +272,10 @@ function buildVisibilityControl(opts) {
 // with their active character (§6.2) -- same toggle-switch styling as
 // buildVisibilityControl's switch, but no kebab (a player never sets
 // visibility/characterId themselves) and writes ONLY characterShared.
-// Phase 14 S16: updated label text ("Keep to myself"/"Share with party"),
-// toggle color (green/blue), and behavior: toggle shows on/blue immediately,
-// confirmation popup appears, only commits to database on OK (writes
-// characterShared=true; visibility='character' is already set by GM).
-// On cancel, visual state reverts. When characterShared=true + visibility='character',
+// Phase 14 S16: updated label text ("Keep to myself"/"Share with party")
+// and toggle color (green/blue). When player clicks to share, writes
+// characterShared=true immediately (no confirmation); visibility='character'
+// is already set by GM. When characterShared=true + visibility='character',
 // element is visible to all players.
 // opts:
 //   getShared(): () => bool (current characterShared)
@@ -312,17 +311,9 @@ function buildSharedToggle(opts) {
   switchInput.addEventListener('change', function () {
     const wantShared = switchInput.checked;
     if (wantShared && !current) {
-      // Turning on: show visual state immediately (toggle on, label blue), then confirm before commit
+      // Turning on: commit immediately
       current = wantShared;
       refresh();
-      if (!confirm('Once shared with the party, only the GM can make it private again.')) {
-        // User cancelled: revert visual state, don't commit to database
-        current = false;
-        switchInput.checked = false;
-        refresh();
-        return;
-      }
-      // User confirmed: commit only characterShared (visibility is already 'character' set by GM)
       opts.onToggle({ characterShared: true });
     } else if (!wantShared && current) {
       // Turning off (shouldn't happen in normal flow, but handle for safety)
