@@ -48,7 +48,8 @@ import { generateDefaultBadgeColor } from './badge-color.js';
 import { resolveEntityStatBlockMarkdown, switchToCodexTabForEntity, enterEntityEditMode } from './codex.js';
 import {
   DEFAULT_CARDS, TIER_OPTIONS, normalizeAncestryIds, resolveFunctionalIds,
-  cumulativeTierKeys, buildFloatingPickerPanel, openAbilityPickerPopup, openExperiencePickerPopup
+  cumulativeTierKeys, buildFloatingPickerPanel, openAbilityPickerPopup, openExperiencePickerPopup,
+  tierForCharacterLevel
 } from './character-cards.js';
 
 const db = getFirestore(firebaseApp);
@@ -766,11 +767,19 @@ function buildAbilitiesSection(entity, cards, ctx, editable) {
     if (editable) {
       tray.appendChild(buildAddSlot('+ Add ability', function () {
         const d = selectedClass ? (selectedClass.details || {}) : {};
+        const characterLevel = parseInt(cards.level, 10) || 1;
         const candidates = abilitiesVisible.filter(function (a) {
           if (abilityIds.indexOf(a.id) !== -1) return false;
           if (!selectedClass) return true;
           const dom = a.details && a.details.domain;
-          return !dom || dom === d.domain_1 || dom === d.domain_2 || (a.visibility === 'character' && a.characterId === entity.id);
+          const domainMatch = !dom || dom === d.domain_1 || dom === d.domain_2 || (a.visibility === 'character' && a.characterId === entity.id);
+          if (!domainMatch) return false;
+          // Phase 14 S17: level-gate on ability.details.level (numeric
+          // string, e.g. "1".."10") -- no level on the ability at all
+          // is always available (unfiltered), same "absent = unfiltered"
+          // convention as the domain check above.
+          const abilityLevel = parseInt(a.details && a.details.level, 10);
+          return !abilityLevel || abilityLevel <= characterLevel;
         });
         openAbilityPickerPopup('Add ability', candidates, function (a) {
           patchCards(entity, {
@@ -1002,7 +1011,16 @@ function buildEquipmentSection(entity, cards, ctx, editable) {
 
   if (editable) {
     tray.appendChild(buildAddSlot('+ Add item', function () {
-      const candidates = state.allEntities.filter(function (e) { return e.category === 'Equipment' && (ctx.gmView || canSee(e, ctx)); });
+      const characterTier = tierForCharacterLevel(cards.level);
+      const candidates = state.allEntities.filter(function (e) {
+        if (e.category !== 'Equipment' || !(ctx.gmView || canSee(e, ctx))) return false;
+        // Phase 14 S17: tier-gate on item.details.tier (Weapons/Armor
+        // only -- other Equipment subtypes carry no tier at all and
+        // stay unfiltered, same "absent = unfiltered" convention as
+        // the ability level-gate above).
+        const itemTier = parseInt(e.details && e.details.tier, 10);
+        return !itemTier || itemTier <= characterTier;
+      });
       openCardPickerPopup({
         title: 'Add item',
         candidates: candidates,
