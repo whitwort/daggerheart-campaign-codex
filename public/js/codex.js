@@ -2727,8 +2727,8 @@ function renderLoreTab(container, entity, ctx, readOnly) {
       } else {
         toggleRowRight.appendChild(buildSharedToggle({
           getShared: function () { return !!item.characterShared; },
-          onToggle: function (newShared) {
-            shareLoreItemVisibility(item.id, { characterShared: newShared }).catch(function (err) {
+          onToggle: function (patch) {
+            shareLoreItemVisibility(item.id, patch).catch(function (err) {
               window.alert('Visibility change failed: ' + err.message);
             });
           }
@@ -3659,8 +3659,8 @@ function renderGalleryTab(container, entity, ctx, readOnly, imagesOverride) {
         toggleBarDiv.className = 'gallery-item-bar';
         toggleBarDiv.appendChild(buildSharedToggle({
           getShared: function () { return !!img.characterShared; },
-          onToggle: function (newShared) {
-            shareImageVisibility(img.id, { characterShared: newShared }).catch(function (err) {
+          onToggle: function (patch) {
+            shareImageVisibility(img.id, patch).catch(function (err) {
               window.alert('Visibility change failed: ' + err.message);
             });
           }
@@ -4280,8 +4280,8 @@ function renderEntityViewCard(container, entity, ctx, opts) {
     // toggle, not the full kebab.
     rightCol.appendChild(buildSharedToggle({
       getShared: function () { return !!entity.characterShared; },
-      onToggle: function (newShared) {
-        shareEntityVisibility(entity.id, { characterShared: newShared }).catch(function (err) {
+      onToggle: function (patch) {
+        shareEntityVisibility(entity.id, patch).catch(function (err) {
           window.alert('Visibility change failed: ' + err.message);
         });
       }
