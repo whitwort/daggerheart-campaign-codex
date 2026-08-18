@@ -1110,9 +1110,9 @@ function renderList() {
         rightCol.appendChild(hiddenSpan);
       }
       // Phase 14 S16: secret badge for entries shared with just this player's
-      // active character (player view only)
+      // active character (player view only, only if not already shared with party)
       if (!ctx.gmView && entity.visibility === 'character' && entity.characterId && 
-          entity.characterId === ctx.activeCharacterId) {
+          entity.characterId === ctx.activeCharacterId && !entity.characterShared) {
         const secretSpan = document.createElement('span');
         secretSpan.className = 'entity-secret-badge';
         secretSpan.textContent = 'secret';
@@ -1269,6 +1269,7 @@ function buildEntityVisibilityToggle(entity) {
   row.appendChild(buildVisibilityControl({
     getVisibility: function () { return entity.visibility; },
     getCharacterId: function () { return entity.characterId; },
+    getCharacterShared: function () { return !!entity.characterShared; },
     sourceId: entity.sourceId,
     confirmReveal: confirmRevealWithoutSource,
     onApply: function (patch) {
@@ -2393,6 +2394,7 @@ function buildLoreEditBox(entity, editState, isNew) {
   toggleRow.appendChild(buildVisibilityControl({
     getVisibility: function () { return editState.visibility; },
     getCharacterId: function () { return editState.characterId; },
+    getCharacterShared: function () { return !!editState.characterShared; },
     sourceId: editState.sourceId,
     confirmReveal: confirmRevealWithoutSource,
     onApply: function (patch) {
@@ -2716,6 +2718,7 @@ function renderLoreTab(container, entity, ctx, readOnly) {
         toggleRowRight.appendChild(buildVisibilityControl({
           getVisibility: function () { return item.visibility; },
           getCharacterId: function () { return item.characterId; },
+          getCharacterShared: function () { return !!item.characterShared; },
           sourceId: item.sourceId,
           confirmReveal: confirmRevealWithoutSource,
           onApply: function (patch) {
@@ -3606,6 +3609,7 @@ function renderGalleryTab(container, entity, ctx, readOnly, imagesOverride) {
         toggleBarDiv.appendChild(buildVisibilityControl({
           getVisibility: function () { return img.visibility; },
           getCharacterId: function () { return img.characterId; },
+          getCharacterShared: function () { return !!img.characterShared; },
           sourceId: img.sourceId,
           confirmReveal: confirmRevealWithoutSource,
           onApply: function (patch) {

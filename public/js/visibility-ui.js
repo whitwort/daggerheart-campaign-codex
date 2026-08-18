@@ -83,6 +83,7 @@ function partyCharacterOptions() {
 // opts:
 //   getVisibility(): () => 'gm-only'|'all-players'|'character' (current)
 //   getCharacterId(): () => string|null (current)
+//   getCharacterShared(): () => bool (current, optional — for S16 visual state)
 //   sourceId: string|null — passed to confirmReveal on a gm-only exit
 //   confirmReveal: (sourceId) => bool — inject confirmRevealWithoutSource
 //     (avoids a circular import back into codex.js)
@@ -93,6 +94,7 @@ function partyCharacterOptions() {
 function buildVisibilityControl(opts) {
   let currentV = opts.getVisibility();
   let currentCharId = opts.getCharacterId() || null;
+  let currentCharShared = (opts.getCharacterShared && opts.getCharacterShared()) || false;
 
   const wrap = document.createElement('span');
   wrap.className = 'vis-control';
@@ -195,17 +197,20 @@ function buildVisibilityControl(opts) {
   function refresh() {
     const characterMode = !!currentCharId;
     const visible = currentV === 'all-players';
+    // Phase 14 S16: if character-targeted and player shared (characterShared=true),
+    // display as visible (blue) not character (seafoam)
+    const displayAsVisible = visible || (characterMode && currentCharShared);
     let text, cls;
     if (characterMode) {
-      text = visible ? 'Visible to party' : 'Specific character';
-      cls = visible ? 'state-visible' : 'state-character';
+      text = displayAsVisible ? 'Visible to party' : 'Specific character';
+      cls = displayAsVisible ? 'state-visible' : 'state-character';
     } else {
       text = visible ? 'Visible to party' : 'Hidden from party';
       cls = visible ? 'state-visible' : 'state-hidden';
     }
     label.className = 'toggle-switch-label ' + cls;
     label.textContent = text;
-    if (characterMode && !visible) {
+    if (characterMode && !displayAsVisible) {
       const char = currentCharacterEntity();
       charBadge.textContent = (char && char.name) || 'Unknown';
       charBadge.style.setProperty('--badge-color', (char && char.badgeColor) || generateDefaultBadgeColor(char && char.name));
@@ -213,8 +218,11 @@ function buildVisibilityControl(opts) {
     } else {
       charBadge.hidden = true;
     }
+    // Phase 14 S16: toggle stays green (mode-character) even when character-shared,
+    // since the element is still character-targeted (mode is about the element's
+    // targeting, not the character's share state)
     switchLabel.className = 'toggle-switch' + (characterMode ? ' mode-character' : '');
-    switchInput.checked = visible;
+    switchInput.checked = displayAsVisible;
     kebabBtn.classList.toggle('active', characterMode);
     syncRadios();
   }
