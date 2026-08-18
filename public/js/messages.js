@@ -442,8 +442,13 @@ function buildPlayerDigest(container) {
 // with kind and recipient counts. Read-only (the GM is never a recipient,
 // so there's no seenAt to flip and no unread state).
 function buildGmDigest(container) {
+  // Separate join requests from entity notifications
+  const joinRequests = state.allNotifications.filter(function (n) { return n.kind === 'joinRequest'; })
+    .sort(function (a, b) { return tsMs(b.createdAt) - tsMs(a.createdAt); });
+  
+  const entityNotifications = state.allNotifications.filter(function (n) { return n.kind !== 'joinRequest'; });
   const groups = {};
-  state.allNotifications.forEach(function (n) {
+  entityNotifications.forEach(function (n) {
     if (!groups[n.entityId]) groups[n.entityId] = { entityId: n.entityId, items: [], newestMs: 0 };
     const g = groups[n.entityId];
     g.items.push(n);
@@ -454,7 +459,27 @@ function buildGmDigest(container) {
     .sort(function (a, b) { return b.newestMs - a.newestMs; })
     .slice(0, 30);
 
-  if (!list.length) {
+  // Show join requests first
+  joinRequests.forEach(function (req) {
+    const card = document.createElement('div');
+    card.className = 'digest-group';
+    const line = document.createElement('div');
+    line.className = 'digest-line';
+    line.appendChild(document.createTextNode(req.requestEmail + ' (' + (req.provider || 'unknown') + ') '));
+    const link = document.createElement('a');
+    link.textContent = 'requested to join';
+    link.href = '#tab-btn-admin';
+    link.style.cursor = 'pointer';
+    line.appendChild(link);
+    card.appendChild(line);
+    const meta = document.createElement('div');
+    meta.className = 'digest-meta';
+    meta.textContent = formatRelative(tsMs(req.createdAt));
+    card.appendChild(meta);
+    container.appendChild(card);
+  });
+
+  if (!list.length && !joinRequests.length) {
     const empty = document.createElement('p');
     empty.className = 'msg-empty';
     empty.textContent = 'No notifications have been sent yet.';

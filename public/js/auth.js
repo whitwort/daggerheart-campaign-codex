@@ -141,14 +141,13 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
         provider: provider,
         requestedAt: serverTimestamp()
       }).then(function () {
-        // Write notification message to GM's campaign thread
-        const text = userEmail + ' (' + provider + ') <a href="#tab-btn-admin">Review request</a>';
-        return setDoc(doc(db, 'threads', CONFIG.gmEmail, 'messages', userEmail), {
-          authorRole: 'gm',
-          text: text,
-          createdAt: serverTimestamp(),
-          isSystemMessage: true,
-          referenceEmail: userEmail
+        // Write notification to GM's Campaign tab
+        return setDoc(doc(db, 'notifications', userEmail + '-join-request'), {
+          kind: 'joinRequest',
+          recipientEmail: CONFIG.gmEmail,
+          requestEmail: userEmail,
+          provider: provider,
+          createdAt: serverTimestamp()
         });
       }).catch(function (err) {
         requestJoinBtn.disabled = false;
