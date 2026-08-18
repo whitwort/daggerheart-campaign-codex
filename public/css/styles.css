@@ -2330,6 +2330,15 @@ button:disabled:hover { border-color: var(--void-line); }
 .character-detail-tabs button.active { color: var(--hope); border-bottom-color: var(--hope); }
 .character-detail-tab-panel { padding-top: 0.1rem; }
 
+/* Level dropdown (Phase 14 S17), header row -> level row -> Cards/Sheet
+   tabs, dark-context styling matching the rest of this pane. */
+.character-detail-level-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
+.character-detail-level-row label {
+  font-family: var(--font-display), sans-serif; font-size: 0.72rem; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--ink-soft);
+}
+.character-detail-level-row select { width: auto; min-width: 0; font-size: 0.8rem; }
+
 /* Character Sheet tab (Phase 14 S17, commit 2: traits row). Mini
    parchment cards, deliberately NOT reusing .character-deck-card --
    that class's h3 override chain is scoped to .character-deck
