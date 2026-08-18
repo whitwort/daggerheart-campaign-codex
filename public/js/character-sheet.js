@@ -24,7 +24,7 @@ import { firebaseApp } from './firebase.js';
 import { trackWrite } from './connectivity.js';
 import { state } from './state.js';
 import { canSee } from './visibility.js';
-import { DEFAULT_CARDS } from './character-cards.js';
+import { DEFAULT_CARDS, tierForCharacterLevel } from './character-cards.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -53,7 +53,7 @@ const DEFAULT_SHEET = {
   // §12.3: what liveSuggestion WAS at the time each suggestible field
   // was last written (manual edit or icon-click-apply, both go through
   // patchSuggestibleField below). null = never set.
-  suggestedSnapshot: { hpMax: null, evasion: null, armorScore: null, thresholdMajor: null, thresholdSevere: null }
+  suggestedSnapshot: { hpMax: null, evasion: null, armorScore: null, thresholdMajor: null, thresholdSevere: null, proficiency: null }
 };
 
 function resolveSheet(entity) {
@@ -148,7 +148,10 @@ function computeLiveSuggestions(entity, ctx) {
     evasion: isNaN(evasionRaw) ? null : { value: evasionRaw, source: 'From ' + className + ' class' },
     armorScore: isNaN(armorScoreRaw) ? null : { value: armorScoreRaw, source: 'From ' + armorName + ' (base score ' + armorScoreRaw + ')' },
     thresholdMajor: isNaN(thresholdMajorRaw) ? null : { value: thresholdMajorRaw, source: armorName + ' base ' + baseMajor + ' + level ' + level },
-    thresholdSevere: isNaN(thresholdSevereRaw) ? null : { value: thresholdSevereRaw, source: armorName + ' base ' + baseSevere + ' + level ' + level }
+    thresholdSevere: isNaN(thresholdSevereRaw) ? null : { value: thresholdSevereRaw, source: armorName + ' base ' + baseSevere + ' + level ' + level },
+    // Proficiency = campaign tier at the character's current level
+    // (T1=1, T2=2, T3=3, T4=4), per Gregg's direction.
+    proficiency: { value: tierForCharacterLevel(level), source: 'Tier ' + tierForCharacterLevel(level) + ' (level ' + level + ')' }
   };
 }
 
@@ -472,9 +475,9 @@ function buildResourcesBlock(entity, sheet, editable, suggestions, topCards) {
   statsRow.appendChild(buildNumberField('Armor Score', sheet.armorScore, editable, function (v, suggestKey, suggestValue) {
     patchSuggestibleField(entity, sheet, { armorScore: v }, suggestKey, suggestValue);
   }, { suggestKey: 'armorScore', suggestion: suggestions.armorScore, snapshot: sheet.suggestedSnapshot }));
-  statsRow.appendChild(buildNumberField('Proficiency', sheet.proficiency, editable, function (v) {
-    patchSheet(entity, { proficiency: v });
-  }));
+  statsRow.appendChild(buildNumberField('Proficiency', sheet.proficiency, editable, function (v, suggestKey, suggestValue) {
+    patchSuggestibleField(entity, sheet, { proficiency: v }, suggestKey, suggestValue);
+  }, { suggestKey: 'proficiency', suggestion: suggestions.proficiency, snapshot: sheet.suggestedSnapshot }));
   statsRow.appendChild(buildNumberField('Major Threshold', sheet.thresholds.major, editable, function (v, suggestKey, suggestValue) {
     patchSuggestibleField(entity, sheet, { thresholds: Object.assign({}, sheet.thresholds, { major: v }) }, suggestKey, suggestValue);
   }, { suggestKey: 'thresholdMajor', suggestion: suggestions.thresholdMajor, snapshot: sheet.suggestedSnapshot }));
