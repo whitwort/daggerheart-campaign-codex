@@ -815,7 +815,15 @@ correctly describe what shipped at the time.
   Both Match and Updated render as filled circular badges now (not a
   transparent/bordered-only Match state) — the original low-contrast
   Match styling against the dark field background was likely reading as
-  the icon "disappearing."
+  the icon "disappearing." A 4th icon state, `unavailable` (dashed,
+  muted), was added for suggestions that can't be calculated yet (no
+  Class selected for HP/Evasion, no Armor equipped for Armor Score/
+  Thresholds) — this icon is NEVER hidden; its popup explains what's
+  missing ("Needs Armor equipped in the Armor slot") instead of showing
+  a value, and clicking it just toggles the popup since there's nothing
+  to apply. Only the pre-existing "deliberate override" case (a
+  calculable suggestion the player has knowingly diverged from, unchanged
+  since) still omits the icon entirely — unaffected by this addition.
 - **Trait mark control reworked**: the original whole-card click-to-
   mark (still §12.1's design) read as an unexplained clickable box with
   no visible affordance. Replaced with one small explicit checkbox-
