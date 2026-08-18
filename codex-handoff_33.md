@@ -1,10 +1,10 @@
-# Codex Handoff 33: GitHub OAuth, Join Request Notifications, Lore Item V-Scroll, Source Default Fix
+# Codex Handoff 33: GitHub OAuth, Join Request Notifications, Lore Item V-Scroll, Source Default Fix (next: S17)
 
 **Session**: GitHub OAuth reenablement, join request notification system, lore item display rework, source-default bugfix.
 **HEAD**: `6bc5c1a`
 **Status**: All commits individually verification-gated and pushed to main. CI should be green (verify on GitHub Actions tab — API was rate-limited during this session, polling was unreliable).
 
-**Note on sprint numbering**: this session's work doesn't map cleanly onto the existing S-numbers (Phase 14 was complete through S16 per handoff 31/32). Treat this handoff as post-S16, pre-whatever-comes-next — Gregg's plan below calls the upcoming work "S9" (character sheet feasibility), which conflicts with the existing numbering; flagging rather than silently renumbering. Worth a quick clarifying pass next session on what the actual sprint label should be before it propagates into more handoffs.
+**Note on sprint numbering**: this session's work is post-S16 (per handoff 31/32); next session's character-sheet feasibility work is **S17**.
 
 ---
 
@@ -68,7 +68,7 @@ Gregg tested all Player↔GM codex view/share workflows live. Status of the stan
 
 ## Next Session Plan (per Gregg)
 
-1. **Character sheet implementation feasibility exploration** — Gregg's label: "Phase 14.S9" (see sprint-numbering note at top of this doc — doesn't match current S16+ state, worth clarifying before starting). This is exploratory/design-phase, not a committed build yet. No existing design doc section covers this — the "character deck" feature mentioned in handoff 29 (Characters-tab detail panes sitting empty, reserved for something Gregg would describe later) may be the same thing or a related concept; worth confirming with Gregg whether this is that feature or something distinct.
+1. **Character sheet implementation feasibility exploration** — **S17**. This is exploratory/design-phase, not a committed build yet. No existing design doc section covers this — the "character deck" feature mentioned in handoff 29 (Characters-tab detail panes sitting empty, reserved for something Gregg would describe later) may be the same thing or a related concept; worth confirming with Gregg whether this is that feature or something distinct.
 2. **Then Phase 15**: prod persistence rollout. Still needs Gregg's explicit go/no-go (flagged as a standing open item since handoff 28) — promoting means publishing a GitHub Release (pushes Hosting + `firestore.rules` to prod together; doesn't touch prod's existing Firestore documents, new collections just start empty).
 
 ---
