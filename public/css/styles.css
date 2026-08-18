@@ -2341,6 +2341,25 @@ button:disabled:hover { border-color: var(--void-line); }
 }
 .character-sheet-trait-value { width: 100%; text-align: center; font-size: 1.05rem; font-weight: 600; box-sizing: border-box; }
 
+/* Resources block (commit 3): HP/Stress/Hope tracks (Max/Marked pair)
+   + Evasion/Armor Score/Proficiency/Thresholds, plain labeled fields.
+   Same self-contained-under-.character-sheet approach as the traits
+   row above -- no .character-deck-card reuse. */
+.character-sheet-resources { display: flex; flex-direction: column; gap: 0.6rem; }
+.character-sheet-resources-row { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.character-sheet-field, .character-sheet-track-field {
+  background: var(--void); border: 1px solid var(--void-line); border-radius: 8px;
+  padding: 0.4rem 0.6rem; flex: 1 1 100px; min-width: 90px; box-sizing: border-box;
+}
+.character-sheet-field-label {
+  font-family: var(--font-display), sans-serif; font-size: 0.65rem; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--ink-soft); margin-bottom: 0.25rem;
+}
+.character-sheet-field-value { width: 100%; text-align: center; font-size: 0.95rem; box-sizing: border-box; }
+.character-sheet-track-row { display: flex; align-items: center; gap: 0.3rem; }
+.character-sheet-track-row .character-sheet-field-value { width: 3.2rem; flex: 0 0 auto; }
+.character-sheet-track-slash { color: var(--ink-soft); }
+
 .character-deck-subtabs { display: flex; gap: 1rem; border-bottom: 1px solid var(--void-line); margin-bottom: 0.6rem; }
 .character-deck-subtabs button {
   background: none; border: none; border-radius: 0; box-shadow: none; padding: 0.3rem 0.1rem; font-size: 0.8rem;

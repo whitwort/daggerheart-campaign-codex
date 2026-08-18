@@ -99,6 +99,104 @@ function buildTraitCard(entity, sheet, key, editable) {
   return card;
 }
 
+function buildNumberField(labelText, value, editable, onChange, extraClass) {
+  const field = document.createElement('div');
+  field.className = 'character-sheet-field' + (extraClass ? ' ' + extraClass : '');
+  const label = document.createElement('div');
+  label.className = 'character-sheet-field-label';
+  label.textContent = labelText;
+  field.appendChild(label);
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.className = 'character-sheet-field-value';
+  input.value = value;
+  input.disabled = !editable;
+  input.addEventListener('change', function () {
+    onChange(parseInt(input.value, 10) || 0);
+  });
+  field.appendChild(input);
+  return field;
+}
+
+// HP/Stress/Hope: Max + Marked pair, one Firestore write shape
+// ({max, marked}) shared by all three (§12.1). Marked isn't clamped to
+// max here -- same "UI nudges, rules don't enforce" convention as the
+// rest of this module; a player over-marking is visible, not blocked.
+function buildTrackField(entity, sheet, key, labelText, editable) {
+  const wrap = document.createElement('div');
+  wrap.className = 'character-sheet-track-field';
+  const label = document.createElement('div');
+  label.className = 'character-sheet-field-label';
+  label.textContent = labelText;
+  wrap.appendChild(label);
+
+  const row = document.createElement('div');
+  row.className = 'character-sheet-track-row';
+
+  const maxInput = document.createElement('input');
+  maxInput.type = 'number';
+  maxInput.className = 'character-sheet-field-value';
+  maxInput.title = 'Max';
+  maxInput.value = sheet[key].max;
+  maxInput.disabled = !editable;
+  maxInput.addEventListener('change', function () {
+    patchSheet(entity, { [key]: Object.assign({}, sheet[key], { max: parseInt(maxInput.value, 10) || 0 }) });
+  });
+  row.appendChild(maxInput);
+
+  const slash = document.createElement('span');
+  slash.className = 'character-sheet-track-slash';
+  slash.textContent = '/';
+  row.appendChild(slash);
+
+  const markedInput = document.createElement('input');
+  markedInput.type = 'number';
+  markedInput.className = 'character-sheet-field-value';
+  markedInput.title = 'Marked';
+  markedInput.value = sheet[key].marked;
+  markedInput.disabled = !editable;
+  markedInput.addEventListener('change', function () {
+    patchSheet(entity, { [key]: Object.assign({}, sheet[key], { marked: parseInt(markedInput.value, 10) || 0 }) });
+  });
+  row.appendChild(markedInput);
+
+  wrap.appendChild(row);
+  return wrap;
+}
+
+function buildResourcesBlock(entity, sheet, editable) {
+  const wrap = document.createElement('div');
+  wrap.className = 'character-sheet-resources';
+
+  const trackRow = document.createElement('div');
+  trackRow.className = 'character-sheet-resources-row';
+  trackRow.appendChild(buildTrackField(entity, sheet, 'hp', 'HP', editable));
+  trackRow.appendChild(buildTrackField(entity, sheet, 'stress', 'Stress', editable));
+  trackRow.appendChild(buildTrackField(entity, sheet, 'hope', 'Hope', editable));
+  wrap.appendChild(trackRow);
+
+  const statsRow = document.createElement('div');
+  statsRow.className = 'character-sheet-resources-row';
+  statsRow.appendChild(buildNumberField('Evasion', sheet.evasion, editable, function (v) {
+    patchSheet(entity, { evasion: v });
+  }));
+  statsRow.appendChild(buildNumberField('Armor Score', sheet.armorScore, editable, function (v) {
+    patchSheet(entity, { armorScore: v });
+  }));
+  statsRow.appendChild(buildNumberField('Proficiency', sheet.proficiency, editable, function (v) {
+    patchSheet(entity, { proficiency: v });
+  }));
+  statsRow.appendChild(buildNumberField('Major Threshold', sheet.thresholds.major, editable, function (v) {
+    patchSheet(entity, { thresholds: Object.assign({}, sheet.thresholds, { major: v }) });
+  }));
+  statsRow.appendChild(buildNumberField('Severe Threshold', sheet.thresholds.severe, editable, function (v) {
+    patchSheet(entity, { thresholds: Object.assign({}, sheet.thresholds, { severe: v }) });
+  }));
+  wrap.appendChild(statsRow);
+
+  return wrap;
+}
+
 export function buildCharacterSheet(entity, ctx, editable) {
   const sheet = resolveSheet(entity);
 
@@ -111,6 +209,8 @@ export function buildCharacterSheet(entity, ctx, editable) {
     traitsRow.appendChild(buildTraitCard(entity, sheet, key, editable));
   });
   wrap.appendChild(traitsRow);
+
+  wrap.appendChild(buildResourcesBlock(entity, sheet, editable));
 
   return wrap;
 }
