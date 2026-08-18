@@ -64,6 +64,118 @@ const db = getFirestore(firebaseApp);
 const trayEl = document.getElementById('msg-tray');
 const adminNotificationsBodyEl = document.getElementById('admin-notifications-body');
 
+// Panel resize (Gregg's ask): drag handles on the left edge (width) and
+// top edge (height) -- the panel is anchored bottom-right (#msg-tray),
+// so growing it means growing LEFT/UP, i.e. width = startWidth - dx and
+// height = startHeight - dy, the mirror image of a normal bottom-right
+// resize handle. Same pointerdown/pointermove/pointerup + setPointerCapture
+// convention as character-deck.js's buildSplitRow drag handle. Floors
+// keep the panel from being dragged into uselessness; the width ceiling
+// leaves the 0.75rem right-edge gap and a little breathing room, the
+// height ceiling leaves room above for the page's own header/nav.
+const MSG_PANEL_MIN_WIDTH = 320;
+const MSG_PANEL_MIN_HEIGHT = 200;
+function msgPanelMaxWidth() { return window.innerWidth - 32; }
+function msgPanelMaxHeight() { return window.innerHeight - 96; }
+
+function attachPanelResizeHandles(panel) {
+  const leftHandle = document.createElement('div');
+  leftHandle.className = 'msg-resize-handle msg-resize-handle-left';
+  leftHandle.setAttribute('role', 'separator');
+  leftHandle.setAttribute('aria-orientation', 'vertical');
+  leftHandle.tabIndex = 0;
+
+  let draggingW = false, startX = 0, startWidth = 0;
+  leftHandle.addEventListener('pointerdown', function (ev) {
+    draggingW = true;
+    startX = ev.clientX;
+    startWidth = panel.getBoundingClientRect().width;
+    try { leftHandle.setPointerCapture(ev.pointerId); } catch (e) { /* unsupported, drag still works via document fallback */ }
+    leftHandle.classList.add('dragging');
+    ev.preventDefault();
+  });
+  leftHandle.addEventListener('pointermove', function (ev) {
+    if (!draggingW) return;
+    const dx = ev.clientX - startX;
+    const next = Math.max(MSG_PANEL_MIN_WIDTH, Math.min(startWidth - dx, msgPanelMaxWidth()));
+    panel.style.width = next + 'px';
+  });
+  function endW(ev) {
+    if (!draggingW) return;
+    draggingW = false;
+    leftHandle.classList.remove('dragging');
+    state.msgPanelWidthPx = panel.getBoundingClientRect().width;
+    if (ev && ev.pointerId !== undefined) {
+      try { leftHandle.releasePointerCapture(ev.pointerId); } catch (e) { /* already released */ }
+    }
+  }
+  leftHandle.addEventListener('pointerup', endW);
+  leftHandle.addEventListener('pointercancel', endW);
+  panel.appendChild(leftHandle);
+
+  const topHandle = document.createElement('div');
+  topHandle.className = 'msg-resize-handle msg-resize-handle-top';
+  topHandle.setAttribute('role', 'separator');
+  topHandle.setAttribute('aria-orientation', 'horizontal');
+  topHandle.tabIndex = 0;
+
+  let draggingH = false, startY = 0, startHeight = 0;
+  topHandle.addEventListener('pointerdown', function (ev) {
+    draggingH = true;
+    startY = ev.clientY;
+    startHeight = panel.getBoundingClientRect().height;
+    try { topHandle.setPointerCapture(ev.pointerId); } catch (e) { /* unsupported, drag still works via document fallback */ }
+    topHandle.classList.add('dragging');
+    ev.preventDefault();
+  });
+  topHandle.addEventListener('pointermove', function (ev) {
+    if (!draggingH) return;
+    const dy = ev.clientY - startY;
+    const next = Math.max(MSG_PANEL_MIN_HEIGHT, Math.min(startHeight - dy, msgPanelMaxHeight()));
+    panel.style.height = next + 'px';
+  });
+  function endH(ev) {
+    if (!draggingH) return;
+    draggingH = false;
+    topHandle.classList.remove('dragging');
+    state.msgPanelHeightPx = panel.getBoundingClientRect().height;
+    if (ev && ev.pointerId !== undefined) {
+      try { topHandle.releasePointerCapture(ev.pointerId); } catch (e) { /* already released */ }
+    }
+  }
+  topHandle.addEventListener('pointerup', endH);
+  topHandle.addEventListener('pointercancel', endH);
+  panel.appendChild(topHandle);
+}
+
+// Initial/default width responsive to the tab strip (Gregg's ask: GM
+// view with many players was cramped against the fixed 24rem default).
+// tabsRow.scrollWidth reports its natural unclipped content width even
+// though the row itself has overflow-x:auto (i.e. it's already able to
+// scroll if narrower) -- exactly the "how wide would this ideally be"
+// number. Only used while the player hasn't manually resized (state.
+// msgPanelWidthPx null); once they drag, their explicit choice always
+// wins, still re-clamped to the current viewport every render in case
+// the window itself shrank since.
+function applyPanelSizing(panel, head, tabsRow, collapseBtn) {
+  let width;
+  if (typeof state.msgPanelWidthPx === 'number') {
+    width = state.msgPanelWidthPx;
+  } else {
+    const headStyle = getComputedStyle(head);
+    const padding = parseFloat(headStyle.paddingLeft) + parseFloat(headStyle.paddingRight);
+    const gap = parseFloat(headStyle.columnGap || headStyle.gap) || 0;
+    const collapseWidth = collapseBtn.getBoundingClientRect().width;
+    width = tabsRow.scrollWidth + collapseWidth + padding + gap + 2; // +2 for #msg-panel's 1px border each side
+  }
+  panel.style.width = Math.max(MSG_PANEL_MIN_WIDTH, Math.min(width, msgPanelMaxWidth())) + 'px';
+
+  if (typeof state.msgPanelHeightPx === 'number') {
+    panel.style.height = Math.max(MSG_PANEL_MIN_HEIGHT, Math.min(state.msgPanelHeightPx, msgPanelMaxHeight())) + 'px';
+  }
+  // else: leave the CSS default (min(24rem, 60vh)) alone.
+}
+
 // Auto-expand bookkeeping (module-local, not state: purely presentational,
 // reset on detach). prevUnreadTotal starts at 0, so unread that already
 // exists at listener-attach time (messages/notifications that arrived
@@ -599,6 +711,8 @@ function renderMessagesTray() {
     if (role === 'gm') buildGmDigest(body); else buildPlayerDigest(body);
     panel.appendChild(body);
     trayEl.appendChild(panel);
+    attachPanelResizeHandles(panel);
+    applyPanelSizing(panel, head, tabsRow, collapseBtn);
     // Campaign digest sorts newest-first (buildPlayerDigest/buildGmDigest),
     // unlike the thread-chat panel below (oldest-first, pinned to
     // scrollHeight/bottom) -- so "most recent" here means the TOP, not
@@ -681,6 +795,8 @@ function renderMessagesTray() {
     panel.appendChild(compose);
 
     trayEl.appendChild(panel);
+    attachPanelResizeHandles(panel);
+    applyPanelSizing(panel, head, tabsRow, collapseBtn);
     // Pin the message list to the newest entry, and restore focus if the
     // composer had it before this re-render clobbered the old input node.
     body.scrollTop = body.scrollHeight;

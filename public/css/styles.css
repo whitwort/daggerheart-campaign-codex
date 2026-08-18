@@ -2063,9 +2063,22 @@ button:disabled:hover { border-color: var(--void-line); }
   width: min(24rem, calc(100vw - 1.5rem)); height: min(24rem, 60vh);
   background: var(--void-raised); border: 1px solid var(--void-line);
   border-bottom: none; border-radius: 8px 8px 0 0;
-  display: flex; flex-direction: column;
+  display: flex; flex-direction: column; position: relative;
   box-shadow: 0 -0.25rem 1.5rem rgba(0,0,0,0.5);
 }
+/* Resize handles (Gregg's ask): drag the left edge to widen, the top
+   edge to heighten -- panel is anchored bottom-right, so both grow
+   toward the opposite edge from a normal handle. Same always-visible-
+   but-subtle/hope-on-hover-or-drag treatment as .character-deck-
+   split-handle. touch-action:none stops the browser's own scroll/zoom
+   gesture from fighting the drag on touch devices. */
+.msg-resize-handle { position: absolute; touch-action: none; z-index: 1; }
+.msg-resize-handle-left { left: -3px; top: 0; bottom: 0; width: 7px; cursor: ew-resize; }
+.msg-resize-handle-top { top: -3px; left: 0; right: 0; height: 7px; cursor: ns-resize; }
+.msg-resize-handle::before { content: ''; display: block; background: var(--void-line); transition: background 0.1s ease; }
+.msg-resize-handle-left::before { width: 2px; height: 100%; margin: 0 auto; }
+.msg-resize-handle-top::before { height: 2px; width: 100%; margin: auto 0; }
+.msg-resize-handle:hover::before, .msg-resize-handle.dragging::before { background: var(--hope); }
 #msg-panel-head {
   display: flex; align-items: center; gap: 0.35rem;
   padding: 0.25rem 0.4rem; border-bottom: 1px solid var(--void-line);
