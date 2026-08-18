@@ -352,22 +352,36 @@ function buildNumberField(labelText, value, editable, onChange, opts) {
   return field;
 }
 
-// HP/Stress/Hope tracks, per Gregg's redesign: three-state boxes
-// instead of Max/Marked number inputs.
-//   - solid border, unfilled  = available box, unmarked
-//   - solid border, filled    = available box, marked
-//   - dotted border, unfilled = not-yet-unlocked (beyond Active count)
-// Hope is the one exception -- it never shows the dotted/not-yet-
-// unlocked state (its Active count is always its own ceiling in
-// practice; enforced defensively here regardless of stored value).
-// Ceiling is a fixed game-rule constant per track (12/12/6), not
-// character data. Active count stays a plain number input (level-ups
-// and features can grant more boxes over time, and it's what the HP
-// suggestion icon writes to); clicking a box sets Marked to fill-
-// through-that-box (click the last marked box again to unmark it).
+// HP/Stress/Hope tracks: three-state boxes, per Gregg's exact
+// interaction spec:
+//   - solid border, unfilled  = Unlocked (available, unmarked)
+//   - solid border, filled    = Checked (available, marked)
+//   - dotted border, unfilled = Locked (not-yet-unlocked)
+// Per-box interaction, single click/tap vs double click/tap:
+//   Unlocked -> Checked : single
+//   Checked -> Unlocked : single
+//   Locked -> Unlocked  : double
+//   Unlocked -> Locked  : double
+// No separate "Active count" control of any kind (removed entirely,
+// per Gregg -- the boxes ARE the control). Hope never has a Locked
+// state at all (double-click is a no-op there) -- its Active count is
+// always its own ceiling.
+//
+// Storage stays the existing {max, marked} shape (max = Active/unlocked
+// count, marked = Checked count) -- contiguous-from-the-left, same as
+// a physical HP track. Locked<->Unlocked double-click moves the
+// max boundary; Unlocked<->Checked single-click moves the marked
+// boundary (fill/empty through the clicked box, same fill-to-click
+// idiom as before, just now reachable per-box via single-click and with
+// the Locked state also directly click-editable instead of a number box).
+//
+// Double-click/double-tap is detected manually (click-then-wait, not
+// the native `dblclick` event) since dblclick doesn't reliably fire
+// from two quick taps on iOS Safari -- this app is iOS-first.
 const HP_CEILING = 12;
 const STRESS_CEILING = 12;
 const HOPE_CEILING = 6;
+const DOUBLE_CLICK_WINDOW_MS = 300;
 function buildTrackBoxes(entity, sheet, key, labelText, editable, ceiling, allowLocked, suggestKey, suggestion) {
   const track = sheet[key];
   const active = Math.max(0, Math.min(ceiling, track.max || 0));
@@ -391,33 +405,45 @@ function buildTrackBoxes(entity, sheet, key, labelText, editable, ceiling, allow
   }
   wrap.appendChild(labelRow);
 
-  const activeInput = document.createElement('input');
-  activeInput.type = 'number';
-  activeInput.className = 'character-sheet-track-active-input';
-  activeInput.title = 'Active';
-  activeInput.value = active;
-  activeInput.min = '0';
-  activeInput.max = String(ceiling);
-  activeInput.disabled = !editable;
-  activeInput.addEventListener('change', function () {
-    const v = Math.max(0, Math.min(ceiling, parseInt(activeInput.value, 10) || 0));
-    patchSuggestibleField(entity, sheet, { [key]: Object.assign({}, track, { max: v, marked: Math.min(marked, v) }) }, suggestKey, suggestion ? suggestion.value : null);
-  });
-  wrap.appendChild(activeInput);
-
   const boxesRow = document.createElement('div');
   boxesRow.className = 'character-sheet-track-boxes';
   for (let i = 0; i < ceiling; i++) {
     const locked = allowLocked && i >= active;
+    const checked = i < marked;
     const box = document.createElement('button');
     box.type = 'button';
-    box.className = 'character-sheet-track-box' + (i < marked ? ' marked' : '') + (locked ? ' locked' : '');
-    box.disabled = !editable || locked;
-    box.title = locked ? 'Not yet unlocked' : (i < marked ? 'Marked -- click to unmark' : 'Click to mark');
+    box.className = 'character-sheet-track-box' + (checked ? ' marked' : '') + (locked ? ' locked' : '');
+    box.disabled = !editable;
+    box.title = locked ? 'Locked -- double-click/tap to unlock' : (checked ? 'Checked -- click to uncheck' : 'Click to check, double-click to lock');
+
+    let pendingSingle = null;
     box.addEventListener('click', function () {
-      const newMarked = (marked === i + 1) ? i : i + 1;
-      patchSheet(entity, { [key]: Object.assign({}, track, { marked: newMarked }) });
+      if (pendingSingle) {
+        clearTimeout(pendingSingle);
+        pendingSingle = null;
+        // Double click/tap: Locked<->Unlocked boundary. No-op on a
+        // Checked box (that transition isn't specified) and no-op
+        // entirely when this track has no Locked state (Hope).
+        if (!allowLocked) return;
+        if (locked) {
+          const newActive = Math.min(ceiling, i + 1);
+          patchSheet(entity, { [key]: Object.assign({}, track, { max: newActive }) });
+        } else if (!checked) {
+          const newActive = i;
+          patchSheet(entity, { [key]: Object.assign({}, track, { max: newActive, marked: Math.min(marked, newActive) }) });
+        }
+        return;
+      }
+      pendingSingle = setTimeout(function () {
+        pendingSingle = null;
+        // Single click/tap: Unlocked<->Checked boundary. No-op on a
+        // Locked box.
+        if (locked) return;
+        const newMarked = checked ? i : i + 1;
+        patchSheet(entity, { [key]: Object.assign({}, track, { marked: newMarked }) });
+      }, DOUBLE_CLICK_WINDOW_MS);
     });
+
     boxesRow.appendChild(box);
   }
   wrap.appendChild(boxesRow);
