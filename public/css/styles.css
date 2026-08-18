@@ -2231,25 +2231,30 @@ button:disabled:hover { border-color: var(--void-line); }
    Comfortaa's ascent metrics sit noticeably above Inter's at the same
    nominal line-height:1, and a mismatch between two different fonts
    can't be fixed by tweaking margin/line-height on just one side. */
-/* S18 follow-up (still not fixed per Gregg's devtools screenshot --
-   .character-deck-card-header-row measured 28px tall, roughly double
-   one line's expected ~14px, with the name text sitting low in that
-   box despite align-items:flex-start): most likely cause is the name
-   wrapping to a second line under some card widths/names, which
-   align-items:flex-start doesn't prevent -- it only aligns the START
-   of a (possibly multi-line) box, not a promise the box stays one
-   line. white-space:nowrap + text-overflow:ellipsis forces a single
-   line unconditionally, which both removes that failure mode outright
-   and is reasonable behavior for a card title regardless (truncates
-   long ability/item names instead of wrapping unpredictably).
-   min-height:0 / explicit align-self:flex-start on both children
-   added defensively alongside it -- not confirmed necessary, but rule
-   out other flexbox cross-axis sizing quirks at the same time rather
-   than another single-variable guess-and-check round. */
-.character-deck-card h3 {
+/* S18 follow-up: none of the above were actually wrong, but none of
+   them were the real bug either. Gregg's devtools computed-styles
+   panel found it: .admin-card h3:first-of-type (styles.css ~1181,
+   specificity 0,2,1) was overriding THIS rule's margin-top:0 with
+   0.75rem -- .characters-detail-pane/.characters-player-selected (the
+   Characters tab's own detail panes, where this card renders) both
+   carry the shared admin-card class from elsewhere in the app, and
+   .character-deck-card h3's specificity (0,1,1) is lower. Same root
+   cause ALSO explained an uncontested leak that hadn't been noticed
+   yet: .admin-card h3 sets text-transform:uppercase and letter-
+   spacing, which applied unopposed since this rule never declared
+   those properties at all -- not a specificity loss, just nothing to
+   fight back with. Fixed both classes of leak at once: the selector
+   now chains three real ancestor classes (.character-deck
+   .character-deck-tray .character-deck-card h3, specificity 0,3,1)
+   so it beats EVERY .admin-card h3* variant regardless of source
+   order or future edits to either rule, and every property .admin-
+   card h3/h3:first-of-type touches is now explicitly declared here
+   too, so there's nothing left uncontested to leak through. */
+.character-deck .character-deck-tray .character-deck-card h3 {
   font-family: var(--font-body), sans-serif; font-weight: 600; font-size: 0.86rem;
   line-height: 1; margin: 0 0 0.15rem; color: var(--ink); flex: 1; min-width: 0; align-self: flex-start;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-transform: none; letter-spacing: normal;
 }
 .character-deck-card-suffix { color: var(--ink-soft); font-weight: 400; font-size: 0.68rem; }
 .character-deck-card-meta { font-size: 0.64rem; color: var(--ink-soft); margin-bottom: 0.3rem; line-height: 1.35; }
