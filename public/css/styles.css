@@ -2439,8 +2439,14 @@ button:disabled:hover { border-color: var(--void-line); }
 .character-sheet-gold-row-line { display: flex; align-items: center; gap: 0.5rem; }
 .character-sheet-gold-row-label { flex: 0 0 4.2rem; font-size: 0.72rem; color: var(--ink-soft); }
 .character-sheet-gold-boxes { flex: 1 1 auto; }
+/* height:1rem (not larger) is deliberate -- keeps the 9-icon Handfuls/
+   Bags rows from growing the Gold panel's natural width enough to
+   break the standing row-4 rule (Equipped, Proficiency, Gold need to
+   fit on one row at normal desktop widths; Proficiency is the only one
+   of the three allowed to shrink to make room, see .character-sheet-
+   proficiency-field above). */
 .character-sheet-gold-icon-box {
-  flex: 0 0 auto; height: 1.3rem; width: auto; padding: 0;
+  flex: 0 0 auto; height: 1rem; width: auto; padding: 0;
   border: none; background: none; box-shadow: none; cursor: pointer;
   display: flex; align-items: center; color: var(--ink-soft); opacity: 0.55;
 }
