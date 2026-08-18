@@ -266,12 +266,13 @@ function buildVisibilityControl(opts) {
 // visibility/characterId themselves) and writes ONLY characterShared.
 // Phase 14 S16: updated label text ("Keep to myself"/"Share with party"),
 // toggle color (green/blue), and behavior: toggle shows on/blue immediately,
-// confirmation popup appears, only commits to database on OK (changes visibility
-// to 'all-players' + characterShared=true). On cancel, visual state reverts.
+// confirmation popup appears, only commits to database on OK (writes
+// characterShared=true; visibility='character' is already set by GM).
+// On cancel, visual state reverts. When characterShared=true + visibility='character',
+// element is visible to all players.
 // opts:
 //   getShared(): () => bool (current characterShared)
-//   onToggle(patch): void — patch is { visibility, characterShared } on confirm,
-//     or { characterShared } on off (rare)
+//   onToggle(patch): void — patch is { characterShared } (true to share, false to unshare)
 // Returns a DOM node (span.vis-control, reusing the same wrapper class so
 // it drops into the same toggle-row layout as the GM control).
 function buildSharedToggle(opts) {
@@ -313,8 +314,8 @@ function buildSharedToggle(opts) {
         refresh();
         return;
       }
-      // User confirmed: commit the change with visibility update to all-players
-      opts.onToggle({ visibility: 'all-players', characterShared: true });
+      // User confirmed: commit only characterShared (visibility is already 'character' set by GM)
+      opts.onToggle({ characterShared: true });
     } else if (!wantShared && current) {
       // Turning off (shouldn't happen in normal flow, but handle for safety)
       current = wantShared;
