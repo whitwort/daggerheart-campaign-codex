@@ -190,6 +190,27 @@ function buildMiniCard(opts) {
 
   const headerRow = document.createElement('div');
   headerRow.className = 'character-deck-card-header-row';
+
+  // Title group: Codex link (S20 -- moved from a bottom-left corner
+  // icon to inline, left of the name) + the name itself, sharing one
+  // sub-row so the pair can be the single flex-start item opposite
+  // .character-deck-card-controls in the outer header row.
+  const titleGroup = document.createElement('div');
+  titleGroup.className = 'character-deck-card-title-group';
+  // Every card type EXCEPT Experience (never Codex-backed, no entity
+  // to open). Conditions/Equipment only get one when linked to an
+  // actual entity (entityId set); a custom/free-text entry has
+  // nothing to open, so opts.codexEntityId is simply omitted for
+  // those and no icon renders.
+  if (opts.codexEntityId) {
+    const codexLink = document.createElement('button');
+    codexLink.type = 'button';
+    codexLink.className = 'character-deck-card-codex-link';
+    codexLink.title = 'Open in Codex';
+    codexLink.innerHTML = CONFIG.icons.codex;
+    codexLink.addEventListener('click', function () { switchToCodexTabForEntity(opts.codexEntityId); });
+    titleGroup.appendChild(codexLink);
+  }
   const h3 = document.createElement('h3');
   h3.appendChild(document.createTextNode(opts.title));
   if (opts.titleSuffix) {
@@ -198,7 +219,8 @@ function buildMiniCard(opts) {
     span.textContent = ' ' + opts.titleSuffix;
     h3.appendChild(span);
   }
-  headerRow.appendChild(h3);
+  titleGroup.appendChild(h3);
+  headerRow.appendChild(titleGroup);
   if (opts.controls && opts.controls.length) {
     const controls = document.createElement('div');
     controls.className = 'character-deck-card-controls';
@@ -232,21 +254,6 @@ function buildMiniCard(opts) {
     badge.className = 'character-deck-card-badge';
     badge.textContent = opts.badge;
     card.appendChild(badge);
-  }
-  // Codex link (S19): bottom-left, opposite the Tier/Level badge --
-  // every card type EXCEPT Experience (never Codex-backed, no entity
-  // to open). Conditions/Equipment only get one when linked to an
-  // actual entity (entityId set); a custom/free-text entry has
-  // nothing to open, so opts.codexEntityId is simply omitted for
-  // those and no icon renders.
-  if (opts.codexEntityId) {
-    const codexLink = document.createElement('button');
-    codexLink.type = 'button';
-    codexLink.className = 'character-deck-card-codex-link';
-    codexLink.title = 'Open in Codex';
-    codexLink.innerHTML = CONFIG.icons.codex;
-    codexLink.addEventListener('click', function () { switchToCodexTabForEntity(opts.codexEntityId); });
-    card.appendChild(codexLink);
   }
   return card;
 }
