@@ -585,18 +585,56 @@ function buildResourcesBlock(entity, sheet, editable, suggestions, topCards) {
   return wrap;
 }
 
+// Gold: one panel, three rows of checked/unchecked boxes (Gregg's ask)
+// -- 9 Handfuls, 9 Bags, 1 Chest, matching the SRD's auto-carry rule
+// ("mark your tenth handful, instead mark a bag and erase all your
+// handfuls" / same for bags -> chest). No locked state here (unlike
+// HP/Stress/Hope) -- all boxes in a row are always available, so this
+// reuses .character-sheet-track-box's plain/marked styling only, never
+// .locked. Same fill-to-click marking as the resource boxes: single
+// click sets the count to that box's position, clicking the last
+// checked box again clears it. Icons pending Gregg's pick from the
+// mockup -- rows are plain checkboxes for now.
+const GOLD_ROWS = [
+  { key: 'handfuls', label: 'Handfuls', count: 9 },
+  { key: 'bags', label: 'Bags', count: 9 },
+  { key: 'chest', label: 'Chest', count: 1 }
+];
+function buildGoldRow(entity, sheet, def, editable) {
+  const current = Math.max(0, Math.min(def.count, sheet.gold[def.key] || 0));
+  const row = document.createElement('div');
+  row.className = 'character-sheet-gold-row-line';
+
+  const label = document.createElement('span');
+  label.className = 'character-sheet-gold-row-label';
+  label.textContent = def.label;
+  row.appendChild(label);
+
+  const boxesRow = document.createElement('div');
+  boxesRow.className = 'character-sheet-track-boxes character-sheet-gold-boxes';
+  for (let i = 0; i < def.count; i++) {
+    const checked = i < current;
+    const box = document.createElement('button');
+    box.type = 'button';
+    box.className = 'character-sheet-track-box' + (checked ? ' marked' : '');
+    box.disabled = !editable;
+    box.title = checked ? 'Checked -- click to uncheck' : 'Click to check';
+    box.addEventListener('click', function () {
+      const newValue = current === i + 1 ? i : i + 1;
+      patchSheet(entity, { gold: Object.assign({}, sheet.gold, { [def.key]: newValue }) });
+    });
+    boxesRow.appendChild(box);
+  }
+  row.appendChild(boxesRow);
+
+  return row;
+}
 function buildGoldBlock(entity, sheet, editable) {
   const wrap = document.createElement('div');
-  wrap.className = 'character-sheet-resources-row character-sheet-gold-row';
-  wrap.appendChild(buildNumberField('Handfuls', sheet.gold.handfuls, editable, function (v) {
-    patchSheet(entity, { gold: Object.assign({}, sheet.gold, { handfuls: v }) });
-  }));
-  wrap.appendChild(buildNumberField('Bags', sheet.gold.bags, editable, function (v) {
-    patchSheet(entity, { gold: Object.assign({}, sheet.gold, { bags: v }) });
-  }));
-  wrap.appendChild(buildNumberField('Chest', sheet.gold.chest, editable, function (v) {
-    patchSheet(entity, { gold: Object.assign({}, sheet.gold, { chest: v }) });
-  }));
+  wrap.className = 'character-sheet-gold-panel';
+  GOLD_ROWS.forEach(function (def) {
+    wrap.appendChild(buildGoldRow(entity, sheet, def, editable));
+  });
   return wrap;
 }
 

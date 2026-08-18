@@ -867,3 +867,15 @@ correctly describe what shipped at the time.
   - Starting defaults: HP 0 active/0 marked (class-defined via
     suggestion), Stress 6 active/0 marked, Hope 6 active/2 marked —
     previously all three defaulted to 0/0.
+- **Gold: one panel, three rows of checked/unchecked boxes** (9
+  Handfuls, 9 Bags, 1 Chest — matches the SRD's auto-carry rule:
+  marking the 10th Handful converts to a Bag, marking the 10th Bag
+  converts to the Chest), replacing three separate number-input fields.
+  No locked state (unlike HP/Stress/Hope) — every box in a row is
+  always available. Same fill-to-click single-click marking as the
+  resource boxes (click box N checks through N, click the last checked
+  box again unchecks it); `cards.sheet.gold` keeps its existing
+  `{handfuls, bags, chest}` storage shape. Icon choices per row (coins/
+  wallet/chest-style glyphs, from the same Lucide upstream as the rest
+  of the app's icons) are pending Gregg's pick from a mockup — rows are
+  plain checkbox squares for now, no icons wired in yet.
