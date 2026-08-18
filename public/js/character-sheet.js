@@ -388,7 +388,18 @@ const HOPE_CEILING = 6;
 const DOUBLE_CLICK_WINDOW_MS = 300;
 function buildTrackBoxes(entity, sheet, key, labelText, editable, ceiling, allowLocked, suggestKey, suggestion) {
   const track = sheet[key];
-  const active = Math.max(0, Math.min(ceiling, track.max || 0));
+  // Bug fix: when allowLocked is false (Hope), Active must be the fixed
+  // ceiling, not read from stored track.max at all -- reading it caused
+  // a real bug. Any character whose cards.sheet.hope was already saved
+  // with max:0 (true of every character created before Hope's starting
+  // default became 6/2 this session) got active=0 here, which then
+  // clamped `marked` to 0 on every render regardless of what was just
+  // written -- clicking looked like it did nothing, forever, since
+  // Hope has no control that can raise max back up (no number input,
+  // double-click is intentionally a no-op for it). Hope conceptually
+  // never has an Active concept distinct from its ceiling -- "hope
+  // never has a not-yet-unlocked box" -- so just hardcode it.
+  const active = allowLocked ? Math.max(0, Math.min(ceiling, track.max || 0)) : ceiling;
   const marked = Math.max(0, Math.min(active, track.marked || 0));
 
   const wrap = document.createElement('div');
