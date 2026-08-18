@@ -2139,6 +2139,12 @@ button:disabled:hover { border-color: var(--void-line); }
    visual identity (parchment/ink/parchment-edge/shadow), scaled down, laid
    out inside a dark "tray" per section -- the physical Daggerheart-cards-
    on-the-table metaphor Gregg asked for, not a generic settings-panel look. */
+/* container-type (S18): the deck's actual rendered width has nothing
+   reliable to do with the viewport (it sits behind a fixed 300px list-
+   pane in an unpredictable flex layout) -- a container query keyed off
+   THIS element's own width is the only way the split-row's narrow-
+   screen fallback below can respond to what's actually available. */
+.character-deck { container-type: inline-size; }
 .character-deck-header { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; margin-bottom: 1rem; }
 .character-deck-header h2 { margin: 0; font-size: 1.4rem; font-family: var(--font-display), sans-serif; font-weight: 400; }
 .character-deck-edit-link { margin-left: auto; }
@@ -2154,6 +2160,43 @@ button:disabled:hover { border-color: var(--void-line); }
 .character-deck-tray {
   background: var(--void); border: 1px solid var(--void-line); border-radius: 10px;
   padding: 0.7rem; display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: flex-start;
+}
+/* .single (S18): a tray holding exactly ONE card as a full split-row
+   pane (Class/Subclass), not a multi-card wrapping row -- the card's
+   normal 140-220px clamp (sized for several cards sharing a tray) would
+   leave dead space or overflow at an arbitrary pane width otherwise, so
+   let it fill the pane fully instead. */
+.character-deck-tray.single .character-deck-card { flex: 1 1 auto; max-width: 100%; min-width: 0; }
+
+/* Split row (S18): Heritage/Conditions share one row, and Class/
+   Subclass share one row within the Class section -- a draggable
+   vertical divider between two panes. --split-fraction (set via JS on
+   the row, inherited down) drives the left pane's width; the right
+   pane takes the remainder. Kept as a CSS custom property rather than
+   inline flex-basis on the panes themselves so the narrow-container
+   fallback below can override it with a plain class rule (no
+   !important fight against inline-style specificity). */
+.character-deck-split-row { display: flex; align-items: stretch; }
+.character-deck-split-pane { min-width: 0; }
+.character-deck-split-pane:first-child { flex: 0 0 var(--split-fraction, 50%); }
+.character-deck-split-pane:last-child { flex: 1 1 auto; }
+.character-deck-split-handle {
+  flex: 0 0 auto; width: 14px; margin: 0 -3px; cursor: col-resize; touch-action: none;
+  display: flex; align-items: center; justify-content: center; z-index: 1;
+}
+.character-deck-split-handle::before {
+  content: ''; width: 3px; height: 60%; min-height: 2rem; background: var(--void-line);
+  border-radius: 2px; transition: background 0.1s ease;
+}
+.character-deck-split-handle:hover::before, .character-deck-split-handle.dragging::before { background: var(--hope); }
+/* Narrow-container fallback: stack instead of side-by-side, no handle
+   (nothing to drag once there's no shared row). Plain flex-basis:auto
+   at equal specificity to the split-fraction rules above, placed later
+   in source order, so it wins without needing !important. */
+@container (max-width: 420px) {
+  .character-deck-split-row { flex-direction: column; gap: 0.6rem; }
+  .character-deck-split-pane:first-child, .character-deck-split-pane:last-child { flex: 1 1 auto; }
+  .character-deck-split-handle { display: none; }
 }
 
 /* The card: a mini .codex-entity-card. Deliberately duplicated (not a
