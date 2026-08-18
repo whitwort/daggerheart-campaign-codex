@@ -48,7 +48,7 @@ import { generateDefaultBadgeColor } from './badge-color.js';
 import { resolveEntityStatBlockMarkdown, switchToCodexTabForEntity, enterEntityEditMode } from './codex.js';
 import {
   DEFAULT_CARDS, TIER_OPTIONS, normalizeAncestryIds, resolveFunctionalIds,
-  cumulativeTierKeys, buildFloatingPickerPanel, openAbilityPickerPopup
+  cumulativeTierKeys, buildFloatingPickerPanel, openAbilityPickerPopup, openExperiencePickerPopup
 } from './character-cards.js';
 
 const db = getFirestore(firebaseApp);
@@ -285,53 +285,10 @@ function openCardPickerPopup(opts) {
   }
 }
 
-// Experience add popup: no candidates, no search, no linking -- an
-// Experience is always freeform (Name + Text), never Codex-backed, so
-// this is a much simpler form than openCardPickerPopup's linked-or-
-// custom flow, not a variant of it.
-function openExperiencePickerPopup(onAdd) {
-  if (document.querySelector('.entity-picker-panel')) return;
-  const built = buildFloatingPickerPanel();
-  built.header.textContent = 'Add experience';
-
-  const nameInput = document.createElement('input');
-  nameInput.type = 'text';
-  nameInput.placeholder = 'Experience name';
-  built.body.appendChild(nameInput);
-
-  const textInput = document.createElement('textarea');
-  textInput.placeholder = 'Experience text';
-  textInput.rows = 3;
-  built.body.appendChild(textInput);
-
-  const confirmBtn = document.createElement('button');
-  confirmBtn.type = 'button';
-  confirmBtn.textContent = 'Add';
-  confirmBtn.addEventListener('click', function () {
-    const name = nameInput.value.trim();
-    if (!name) return;
-    onAdd(name, textInput.value.trim());
-    close();
-  });
-  built.body.appendChild(confirmBtn);
-
-  const cancelBtn = document.createElement('button');
-  cancelBtn.type = 'button';
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.addEventListener('click', close);
-  built.body.appendChild(cancelBtn);
-
-  nameInput.focus();
-  function onDocClick(ev) { if (!built.panel.contains(ev.target)) close(); }
-  function onKeydown(ev) { if (ev.key === 'Escape') close(); }
-  setTimeout(function () { document.addEventListener('click', onDocClick); }, 0);
-  document.addEventListener('keydown', onKeydown);
-  function close() {
-    document.removeEventListener('click', onDocClick);
-    document.removeEventListener('keydown', onKeydown);
-    built.panel.remove();
-  }
-}
+// Experience add popup moved to character-cards.js (openExperiencePickerPopup)
+// so it can be reused by both this module's Experience tab AND the Codex
+// tab's edit-form Experiences editor -- see that module for the
+// implementation.
 
 // Items/Consumables carry no templates.js schema at all -- their card
 // text is just the entity's own lore content, unlike every other
