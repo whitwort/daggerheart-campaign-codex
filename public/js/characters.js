@@ -54,6 +54,7 @@ import { switchToCodexTabForEntity, openNewEntityDialog } from './codex.js';
 import { generateDefaultBadgeColor } from './badge-color.js';
 import { approveTransferRequest, rejectTransferRequest } from './transfer-requests.js';
 import { buildCharacterDeck, buildDeckHeader } from './character-deck.js';
+import { buildCharacterSheet } from './character-sheet.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -90,10 +91,7 @@ function buildCharacterDetailShell(entity, ctx) {
   const panel = document.createElement('div');
   panel.className = 'character-detail-tab-panel';
   if (state.charactersDetailTab === 'sheet') {
-    const p = document.createElement('p');
-    p.className = 'lore-empty';
-    p.textContent = 'Sheet coming soon.';
-    panel.appendChild(p);
+    panel.appendChild(buildCharacterSheet(entity, ctx, editable));
   } else {
     panel.appendChild(buildCharacterDeck(entity, ctx));
   }
