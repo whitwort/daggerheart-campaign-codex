@@ -558,6 +558,17 @@ function renderMessagesTray() {
   if (state.trayTab === 'campaign') {
     if (role === 'gm') buildGmDigest(body); else buildPlayerDigest(body);
     panel.appendChild(body);
+    trayEl.appendChild(panel);
+    // Campaign digest sorts newest-first (buildPlayerDigest/buildGmDigest),
+    // unlike the thread-chat panel below (oldest-first, pinned to
+    // scrollHeight/bottom) -- so "most recent" here means the TOP, not
+    // the bottom. Every re-render rebuilds `body` from scratch (a new
+    // element each time), so this isn't preserving a prior scroll
+    // position, it's actively pinning to the top on every notification/
+    // message-triggered re-render, same as the thread panel actively
+    // pins to the bottom.
+    body.scrollTop = 0;
+    return;
   } else {
     const key = state.trayTab;
     // Re-point the messages listener if a re-render landed on a thread
@@ -636,9 +647,6 @@ function renderMessagesTray() {
     if (composeHadFocus) input.focus();
     return;
   }
-
-  trayEl.appendChild(panel);
-  body.scrollTop = body.scrollHeight;
 }
 
 function buildStripTab(label, unread, onClick, badgeColor) {
