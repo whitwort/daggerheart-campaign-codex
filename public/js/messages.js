@@ -466,10 +466,15 @@ function buildGmDigest(container) {
     const line = document.createElement('div');
     line.className = 'digest-line';
     line.appendChild(document.createTextNode(req.requestEmail + ' (' + (req.provider || 'unknown') + ') '));
-    const link = document.createElement('a');
+    const link = document.createElement('span');
     link.textContent = 'requested to join';
-    link.href = '#tab-btn-admin';
     link.style.cursor = 'pointer';
+    link.style.textDecoration = 'underline';
+    link.style.color = 'var(--color-link, #0066cc)';
+    link.addEventListener('click', function () {
+      const adminBtn = document.getElementById('tab-btn-admin');
+      if (adminBtn) adminBtn.click();
+    });
     line.appendChild(link);
     card.appendChild(line);
     const meta = document.createElement('div');
