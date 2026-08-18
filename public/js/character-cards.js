@@ -55,7 +55,20 @@ function humanizeKey(key) {
 
 export const DEFAULT_CARDS = {
   ancestryId: null, ancestryIds: [], ancestryFeaturePicks: {}, communityId: null, classId: null, subclassId: null,
-  subclassTier: 'foundation', abilityIds: []
+  subclassTier: 'foundation', abilityIds: [],
+  // Phase 14 S15 (character deck viewer): vaultAbilityIds is a SUBSET
+  // of abilityIds -- Active is derived as "abilityIds minus
+  // vaultAbilityIds", not stored as its own separate list. One source
+  // of truth for ownership (abilityIds, unchanged, still governed by
+  // the Codex tab's existing Abilities picker) avoids the two ever
+  // drifting out of sync; the deck viewer's swap just toggles
+  // membership here. conditions/equipment are wholly new, deck-viewer-
+  // owned lists with no Codex-tab edit-form counterpart -- entityId
+  // links a Codex entry when picked from one (Game Mechanics/
+  // conditions, or any Equipment subtype), null for a free-text
+  // custom entry; label is always stored so a renamed/deleted linked
+  // entity doesn't break display.
+  vaultAbilityIds: [], conditions: [], equipment: []
 };
 
 // Tier progression order: Foundation (unlocked at character creation)
@@ -79,7 +92,7 @@ export const TIER_OPTIONS = [
 // just the single selected tier in isolation. Unknown/unset tier key
 // falls back to itself alone (defensive; shouldn't happen since the
 // tier select only ever offers TIER_OPTIONS' own keys).
-function cumulativeTierKeys(tierKey) {
+export function cumulativeTierKeys(tierKey) {
   const idx = TIER_OPTIONS.findIndex(function (t) { return t.key === tierKey; });
   if (idx === -1) return tierKey ? [tierKey] : [];
   return TIER_OPTIONS.slice(0, idx + 1).map(function (t) { return t.key; });
@@ -405,7 +418,7 @@ function buildSingleEntityPicker(labelText, entities, currentId, onChange) {
 // see module header) -- same visual language as codex.js's
 // buildGalleryPickerPanel/openEntityPickerPopup (shares CSS classes),
 // duplicated rather than imported to avoid a codex.js <-> here cycle. ---
-function buildFloatingPickerPanel() {
+export function buildFloatingPickerPanel() {
   const panel = document.createElement('div');
   panel.className = 'gallery-picker-panel entity-picker-panel';
   const header = document.createElement('div');
@@ -436,7 +449,7 @@ function abilityLevelTier(entity) {
   return 4;
 }
 
-function openAbilityPickerPopup(title, candidates, onSelect) {
+export function openAbilityPickerPopup(title, candidates, onSelect) {
   if (document.querySelector('.entity-picker-panel')) return;
   const built = buildFloatingPickerPanel();
   built.header.textContent = title;

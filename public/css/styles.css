@@ -2114,3 +2114,109 @@ button:disabled:hover { border-color: var(--void-line); }
 .digest-line .character-badge { margin-left: 0; margin-right: 0.1rem; }
 .digest-entity { color: var(--fear); text-decoration: underline dotted; cursor: pointer; }
 .digest-meta { font-size: 0.7rem; color: var(--ink-soft); margin-top: 0.2rem; }
+
+/* --- Character deck viewer (Phase 14 S15) --------------------------------
+   Characters tab detail panes (GM + player). Cards, not chips/rows -- each
+   entry is a small parchment rectangle matching .codex-entity-card's own
+   visual identity (parchment/ink/parchment-edge/shadow), scaled down, laid
+   out inside a dark "tray" per section -- the physical Daggerheart-cards-
+   on-the-table metaphor Gregg asked for, not a generic settings-panel look. */
+.character-deck-header { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1rem; }
+.character-deck-header h2 { margin: 0; font-size: 1.4rem; font-family: var(--font-display), sans-serif; font-weight: 400; }
+
+.character-deck-section { margin-top: 1.2rem; }
+.character-deck-section:first-of-type { margin-top: 0; }
+.character-deck-section-title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.45rem; }
+.character-deck-section-title {
+  font-family: var(--font-display), sans-serif; font-size: 0.78rem; font-weight: 600;
+  color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.06em;
+}
+/* Tray: the dark well a set of cards sits ON, not a card itself. */
+.character-deck-tray {
+  background: var(--void); border: 1px solid var(--void-line); border-radius: 10px;
+  padding: 0.7rem; display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: flex-start;
+}
+
+/* The card: a mini .codex-entity-card. Deliberately duplicated (not a
+   shared class with that rule) -- this is a much smaller, denser
+   variant (8px radius vs 14px, no hero band, no detail tabs) and
+   layering scaled-down overrides on top of the full entity-card rule
+   risks fighting its own more specific descendant selectors later. */
+.character-deck-card {
+  position: relative; background: var(--parchment); color: var(--ink);
+  border: 1px solid var(--parchment-edge); border-radius: 8px;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.35); padding: 0.55rem 0.65rem 1.35rem;
+  width: 178px; flex-shrink: 0; font-size: 0.72rem; line-height: 1.4;
+}
+.character-deck-card.wide { width: 100%; }
+.character-deck-card h3 {
+  font-family: var(--font-display), sans-serif; font-weight: 400; font-size: 0.86rem;
+  margin: 0 0 0.15rem; padding-right: 1.1rem; color: var(--ink);
+}
+.character-deck-card-suffix { color: var(--ink-soft); font-weight: 400; font-size: 0.68rem; }
+.character-deck-card-meta { font-size: 0.64rem; color: var(--ink-soft); margin-bottom: 0.3rem; line-height: 1.35; }
+.character-deck-card-body { font-size: 0.72rem; line-height: 1.4; }
+.character-deck-card-body p { margin: 0 0 0.3rem; }
+.character-deck-card-body p:last-child { margin-bottom: 0; }
+.character-deck-card-body strong { color: #6B4A1E; }
+/* Tier/Level badge: normalized to the SAME slot (bottom-right) on
+   every card type that has one -- Ability's Level, Weapon/Armor/
+   Beastform's Tier -- a fixed landmark regardless of which type is
+   being scanned. */
+.character-deck-card-badge {
+  position: absolute; bottom: 0.5rem; right: 0.5rem; background: var(--ink); color: var(--parchment);
+  font-size: 0.6rem; font-weight: 600; border-radius: 4px; padding: 0.08rem 0.3rem;
+}
+/* Swap/remove controls sit in the card's own top-right corner, same
+   plain-colored-icon-no-chrome idiom as .codex-entity-card
+   .entity-map-link already uses on parchment. */
+.character-deck-card-controls { position: absolute; top: 0.45rem; right: 0.5rem; display: flex; gap: 0.3rem; }
+.character-deck-ctl {
+  background: none; border: none; box-shadow: none; padding: 0; cursor: pointer;
+  font-size: 0.85rem; line-height: 1; width: auto; min-width: 0;
+}
+.character-deck-ctl.ctl-swap { color: var(--fear); }
+.character-deck-ctl.ctl-remove { color: var(--notice); }
+.character-deck-ctl:hover { opacity: 0.75; }
+
+.character-deck-tier-picker { display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: var(--ink-soft); }
+.character-deck-tier-picker select {
+  background: var(--void); color: var(--parchment); border: 1px solid var(--void-line);
+  border-radius: 5px; padding: 0.15rem 0.4rem; font-size: 0.75rem; font-family: var(--font-body), sans-serif;
+  width: auto; min-width: 0;
+}
+
+/* "+ Add" is an empty card slot in the tray -- same footprint as a
+   real card, dashed outline, no fill -- an open slot waiting for a
+   card, not a text link. */
+.character-deck-add-slot {
+  width: 178px; min-height: 58px; border: 1.5px dashed var(--void-line); border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; color: var(--ink-soft);
+  font-size: 0.75rem; cursor: pointer; background: none; box-shadow: none; flex-shrink: 0;
+  min-width: 178px; text-align: center;
+}
+.character-deck-add-slot:hover { border-color: var(--hope); color: var(--hope); }
+
+/* Abilities sub-tabs: dark-context version of .codex-detail-tabs'
+   flat/bottom-border/hope-active idiom -- that variant is parchment-
+   scoped, this strip sits directly on the void panel instead. */
+.character-deck-subtabs { display: flex; gap: 1rem; border-bottom: 1px solid var(--void-line); margin-bottom: 0.6rem; }
+.character-deck-subtabs button {
+  background: none; border: none; box-shadow: none; padding: 0.3rem 0.1rem; font-size: 0.8rem;
+  color: var(--ink-soft); border-bottom: 2px solid transparent; cursor: pointer;
+  width: auto; min-width: 0; font-family: var(--font-display), sans-serif;
+}
+.character-deck-subtabs button.active { color: var(--hope); border-bottom-color: var(--hope); }
+.character-deck-tab-panel { display: none; }
+.character-deck-tab-panel.active { display: block; }
+.character-deck-tier-group-label {
+  width: 100%; font-size: 0.68rem; color: var(--ink-soft); text-transform: uppercase;
+  letter-spacing: 0.05em; margin: 0.3rem 0 -0.15rem;
+}
+.character-deck-tier-group-label:first-child { margin-top: 0; }
+
+/* Add-popup custom-entry form (Conditions/Equipment "+ Add custom" --
+   the ability picker has no equivalent since abilities are always
+   Codex-backed). Reuses .gallery-picker-body's own input/button
+   styling by inheritance (no overrides needed here beyond layout). */
+.character-deck-custom-form { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.4rem; }
