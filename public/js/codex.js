@@ -179,9 +179,19 @@ function openLoreItemEdit(entity, item, isNote, entityAuthority) {
 // measured post-render against actual pixel height, not markdown source
 // length -- a short paragraph with a big embedded image can be "long"
 // on screen even though a long line of prose might not be.
+// max-height is set live against #codex-detail-pane's own bounded
+// clientHeight rather than a CSS vh unit -- same reasoning as
+// fitCodexTabHeight above: vh is unreliable on iOS Safari (the
+// collapsing toolbar changes the effective viewport), and a cap that
+// exceeds the pane's actual visible height caused the outer page to
+// scroll too, not just the item.
 const LORE_ITEM_SCROLL_PX = 640;
 function attachLoreItemExpand(bodyDiv) {
   if (bodyDiv.scrollHeight <= LORE_ITEM_SCROLL_PX) return;
+  const pane = document.getElementById('codex-detail-pane');
+  const paneH = pane ? pane.clientHeight : 0;
+  const cap = paneH > 0 ? Math.max(200, Math.floor(paneH * 0.6)) : LORE_ITEM_SCROLL_PX;
+  bodyDiv.style.maxHeight = cap + 'px';
   bodyDiv.classList.add('lore-item-body-scrollable');
 }
 
