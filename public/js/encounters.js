@@ -205,6 +205,12 @@ function getSelectedEncounter() {
 
 function renderEncountersTab() {
   if (state.currentRole !== 'gm') return;
+  // Run mode collapses the list pane -- every horizontal rem goes to
+  // the tracker (session 38 feedback). Build restores it. Selection and
+  // creation are Build activities anyway. Guarded on a selection so an
+  // empty Run tab (nothing selected) still shows the list to pick from.
+  var listPane = document.getElementById('encounters-list-pane');
+  listPane.style.display = (state.encountersDetailTab === 'run' && getSelectedEncounter()) ? 'none' : '';
   renderEncounterList();
   renderEncounterDetail();
 }
