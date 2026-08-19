@@ -28,7 +28,7 @@ import { firebaseApp } from './firebase.js';
 
 const db = getFirestore(firebaseApp);
 
-const COLLECTIONS = ['config', 'entities', 'images', 'joinRequests', 'loreItems', 'pins', 'players'];
+const COLLECTIONS = ['config', 'encounters', 'entities', 'images', 'joinRequests', 'loreItems', 'pins', 'players'];
 const RESTORABLE_COLLECTIONS = COLLECTIONS.filter(function (c) { return c !== 'joinRequests'; });
 const BATCH_LIMIT = 500;
 
