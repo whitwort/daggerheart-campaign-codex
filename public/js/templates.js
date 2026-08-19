@@ -136,6 +136,42 @@ const TEMPLATE_SCHEMAS = {
     ],
     hasFeatures: true
   },
+  // Phase 15 (encounter-builder integration, phase-15-design.md): the
+  // adversary/environment stat block, modeled on the same pilot pattern.
+  // hasFeatureType (D5): features carry an optional third field `type`
+  // (Action/Passive/Reaction — free string, NOT a closed enum; source
+  // has compound values like "Reaction: Countdown (5)", see design A3).
+  // General schema capability, not adversary-specific — types without
+  // the flag simply never read/write feature.type.
+  'Adversary/': {
+    detailKeys: [
+      // type: Standard/Solo/Leader/Bruiser/Horde (N/HP)/Minion/Skulk/
+      // Ranged/Support/Social — free string (design A3 note).
+      { key: 'type',            standalone: true,  searchable: true },
+      { key: 'tier',            standalone: false, searchable: true },
+      { key: 'difficulty',      standalone: false, searchable: false },
+      { key: 'hp',              standalone: false, searchable: false },
+      { key: 'stress',          standalone: false, searchable: false },
+      // "8/15" compound string, not split (D3 — same reasoning as
+      // weapons' damage).
+      { key: 'thresholds',      standalone: false, searchable: false },
+      { key: 'attack_modifier', standalone: false, searchable: false },
+      { key: 'attack_name',     standalone: false, searchable: false },
+      { key: 'attack_range',    standalone: true,  searchable: true },
+      { key: 'attack_damage',   standalone: false, searchable: false }
+    ],
+    hasFeatures: true,
+    hasFeatureType: true
+  },
+  'Environment/': {
+    detailKeys: [
+      { key: 'type',       standalone: true,  searchable: true },  // Exploration/Social/Traversal/Event
+      { key: 'tier',       standalone: false, searchable: true },
+      { key: 'difficulty', standalone: false, searchable: false }
+    ],
+    hasFeatures: true,
+    hasFeatureType: true
+  },
   'Game Mechanics/subclasses': {
     // Three tiers players advance through (Foundation -> Mastery ->
     // Specialization), each with its own feature(s) -- unlike every
