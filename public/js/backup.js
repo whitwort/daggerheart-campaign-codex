@@ -25,6 +25,7 @@ import {
   getFirestore, collection, doc, getDocs, writeBatch, Timestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp } from './firebase.js';
+import { entityMatchesQuery, categoryGroupLabel } from './codex.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -213,5 +214,180 @@ restoreRunBtn.addEventListener('click', function () {
   }).catch(function (err) {
     log('Restore failed: ' + err.message);
     restoreRunBtn.disabled = false;
+  });
+});
+
+// --- Single-entry restore ------------------------------------------------
+// Restores one entity plus its associated loreItems (entityId), pins
+// (entityId), and images (ownerId) from a full-dump backup file, without
+// touching any other live data. Additive/overwrite-by-id only (v1) --
+// deliberately does NOT delete live docs absent from the backup (e.g. lore
+// items added after the backup was taken); a "delete orphans" mode is a
+// possible future addition if that's ever needed.
+function entryRestoreEntityPool(dump) {
+  return ((dump.collections && dump.collections.entities) || []).map(function (entry) {
+    return Object.assign({ id: entry.id }, entry.data);
+  });
+}
+
+function computeEntryRestorePlan(dump, entityId) {
+  const loreItems = ((dump.collections && dump.collections.loreItems) || [])
+    .filter(function (entry) { return entry.data && entry.data.entityId === entityId; });
+  const pins = ((dump.collections && dump.collections.pins) || [])
+    .filter(function (entry) { return entry.data && entry.data.entityId === entityId; });
+  const images = ((dump.collections && dump.collections.images) || [])
+    .filter(function (entry) { return entry.data && entry.data.ownerId === entityId; });
+  return { loreItems, pins, images };
+}
+
+async function runEntryRestore(entity, plan, log) {
+  const writes = [{ collectionName: 'entities', entries: [{ id: entity.id, data: entity }] }]
+    .concat([
+      { collectionName: 'loreItems', entries: plan.loreItems },
+      { collectionName: 'pins', entries: plan.pins },
+      { collectionName: 'images', entries: plan.images },
+    ]);
+  for (const w of writes) {
+    for (let i = 0; i < w.entries.length; i += BATCH_LIMIT) {
+      const batch = writeBatch(db);
+      w.entries.slice(i, i + BATCH_LIMIT).forEach(function (entry) {
+        batch.set(doc(db, w.collectionName, entry.id), deserializeValue(entry.data));
+      });
+      await batch.commit();
+    }
+    log(w.collectionName + ': wrote ' + w.entries.length + ' doc' + (w.entries.length === 1 ? '' : 's'));
+  }
+}
+
+// --- Single-entry restore UI wiring --------------------------------------
+const entryRestoreUploadBtn = document.getElementById('entry-restore-upload-btn');
+const entryRestoreFileInputEl = document.getElementById('entry-restore-file-input');
+const entryRestoreLoadStatusEl = document.getElementById('entry-restore-load-status');
+const entryRestoreSearchEl = document.getElementById('entry-restore-search');
+const entryRestoreListEl = document.getElementById('entry-restore-list');
+const entryRestorePreviewEl = document.getElementById('entry-restore-preview');
+const entryRestoreRunBtn = document.getElementById('entry-restore-run-btn');
+const entryRestoreSummaryEl = document.getElementById('entry-restore-summary');
+
+let entryRestoreDump = null;
+let entryRestorePool = [];
+let entryRestoreSelected = null; // { entity, plan }
+
+entryRestoreUploadBtn.addEventListener('click', function () { entryRestoreFileInputEl.click(); });
+
+entryRestoreFileInputEl.addEventListener('change', function () {
+  const file = entryRestoreFileInputEl.files[0];
+  entryRestoreFileInputEl.value = '';
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function () {
+    try {
+      const parsed = JSON.parse(reader.result);
+      entryRestoreDump = parsed;
+      entryRestorePool = entryRestoreEntityPool(parsed);
+      entryRestoreSelected = null;
+      entryRestoreRunBtn.disabled = true;
+      entryRestorePreviewEl.textContent = '';
+      entryRestoreSummaryEl.textContent = '';
+      entryRestoreLoadStatusEl.textContent = 'Loaded ' + file.name + ' (' + entryRestorePool.length + ' entries available).';
+      entryRestoreSearchEl.style.display = '';
+      entryRestoreSearchEl.value = '';
+      renderEntryRestoreList();
+    } catch (err) {
+      entryRestoreDump = null;
+      entryRestorePool = [];
+      entryRestoreLoadStatusEl.textContent = 'Invalid JSON: ' + err.message;
+      entryRestoreSearchEl.style.display = 'none';
+      entryRestoreListEl.innerHTML = '';
+    }
+  };
+  reader.readAsText(file);
+});
+
+entryRestoreSearchEl.addEventListener('input', renderEntryRestoreList);
+
+function renderEntryRestoreList() {
+  entryRestoreListEl.innerHTML = '';
+  const pool = entryRestorePool
+    .filter(function (e) { return entityMatchesQuery(e, entryRestoreSearchEl.value); })
+    .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+
+  if (!pool.length) {
+    const p = document.createElement('p');
+    p.className = 'lore-empty';
+    p.textContent = 'No matches.';
+    entryRestoreListEl.appendChild(p);
+    return;
+  }
+
+  const byCategory = {};
+  pool.forEach(function (e) {
+    const cat = e.category || '(uncategorized)';
+    (byCategory[cat] = byCategory[cat] || []).push(e);
+  });
+
+  Object.keys(byCategory).sort().forEach(function (cat) {
+    const header = document.createElement('div');
+    header.className = 'entity-group-header';
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'entity-group-title';
+    titleSpan.textContent = categoryGroupLabel(cat);
+    const countSpan = document.createElement('span');
+    countSpan.className = 'entity-group-count';
+    countSpan.textContent = '(' + byCategory[cat].length + ')';
+    header.appendChild(titleSpan);
+    header.appendChild(countSpan);
+    entryRestoreListEl.appendChild(header);
+
+    const ul = document.createElement('ul');
+    ul.className = 'entity-group-list';
+    byCategory[cat]
+      .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); })
+      .forEach(function (e) {
+        const li = document.createElement('li');
+        li.className = 'entry-restore-row';
+        if (entryRestoreSelected && entryRestoreSelected.entity.id === e.id) li.classList.add('active');
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'entity-name';
+        nameDiv.textContent = e.name;
+        li.appendChild(nameDiv);
+        li.addEventListener('click', function () { selectEntryRestoreEntity(e); });
+        ul.appendChild(li);
+      });
+    entryRestoreListEl.appendChild(ul);
+  });
+}
+
+function selectEntryRestoreEntity(entity) {
+  const plan = computeEntryRestorePlan(entryRestoreDump, entity.id);
+  entryRestoreSelected = { entity, plan };
+  renderEntryRestoreList();
+  entryRestorePreviewEl.textContent = entity.name + ' (' + categoryGroupLabel(entity.category || '(uncategorized)') + ') \u2014 '
+    + plan.loreItems.length + ' lore item' + (plan.loreItems.length === 1 ? '' : 's') + ', '
+    + plan.pins.length + ' pin' + (plan.pins.length === 1 ? '' : 's') + ', '
+    + plan.images.length + ' image' + (plan.images.length === 1 ? '' : 's') + '.';
+  entryRestoreRunBtn.disabled = false;
+  entryRestoreSummaryEl.textContent = '';
+}
+
+entryRestoreRunBtn.addEventListener('click', function () {
+  if (!entryRestoreSelected) return;
+  const { entity, plan } = entryRestoreSelected;
+  const connected = window.FIREBASE_ENV.projectId;
+  const message = 'Restore "' + entity.name + '" into "' + connected + '"?\n\n'
+    + '1 entity, ' + plan.loreItems.length + ' lore item(s), ' + plan.pins.length + ' pin(s), ' + plan.images.length + ' image(s).\n\n'
+    + 'Existing docs with matching ids will be overwritten. Nothing else is touched or deleted.';
+  if (!window.confirm(message)) return;
+
+  entryRestoreRunBtn.disabled = true;
+  const lines = [];
+  function log(line) { lines.push(line); entryRestoreSummaryEl.textContent = lines.join('\n'); }
+
+  runEntryRestore(entity, plan, log).then(function () {
+    log('Done.');
+    entryRestoreRunBtn.disabled = false;
+  }).catch(function (err) {
+    log('Restore failed: ' + err.message);
+    entryRestoreRunBtn.disabled = false;
   });
 });
