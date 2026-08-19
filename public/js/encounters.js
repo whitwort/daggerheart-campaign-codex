@@ -486,7 +486,7 @@ function addInstance(enc, entity) {
     entityId: entity.id,
     fallbackName: entity.name,
     label: nextInstanceLabel(enc, entity.id, entity.name),
-    hp: 0, stress: 0, note: ''
+    hp: 0, stress: 0, conditions: []
   });
   updateEncounter(enc.id, { instances: instances });
 }
@@ -654,17 +654,73 @@ function buildInstanceRow(enc, inst, hpMax, stressMax) {
   row.appendChild(buildInstanceTrack(enc, inst, 'HP', 'hp', hpMax));
   row.appendChild(buildInstanceTrack(enc, inst, 'Stress', 'stress', stressMax));
 
-  const note = document.createElement('input');
-  note.type = 'text';
-  note.className = 'encounter-instance-note';
-  note.placeholder = 'note';
-  note.value = inst.note || '';
-  note.addEventListener('change', function () {
-    patchInstance(enc, inst, { note: note.value });
-  });
-  row.appendChild(note);
+  row.appendChild(buildConditionSelects(enc, inst));
 
   return row;
+}
+
+// A2: 0-3 condition selects per instance -- one per applied condition
+// (reselect swaps, the empty option clears) plus one empty "add" select
+// while under the cap. Options from the character deck's condition
+// source, core-three fallback if the campaign has no condition entries.
+const CORE_CONDITIONS = ['Hidden', 'Restrained', 'Vulnerable'];
+const MAX_INSTANCE_CONDITIONS = 3;
+
+function conditionOptions() {
+  const names = state.allEntities
+    .filter(function (e) { return e.category === 'Game Mechanics' && e.subtype === 'conditions'; })
+    .map(function (e) { return e.name; })
+    .sort(function (a, b) { return a.localeCompare(b); });
+  return names.length ? names : CORE_CONDITIONS.slice();
+}
+
+function buildConditionSelects(enc, inst) {
+  const wrap = document.createElement('div');
+  wrap.className = 'encounter-instance-conditions';
+  const applied = (inst.conditions || []).slice(0, MAX_INSTANCE_CONDITIONS);
+  const options = conditionOptions();
+
+  function writeConditions(next) {
+    patchInstance(enc, inst, { conditions: next.filter(Boolean) });
+  }
+
+  function makeSelect(currentValue, index) {
+    const sel = document.createElement('select');
+    sel.className = 'encounter-condition-select';
+    const emptyOpt = document.createElement('option');
+    emptyOpt.value = '';
+    emptyOpt.textContent = currentValue ? '\u2014 clear' : '+ condition';
+    sel.appendChild(emptyOpt);
+    // A stored name missing from the current option list (renamed/
+    // deleted condition entry) still renders selected rather than
+    // silently blanking (absent = degraded display, not data loss).
+    const optionNames = options.slice();
+    if (currentValue && optionNames.indexOf(currentValue) === -1) optionNames.push(currentValue);
+    optionNames.forEach(function (name) {
+      // No duplicate conditions on one instance: hide names already
+      // applied elsewhere on this instance.
+      if (name !== currentValue && applied.indexOf(name) !== -1) return;
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      if (name === currentValue) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    sel.addEventListener('change', function () {
+      const next = applied.slice();
+      if (index < next.length) {
+        if (sel.value) { next[index] = sel.value; } else { next.splice(index, 1); }
+      } else if (sel.value) {
+        next.push(sel.value);
+      }
+      writeConditions(next);
+    });
+    return sel;
+  }
+
+  applied.forEach(function (name, i) { wrap.appendChild(makeSelect(name, i)); });
+  if (applied.length < MAX_INSTANCE_CONDITIONS) wrap.appendChild(makeSelect('', applied.length));
+  return wrap;
 }
 
 function buildInstanceTrack(enc, inst, labelText, key, max) {
