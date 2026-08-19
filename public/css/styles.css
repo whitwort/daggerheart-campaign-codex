@@ -1290,6 +1290,11 @@ pre code { background: none; border: none; padding: 0; border-radius: 0; color: 
 .date-ago-marker { font-weight: 700; font-style: italic; }
 .template-feature-edit-row { display: flex; gap: 0.4rem; margin-bottom: 0.4rem; align-items: center; }
 .template-feature-edit-row input { flex: 1; min-width: 0; }
+/* Phase 15: hasFeatureType schemas' per-feature type input (datalist-
+   backed free text). Fixed narrow share -- Action/Passive/Reaction fit;
+   the rarer compound Countdown values scroll within it rather than
+   stealing width from the effect text. min-width: 0 inherited above. */
+.template-feature-edit-row .template-feature-type-input { flex: 0 0 7rem; }
 .entity-edit-template-block { display: flex; flex-direction: column; gap: 0.5rem; }
 
 button:disabled { opacity: 0.5; cursor: default; }
