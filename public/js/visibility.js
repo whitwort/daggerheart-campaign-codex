@@ -229,7 +229,35 @@ function visibilityStateClass(element) {
   return 'vis-hidden';
 }
 
+// --- entityHasSecretsFor (Phase 17 A1) -----------------------------------
+// True when, for THIS viewer's active character, the entity is in the
+// green/secret state ("shared with just that character, not the group
+// yet": visibility 'character', characterId == active, characterShared
+// false) OR has any child lore element in that state. Children:
+//  - loreItems: state.allLoreItems (full collection already in state)
+//  - images: state.allCharacterImages (Phase 17's filtered metadata-only
+//    listener — the only character-visibility image docs that can
+//    possibly qualify, so scanning it is complete)
+// Player-view semantics only (a GM has no active character); GM
+// preview-as-player works via ctx like everything else here.
+function isSecretFor(element, ctx) {
+  return element.visibility === 'character' && !!element.characterId &&
+    element.characterId === ctx.activeCharacterId && !element.characterShared;
+}
+
+function entityHasSecretsFor(entity, ctx) {
+  if (ctx.gmView || !ctx.activeCharacterId) return false;
+  if (isSecretFor(entity, ctx)) return true;
+  if (state.allLoreItems.some(function (item) {
+    return item.entityId === entity.id && isSecretFor(item, ctx);
+  })) return true;
+  return state.allCharacterImages.some(function (img) {
+    return img.ownerType === 'entity' && img.ownerId === entity.id && isSecretFor(img, ctx);
+  });
+}
+
 export {
   viewerContext, canSee, visibilityBadge, isShareableToWholeParty, visibilityStateClass,
-  hasFullAuthority, isSharedWithActiveCharacter, isNoteAuthor, belongsOnLoreSurface
+  hasFullAuthority, isSharedWithActiveCharacter, isNoteAuthor, belongsOnLoreSurface,
+  entityHasSecretsFor
 };

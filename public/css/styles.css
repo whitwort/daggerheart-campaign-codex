@@ -683,7 +683,7 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
   display: flex; align-items: center; justify-content: center;
 }
 .search-clear-btn:hover { color: var(--ink); }
-#codex-list-actions { flex: 0 0 auto; display: flex; justify-content: flex-end; margin-top: 0.5rem; }
+#codex-list-actions { flex: 0 0 auto; display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem; }
 #codex-new-btn { padding: 0.4rem 0.8rem; cursor: pointer; width: auto; min-width: 0; }
 
 /* Dark-themed native form controls: override iOS Safari's light chrome
@@ -760,6 +760,21 @@ select {
 .entity-secret-badge {
   font-weight: 500; font-size: 0.65625rem; padding: 0.125rem 0.5rem; border-radius: 4px;
   background: rgba(78,168,142,0.45); color: var(--seafoam); border: 1px solid var(--seafoam);
+}
+
+/* Phase 17 A2: Show secrets mode — seafoam (the secret/character-state
+   color) mode chrome so a filtered list is unmistakable: active button
+   inverts to filled seafoam; the list pane itself gets a matching ring
+   + faint tint for the mode's duration. */
+#codex-secrets-btn, #codex-new-drop-btn { padding: 0.4rem 0.8rem; cursor: pointer; width: auto; min-width: 0; }
+#codex-secrets-btn.secrets-mode-active {
+  background: var(--seafoam); color: #fff; border-color: var(--seafoam);
+  box-shadow: 0 0 0.5rem var(--seafoam-glow);
+}
+#codex-entities.secrets-mode {
+  box-shadow: 0 0 0 2px var(--seafoam), 0 0 0.85rem var(--seafoam-glow);
+  background: rgba(78,168,142,0.06);
+  border-radius: 8px;
 }
 .entity-map-link {
   width: auto; min-width: 0; text-align: left;
