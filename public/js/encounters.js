@@ -725,7 +725,9 @@ function buildConditionSelects(enc, inst) {
 
 function buildInstanceTrack(enc, inst, labelText, key, max) {
   const wrap = document.createElement('div');
-  wrap.className = 'encounter-instance-track';
+  // Per-key class: HP's column is fixed-width (sized for the DB-max 12
+  // boxes) so Stress starts at the same x on every row and group.
+  wrap.className = 'encounter-instance-track encounter-instance-track-' + key;
   const label = document.createElement('span');
   label.className = 'encounter-instance-track-label';
   label.textContent = labelText;

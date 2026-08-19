@@ -2625,17 +2625,32 @@ button:disabled:hover { border-color: var(--void-line); }
 .encounter-instance-row.defeated .encounter-instance-label { text-decoration: line-through; }
 .encounter-instance-row.defeated { opacity: 0.55; }
 .encounter-instance-label { flex: 0 0 9rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.82rem; }
-.encounter-instance-track { display: flex; align-items: center; gap: 0.35rem; flex: 1 1 0; min-width: 0; }
+.encounter-instance-track { display: flex; align-items: center; gap: 0.35rem; flex: 0 0 auto; }
 .encounter-instance-track-label { flex: 0 0 auto; font-size: 0.68rem; color: var(--ink-soft); }
-.encounter-track-boxes { flex: 1 1 auto; min-width: 0; }
-/* Cap box growth so a 3-HP minion's boxes don't balloon to fill the row. */
-.encounter-track-boxes .character-sheet-track-box { max-width: 1.4rem; }
+.encounter-track-boxes { flex: 0 0 auto; }
+/* Fixed box size (no grow) so tracks are column-stable regardless of
+   what else is on the row. */
+.encounter-track-boxes .character-sheet-track-box { flex: 0 0 1.1rem; width: 1.1rem; }
+/* HP column reserves the SRD max of 12 boxes (session-38 census: Adult
+   Flickerfly, HP 12) so every row's Stress starts at the same x:
+   12 boxes @1.1rem + 11 gaps @0.22rem = 15.62rem of boxes. */
+.encounter-instance-track-hp { width: 18.5rem; }
 .encounter-track-unknown { font-size: 0.8rem; color: var(--ink-soft); }
 /* A2: conditions replaced the note input. Selects stay compact; the
    row's flex-wrap drops them to a second line when tracks need the
    width on iPad. */
-.encounter-instance-conditions { display: flex; gap: 0.3rem; flex: 0 1 auto; }
-.encounter-condition-select { font-size: 0.72rem; max-width: 8rem; }
+/* Conditions live right-aligned in their own column: the "+ condition"
+   add select keeps a constant rightmost slot (uniform fixed widths make
+   it line up across rows) and applied conditions grow LEFTWARD from it,
+   never pushing the fixed-width tracks (screenshot feedback, session
+   38). flex-wrap as a last resort on very narrow widths. */
+.encounter-instance-conditions {
+  display: flex; flex-wrap: wrap; justify-content: flex-end;
+  gap: 0.3rem; margin-left: auto; flex: 0 1 auto; min-width: 0;
+}
+.encounter-condition-select {
+  font-size: 0.72rem; flex: 0 0 9.5rem; width: 9.5rem; box-sizing: border-box;
+}
 /* Adversary picker: gallery-picker chrome, own width/scroll behavior. */
 .encounter-picker-panel { width: 24rem; }
 .encounter-picker-search { width: 100%; box-sizing: border-box; margin-bottom: 0.5rem; }
