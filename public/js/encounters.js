@@ -12,7 +12,9 @@ import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
 import { trackWrite } from './connectivity.js';
-import { switchToCodexTabForEntity } from './codex.js';
+import { switchToCodexTabForEntity, entityMatchesQuery, resolveEntityStatBlockMarkdown } from './codex.js';
+import { viewerContext } from './visibility.js';
+import { renderMarkdownInto } from './markdown.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -255,7 +257,8 @@ function renderEncounterDetail() {
   detailEl.appendChild(buildConfigRow(enc));
   detailEl.appendChild(buildDifficultyPanel(enc));
   detailEl.appendChild(buildAdversariesSection(enc));
-  // Picker (§5.3) + environment block (§5.2 item 5) land next commit.
+  const envBlock = buildEnvironmentBlock(enc);
+  if (envBlock) detailEl.appendChild(envBlock);
 }
 
 function buildHeaderRow(enc) {
@@ -650,11 +653,217 @@ function makeTrackBox(enc, inst, key, i, checked) {
   return box;
 }
 
+
+// --- Environment block (§5.2 item 5) ----------------------------------
+
+function buildEnvironmentBlock(enc) {
+  if (!enc.environmentId) return null;
+  const env = entityById(enc.environmentId);
+  const wrap = document.createElement('div');
+  wrap.className = 'encounter-environment-block';
+  if (!env) {
+    const p = document.createElement('p');
+    p.className = 'lore-empty';
+    p.textContent = 'Selected environment entry is missing.';
+    wrap.appendChild(p);
+    return wrap;
+  }
+  const header = document.createElement('div');
+  header.className = 'encounter-adv-group-header';
+  const link = document.createElement('a');
+  link.href = '#';
+  link.className = 'entity-map-link encounter-env-title';
+  link.textContent = env.name;
+  link.addEventListener('click', function (ev) {
+    ev.preventDefault();
+    switchToCodexTabForEntity(env.id);
+  });
+  header.appendChild(link);
+  wrap.appendChild(header);
+  const bodyDiv = document.createElement('div');
+  bodyDiv.className = 'encounter-env-body';
+  // Same stat-block renderer the Entry Card uses (details + features
+  // markdown incl. the Phase 15 feature-type captions).
+  renderMarkdownInto(bodyDiv, resolveEntityStatBlockMarkdown(env, viewerContext(), null));
+  wrap.appendChild(bodyDiv);
+  return wrap;
+}
+
 // --- Tab wiring --------------------------------------------------------
 
-// Picker lands next commit (§5.3); stub keeps this commit self-contained.
-function openAdversaryPicker() {
-  window.alert('Adversary picker coming next commit.');
+
+// --- Adversary picker (§5.3, floating panel) --------------------------
+// Lives on document.body (not detailEl) so the snapshot re-render each
+// Add triggers doesn't destroy the open panel mid-multi-add. Add reads
+// the encounter fresh from state at click time — a stale closure would
+// clobber the instances the previous Add just wrote.
+
+function openAdversaryPicker(enc) {
+  if (document.querySelector('.encounter-picker-panel')) return;
+  const encId = enc.id;
+
+  const panel = document.createElement('div');
+  panel.className = 'gallery-picker-panel encounter-picker-panel';
+  const header = document.createElement('div');
+  header.className = 'gallery-picker-header';
+  header.textContent = 'Add adversary';
+  panel.appendChild(header);
+  const body = document.createElement('div');
+  body.className = 'gallery-picker-body';
+  panel.appendChild(body);
+  document.body.appendChild(panel);
+
+  // Drag-to-move via the header (gallery-picker pattern).
+  let panelDrag = null;
+  header.addEventListener('pointerdown', function (ev) {
+    const rect = panel.getBoundingClientRect();
+    panel.style.left = rect.left + 'px';
+    panel.style.top = rect.top + 'px';
+    panel.style.right = 'auto';
+    header.setPointerCapture(ev.pointerId);
+    panelDrag = { startX: ev.clientX, startY: ev.clientY, origLeft: rect.left, origTop: rect.top };
+  });
+  header.addEventListener('pointermove', function (ev) {
+    if (!panelDrag) return;
+    panel.style.left = (panelDrag.origLeft + (ev.clientX - panelDrag.startX)) + 'px';
+    panel.style.top = (panelDrag.origTop + (ev.clientY - panelDrag.startY)) + 'px';
+  });
+  function endPanelDrag() { panelDrag = null; }
+  header.addEventListener('pointerup', endPanelDrag);
+  header.addEventListener('pointercancel', endPanelDrag);
+
+  const searchInput = document.createElement('input');
+  searchInput.type = 'text';
+  searchInput.placeholder = 'Search\u2026';
+  searchInput.className = 'encounter-picker-search';
+  body.appendChild(searchInput);
+
+  const filterRow = document.createElement('div');
+  filterRow.className = 'encounter-picker-filters';
+  const adversaries = state.allEntities.filter(function (e) { return e.category === 'Adversary'; });
+
+  const tierSelect = document.createElement('select');
+  const tierAny = document.createElement('option');
+  tierAny.value = ''; tierAny.textContent = 'Any tier';
+  tierSelect.appendChild(tierAny);
+  Array.from(new Set(adversaries.map(function (e) { return (e.details && e.details.tier) || ''; })))
+    .filter(Boolean)
+    .sort(function (a, b) { return parseInt(a, 10) - parseInt(b, 10); })
+    .forEach(function (t) {
+      const opt = document.createElement('option');
+      opt.value = t; opt.textContent = 'Tier ' + t;
+      tierSelect.appendChild(opt);
+    });
+  filterRow.appendChild(tierSelect);
+
+  // Type options collapse the compound Horde variants via the same
+  // first-word normalization the calculator uses (§5.3).
+  const typeSelect = document.createElement('select');
+  const typeAny = document.createElement('option');
+  typeAny.value = ''; typeAny.textContent = 'Any type';
+  typeSelect.appendChild(typeAny);
+  Array.from(new Set(adversaries.map(function (e) { return normalizeAdvType(e.details && e.details.type); })))
+    .filter(Boolean)
+    .sort()
+    .forEach(function (t) {
+      const opt = document.createElement('option');
+      opt.value = t; opt.textContent = t;
+      typeSelect.appendChild(opt);
+    });
+  filterRow.appendChild(typeSelect);
+  body.appendChild(filterRow);
+
+  const results = document.createElement('div');
+  results.className = 'encounter-picker-results';
+  body.appendChild(results);
+
+  const actions = document.createElement('div');
+  actions.className = 'modal-actions';
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = 'Close';
+  closeBtn.addEventListener('click', closePanel);
+  actions.appendChild(closeBtn);
+  body.appendChild(actions);
+
+  function closePanel() {
+    document.removeEventListener('keydown', onKey);
+    panel.remove();
+  }
+  function onKey(ev) {
+    if (ev.key === 'Escape') closePanel();
+  }
+  document.addEventListener('keydown', onKey);
+
+  // OI1: the shared matcher misses feature body text (resistances) and
+  // difficulty (searchable:false), so extend it per comma-term with
+  // substring checks over both — same AND-of-terms semantics.
+  function pickerMatches(entity, rawQuery) {
+    const raw = (rawQuery || '').trim().toLowerCase();
+    if (!raw) return true;
+    const terms = raw.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+    return terms.every(function (q) {
+      if (entityMatchesQuery(entity, q)) return true;
+      const d = entity.details || {};
+      if (d.difficulty && String(d.difficulty).toLowerCase().indexOf(q) !== -1) return true;
+      return (entity.features || []).some(function (f) {
+        return f && f.text && f.text.toLowerCase().indexOf(q) !== -1;
+      });
+    });
+  }
+
+  function renderResults() {
+    results.innerHTML = '';
+    const q = searchInput.value;
+    const tier = tierSelect.value;
+    const type = typeSelect.value;
+    const matches = state.allEntities
+      .filter(function (e) {
+        if (e.category !== 'Adversary') return false;
+        const d = e.details || {};
+        if (tier && String(d.tier) !== tier) return false;
+        if (type && normalizeAdvType(d.type) !== type) return false;
+        return pickerMatches(e, q);
+      })
+      .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+    if (!matches.length) {
+      const p = document.createElement('p');
+      p.className = 'lore-empty';
+      p.textContent = 'No adversaries match.';
+      results.appendChild(p);
+      return;
+    }
+    matches.forEach(function (e) {
+      const row = document.createElement('div');
+      row.className = 'encounter-picker-row';
+      const info = document.createElement('div');
+      info.className = 'encounter-picker-row-info';
+      const name = document.createElement('div');
+      name.className = 'entity-name';
+      name.textContent = e.name;
+      info.appendChild(name);
+      const d = e.details || {};
+      const sub = document.createElement('div');
+      sub.className = 'encounter-picker-row-sub';
+      sub.textContent = ['Tier ' + (d.tier || '?'), d.type || '?', d.difficulty ? 'Difficulty ' + d.difficulty : null]
+        .filter(Boolean).join(' \u00b7 ');
+      info.appendChild(sub);
+      row.appendChild(info);
+      const addBtn = document.createElement('button');
+      addBtn.textContent = 'Add';
+      addBtn.addEventListener('click', function () {
+        const live = state.allEncounters.find(function (x) { return x.id === encId; });
+        if (live) addInstance(live, e);
+      });
+      row.appendChild(addBtn);
+      results.appendChild(row);
+    });
+  }
+
+  searchInput.addEventListener('input', renderResults);
+  tierSelect.addEventListener('change', renderResults);
+  typeSelect.addEventListener('change', renderResults);
+  renderResults();
+  searchInput.focus();
 }
 
 newBtn.addEventListener('click', createEncounter);

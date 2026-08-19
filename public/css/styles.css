@@ -2632,3 +2632,22 @@ button:disabled:hover { border-color: var(--void-line); }
 .encounter-track-boxes .character-sheet-track-box { max-width: 1.4rem; }
 .encounter-track-unknown { font-size: 0.8rem; color: var(--ink-soft); }
 .encounter-instance-note { flex: 0 1 11rem; min-width: 4rem; font-size: 0.78rem; }
+/* Adversary picker: gallery-picker chrome, own width/scroll behavior. */
+.encounter-picker-panel { width: 24rem; }
+.encounter-picker-search { width: 100%; box-sizing: border-box; margin-bottom: 0.5rem; }
+.encounter-picker-filters { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+.encounter-picker-filters select { flex: 1 1 0; min-width: 0; }
+.encounter-picker-results { max-height: 18rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.3rem; }
+.encounter-picker-row {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.25rem 0.3rem; border-radius: 6px;
+}
+.encounter-picker-row:hover { background: rgba(255,255,255,0.04); }
+.encounter-picker-row-info { flex: 1 1 auto; min-width: 0; }
+.encounter-picker-row-sub { font-size: 0.7rem; color: rgba(233,221,194,0.6); }
+.encounter-environment-block {
+  border: 1px solid var(--void-line); border-radius: 8px;
+  padding: 0.5rem 0.7rem; margin-top: 0.9rem;
+}
+.encounter-env-title { font-family: var(--font-display), sans-serif; font-size: 0.95rem; }
+.encounter-env-body { font-size: 0.85rem; }
