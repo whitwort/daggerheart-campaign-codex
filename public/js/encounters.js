@@ -288,6 +288,14 @@ function renderEncounterDetail() {
 function buildRunView(enc) {
   const wrap = document.createElement('div');
   wrap.className = 'encounter-run-view';
+  // Build-config flag the GM must remember at the table (its -2 target
+  // adjustment means these fights swing harder) -- surface it on Run.
+  if (enc.highDamage) {
+    const banner = document.createElement('div');
+    banner.className = 'encounter-run-highdamage';
+    banner.textContent = 'High damage encounter';
+    wrap.appendChild(banner);
+  }
   const groups = groupInstances(enc);
   if (!groups.length) {
     const p = document.createElement('p');
