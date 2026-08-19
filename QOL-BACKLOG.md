@@ -115,6 +115,11 @@ height, with NO per-context exceptions, except:**
     style buttons, same shape as exception 2 -- `width: auto;
     min-width: 0; text-align: left;` (inherited from the shared rule,
     not restated per-button).
+22. Modal action rows -- `.modal-actions button` (Phase 17 follow-up).
+    Three buttons in the New entry dialog (Create / Clone from... /
+    Cancel) can't fit the modal at the fixed width -- sized to
+    content, matched to each other by shared padding, grouped
+    lower-right. Applies to every `.modal-actions` row app-wide.
 
 Base width lowered from 13rem to 12rem as of the "+ New party member"
 → "+ New member" rename (that label no longer defines the floor).
