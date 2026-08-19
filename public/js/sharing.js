@@ -204,6 +204,76 @@ function appendShareNotifications(batch, type, beforeSet, mergedElem) {
   }
 }
 
+// --- Drop-recording interception (Phase 17 B1) --------------------------------
+// While state.dropRecording is set (GM opened the "+ New drop" recorder),
+// a PURE visibility patch ({visibility, characterId, characterShared}
+// subset only) on any of the three share functions below is recorded
+// into the drop instead of written to Firestore; the read-time overlay
+// in visibility.js makes every surface reflect it. A COMBINED patch
+// (lore edit box's content+visibility save) writes through unchanged and
+// is NOT recorded — documented v1 limitation (the recording gestures are
+// the quick toggles/kebab). createLoreItemShared also writes through:
+// creations aren't visibility CHANGES.
+//
+// `from` captures the element's REAL (pre-recording) state: a re-toggle
+// of an already-recorded element keeps the original from and only moves
+// `to`, so toggling somewhere and back yields a no-op entry rather than
+// two contradictory ones. All three fields are normalized (null / bool)
+// — Firestore rejects undefined, and Run/Undo apply these objects as
+// literal update patches.
+
+const VIS_FIELDS = ['visibility', 'characterId', 'characterShared'];
+
+function isPureVisibilityPatch(patch) {
+  return Object.keys(patch).every(function (k) { return VIS_FIELDS.indexOf(k) !== -1; });
+}
+
+function normalizeVisState(src) {
+  return {
+    visibility: src.visibility || 'gm-only',
+    characterId: src.characterId || null,
+    characterShared: !!src.characterShared
+  };
+}
+
+function entityNameFor(entityId) {
+  const e = state.allEntities.find(function (x) { return x.id === entityId; });
+  return (e && e.name) || '(unknown entry)';
+}
+
+// Returns true when the write was captured by the recorder (caller must
+// then skip its Firestore write). type: 'entity'|'loreItem'|'image'.
+function maybeRecordDropChange(type, elementId, oldElem, patch) {
+  const rec = state.dropRecording;
+  if (!rec || !isPureVisibilityPatch(patch) || !oldElem) return false;
+  const key = type + ':' + elementId;
+  const existing = rec.overlay[key];
+  const from = existing ? existing.from : normalizeVisState(oldElem);
+  const base = existing ? existing.to : normalizeVisState(oldElem);
+  const to = normalizeVisState(Object.assign({}, base, patch));
+  const entityId = type === 'entity' ? elementId
+    : (type === 'loreItem' ? oldElem.entityId
+       : (oldElem.ownerType === 'entity' ? oldElem.ownerId : null));
+  const change = {
+    elementType: type,
+    elementId: elementId,
+    entityId: entityId,
+    label: type === 'entity' ? (oldElem.name || '(unnamed)')
+      : (type === 'loreItem' ? 'Lore on ' + entityNameFor(entityId)
+         : 'Image on ' + entityNameFor(entityId)),
+    isMap: type === 'image' ? !!oldElem.isMap : false,
+    from: from,
+    to: to
+  };
+  rec.overlay[key] = { from: from, to: to };
+  const idx = rec.changes.findIndex(function (c) {
+    return c.elementType === type && c.elementId === elementId;
+  });
+  if (idx === -1) rec.changes.push(change); else rec.changes[idx] = change;
+  document.dispatchEvent(new CustomEvent('droprecording:change'));
+  return true;
+}
+
 // --- share writes -------------------------------------------------------------
 
 // entities: the GM 3-state kebab/toggle (codex.js buildEntityVisibilityToggle,
@@ -211,6 +281,7 @@ function appendShareNotifications(batch, type, beforeSet, mergedElem) {
 // characterShared-only flip on their own shared PC entity.
 function shareEntityVisibility(entityId, patch) {
   const old = state.allEntities.find(function (e) { return e.id === entityId; }) || null;
+  if (maybeRecordDropChange('entity', entityId, old, patch)) return Promise.resolve();
   const batch = writeBatch(db);
   batch.update(doc(db, 'entities', entityId),
     Object.assign({}, patch, { updatedAt: serverTimestamp() }));
@@ -229,6 +300,7 @@ function shareEntityVisibility(entityId, patch) {
 // fields, so all route through here as a single Firestore batch each.
 function shareLoreItemVisibility(itemId, patch) {
   const old = state.allLoreItems.find(function (i) { return i.id === itemId; }) || null;
+  if (maybeRecordDropChange('loreItem', itemId, old, patch)) return Promise.resolve();
   const batch = writeBatch(db);
   batch.update(doc(db, 'loreItems', itemId),
     Object.assign({}, patch, { updatedAt: serverTimestamp() }));
@@ -264,6 +336,7 @@ function createLoreItemShared(fields) {
 // (character && characterShared)).
 function shareImageVisibility(imageDocId, patch) {
   const img = state.currentEntityImages.find(function (i) { return i.id === imageDocId; });
+  if (maybeRecordDropChange('image', imageDocId, img, patch)) return Promise.resolve();
   const merged = Object.assign({}, img, patch, { id: imageDocId });
   const wholePartyVisible = merged.visibility === 'all-players' ||
     (merged.visibility === 'character' && !!merged.characterShared);

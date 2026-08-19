@@ -100,6 +100,7 @@ function hasFullAuthority(element, ctx) {
 }
 
 function isSharedWithActiveCharacter(element, ctx) {
+  element = resolveDropOverlay(element);
   return !ctx.gmView && !!ctx.activeCharacterId &&
     element.visibility === 'character' && element.characterId === ctx.activeCharacterId;
 }
@@ -136,7 +137,37 @@ function isNoteAuthor(item, ctx) {
 // literal outside sharing.js/visibility.js/visibility-ui.js" invariant
 // (§5.1) keeps holding.
 function belongsOnLoreSurface(item) {
+  item = resolveDropOverlay(item);
   return item.kind !== 'note' || item.visibility === 'all-players';
+}
+
+// --- Drop-recording overlay (Phase 17 B1) --------------------------------
+// While the GM is recording a Lore Drop (state.dropRecording != null),
+// no visibility write reaches Firestore — sharing.js records the from→to
+// transition into state.dropRecording.overlay instead. Every read
+// function below resolves elements through this overlay first, so ALL
+// render surfaces (list badges, card glow rings, toggles, map pins,
+// digest gates) reflect the recorded state automatically — that's what
+// the grep-gate invariant ("no surface-local visibility reads outside
+// sharing/visibility/visibility-ui") buys us. Pure read-time merge, no
+// state-doc mutation, so snapshot refreshes can never clobber it;
+// clearing state.dropRecording (Save/Cancel) reverts everything at once.
+//
+// Key derivation mirrors elementParentCharacterId's shape discriminator:
+// loreItems carry entityId, images carry ownerType, entities carry
+// neither. Constructed partial objects without an id pass through
+// untouched.
+function dropOverlayKey(element) {
+  if (element.entityId) return 'loreItem:' + element.id;
+  if (element.ownerType) return 'image:' + element.id;
+  return 'entity:' + element.id;
+}
+
+function resolveDropOverlay(element) {
+  const rec = state.dropRecording;
+  if (!rec || !element || !element.id) return element;
+  const o = rec.overlay[dropOverlayKey(element)];
+  return o ? Object.assign({}, element, o.to) : element;
 }
 
 // --- canSee -------------------------------------------------------------
@@ -147,6 +178,7 @@ function belongsOnLoreSurface(item) {
 // GM in gmView sees everything EXCEPT another author's author-only note
 // (D5) — that's the one row where gmView != see-everything.
 function canSee(element, ctx) {
+  element = resolveDropOverlay(element);
   const v = element.visibility;
 
   // Missing/legacy visibility (pre-flag test data): treated as gm-only,
@@ -189,6 +221,7 @@ function canSee(element, ctx) {
 // shared-but-viewer-is-GM). Does not itself call canSee — callers should
 // only call this after already confirming canSee(element, ctx) is true.
 function visibilityBadge(element, ctx) {
+  element = resolveDropOverlay(element);
   if (element.visibility === 'character' && element.characterShared && element.characterId) {
     return { characterId: element.characterId };
   }
@@ -210,6 +243,7 @@ function visibilityBadge(element, ctx) {
 // take ctx and must not be used in place of canSee() for actual visibility
 // gating (e.g. deciding whether a given player can see something).
 function isShareableToWholeParty(element) {
+  element = resolveDropOverlay(element);
   return element.visibility === 'all-players' ||
     (element.visibility === 'character' && !!element.characterShared);
 }
@@ -222,6 +256,7 @@ function isShareableToWholeParty(element) {
 // shared the element with the party), renders as 'vis-visible' (blue) not
 // 'vis-character' (seafoam) — reflects that the party now sees it.
 function visibilityStateClass(element) {
+  element = resolveDropOverlay(element);
   if (element.visibility === 'all-players') return 'vis-visible';
   if (element.visibility === 'character') {
     return element.characterShared ? 'vis-visible' : 'vis-character';
@@ -259,5 +294,5 @@ function entityHasSecretsFor(entity, ctx) {
 export {
   viewerContext, canSee, visibilityBadge, isShareableToWholeParty, visibilityStateClass,
   hasFullAuthority, isSharedWithActiveCharacter, isNoteAuthor, belongsOnLoreSurface,
-  entityHasSecretsFor
+  entityHasSecretsFor, resolveDropOverlay
 };
