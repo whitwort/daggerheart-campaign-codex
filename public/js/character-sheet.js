@@ -725,7 +725,7 @@ export function buildCharacterSheet(entity, ctx, editable) {
   // text, not styled as a warning.
   const footnote = document.createElement('div');
   footnote.className = 'admin-hint character-sheet-footnote';
-  renderMarkdownInto(footnote, 'Note: this sheet does not update automatically, you need to change values yourself. See (i) popups for a suggested value which may not account for all modifiers. [Download](https://www.daggerheart.com/downloads/) character sheets here.');
+  renderMarkdownInto(footnote, 'Note: this sheet does not update automatically, you need to change values yourself. See (i) popups for a suggested value which may not account for all modifiers. [Download](https://www.daggerheart.com/downloads/) character sheet PDFs.');
   wrap.appendChild(footnote);
 
   return wrap;
