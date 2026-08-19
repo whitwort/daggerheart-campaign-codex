@@ -12,6 +12,7 @@ import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
 import { trackWrite } from './connectivity.js';
+import { switchToCodexTabForEntity } from './codex.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -253,8 +254,8 @@ function renderEncounterDetail() {
   detailEl.appendChild(buildHeaderRow(enc));
   detailEl.appendChild(buildConfigRow(enc));
   detailEl.appendChild(buildDifficultyPanel(enc));
-  // Adversaries section + picker + environment block land in the next
-  // commits (§5.2 items 4–5).
+  detailEl.appendChild(buildAdversariesSection(enc));
+  // Picker (§5.3) + environment block (§5.2 item 5) land next commit.
 }
 
 function buildHeaderRow(enc) {
@@ -425,7 +426,236 @@ function buildDifficultyPanel(enc) {
   return panel;
 }
 
+
+// --- Instance mutations (E3/E8/OI3) -----------------------------------
+
+// E8: labels are "Name N" with N = max existing numeric suffix in the
+// group + 1 — the next unused index, never a renumber of survivors.
+function nextInstanceLabel(enc, entityId, name) {
+  let maxN = 0;
+  (enc.instances || []).forEach(function (inst) {
+    if (inst.entityId !== entityId) return;
+    const m = /(\d+)$/.exec(inst.label || '');
+    if (m) maxN = Math.max(maxN, parseInt(m[1], 10));
+  });
+  return name + ' ' + (maxN + 1);
+}
+
+function addInstance(enc, entity) {
+  const instances = (enc.instances || []).slice();
+  instances.push({
+    entityId: entity.id,
+    fallbackName: entity.name,
+    label: nextInstanceLabel(enc, entity.id, entity.name),
+    hp: 0, stress: 0, note: ''
+  });
+  updateEncounter(enc.id, { instances: instances });
+}
+
+// OI3: group "−" removes the highest-labeled undamaged (no hp AND no
+// stress marks) instance if any exist, else the highest-labeled one.
+function removeGroupInstance(enc, entityId) {
+  const instances = (enc.instances || []).slice();
+  const group = instances.filter(function (i) { return i.entityId === entityId; });
+  if (!group.length) return;
+  function suffix(inst) {
+    const m = /(\d+)$/.exec(inst.label || '');
+    return m ? parseInt(m[1], 10) : 0;
+  }
+  const undamaged = group.filter(function (i) { return !(i.hp > 0) && !(i.stress > 0); });
+  const pool = undamaged.length ? undamaged : group;
+  const victim = pool.reduce(function (a, b) { return suffix(b) > suffix(a) ? b : a; });
+  updateEncounter(enc.id, { instances: instances.filter(function (i) { return i !== victim; }) });
+}
+
+function patchInstance(enc, target, fields) {
+  const instances = (enc.instances || []).map(function (i) {
+    return i === target ? Object.assign({}, i, fields) : i;
+  });
+  updateEncounter(enc.id, { instances: instances });
+}
+
+// --- Adversaries section (§5.2 item 4) --------------------------------
+
+function buildAdversariesSection(enc) {
+  const section = document.createElement('div');
+  section.className = 'encounter-adversaries';
+
+  groupInstances(enc).forEach(function (g) {
+    section.appendChild(buildAdversaryGroup(enc, g));
+  });
+
+  const actions = document.createElement('div');
+  actions.className = 'actions-row';
+  const right = document.createElement('div');
+  right.className = 'actions-row-right';
+  const addBtn = document.createElement('button');
+  addBtn.id = 'encounter-add-adversary-btn';
+  addBtn.className = 'action-btn-compact';
+  addBtn.textContent = '+ Add adversary';
+  addBtn.addEventListener('click', function () { openAdversaryPicker(enc); });
+  right.appendChild(addBtn);
+  actions.appendChild(right);
+  section.appendChild(actions);
+
+  return section;
+}
+
+function buildAdversaryGroup(enc, g) {
+  const wrap = document.createElement('div');
+  wrap.className = 'encounter-adv-group';
+
+  const header = document.createElement('div');
+  header.className = 'encounter-adv-group-header';
+
+  const title = document.createElement('span');
+  title.className = 'encounter-adv-group-title';
+  const countSpan = document.createElement('span');
+  countSpan.textContent = g.instances.length + '\u00d7 ';
+  title.appendChild(countSpan);
+  if (g.entity) {
+    const link = document.createElement('a');
+    link.href = '#';
+    link.className = 'entity-map-link';
+    link.textContent = g.entity.name;
+    link.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      switchToCodexTabForEntity(g.entity.id);
+    });
+    title.appendChild(link);
+  } else {
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = g.instances[0].fallbackName || '(missing entry)';
+    title.appendChild(nameSpan);
+    const missing = document.createElement('span');
+    missing.className = 'encounter-adv-missing';
+    missing.textContent = ' entry missing';
+    title.appendChild(missing);
+  }
+  header.appendChild(title);
+
+  if (g.entity) {
+    const d = g.entity.details || {};
+    const statLine = document.createElement('span');
+    statLine.className = 'encounter-adv-statline';
+    const bits = [];
+    if (d.tier) bits.push('Tier ' + d.tier);
+    if (d.type) bits.push(d.type);
+    if (d.difficulty) bits.push('Difficulty ' + d.difficulty);
+    if (d.thresholds) bits.push('Thresholds ' + d.thresholds);
+    if (d.attack_name) bits.push(d.attack_name + ' ' + (d.attack_modifier || '') + (d.attack_range ? ' (' + d.attack_range + ')' : '') + (d.attack_damage ? ': ' + d.attack_damage : ''));
+    statLine.textContent = bits.join(' \u00b7 ');
+    header.appendChild(statLine);
+  }
+
+  const controls = document.createElement('div');
+  controls.className = 'encounter-adv-group-controls';
+  const minus = document.createElement('button');
+  minus.className = 'characters-remove-btn';
+  minus.textContent = '\u2212';
+  minus.title = 'Remove one (undamaged first)';
+  minus.addEventListener('click', function () { removeGroupInstance(enc, g.entityId); });
+  controls.appendChild(minus);
+  const plus = document.createElement('button');
+  plus.className = 'characters-add-btn';
+  plus.textContent = '+';
+  plus.title = 'Add another';
+  plus.disabled = !g.entity;  // can't clone a deleted entry's stats
+  plus.addEventListener('click', function () {
+    if (g.entity) addInstance(enc, g.entity);
+  });
+  controls.appendChild(plus);
+  header.appendChild(controls);
+  wrap.appendChild(header);
+
+  const d = (g.entity && g.entity.details) || {};
+  const hpMax = parseInt(d.hp, 10);
+  const stressMax = parseInt(d.stress, 10);
+  g.instances.forEach(function (inst) {
+    wrap.appendChild(buildInstanceRow(enc, inst, hpMax, stressMax));
+  });
+
+  return wrap;
+}
+
+function buildInstanceRow(enc, inst, hpMax, stressMax) {
+  // Defeated is derived (E6): all HP marked. Unknown max (deleted or
+  // detail-less entry) can never derive defeated.
+  const defeated = !isNaN(hpMax) && hpMax > 0 && inst.hp >= hpMax;
+
+  const row = document.createElement('div');
+  row.className = 'encounter-instance-row' + (defeated ? ' defeated' : '');
+
+  const label = document.createElement('span');
+  label.className = 'encounter-instance-label';
+  label.textContent = inst.label;
+  row.appendChild(label);
+
+  row.appendChild(buildInstanceTrack(enc, inst, 'HP', 'hp', hpMax));
+  row.appendChild(buildInstanceTrack(enc, inst, 'Stress', 'stress', stressMax));
+
+  const note = document.createElement('input');
+  note.type = 'text';
+  note.className = 'encounter-instance-note';
+  note.placeholder = 'note';
+  note.value = inst.note || '';
+  note.addEventListener('change', function () {
+    patchInstance(enc, inst, { note: note.value });
+  });
+  row.appendChild(note);
+
+  return row;
+}
+
+function buildInstanceTrack(enc, inst, labelText, key, max) {
+  const wrap = document.createElement('div');
+  wrap.className = 'encounter-instance-track';
+  const label = document.createElement('span');
+  label.className = 'encounter-instance-track-label';
+  label.textContent = labelText;
+  wrap.appendChild(label);
+
+  const boxes = document.createElement('div');
+  boxes.className = 'character-sheet-track-boxes encounter-track-boxes';
+  if (isNaN(max) || max <= 0) {
+    // §3 missing-entity degradation: no known ceiling — render only the
+    // marks already made (uncheckable-down still works via those), plus
+    // a "?" so the state is visibly unknown rather than an empty track.
+    const marked = Math.max(0, inst[key] || 0);
+    for (let i = 0; i < marked; i++) boxes.appendChild(makeTrackBox(enc, inst, key, i, true));
+    const unknown = document.createElement('span');
+    unknown.className = 'encounter-track-unknown';
+    unknown.textContent = '?';
+    boxes.appendChild(unknown);
+  } else {
+    // Clamping (§3): render clamps to live max; stored marks rewrite
+    // only on next interaction.
+    const marked = Math.max(0, Math.min(max, inst[key] || 0));
+    for (let i = 0; i < max; i++) boxes.appendChild(makeTrackBox(enc, inst, key, i, i < marked));
+  }
+  wrap.appendChild(boxes);
+  return wrap;
+}
+
+// No locked state and no double-tap semantics here (unlike the Sheet
+// tab): click a checked box to unmark down to it, an unchecked box to
+// mark up through it.
+function makeTrackBox(enc, inst, key, i, checked) {
+  const box = document.createElement('button');
+  box.type = 'button';
+  box.className = 'character-sheet-track-box' + (checked ? ' marked' : '');
+  box.addEventListener('click', function () {
+    patchInstance(enc, inst, { [key]: checked ? i : i + 1 });
+  });
+  return box;
+}
+
 // --- Tab wiring --------------------------------------------------------
+
+// Picker lands next commit (§5.3); stub keeps this commit self-contained.
+function openAdversaryPicker() {
+  window.alert('Adversary picker coming next commit.');
+}
 
 newBtn.addEventListener('click', createEncounter);
 
