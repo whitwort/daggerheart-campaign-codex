@@ -715,7 +715,14 @@ function buildFeaturesMarkdown(entity, tierFilter) {
     return lines.join('\n').trim();
   }
   const lines = ['### Features'];
-  feats.forEach(function (f) { lines.push('**' + f.name + '.** ' + f.text, ''); });
+  // Phase 15 (D5): hasFeatureType schemas render the type inline after
+  // the name, matching the SRD statblock's own "Name - Type" format.
+  // Gated on truthy f.type (not the schema flag) so hand-added features
+  // without a type render exactly as before.
+  feats.forEach(function (f) {
+    const typeSuffix = f.type ? ' - ' + f.type : '';
+    lines.push('**' + f.name + typeSuffix + '.** ' + f.text, '');
+  });
   return lines.join('\n').trim();
 }
 function resolveLoreItemMarkdown(entity, item, items) {
@@ -1246,7 +1253,7 @@ function buildEntityDraft(entity) {
     // Ancestry First/Second, §11.1) for edit silently empties every
     // group's feature list -- the editor filters on f.group === g.key,
     // and a stripped group never matches any key.
-    features: (entity.features || []).map(function (f) { return { name: f.name || '', text: f.text || '', group: f.group || null }; }),
+    features: (entity.features || []).map(function (f) { return { name: f.name || '', text: f.text || '', group: f.group || null, type: f.type || null }; }),
     metaAncestryTargetIds: (entity.metaAncestryTargetIds || []).slice(),
     // Phase 14 S10: Character "cards" (ancestry/community/class/
     // subclass/tier/abilities) and badgeColor now edit through this
@@ -1873,6 +1880,32 @@ function buildTemplateEditor(draft) {
         nameInput.value = f.name;
         nameInput.addEventListener('input', function () { f.name = nameInput.value; });
         row.appendChild(nameInput);
+        // Phase 15 (D5/A3): schemas with hasFeatureType edit a per-
+        // feature type (Action/Passive/Reaction). Free text with a
+        // datalist, NOT a strict select -- the SRD source carries
+        // compound values ("Reaction: Countdown (5)") that a closed
+        // enum would reject. Datalist shared per document via fixed id;
+        // created once, first time any typed feature row renders.
+        if (schema.hasFeatureType) {
+          const typeInput = document.createElement('input');
+          typeInput.type = 'text';
+          typeInput.className = 'template-feature-type-input';
+          typeInput.placeholder = 'Type';
+          typeInput.setAttribute('list', 'feature-type-options');
+          if (!document.getElementById('feature-type-options')) {
+            const dl = document.createElement('datalist');
+            dl.id = 'feature-type-options';
+            ['Action', 'Passive', 'Reaction'].forEach(function (t) {
+              const opt = document.createElement('option');
+              opt.value = t;
+              dl.appendChild(opt);
+            });
+            document.body.appendChild(dl);
+          }
+          typeInput.value = f.type || '';
+          typeInput.addEventListener('input', function () { f.type = typeInput.value; });
+          row.appendChild(typeInput);
+        }
         const textInput = document.createElement('input');
         textInput.type = 'text';
         textInput.placeholder = 'Effect text';
