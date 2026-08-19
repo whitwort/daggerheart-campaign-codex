@@ -123,9 +123,9 @@ function buildShell() {
     });
     introP.appendChild(link);
   } else {
-    introP.appendChild(document.createTextNode('\u201cDates and Times\u201d (Game Mechanics)'));
+    introP.appendChild(document.createTextNode('\u201cDates and Times\u201d'));
   }
-  introP.appendChild(document.createTextNode(' for the full explanation.'));
+  introP.appendChild(document.createTextNode('.'));
   wellCol.appendChild(introP);
 
   // Outer wrap has NO overflow:hidden -- that's what was clipping the
