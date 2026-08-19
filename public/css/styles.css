@@ -2615,7 +2615,10 @@ button:disabled:hover { border-color: var(--void-line); }
   font-size: 0.8rem; color: rgba(233,221,194,0.75); line-height: 1.5;
 }
 .encounter-adversaries { margin-top: 0.9rem; display: flex; flex-direction: column; gap: 0.7rem; }
-.encounter-adv-group { border: 1px solid var(--void-line); border-radius: 8px; padding: 0.5rem 0.7rem; }
+/* Near-black fill (not just a border) so the Run wells read as sunken
+   against the .admin-card's void-raised outer well -- same --void token
+   the difficulty panel already uses; better text contrast too. */
+.encounter-adv-group { background: var(--void); border: 1px solid var(--void-line); border-radius: 8px; padding: 0.5rem 0.7rem; }
 .encounter-adv-group-header { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
 .encounter-adv-group-title { font-family: var(--font-display), sans-serif; font-size: 0.95rem; }
 .encounter-adv-statline { flex: 1 1 auto; min-width: 0; font-size: 0.72rem; color: rgba(233,221,194,0.65); }
@@ -2665,6 +2668,7 @@ button:disabled:hover { border-color: var(--void-line); }
 .encounter-picker-row-info { flex: 1 1 auto; min-width: 0; }
 .encounter-picker-row-sub { font-size: 0.7rem; color: rgba(233,221,194,0.6); }
 .encounter-environment-block {
+  background: var(--void);
   border: 1px solid var(--void-line); border-radius: 8px;
   padding: 0.5rem 0.7rem; margin-top: 0.9rem;
 }
