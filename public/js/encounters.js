@@ -611,10 +611,21 @@ function buildAdversaryGroup(enc, g, mode) {
 
   if (mode === 'run') {
     if (g.entity) {
-      const statBlock = document.createElement('div');
-      statBlock.className = 'encounter-adv-statblock';
-      renderMarkdownInto(statBlock, resolveEntityStatBlockMarkdown(g.entity, viewerContext(), null));
-      wrap.appendChild(statBlock);
+      // Density pass (Gregg, session 38): the markdown Details section
+      // costs ~10 mostly-empty lines on an iPad. Replace it with a
+      // wrap-flow stat strip built here, and strip the Details section
+      // (and the Features heading -- bold feature names carry the
+      // structure) out of the markdown before rendering the rest
+      // (features + leftover meta lore items).
+      wrap.appendChild(buildAdvStatStrip(g.entity));
+      let md = resolveEntityStatBlockMarkdown(g.entity, viewerContext(), null);
+      md = md.replace(/### Details\n(?:- .*\n?)*/, '').replace('### Features\n', '').trim();
+      if (md) {
+        const statBlock = document.createElement('div');
+        statBlock.className = 'encounter-adv-statblock';
+        renderMarkdownInto(statBlock, md);
+        wrap.appendChild(statBlock);
+      }
     }
     const d = (g.entity && g.entity.details) || {};
     const hpMax = parseInt(d.hp, 10);
@@ -699,6 +710,41 @@ function makeTrackBox(enc, inst, key, i, checked) {
   return box;
 }
 
+
+
+// Compact one-strip details render for the Run view: label-value
+// segments in a wrap flow, schema-ordered, attack fields composed into
+// one segment. iPad-density replacement for the markdown bullet list.
+function buildAdvStatStrip(entity) {
+  const d = entity.details || {};
+  const stripEl = document.createElement('div');
+  stripEl.className = 'encounter-statline-strip';
+  function seg(label, value) {
+    if (value === undefined || value === null || value === '') return;
+    const span = document.createElement('span');
+    span.className = 'encounter-statline-seg';
+    if (label) {
+      const lab = document.createElement('span');
+      lab.className = 'encounter-statline-seg-label';
+      lab.textContent = label + ' ';
+      span.appendChild(lab);
+    }
+    span.appendChild(document.createTextNode(String(value)));
+    stripEl.appendChild(span);
+  }
+  seg('Tier', d.tier);
+  seg(null, d.type);
+  seg('Difficulty', d.difficulty);
+  seg('HP', d.hp);
+  seg('Stress', d.stress);
+  seg('Thresholds', d.thresholds);
+  if (d.attack_name || d.attack_modifier || d.attack_damage) {
+    const atk = [d.attack_modifier, d.attack_name ? d.attack_name + ':' : null,
+      d.attack_range, d.attack_damage].filter(Boolean).join(' ');
+    seg('ATK', atk);
+  }
+  return stripEl;
+}
 
 // --- Environment block (§5.2 item 5) ----------------------------------
 
