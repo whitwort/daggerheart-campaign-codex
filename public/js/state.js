@@ -8,6 +8,14 @@ export const state = {
   joinRequestDocUnsub: null,
   entitiesUnsub: null,
   loreItemsUnsub: null,
+  characterImagesUnsub: null, // Phase 17 A1 -- filtered whole-collection listener (images where visibility=='character'); the ONLY global images listener, viable because character-shared docs are few and the base64 `data` field is stripped before storing
+  allCharacterImages: [],     // metadata-only copies of images currently at visibility 'character' (secret-children badge / Show secrets mode)
+  secretsFilterActive: false, // Phase 17 A2 -- player-view Entry Browser "Show secrets" mode; mutually exclusive with a search query
+  dropRecording: null,        // Phase 17 B1 -- null | {changes: [], overlay: {'<type>:<id>': {from, to}}, name: ''}; while set, sharing.js intercepts visibility-only writes and visibility.js resolves reads through the overlay
+  loreDropsUnsub: null,       // Phase 17 B3 -- GM-only loreDrops collection listener (stables.js)
+  allLoreDrops: [],
+  stablesDropsTab: 'current', // Phase 17 B3 -- Stables tab drop browser: 'current' | 'previous'
+  stablesSelectedId: null,    // Phase 17 B3 -- Stables tab selected drop
   entityImagesUnsub: null,   // per-entity images query listener — manual lifecycle (target changes with selection/form), like mapImageUnsub
   entityImagesTargetId: null,
   currentEntityImages: [],   // image docs for entityImagesTargetId

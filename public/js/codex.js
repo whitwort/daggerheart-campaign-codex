@@ -17,7 +17,8 @@ import {
 import { getTemplateSchema, normalizeSearchTerm, computeSearchIndex } from './templates.js';
 import {
   canSee, viewerContext, visibilityBadge, isShareableToWholeParty, visibilityStateClass,
-  hasFullAuthority, isSharedWithActiveCharacter, isNoteAuthor, belongsOnLoreSurface
+  hasFullAuthority, isSharedWithActiveCharacter, isNoteAuthor, belongsOnLoreSurface,
+  entityHasSecretsFor
 } from './visibility.js';
 import { shareEntityVisibility, shareLoreItemVisibility, shareImageVisibility, createLoreItemShared } from './sharing.js';
 import { buildVisibilityControl, buildSharedToggle, buildNoteToggle, buildCharacterBadge } from './visibility-ui.js';
@@ -240,11 +241,35 @@ function attachCodexListeners() {
       detailEl.innerHTML = '<p>Error loading lore: ' + err.message + '</p>';
     });
   });
+
+  // Phase 17 A1: the one deliberate exception to the "no global images
+  // listener" rule — filtered to visibility=='character' (secret/green-
+  // state docs only, a handful at any time) so the secret-children badge
+  // and Show secrets mode can answer "does this entity have secret image
+  // children" without loading every entity's gallery. The base64 `data`
+  // field is STRIPPED before storing — only metadata reaches state.
+  attachListener('characterImagesUnsub', function () {
+    return onSnapshot(
+      query(collection(db, 'images'), where('visibility', '==', 'character')),
+      safeSnapshotHandler('characterImages', function (snapshot) {
+        state.allCharacterImages = [];
+        snapshot.forEach(function (docSnap) {
+          const d = docSnap.data();
+          delete d.data;
+          state.allCharacterImages.push(Object.assign({ id: docSnap.id }, d));
+        });
+        renderList();
+      }), function (err) {
+        console.error('character images listener error:', err.message);
+      });
+  });
 }
 
 function detachCodexListeners() {
   detachListener('entitiesUnsub');
   detachListener('loreItemsUnsub');
+  detachListener('characterImagesUnsub');
+  state.allCharacterImages = [];
   setEntityImagesTarget(null);
 }
 
@@ -643,6 +668,26 @@ gmViewSelect.addEventListener('change', function () {
   notifyVisibilityChange();
 });
 
+// --- Entry Browser footer buttons (Phase 17) -------------------------------
+// Dynamic (per-render) gating, unlike #codex-new-btn's static role gating
+// in auth.js, because both depend on live state: "Show secrets" exists
+// only for a player-view ctx that actually HAS secrets; "+ New drop" is
+// gmView-only (hidden while previewing as player — recording is a GM
+// act) and locks while a recording is already open.
+const secretsBtn = document.getElementById('codex-secrets-btn');
+
+function updateListActionButtons(ctx, anySecrets, secretsActive) {
+  secretsBtn.style.display = (!ctx.gmView && anySecrets) ? 'inline-block' : 'none';
+  secretsBtn.textContent = secretsActive ? 'Show all' : 'Show secrets';
+  secretsBtn.classList.toggle('secrets-mode-active', secretsActive);
+}
+
+secretsBtn.addEventListener('click', function () {
+  state.secretsFilterActive = !state.secretsFilterActive;
+  if (state.secretsFilterActive) clearCodexSearchInput();
+  renderList();
+});
+
 // Authorship model: authorType is 'gm' (authorId null) or 'character'
 // (authorId = the authoring Player Character's entities/ doc id — never a
 // player's uid/email). "Written by" tracks in-fiction knowledge, not who's
@@ -959,9 +1004,23 @@ function categoryGroupLabel(cat) {
 function renderList() {
   updateGmToolbar();
   const ctx = viewerContext();
+
+  // Phase 17 A2: Show secrets mode. Player view only; the button exists
+  // only while at least one entity has secrets for this viewer, and the
+  // mode self-clears when the last secret is shared onward (the filter
+  // below would otherwise strand an empty list with no way to see why).
+  const anySecrets = !ctx.gmView && state.allEntities.some(function (e) {
+    return canSee(e, ctx) && entityHasSecretsFor(e, ctx);
+  });
+  if (state.secretsFilterActive && !anySecrets) state.secretsFilterActive = false;
+  const secretsActive = state.secretsFilterActive;
+  updateListActionButtons(ctx, anySecrets, secretsActive);
+  listEl.classList.toggle('secrets-mode', secretsActive);
+
   const filtered = state.allEntities
     .filter(matchesFilters)
     .filter(function (e) { return canSee(e, ctx); })
+    .filter(function (e) { return !secretsActive || entityHasSecretsFor(e, ctx); })
     .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
 
   listEl.innerHTML = '';
@@ -987,8 +1046,9 @@ function renderList() {
 
   // While a search query is active, force every category with a match
   // open — overrides the user's stored collapse preference for the
-  // duration of the search only; clearing the box restores it.
-  const searchActive = searchEl.value.trim().length > 0;
+  // duration of the search only; clearing the box restores it. Phase 17
+  // A2: Show secrets mode borrows the exact same force-expand mechanic.
+  const searchActive = searchEl.value.trim().length > 0 || secretsActive;
 
   orderedCats.forEach(function (cat) {
     const entities = byCategory[cat];
@@ -1059,10 +1119,11 @@ function renderList() {
         hiddenSpan.textContent = 'hidden';
         rightCol.appendChild(hiddenSpan);
       }
-      // Phase 14 S16: secret badge for entries shared with just this player's
-      // active character (player view only, only if not already shared with party)
-      if (!ctx.gmView && entity.visibility === 'character' && entity.characterId && 
-          entity.characterId === ctx.activeCharacterId && !entity.characterShared) {
+      // Phase 14 S16 / Phase 17 A1: secret badge for entries shared with
+      // just this player's active character (player view only, not yet
+      // shared with party) — OR containing child lore elements (lore
+      // items, images) in that state (entityHasSecretsFor).
+      if (entityHasSecretsFor(entity, ctx)) {
         const secretSpan = document.createElement('span');
         secretSpan.className = 'entity-secret-badge';
         secretSpan.textContent = 'secret';
@@ -4411,6 +4472,9 @@ function renderEntityViewCard(container, entity, ctx, opts) {
 }
 
 searchEl.addEventListener('input', function () {
+  // Phase 17 A2: search and Show secrets mode are mutually exclusive —
+  // typing a query exits secrets mode rather than intersecting with it.
+  if (searchEl.value.trim().length > 0) state.secretsFilterActive = false;
   updateSearchClearBtnVisibility();
   renderList();
 });

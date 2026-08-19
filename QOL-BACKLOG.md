@@ -57,7 +57,8 @@ height, with NO per-context exceptions, except:**
    images" as of Phase 14 S7's multi-select rename, was "+ New
    image"). Reuse this class for the future Notes-tab "+ New Note"
    button (see below).
-9. `#sign-out-btn` and `#codex-new-btn` — single buttons, no group to
+9. `#sign-out-btn`, `#codex-new-btn`, `#codex-secrets-btn`,
+   `#codex-new-drop-btn` (Phase 17) — footer/toolbar buttons, no fixed group to
    match, `width: auto; min-width: 0;`.
 10. Pin panel Save / Move pin / Cancel — `#pin-panel-actions button`,
     all three matching, sized to fit the longest label ("Move pin"),
