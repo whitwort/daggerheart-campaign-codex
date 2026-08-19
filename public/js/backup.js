@@ -28,7 +28,7 @@ import { firebaseApp } from './firebase.js';
 
 const db = getFirestore(firebaseApp);
 
-const COLLECTIONS = ['config', 'encounters', 'entities', 'images', 'joinRequests', 'loreItems', 'notifications', 'pins', 'players', 'sources', 'threads', 'transferRequests'];
+const COLLECTIONS = ['config', 'encounters', 'entities', 'images', 'joinRequests', 'loreDrops', 'loreItems', 'notifications', 'pins', 'players', 'sources', 'threads', 'transferRequests'];
 // Client-side restore skips what the rules make impossible for a GM:
 // joinRequests and transferRequests (create is locked to the requesting
 // user's own email). threads restores its DOCS but not the messages

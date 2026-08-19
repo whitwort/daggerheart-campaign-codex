@@ -222,13 +222,19 @@ service cloud.firestore {
     // (sharing.js), never diff-detected -- both GM and player clients can
     // create these (trust-the-table model, same as every other collection
     // here), shape-validated. Recipient may only flip their own `seenAt`.
+    // Phase 17 B4: kind 'lore-drop' -- ONE consolidated doc per newly-
+    // exposed player when the GM runs a Lore Drop (stables.js), carrying
+    // dropName + the entityIds list instead of a single entityId.
     function isValidNotification() {
       return request.resource.data.keys().hasOnly(
-          ['recipientEmail', 'kind', 'entityId', 'loreItemId', 'actorCharacterId', 'createdAt', 'seenAt', 'requestEmail', 'provider'])
+          ['recipientEmail', 'kind', 'entityId', 'loreItemId', 'actorCharacterId', 'createdAt', 'seenAt', 'requestEmail', 'provider',
+           'dropName', 'entityIds'])
         && request.resource.data.recipientEmail is string
-        && request.resource.data.kind in ['discovered', 'learned', 'shared', 'joinRequest']
+        && request.resource.data.kind in ['discovered', 'learned', 'shared', 'joinRequest', 'lore-drop']
         && (request.resource.data.kind != 'joinRequest' || request.resource.data.requestEmail is string)
-        && (request.resource.data.kind == 'joinRequest' || request.resource.data.entityId is string);
+        && (request.resource.data.kind != 'lore-drop' ||
+            (request.resource.data.dropName is string && request.resource.data.entityIds is list))
+        && (request.resource.data.kind in ['joinRequest', 'lore-drop'] || request.resource.data.entityId is string);
     }
     match /notifications/{notifId} {
       allow read: if isGM() || (request.auth != null && resource.data.recipientEmail == request.auth.token.email);

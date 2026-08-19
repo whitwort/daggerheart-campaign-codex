@@ -793,6 +793,34 @@ select {
 .drop-recorder-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
 .drop-recorder-actions button { width: 7rem; min-width: 7rem; padding: 0.4rem 0.7rem; }
 
+/* Phase 17 B3: Stables tab. Drop browser sub-tabs mirror #admin-db-tabs'
+   flat tab treatment (QOL exception 2 family); list rows mirror the
+   Entry Browser's flat-row look; Run/Undo/Delete use the app-default
+   button width. */
+#stables-drops-tabs { display: flex; gap: 0.25rem; margin-top: 0.25rem; border-bottom: 1px solid rgba(0,0,0,0.6); }
+#stables-drops-tabs button {
+  padding: 0.4rem 0.9rem; cursor: pointer; background: none; border: none; border-radius: 0; box-shadow: none;
+  border-bottom: 3px solid transparent; font-size: 0.9rem; color: var(--ink-soft);
+  font-family: var(--font-display), sans-serif; font-weight: 400;
+  width: auto; min-width: 0; text-align: left;
+}
+#stables-drops-tabs button.active { border-bottom-color: var(--hope); color: var(--parchment); }
+.stables-drop-list { list-style: none; padding: 0; margin: 0.5rem 0 0 0; }
+.stables-drop-row {
+  display: flex; flex-direction: column; gap: 0.15rem; padding: 0.45rem 0.5rem;
+  cursor: pointer; border-radius: 6px;
+}
+.stables-drop-row:hover { background: rgba(255,255,255,0.04); }
+.stables-drop-row.active { background: rgba(255,255,255,0.08); }
+.stables-drop-name { font-family: var(--font-display), sans-serif; font-size: 0.9rem; }
+.stables-drop-meta, .stables-drop-detail-meta { font-size: 0.75rem; color: var(--ink-soft); }
+.stables-drop-detail-meta { margin: 0.25rem 0 0.75rem 0; }
+.stables-drop-summary {
+  border: 1px solid var(--void-line); border-radius: 6px; padding: 0.5rem;
+  background: rgba(0,0,0,0.15); margin-bottom: 0.75rem; max-height: 55vh; overflow-y: auto;
+}
+.stables-drop-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
+
 /* Phase 17 A2: Show secrets mode — seafoam (the secret/character-state
    color) mode chrome so a filtered list is unmistakable: active button
    inverts to filled seafoam; the list pane itself gets a matching ring

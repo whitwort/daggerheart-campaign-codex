@@ -262,6 +262,11 @@ function maybeRecordDropChange(type, elementId, oldElem, patch) {
       : (type === 'loreItem' ? 'Lore on ' + entityNameFor(entityId)
          : 'Image on ' + entityNameFor(entityId)),
     isMap: type === 'image' ? !!oldElem.isMap : false,
+    // loreItems only: exposedEmailSet's author-only branch needs these at
+    // Run/Undo time (a GM note cannonized inside a drop records an
+    // author-only endpoint). Null for entities/images.
+    authorType: (type === 'loreItem' && oldElem.authorType) || null,
+    authorId: (type === 'loreItem' && oldElem.authorId) || null,
     from: from,
     to: to
   };
@@ -354,4 +359,10 @@ function shareImageVisibility(imageDocId, patch) {
   return batch.commit();
 }
 
-export { shareEntityVisibility, shareLoreItemVisibility, shareImageVisibility, createLoreItemShared };
+// playersUniverse/exposedEmailSet exported for stables.js's Run-time
+// consolidated 'lore-drop' notification computation (Phase 17 B4) — the
+// same before/after set diff this module uses for per-share fan-out.
+export {
+  shareEntityVisibility, shareLoreItemVisibility, shareImageVisibility, createLoreItemShared,
+  playersUniverse, exposedEmailSet
+};
