@@ -2621,7 +2621,7 @@ button:disabled:hover { border-color: var(--void-line); }
 .encounter-adv-statline { flex: 1 1 auto; min-width: 0; font-size: 0.72rem; color: rgba(233,221,194,0.65); }
 .encounter-adv-missing { font-size: 0.72rem; color: var(--hope); font-style: italic; }
 .encounter-adv-group-controls { display: flex; gap: 0.3rem; margin-left: auto; }
-.encounter-instance-row { display: flex; align-items: center; gap: 0.7rem; margin-top: 0.4rem; }
+.encounter-instance-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.7rem; margin-top: 0.4rem; }
 .encounter-instance-row.defeated .encounter-instance-label { text-decoration: line-through; }
 .encounter-instance-row.defeated { opacity: 0.55; }
 .encounter-instance-label { flex: 0 0 9rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.82rem; }
@@ -2631,7 +2631,11 @@ button:disabled:hover { border-color: var(--void-line); }
 /* Cap box growth so a 3-HP minion's boxes don't balloon to fill the row. */
 .encounter-track-boxes .character-sheet-track-box { max-width: 1.4rem; }
 .encounter-track-unknown { font-size: 0.8rem; color: var(--ink-soft); }
-.encounter-instance-note { flex: 0 1 11rem; min-width: 4rem; font-size: 0.78rem; }
+/* A2: conditions replaced the note input. Selects stay compact; the
+   row's flex-wrap drops them to a second line when tracks need the
+   width on iPad. */
+.encounter-instance-conditions { display: flex; gap: 0.3rem; flex: 0 1 auto; }
+.encounter-condition-select { font-size: 0.72rem; max-width: 8rem; }
 /* Adversary picker: gallery-picker chrome, own width/scroll behavior. */
 .encounter-picker-panel { width: 24rem; }
 .encounter-picker-search { width: 100%; box-sizing: border-box; margin-bottom: 0.5rem; }
