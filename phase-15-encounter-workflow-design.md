@@ -1,6 +1,12 @@
 # Phase 15 Design — Encounter Workflow
 
-Status: **DESIGN LOCKED** (signed off session 38; OI1 ack'd, OI2 yes-collapsed, OI3 as proposed, OI4 updatedAt desc). Second design doc under Phase 15
+Status: **DESIGN LOCKED** (signed off session 38; OI1 ack'd, OI2 yes-collapsed, OI3 as proposed, OI4 updatedAt desc).
+**Amended (session 38, post-implementation review — A1):** the
+single-view premise (§1 "build-time and play-time collapse into one
+view") is replaced by a two-tab detail pane, Build / Run, after Gregg
+flagged that adversary features had no display surface at all. §5.2 is
+restructured below; the encounter doc model, calculator, and picker are
+unchanged. Second design doc under Phase 15
 (`daggerheart-encounter-builder` integration). Prerequisite landed:
 Adversary/Environment entity model (`phase-15-design.md`, sessions
 36–37). Scope of this doc: the encounter-builder workflow itself —
@@ -131,29 +137,50 @@ stateKey memoization existed for its VDOM, not needed here).
 - `nav#tabs` gains `<button id="tab-btn-encounters" data-tab="encounters-panel" style="display:none">Encounters</button>`, shown by the same GM check that reveals Admin. Placed between Characters and Admin.
 - Panel: left list pane (encounter names + updated date, `+ New encounter` button — `#codex-new-btn` single-button exception family), right detail pane.
 
-### 5.2 Detail pane (one view — builder and tracker are the same thing)
-Top to bottom:
-1. **Header row**: encounter name (inline-editable, entity-name
-   precedent), Delete (confirm).
+### 5.2 Detail pane — Build / Run tabs (amendment A1)
+
+Two flat tabs inside the detail pane, reusing the Characters tab's
+Cards/Sheet shell pattern (`.character-detail-tabs` — QOL exception 2).
+Tab state lives in `state.encountersDetailTab`, shared and persistent
+across selection changes (charactersDetailTab precedent). This is the
+codex-native analogue of encounter-builder's build dialog vs. generated
+run Sheet — same live doc underneath, two lenses on it.
+
+**Build tab** (compose and budget the encounter):
+1. **Header row**: encounter name (inline-editable), Delete (confirm).
 2. **Party config row**: Players (number 1–8), Tier (select 1–4), High
-   Damage (toggle-switch, not checkbox — house style), Environment
-   (select over category=Environment entities by name, "None" first).
+   Damage (toggle-switch), Environment (select over
+   category=Environment entities by name, "None" first).
 3. **Difficulty panel**: total points, difficulty chip, per-group
    breakdown, collapsible full math (§4).
-4. **Adversaries section**: grouped by entity. Group header:
-   `N× {name}` (name links to the codex entry), +/− controls
-   (`+` adds an instance, `−` removes the highest-labeled
-   *undamaged* instance if any, else the highest-labeled one).
-   Under it, one row per instance: label, HP track boxes, Stress
-   track boxes, note (inline text input), derived defeated styling
-   (row dimmed + strikethrough label when hp full).
-   `+ Add adversary` opens the picker (§5.3).
-5. **Environment block**: when an environment is selected, read-only
-   render of its stat block (tier/type/difficulty + features via the
-   existing `buildFeaturesMarkdown` path) with a link to the entry.
+4. **Adversaries section**: grouped by entity — group header only
+   (`N× {name}` linking to the codex entry, one-line stat summary,
+   +/− controls: `+` adds an instance, `−` removes the
+   highest-labeled *undamaged* instance if any, else the
+   highest-labeled one). No per-instance rows here — instances are a
+   Run concern. `+ Add adversary` opens the picker (§5.3).
+
+**Run tab** (streamlined for the table):
+1. Per adversary group: full stat block (the same
+   `resolveEntityStatBlockMarkdown` render the environment uses —
+   details AND features, closing the gap that triggered A1), then one
+   row per instance: label, HP track boxes, Stress track boxes, note
+   (inline text input), derived defeated styling (row dimmed +
+   strikethrough label at full HP). The +/− controls appear here too
+   (mid-combat reinforcements/removals are real), but the picker stays
+   on Build.
+2. **Environment block**: read-only stat block with entry link, after
+   the adversary groups (mirrors the generated Sheet's ordering).
+No name editing, config, or difficulty math on Run.
 
 Track boxes reuse `.character-sheet-track-box` styling (plain/marked;
 no third suggested state here). iOS-proven from Sheet tab.
+
+**Future (recorded, unscoped — Gregg session 38):** Run tab will gain
+start-of-combat and end-of-combat actions that trigger visibility
+changes on a connected scene entity (and relates to the AAR lore item
+in §7). Nothing modeled yet; the Build/Run divide is the prerequisite
+being laid down now.
 
 ### 5.3 Adversary picker (floating panel)
 - Search input + Tier select + Type select (both populated from live
