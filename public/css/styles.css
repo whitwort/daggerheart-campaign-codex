@@ -1275,6 +1275,37 @@ pre code { background: none; border: none; padding: 0; border-radius: 0; color: 
 .lore-item-body blockquote > :first-child { margin-top: 0; }
 .lore-item-body blockquote > :last-child { margin-bottom: 0; }
 .lore-item-body blockquote blockquote { margin: 0.5rem 0 0; } /* nested quotes: no extra top gap stacking against the parent's own padding */
+/* Inline code / fenced code blocks within lore text (Gregg cleanup
+   pass): the global `code`/`pre` rules above are the generic
+   technical-monospace treatment, correct for Admin/Messages/search-
+   help where literal syntax appears -- but in lore prose, backtick
+   spans read as an inscription/quoted-term convention, not code, so
+   monospace-at-0.85em (thin, fixed-width, out of register with the
+   surrounding parchment/fantasy voice) was the wrong call. Overrides
+   win on specificity (class+type beats bare type). Echoes the Hope
+   palette (gold) rather than blockquote's neutral ink-soft tone, so
+   the two read as siblings, not duplicates.  */
+.lore-item-body code {
+  font-family: var(--font-quote), sans-serif;
+  font-weight: 600;
+  font-size: 0.95em;
+  background: rgba(217,164,65,0.18);
+  border: 1px solid rgba(217,164,65,0.4);
+  color: var(--ink);
+  padding: 0.15em 0.5em;
+  border-radius: 6px;
+}
+.lore-item-body pre {
+  background: rgba(217,164,65,0.09);
+  border: 1px solid rgba(217,164,65,0.3);
+  border-radius: 8px;
+  padding: 0.85rem 1.1rem;
+  margin: 0.6rem 0;
+}
+.lore-item-body pre code {
+  font-weight: 400;
+  background: none; border: none; padding: 0; border-radius: 0; color: inherit;
+}
 .lore-empty { color: var(--ink-soft); }
 .lore-edit-textarea { width: 100%; box-sizing: border-box; min-height: 140px; resize: vertical; font-family: inherit; background: #fff; color: var(--ink); border: 1px solid var(--parchment-edge); }
 .lore-edit-hint { font-size: 0.75rem; color: var(--ink-soft); }
