@@ -478,8 +478,13 @@ function maybeAutoExpand() {
 // the GM has since re-hidden shows nothing (not even the name).
 function buildPlayerDigest(container) {
   const ctx = viewerContext();
+  // Phase 17 B4: 'lore-drop' notifications are consolidated multi-entity
+  // docs (dropName + entityIds, no single entityId) -- each is its own
+  // card, merged with the per-entity groups by recency below.
+  const dropNotifs = state.allNotifications.filter(function (n) { return n.kind === 'lore-drop'; });
   const groups = {};
   state.allNotifications.forEach(function (n) {
+    if (n.kind === 'lore-drop') return;
     if (!groups[n.entityId]) groups[n.entityId] = { entityId: n.entityId, items: [], newestMs: 0 };
     const g = groups[n.entityId];
     g.items.push(n);
@@ -492,6 +497,10 @@ function buildPlayerDigest(container) {
       g.entity = entity || null;
       return !!entity && canSee(entity, ctx);
     })
+    .map(function (g) { g.cardKind = 'entity'; return g; })
+    .concat(dropNotifs.map(function (n) {
+      return { cardKind: 'lore-drop', drop: n, items: [n], newestMs: tsMs(n.createdAt) || 0 };
+    }))
     .sort(function (a, b) { return b.newestMs - a.newestMs; })
     .slice(0, 30);
 
@@ -508,6 +517,44 @@ function buildPlayerDigest(container) {
     card.className = 'digest-group';
     const isNew = g.items.some(function (n) { return !n.seenAt || campaignNewIds[n.id]; });
     if (isNew) card.classList.add('unseen');
+
+    // Phase 17 B4: consolidated Lore Drop card -- "Lore drop: through
+    // <name> you have discovered <links>". Entity links are gated on
+    // canSee at render time, same stance as the per-entity groups (a
+    // since-re-hidden entity silently drops out of the sentence).
+    if (g.cardKind === 'lore-drop') {
+      const n = g.drop;
+      const line = document.createElement('div');
+      line.className = 'digest-line';
+      line.appendChild(document.createTextNode('Lore drop: through '));
+      const nameEm = document.createElement('em');
+      nameEm.textContent = n.dropName || '(unnamed drop)';
+      line.appendChild(nameEm);
+      line.appendChild(document.createTextNode(' you have discovered '));
+      const visibleEntities = (n.entityIds || [])
+        .map(function (id) { return state.allEntities.find(function (e) { return e.id === id; }); })
+        .filter(function (e) { return !!e && canSee(e, ctx); });
+      if (!visibleEntities.length) {
+        line.appendChild(document.createTextNode('new lore.'));
+      } else {
+        visibleEntities.forEach(function (e, i) {
+          if (i > 0) line.appendChild(document.createTextNode(i === visibleEntities.length - 1 ? ' and ' : ', '));
+          const a = document.createElement('span');
+          a.className = 'digest-entity';
+          a.textContent = e.name || '(unnamed)';
+          a.addEventListener('click', function () { switchToCodexTabForEntity(e.id); });
+          line.appendChild(a);
+        });
+        line.appendChild(document.createTextNode('.'));
+      }
+      card.appendChild(line);
+      const dropMeta = document.createElement('div');
+      dropMeta.className = 'digest-meta';
+      dropMeta.textContent = formatRelative(g.newestMs);
+      card.appendChild(dropMeta);
+      container.appendChild(card);
+      return;
+    }
 
     function entityLink() {
       const a = document.createElement('span');
@@ -568,7 +615,12 @@ function buildGmDigest(container) {
   const joinRequests = state.allNotifications.filter(function (n) { return n.kind === 'joinRequest'; })
     .sort(function (a, b) { return tsMs(b.createdAt) - tsMs(a.createdAt); });
   
-  const entityNotifications = state.allNotifications.filter(function (n) { return n.kind !== 'joinRequest'; });
+  // Phase 17 B4: lore-drop docs carry entityIds (plural), not entityId --
+  // summarized as their own cards below rather than forced into the
+  // per-entity grouping.
+  const dropNotifs = state.allNotifications.filter(function (n) { return n.kind === 'lore-drop'; })
+    .sort(function (a, b) { return tsMs(b.createdAt) - tsMs(a.createdAt); });
+  const entityNotifications = state.allNotifications.filter(function (n) { return n.kind !== 'joinRequest' && n.kind !== 'lore-drop'; });
   const groups = {};
   entityNotifications.forEach(function (n) {
     if (!groups[n.entityId]) groups[n.entityId] = { entityId: n.entityId, items: [], newestMs: 0 };
@@ -606,7 +658,33 @@ function buildGmDigest(container) {
     container.appendChild(card);
   });
 
-  if (!list.length && !joinRequests.length) {
+  // Lore drop cards (GM summary: name, entity count, recipient).
+  const dropGroups = {};
+  dropNotifs.forEach(function (n) {
+    const key = (n.dropName || '') + '|' + (tsMs(n.createdAt) || 0);
+    if (!dropGroups[key]) dropGroups[key] = { name: n.dropName, newestMs: tsMs(n.createdAt) || 0, recipients: {}, entityCount: (n.entityIds || []).length };
+    dropGroups[key].recipients[n.recipientEmail] = true;
+  });
+  Object.keys(dropGroups).map(function (k) { return dropGroups[k]; })
+    .sort(function (a, b) { return b.newestMs - a.newestMs; })
+    .forEach(function (g) {
+      const card = document.createElement('div');
+      card.className = 'digest-group';
+      const line = document.createElement('div');
+      line.className = 'digest-line';
+      line.appendChild(document.createTextNode('Lore drop: '));
+      const nameEm = document.createElement('em');
+      nameEm.textContent = g.name || '(unnamed drop)';
+      line.appendChild(nameEm);
+      card.appendChild(line);
+      const meta = document.createElement('div');
+      meta.className = 'digest-meta';
+      meta.textContent = g.entityCount + ' entries \u00B7 ' + Object.keys(g.recipients).length + ' recipient(s) \u00B7 ' + formatRelative(g.newestMs);
+      card.appendChild(meta);
+      container.appendChild(card);
+    });
+
+  if (!list.length && !joinRequests.length && !dropNotifs.length) {
     const empty = document.createElement('p');
     empty.className = 'msg-empty';
     empty.textContent = 'No notifications have been sent yet.';
