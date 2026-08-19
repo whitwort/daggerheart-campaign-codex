@@ -771,10 +771,27 @@ select {
 /* Phase 17 B1: Lore Drop recorder — floating draggable panel, same chrome
    family as .gallery-picker-panel (which supplies position/background/
    drag header); these rules are only the recorder's own body layout. */
-.drop-recorder-panel { width: 22rem; }
+/* Wider on load (Phase 17 follow-up: was 22rem) + resizable: once the
+   corner handle sets explicit width/height, the flex column below makes
+   the change log the grow region, so resizing grows the log first. */
+.drop-recorder-panel { width: 28rem; max-width: 92vw; display: flex; flex-direction: column; }
+.drop-recorder-panel .gallery-picker-body {
+  display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0;
+}
+.drop-recorder-panel .drop-recorder-log { flex: 1 1 auto; min-height: 4rem; }
+.drop-recorder-type { width: 100%; margin: 0.3rem 0 0.5rem 0; }
+.drop-recorder-resize-handle {
+  position: absolute; right: 0; bottom: 0; width: 1.4rem; height: 1.4rem;
+  cursor: nwse-resize; touch-action: none;
+  /* Visible affordance: two diagonal grip lines in the corner. */
+  background:
+    linear-gradient(135deg, transparent 55%, var(--void-line) 55%, var(--void-line) 62%, transparent 62%,
+      transparent 72%, var(--void-line) 72%, var(--void-line) 79%, transparent 79%);
+  border-bottom-right-radius: 10px;
+}
 .drop-recorder-hint { font-size: 0.85rem; margin: 0 0 0.5rem 0; color: rgba(233,221,194,0.85); }
 .drop-recorder-log {
-  max-height: 40vh; overflow-y: auto; margin-bottom: 0.75rem;
+  overflow-y: auto; margin-bottom: 0.75rem;
   border: 1px solid var(--void-line); border-radius: 6px; padding: 0.5rem;
   background: rgba(0,0,0,0.25);
 }
@@ -805,7 +822,11 @@ select {
   width: auto; min-width: 0; text-align: left;
 }
 #stables-drops-tabs button.active { border-bottom-color: var(--hope); color: var(--parchment); }
-.stables-drop-list { list-style: none; padding: 0; margin: 0.5rem 0 0 0; }
+.stables-drop-list { list-style: none; padding: 0; margin: 0.25rem 0 0 0; }
+.stables-drop-type-header {
+  margin-top: 0.6rem; font-family: var(--font-display), sans-serif;
+  font-size: 0.8rem; color: var(--ink-soft); letter-spacing: 0.03em;
+}
 .stables-drop-row {
   display: flex; flex-direction: column; gap: 0.15rem; padding: 0.45rem 0.5rem;
   cursor: pointer; border-radius: 6px;
