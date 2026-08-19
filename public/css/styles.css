@@ -509,7 +509,11 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 }
 .modal-box button { background: var(--void); color: var(--parchment); border: 1px solid var(--void-line); }
 .modal-actions { margin-top: 1.25rem; display: flex; gap: 0.5rem; justify-content: flex-end; }
-.modal-actions button { padding: 0.4rem 0.9rem; cursor: pointer; }
+/* Three buttons (Create / Clone from... / Cancel, Phase 17 follow-up)
+   can't fit the modal at the fixed app-wide width -- sized to content,
+   matched to each other by the shared padding, grouped lower-right
+   (QOL exception 15). */
+.modal-actions button { padding: 0.4rem 0.9rem; cursor: pointer; width: auto; min-width: 0; }
 .modal-error { color: var(--notice); font-size: 0.85rem; margin-top: 0.5rem; display: none; }
 
 /* Map pin action buttons: own exception (7), narrower than the base
@@ -805,7 +809,9 @@ select {
 /* Recorder/Stables reuse .character-badge sizing via buildCharacterBadge;
    inside a change line kill its source-label-tuned margin. */
 .drop-change-line .character-badge { margin-left: 0; }
-.drop-recorder-name { width: 100%; margin: 0.3rem 0 0.5rem 0; }
+/* Match the type select's box: base `input` declares no padding, so
+   the name field rendered visibly shorter than the select beside it. */
+.drop-recorder-name { width: 100%; margin: 0.3rem 0 0.5rem 0; padding: 0.5rem 0.7rem; font-size: 0.9rem; box-sizing: border-box; }
 .drop-recorder-error { color: var(--notice); font-size: 0.85rem; margin: 0 0 0.5rem 0; }
 .drop-recorder-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
 .drop-recorder-actions button { width: 7rem; min-width: 7rem; padding: 0.4rem 0.7rem; }
@@ -1538,6 +1544,10 @@ button:disabled:hover { border-color: var(--void-line); }
    to comfortably show a grouped list, and its own scroll region so a
    long result list doesn't grow the panel past the viewport. */
 .entity-picker-panel { width: min(24rem, calc(100vw - 3rem)); }
+/* Phase 17 follow-up: the Clone-from picker opens over the New entry
+   modal overlay (z-index 1000) -- lift the entity picker above it.
+   Harmless for its other call sites (nothing else lives above 1000). */
+.entity-picker-panel { z-index: 1100; }
 .entity-picker-search { width: 100%; box-sizing: border-box; padding: 0.4rem 0.6rem; font-size: 0.9rem; margin-bottom: 0.6rem; }
 .entity-picker-list { max-height: 22rem; overflow-y: auto; margin-bottom: 0.6rem; }
 
