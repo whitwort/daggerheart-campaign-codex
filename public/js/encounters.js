@@ -293,7 +293,9 @@ function buildRunView(enc) {
   if (enc.highDamage) {
     const banner = document.createElement('div');
     banner.className = 'encounter-run-highdamage';
-    banner.textContent = 'High damage encounter';
+    // SRD battle-points rule the flag's -2 adjustment corresponds to;
+    // the banner reminds the GM what to actually apply at the table.
+    banner.textContent = 'High damage encounter: all adversaries add +1d4 (or a static +2) to their damage rolls';
     wrap.appendChild(banner);
   }
   const groups = groupInstances(enc);
