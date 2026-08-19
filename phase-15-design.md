@@ -68,10 +68,14 @@ lossy). All three resolved with Gregg, design amended in place below:
   original schema here. Amended: `tier`/`difficulty` join Environment
   `detailKeys` (same flags as Adversary's); `impulses` and
   `potential_adversaries` fold into flavor prose (same D4 treatment as
-  `motives_and_tactics`). Additionally, environment features carry an
+  `motives_and_tactics`). ~~Additionally, environment features carry an
   extra `question` field (GM prompt) that a bare `{name,text}` map would
   silently drop — the normalizer appends it to `text` as a trailing
-  italic line.
+  italic line.~~ **Corrected during dev testing (Raging River /
+  Dangerous Crossing spot-check):** the `question` field is a redundant
+  — sometimes truncated — extraction of the italic GM prompt already
+  embedded at the end of `text` in 78/78 source features. Appending it
+  duplicated the prompt. The normalizer ignores `question` entirely.
 - **A2 — Flavor routing fixed in the normalizer, not shared code.**
   §4.6's concern confirmed: `buildTemplateData`'s flavor collection
   special-cases only `description`/`note` by name; extra prose keys
@@ -189,16 +193,15 @@ function normalizeAdversaryRecord(raw) {
 
 // "Spit Acid - Action" -> {name: "Spit Acid", text: ..., type: "Action"}.
 // A3: greedy regex (splits at LAST "- "), not split(' - ') — survives the
-// one malformed source name ("Take Off- Action"). A1: environment
-// features' `question` prompt appended to text as a trailing italic line.
+// one malformed source name ("Take Off- Action"). Environment features'
+// separate `question` field is IGNORED — redundant extraction of the
+// prompt already embedded in `text` (A1 as corrected).
 function normalizeFeatureRecord(feature) {
   const rawName = String(feature.name || '');
   const m = rawName.match(/^(.*\S)\s*-\s+(\S.*)$/);
   const name = m ? m[1] : rawName;
   const type = m ? m[2] : 'Passive';
-  let text = feature.text || '';
-  if (feature.question) text += (text ? '\n\n' : '') + '*' + feature.question + '*';
-  return { name: name || 'Feature', text: text, type: type };
+  return { name: name || 'Feature', text: feature.text || '', type: type };
 }
 
 function normalizeEnvironmentRecord(raw) {
