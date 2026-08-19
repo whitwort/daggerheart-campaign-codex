@@ -4,7 +4,7 @@
 design doc written + locked + amended twice, full implementation landed
 and iterated on live iPad feedback. Also closed the backup coverage gap
 completely.
-**HEAD**: `f8f5d81` (12 commits this session). CI green throughout
+**HEAD**: `85f85dd` (14 commits this session incl. this handoff and a post-handoff addition: high-damage flag banner on the Run view, Deadly-chip red). CI green throughout
 (spot-polled at 0fd29a0, 06c17d1, 2c81be5, 075b563, d19850c).
 
 ---
@@ -122,7 +122,7 @@ completely.
 
 ## Session ritual reminder
 
-Fresh clone, verify HEAD `f8f5d81`, git identity, read
+Fresh clone, verify HEAD `85f85dd`, git identity, read
 `QOL-BACKLOG.md` + `phase-15-encounter-workflow-design.md` (LOCKED,
 amendments A1/A2 recorded in place) before any work. Import-check
 script before every commit. CI poll ~72s after push;
