@@ -1753,7 +1753,9 @@ function buildParentSelect(entityId, currentParentId, onChange, ctx) {
 // module's header comment). Click a row to select; click away, Escape,
 // or Cancel closes without selecting.
 //
-// opts: { title, excludeIds (array|Set), ctx, onSelect: fn(entity) }
+// opts: { title, excludeIds (array|Set), ctx, onSelect: fn(entity),
+//   filter (optional extra predicate ANDed into the pool -- Phase 17
+//   follow-up, the Clone-from picker's same-category restriction) }
 function openEntityPickerPopup(opts) {
   if (document.querySelector('.entity-picker-panel')) return;
   const excludeIds = opts.excludeIds instanceof Set ? opts.excludeIds : new Set(opts.excludeIds || []);
@@ -1783,7 +1785,8 @@ function openEntityPickerPopup(opts) {
     listEl.innerHTML = '';
     const pool = state.allEntities
       .filter(function (e) {
-        return !excludeIds.has(e.id) && (ctx.gmView || canSee(e, ctx)) && entityMatchesQuery(e, searchInput.value);
+        return !excludeIds.has(e.id) && (ctx.gmView || canSee(e, ctx)) &&
+          (!opts.filter || opts.filter(e)) && entityMatchesQuery(e, searchInput.value);
       })
       .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
 
@@ -2260,6 +2263,7 @@ const entityNewCategoryEl = document.getElementById('entity-new-category');
 const entityNewErrorEl = document.getElementById('entity-new-error');
 const entityNewSaveBtn = document.getElementById('entity-new-save');
 const entityNewCancelBtn = document.getElementById('entity-new-cancel');
+const entityNewCloneBtn = document.getElementById('entity-new-clone');
 
 CONFIG.categories.forEach(function (cat) {
   const opt = document.createElement('option');
@@ -2271,7 +2275,7 @@ CONFIG.categories.forEach(function (cat) {
 // preset (optional): { category, tags } -- Phase 14 S8, Characters tab's
 // "+ New Entity"/"+ Create Character" buttons pre-fill category (locked
 // to Character, since that's the only category either button ever
-// wants) and stash tags for saveNewEntity to write (the mini dialog has
+// wants) and stash tags for createNewEntity to write (the mini dialog has
 // no tags field of its own; the tags become visible once the post-save
 // edit form opens, same "already selected"/"already in tag list" as the
 // category preselect).
@@ -2308,8 +2312,19 @@ function showNewEntityError(message) {
 // written Firestore doc, so without this the form that pops open
 // immediately after Save showed "no source" despite the doc itself
 // being correct.
-function saveNewEntity() {
-  const name = entityNewNameEl.value.trim();
+// Phase 17 follow-up: create and clone-create share this body. `source`
+// is null (blank Create) or an existing entity of the SAME category to
+// copy content fields from. Cloning copies the draft-able content
+// (ancestry/subtype/aliases/dates/parent/related/tags/source/template
+// mode + details/features/metaAncestryTargetIds/cards/badgeColor) but
+// NEVER identity or exposure state: visibility starts gm-only with no
+// character targeting, ownerId is not carried (except the player
+// self-create path, unchanged), hasMapImage is false (images aren't
+// cloned), and slug derives from the NEW name. An empty name field on a
+// clone defaults to "<source name> (copy)" instead of erroring.
+function createNewEntity(source) {
+  let name = entityNewNameEl.value.trim();
+  if (!name && source) name = (source.name || '(unnamed)') + ' (copy)';
   if (!name) {
     showNewEntityError('Name is required.');
     return;
@@ -2331,23 +2346,36 @@ function saveNewEntity() {
     slug: slugify(name),
     name: name,
     category: cat,
-    ancestry: null,
-    aliases: [],
-    date: null,
-    dateSort: null,
-    parentId: null,
-    relatedIds: [],
+    ancestry: (source && source.ancestry) || null,
+    aliases: source ? (source.aliases || []).slice() : [],
+    date: (source && source.date) || null,
+    dateSort: (source && source.dateSort != null) ? source.dateSort : null,
+    parentId: (source && source.parentId) || null,
+    relatedIds: source ? (source.relatedIds || []).slice() : [],
     visibility: 'gm-only',
     hasMapImage: false,
-    tags: presetTags.slice(),
-    sourceId: (sortedSources()[0] && sortedSources()[0].id) || null,
-    useTemplate: false,
-    details: {},
-    features: [],
-    searchIndex: [],
+    tags: source ? (source.tags || []).slice() : presetTags.slice(),
+    sourceId: source
+      ? (source.sourceId || null)
+      : ((sortedSources()[0] && sortedSources()[0].id) || null),
+    useTemplate: !!(source && source.useTemplate),
+    details: source ? Object.assign({}, source.details || {}) : {},
+    features: source
+      ? (source.features || []).map(function (f) {
+          return { name: f.name || '', text: f.text || '', group: f.group || null, type: f.type || null };
+        })
+      : [],
+    searchIndex: source ? (source.searchIndex || []).slice() : [],
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   };
+  if (source) {
+    if (source.subtype) entityData.subtype = source.subtype;
+    if (source.dateEnd) { entityData.dateEnd = source.dateEnd; entityData.dateEndSort = source.dateEndSort != null ? source.dateEndSort : null; }
+    if (source.metaAncestryTargetIds && source.metaAncestryTargetIds.length) entityData.metaAncestryTargetIds = source.metaAncestryTargetIds.slice();
+    if (source.cards) entityData.cards = Object.assign({}, source.cards);
+    if (source.badgeColor) entityData.badgeColor = source.badgeColor;
+  }
   if (cat === 'Character' && !ctx.gmView) {
     entityData.ownerId = ctx.email;
   }
@@ -2370,10 +2398,12 @@ function saveNewEntity() {
   state.loreEdit = null;
   state.noteEdit = null;
   state.detailEditMode = true;
-  state.detailEditDraft = buildEntityDraft({
-    name: name, category: cat, ancestry: '', aliases: [], date: '', parentId: null,
-    tags: presetTags, relatedIds: [], ownerId: entityData.ownerId || '', sourceId: entityData.sourceId
-  });
+  // Draft seeds from the just-built entityData (not the Firestore doc,
+  // which hasn't round-tripped) -- for a clone that carries every
+  // copied field, template mode included, into the edit form that pops
+  // open next.
+  state.detailEditDraft = buildEntityDraft(
+    Object.assign({}, entityData, { ownerId: entityData.ownerId || '' }));
   renderList();
   renderDetailForSelected();
   // Always land on the Codex tab with the new entity selected -- a no-op
@@ -2388,19 +2418,31 @@ function saveNewEntity() {
 
 newEntityBtn.addEventListener('click', function () { openNewEntityDialog(); });
 entityNewCancelBtn.addEventListener('click', closeNewEntityDialog);
-entityNewSaveBtn.addEventListener('click', saveNewEntity);
+entityNewSaveBtn.addEventListener('click', function () { createNewEntity(null); });
+// Clone from...: pick any existing entry of the category currently
+// selected in this dialog; the pick creates immediately (same flow as
+// Create) with content fields copied from the picked entry.
+entityNewCloneBtn.addEventListener('click', function () {
+  const cat = entityNewCategoryEl.value;
+  openEntityPickerPopup({
+    title: 'Clone from\u2026 (' + categoryGroupLabel(cat) + ')',
+    ctx: viewerContext(),
+    filter: function (e) { return e.category === cat; },
+    onSelect: function (sourceEntity) { createNewEntity(sourceEntity); }
+  });
+});
 entityNewOverlayEl.addEventListener('click', function (e) {
   if (e.target === entityNewOverlayEl) closeNewEntityDialog();
 });
 // Enter-to-save (name field or category select) -- name/category
-// validity is saveNewEntity's own job (shows "Name is required." same
+// validity is createNewEntity's own job (shows "Name is required." same
 // as a Save-button click with an empty name), this just wires the key.
 // Shift/Ctrl/Meta+Enter excluded in case a future revision adds a
 // multi-line field here that wants its own Enter behavior.
 function handleNewEntityEnterKey(ev) {
   if (ev.key !== 'Enter' || ev.shiftKey || ev.ctrlKey || ev.metaKey) return;
   ev.preventDefault();
-  saveNewEntity();
+  createNewEntity(null);
 }
 entityNewNameEl.addEventListener('keydown', handleNewEntityEnterKey);
 entityNewCategoryEl.addEventListener('keydown', handleNewEntityEnterKey);
