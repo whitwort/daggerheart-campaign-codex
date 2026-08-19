@@ -2577,3 +2577,13 @@ button:disabled:hover { border-color: var(--void-line); }
    Codex-backed). Reuses .gallery-picker-body's own input/button
    styling by inheritance (no overrides needed here beyond layout). */
 .character-deck-custom-form { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.4rem; }
+
+/* --- Encounters tab (Phase 15, encounter-workflow design) ------------- */
+/* List/detail shell reuses .characters-layout/.characters-list-pane/
+   .characters-detail-pane wholesale. */
+.encounter-header-row { display: flex; align-items: center; gap: 0.6rem; }
+/* Name input styled like an inline-edit field, sized to dominate the row. */
+.encounter-name-input {
+  flex: 1 1 auto; min-width: 0;
+  font-family: var(--font-display), sans-serif; font-size: 1.15rem;
+}
