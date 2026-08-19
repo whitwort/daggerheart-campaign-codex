@@ -12,6 +12,7 @@ import { attachCodexListeners, detachCodexListeners, renderList, renderDetailFor
 import { attachPinsListener, attachConfigListener, detachMapDataListeners } from './map.js';
 import { attachAdminListeners, detachAdminListeners } from './admin.js';
 import { attachEncountersListener, detachEncountersListener } from './encounters.js';
+import { attachStablesListener, detachStablesListener } from './stables.js';
 import { attachSourcesListener, detachSourcesListener } from './sources.js';
 import { attachVersionListener, detachVersionListener, initUpdateBanner } from './version.js';
 import { attachConnectivityListener, detachConnectivityListener } from './connectivity.js';
@@ -113,6 +114,7 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
       detachMapDataListeners();
       detachAdminListeners();
       detachEncountersListener();
+      detachStablesListener();
       detachSourcesListener();
       detachCharacterTransferListeners();
       detachMessagesListeners();
@@ -124,7 +126,8 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
       mapGmControlsEl.style.display = (role === 'gm') ? 'flex' : 'none';
       adminTabBtn.style.display = (role === 'gm') ? 'inline-block' : 'none';
       document.getElementById('tab-btn-encounters').style.display = (role === 'gm') ? 'inline-block' : 'none';
-      if (role === 'gm') { attachAdminListeners(); attachEncountersListener(); }
+      document.getElementById('tab-btn-stables').style.display = (role === 'gm') ? 'inline-block' : 'none';
+      if (role === 'gm') { attachAdminListeners(); attachEncountersListener(); attachStablesListener(); }
       const hasAccess = (role === 'gm' || role === 'player');
       if (hasAccess) attachDataListeners();
       loginGateEl.style.display = hasAccess ? 'none' : 'flex';

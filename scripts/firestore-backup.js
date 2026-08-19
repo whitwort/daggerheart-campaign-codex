@@ -28,7 +28,7 @@
 const fs = require('fs');
 const admin = require('firebase-admin');
 
-const COLLECTIONS = ['config', 'encounters', 'entities', 'images', 'joinRequests', 'loreItems', 'notifications', 'pins', 'players', 'sources', 'threads', 'transferRequests'];
+const COLLECTIONS = ['config', 'encounters', 'entities', 'images', 'joinRequests', 'loreDrops', 'loreItems', 'notifications', 'pins', 'players', 'sources', 'threads', 'transferRequests'];
 // threads is this app's only collection with a subcollection (messages,
 // Phase 14 S6). Handled explicitly below on export/import/wipe -- a flat
 // top-level get() never sees subcollection docs, and deleting a thread
