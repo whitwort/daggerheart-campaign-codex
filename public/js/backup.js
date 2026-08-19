@@ -241,7 +241,14 @@ function computeEntryRestorePlan(dump, entityId) {
 }
 
 async function runEntryRestore(entity, plan, log) {
-  const writes = [{ collectionName: 'entities', entries: [{ id: entity.id, data: entity }] }]
+  // entity is the flattened { id, ...data } object built for the picker/
+  // search UI (entryRestoreEntityPool) -- id must NOT go into the document
+  // body itself (Firestore doc data, not a stored field; isValidEntity()'s
+  // keys().hasOnly([...]) whitelist rejects it, which is what was causing
+  // "Missing or insufficient permissions" even for the GM).
+  const entityData = Object.assign({}, entity);
+  delete entityData.id;
+  const writes = [{ collectionName: 'entities', entries: [{ id: entity.id, data: entityData }] }]
     .concat([
       { collectionName: 'loreItems', entries: plan.loreItems },
       { collectionName: 'pins', entries: plan.pins },
