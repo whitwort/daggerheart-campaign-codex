@@ -231,6 +231,18 @@ scrollbar spot-check — accepted, no further action).
 
 ## Future phases (scoped, not started)
 
+**TODO (Phase 16, prod rollout): test the backup workflow after the
+first prod deployment.** The daily `backup.yml` cron run FAILED on
+`79dc5b4` (noticed Aug 19 2026 session, pre-dating that session's
+changes — cause not yet diagnosed; check the Actions log). After
+Phase 16's first prod deploy, run `workflow_dispatch` manually and
+verify: the run succeeds end-to-end, the dump lands in the private
+`whitwort/aethers-children-data` repo (NEVER the public codex repo),
+and the collection set matches `scripts/firestore-backup.js`'s
+COLLECTIONS (now includes `loreDrops` as of Phase 17). Secrets
+reminder: the script uses `FIRESTORE_ADMIN_SERVICE_ACCOUNT_KEY`
+(Datastore-capable), not the hosting-only deploy key.
+
 **Phase renumbering (this session, per Gregg):** prod persistence
 rollout — previously "Phase 15" throughout the handoff chain — is now
 **Phase 16**. **Phase 15** is reassigned to a new scope: explore
