@@ -2587,3 +2587,30 @@ button:disabled:hover { border-color: var(--void-line); }
   flex: 1 1 auto; min-width: 0;
   font-family: var(--font-display), sans-serif; font-size: 1.15rem;
 }
+.encounter-config-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 1rem;
+  margin-top: 0.9rem;
+}
+.encounter-config-field { display: flex; align-items: center; gap: 0.4rem; }
+.encounter-config-label { font-size: 0.75rem; color: var(--ink-soft); }
+.encounter-players-input { width: 3.4rem; }
+.encounter-difficulty-panel {
+  background: var(--void); border: 1px solid var(--void-line); border-radius: 8px;
+  padding: 0.6rem 0.8rem; margin-top: 0.9rem;
+  display: flex; flex-direction: column; gap: 0.4rem;
+}
+.encounter-difficulty-top { display: flex; align-items: center; gap: 0.8rem; }
+.encounter-points-total {
+  font-family: var(--font-display), sans-serif; font-size: 1.05rem; color: var(--parchment);
+}
+.encounter-difficulty-chip {
+  font-size: 0.75rem; font-weight: 600; padding: 0.15rem 0.6rem; border-radius: 999px;
+  color: #1a1f28;
+}
+.encounter-difficulty-chip.difficulty-easy   { background: #8fbf8f; }
+.encounter-difficulty-chip.difficulty-normal { background: #d6c78a; }
+.encounter-difficulty-chip.difficulty-hard   { background: #d99a5b; }
+.encounter-difficulty-chip.difficulty-deadly { background: #c96a6a; }
+.encounter-points-breakdown, .encounter-difficulty-math {
+  font-size: 0.8rem; color: rgba(233,221,194,0.75); line-height: 1.5;
+}
