@@ -995,11 +995,19 @@ function resolveLoreItemMarkdown(entity, item, items) {
       const synthesized = item.meta === 'meta-details' ? buildDetailsMarkdown(entity) : buildFeaturesMarkdown(entity);
       if (!synthesized) return item.content;
       if (!item.content) return synthesized;
-      // 'meta-details' leftover content is itself more bullets (e.g.
-      // weapon Damage, armor Base Score) -- join with a single newline so
-      // it reads as one continuous list, matching the original single-blob
-      // markdown's formatting, not two visually separated lists.
-      const joiner = item.meta === 'meta-details' ? '\n' : '\n\n';
+      // 'meta-details' leftover content is either MORE bullets (e.g. a
+      // weapon's Damage bullet, Base Score) -- join with a single
+      // newline so it reads as one continuous list -- or freeform prose
+      // (an ability's 'text' field) -- join with a blank line instead.
+      // A bare '\n' before a prose paragraph triggers CommonMark's
+      // lazy-continuation rule, silently merging that paragraph into
+      // the last bullet (indented, no visual break); if the prose later
+      // contains its own bullet list, the merge also forces the WHOLE
+      // preceding list into loose-list rendering (every item wrapped in
+      // <p>, extra vertical gaps). Detect leftover shape by its first
+      // line rather than hardcoding by meta type.
+      const isLeftoverBullet = /^[-*]\s/.test(item.content);
+      const joiner = (item.meta === 'meta-details' && isLeftoverBullet) ? '\n' : '\n\n';
       return synthesized + joiner + item.content;
     }
   }
