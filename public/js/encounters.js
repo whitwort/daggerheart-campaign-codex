@@ -72,6 +72,128 @@ function deleteEncounter(encId) {
   trackWrite(deleteDoc(doc(db, 'encounters', encId)), 'Deleting encounter');
 }
 
+
+// --- Battle-point calculator (design §4; ported from ------------------
+// --- daggerheart-encounter-builder getDifficultyLevel/updateBattlePoints)
+
+const BATTLE_VALUES = {
+  Minion: 0, Standard: 2, Horde: 2, Skulk: 2, Ranged: 2,
+  Support: 1, Social: 1, Leader: 3, Bruiser: 4, Solo: 5
+};
+const UNKNOWN_TYPE_VALUE = 2;
+const BASE_MULTIPLIER = 3;
+const BASE_ADDITION = 2;
+const MULTIPLE_SOLOS_ADJUSTMENT = -2;
+const MIN_SOLOS_FOR_ADJUSTMENT = 2;
+const LOWER_TIER_BONUS = 1;
+const NO_ELITES_BONUS = 1;
+const HIGH_DAMAGE_PENALTY = -2;
+const ELITE_TYPES = ['Bruiser', 'Horde', 'Leader', 'Solo'];
+
+// Source data carries compound type strings ("Horde (2/HP)"); the Apps
+// Script never saw them because its mapper pre-truncated. Match on the
+// first word so Hordes don't silently score the unknown-type fallback
+// (design §4).
+function normalizeAdvType(typeStr) {
+  return (typeStr || '').trim().split(/[\s(]/)[0];
+}
+
+function entityById(id) {
+  return state.allEntities.find(function (e) { return e.id === id; }) || null;
+}
+
+// Groups instances by entityId preserving first-seen order; each group
+// carries the live entity (or null if deleted — E4 fallback path).
+function groupInstances(enc) {
+  const groups = [];
+  const byEntity = {};
+  (enc.instances || []).forEach(function (inst) {
+    let g = byEntity[inst.entityId];
+    if (!g) {
+      g = { entityId: inst.entityId, entity: entityById(inst.entityId), instances: [] };
+      byEntity[inst.entityId] = g;
+      groups.push(g);
+    }
+    g.instances.push(inst);
+  });
+  return groups;
+}
+
+// Pure: (encounter doc x entities cache) -> full calculation result.
+// No memoization (the source's stateKey cache served its VDOM only).
+function computeBattlePoints(enc) {
+  const partySize = parseInt(enc.partySize, 10) || 4;
+  const partyTier = parseInt(enc.partyTier, 10) || 2;
+  const groups = groupInstances(enc);
+
+  let totalPoints = 0;
+  const breakdown = [];
+  let soloCount = 0;
+  let hasElites = false;
+  let hasLowerTier = false;
+  let anyInstances = false;
+
+  groups.forEach(function (g) {
+    const count = g.instances.length;
+    if (!count) return;
+    anyInstances = true;
+    const name = g.entity ? g.entity.name : (g.instances[0].fallbackName || '(missing entry)');
+    const details = (g.entity && g.entity.details) || {};
+    const type = normalizeAdvType(details.type);
+    let points;
+    if (type === 'Minion') {
+      const minionGroups = Math.ceil(count / partySize);
+      points = minionGroups;
+      breakdown.push(count + '\u00d7 ' + name + ' (' + minionGroups + ' group' + (minionGroups > 1 ? 's' : '') + ' = ' + points + ' pts)');
+    } else {
+      const value = Object.prototype.hasOwnProperty.call(BATTLE_VALUES, type) ? BATTLE_VALUES[type] : UNKNOWN_TYPE_VALUE;
+      points = value * count;
+      breakdown.push(count + '\u00d7 ' + name + ' (' + points + ' pts)');
+    }
+    totalPoints += points;
+    if (type === 'Solo') soloCount += count;
+    if (ELITE_TYPES.indexOf(type) !== -1) hasElites = true;
+    const tier = parseInt(details.tier, 10);
+    if (!isNaN(tier) && tier < partyTier) hasLowerTier = true;
+  });
+
+  const originalBase = (BASE_MULTIPLIER * partySize) + BASE_ADDITION;
+  let adjustedBase = originalBase;
+  const adjustments = [];
+  if (soloCount >= MIN_SOLOS_FOR_ADJUSTMENT) {
+    adjustedBase += MULTIPLE_SOLOS_ADJUSTMENT;
+    adjustments.push(MULTIPLE_SOLOS_ADJUSTMENT + ' (multiple solos)');
+  }
+  if (hasLowerTier) {
+    adjustedBase += LOWER_TIER_BONUS;
+    adjustments.push('+' + LOWER_TIER_BONUS + ' (lower tier adversaries)');
+  }
+  if (!hasElites && anyInstances) {
+    adjustedBase += NO_ELITES_BONUS;
+    adjustments.push('+' + NO_ELITES_BONUS + ' (no elite types)');
+  }
+  if (enc.highDamage) {
+    adjustedBase += HIGH_DAMAGE_PENALTY;
+    adjustments.push(HIGH_DAMAGE_PENALTY + ' (high damage encounter)');
+  }
+
+  const easyThreshold = adjustedBase - 1;
+  const normalMax = adjustedBase;
+  const hardMax = adjustedBase + 2;
+  let label, diffClass;
+  if (totalPoints < easyThreshold) { label = 'Easy'; diffClass = 'easy'; }
+  else if (totalPoints <= normalMax) { label = 'Normal'; diffClass = 'normal'; }
+  else if (totalPoints <= hardMax) { label = 'Hard'; diffClass = 'hard'; }
+  else { label = 'Deadly'; diffClass = 'deadly'; }
+
+  return {
+    totalPoints: totalPoints, breakdown: breakdown, anyInstances: anyInstances,
+    label: label, diffClass: diffClass,
+    originalBase: originalBase, adjustedBase: adjustedBase, adjustments: adjustments,
+    easyThreshold: easyThreshold, normalMax: normalMax, hardMax: hardMax
+  };
+}
+
 // --- Rendering ---------------------------------------------------------
 
 function getSelectedEncounter() {
@@ -129,8 +251,10 @@ function renderEncounterDetail() {
     return;
   }
   detailEl.appendChild(buildHeaderRow(enc));
-  // Config row / difficulty panel / adversaries / environment land in
-  // the follow-up commits (§5.2 items 2–5).
+  detailEl.appendChild(buildConfigRow(enc));
+  detailEl.appendChild(buildDifficultyPanel(enc));
+  // Adversaries section + picker + environment block land in the next
+  // commits (§5.2 items 4–5).
 }
 
 function buildHeaderRow(enc) {
@@ -154,6 +278,151 @@ function buildHeaderRow(enc) {
   row.appendChild(delBtn);
 
   return row;
+}
+
+
+function buildConfigRow(enc) {
+  const row = document.createElement('div');
+  row.className = 'encounter-config-row';
+
+  function field(labelText, control) {
+    const wrap = document.createElement('label');
+    wrap.className = 'encounter-config-field';
+    const span = document.createElement('span');
+    span.className = 'encounter-config-label';
+    span.textContent = labelText;
+    wrap.appendChild(span);
+    wrap.appendChild(control);
+    return wrap;
+  }
+
+  const playersInput = document.createElement('input');
+  playersInput.type = 'number';
+  playersInput.min = '1'; playersInput.max = '8';
+  playersInput.value = enc.partySize || 4;
+  playersInput.className = 'encounter-players-input';
+  playersInput.addEventListener('change', function () {
+    const v = Math.max(1, Math.min(8, parseInt(playersInput.value, 10) || 4));
+    updateEncounter(enc.id, { partySize: v });
+  });
+  row.appendChild(field('Players', playersInput));
+
+  const tierSelect = document.createElement('select');
+  [1, 2, 3, 4].forEach(function (t) {
+    const opt = document.createElement('option');
+    opt.value = String(t);
+    opt.textContent = 'Tier ' + t;
+    if ((enc.partyTier || 2) === t) opt.selected = true;
+    tierSelect.appendChild(opt);
+  });
+  tierSelect.addEventListener('change', function () {
+    updateEncounter(enc.id, { partyTier: parseInt(tierSelect.value, 10) });
+  });
+  row.appendChild(field('Tier', tierSelect));
+
+  const switchLabel = document.createElement('label');
+  switchLabel.className = 'toggle-switch';
+  const switchInput = document.createElement('input');
+  switchInput.type = 'checkbox';
+  switchInput.checked = !!enc.highDamage;
+  const switchSlider = document.createElement('span');
+  switchSlider.className = 'toggle-slider';
+  switchLabel.appendChild(switchInput);
+  switchLabel.appendChild(switchSlider);
+  switchInput.addEventListener('change', function () {
+    updateEncounter(enc.id, { highDamage: switchInput.checked });
+  });
+  row.appendChild(field('High damage', switchLabel));
+
+  const envSelect = document.createElement('select');
+  const noneOpt = document.createElement('option');
+  noneOpt.value = '';
+  noneOpt.textContent = 'No environment';
+  envSelect.appendChild(noneOpt);
+  state.allEntities
+    .filter(function (e) { return e.category === 'Environment'; })
+    .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); })
+    .forEach(function (e) {
+      const opt = document.createElement('option');
+      opt.value = e.id;
+      opt.textContent = e.name;
+      if (enc.environmentId === e.id) opt.selected = true;
+      envSelect.appendChild(opt);
+    });
+  envSelect.addEventListener('change', function () {
+    updateEncounter(enc.id, { environmentId: envSelect.value || null });
+  });
+  row.appendChild(field('Environment', envSelect));
+
+  return row;
+}
+
+function buildDifficultyPanel(enc) {
+  const calc = computeBattlePoints(enc);
+  const panel = document.createElement('div');
+  panel.className = 'encounter-difficulty-panel';
+
+  const topRow = document.createElement('div');
+  topRow.className = 'encounter-difficulty-top';
+  const total = document.createElement('span');
+  total.className = 'encounter-points-total';
+  total.textContent = calc.totalPoints + ' Battle Points';
+  topRow.appendChild(total);
+  if (calc.anyInstances) {
+    const chip = document.createElement('span');
+    chip.className = 'encounter-difficulty-chip difficulty-' + calc.diffClass;
+    chip.textContent = calc.label;
+    topRow.appendChild(chip);
+  }
+  panel.appendChild(topRow);
+
+  const breakdownDiv = document.createElement('div');
+  breakdownDiv.className = 'encounter-points-breakdown';
+  if (calc.anyInstances) {
+    calc.breakdown.forEach(function (line) {
+      const div = document.createElement('div');
+      div.textContent = line;
+      breakdownDiv.appendChild(div);
+    });
+  } else {
+    breakdownDiv.textContent = 'Add adversaries to see difficulty.';
+  }
+  panel.appendChild(breakdownDiv);
+
+  // Full calculation math, collapsed by default (OI2). Collapse state is
+  // per-render-transient on purpose: it reopens fresh each selection,
+  // and a snapshot re-render mid-look re-collapses it — acceptable for
+  // an on-demand detail view (matches .collapse-toggle usage elsewhere).
+  if (calc.anyInstances) {
+    const toggle = document.createElement('button');
+    toggle.className = 'collapse-toggle';
+    toggle.textContent = 'Show calculation';
+    const math = document.createElement('div');
+    math.className = 'encounter-difficulty-math';
+    math.style.display = 'none';
+    const lines = [];
+    lines.push('Base: (' + BASE_MULTIPLIER + ' \u00d7 ' + (parseInt(enc.partySize, 10) || 4) + ') + ' + BASE_ADDITION + ' = ' + calc.originalBase);
+    if (calc.adjustments.length) {
+      lines.push('Adjustments: ' + calc.adjustments.join(', '));
+      lines.push('Target: ' + calc.adjustedBase + ' battle points');
+    }
+    lines.push('Easy: \u2264' + (calc.adjustedBase - 2) + ' | Normal: ' + (calc.adjustedBase - 1) + '\u2013' + calc.normalMax +
+      ' | Hard: ' + (calc.adjustedBase + 1) + '\u2013' + calc.hardMax + ' | Deadly: ' + (calc.adjustedBase + 3) + '+');
+    lines.forEach(function (l) {
+      const div = document.createElement('div');
+      div.textContent = l;
+      math.appendChild(div);
+    });
+    toggle.addEventListener('click', function () {
+      const open = math.style.display !== 'none';
+      math.style.display = open ? 'none' : 'block';
+      toggle.textContent = open ? 'Show calculation' : 'Hide calculation';
+    });
+    panel.appendChild(toggle);
+    panel.appendChild(math);
+  }
+
+  return panel;
 }
 
 // --- Tab wiring --------------------------------------------------------
