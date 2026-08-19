@@ -2687,3 +2687,10 @@ button:disabled:hover { border-color: var(--void-line); }
 }
 .encounter-statline-seg-label { color: var(--ink-soft); font-size: 0.7rem; }
 .encounter-adv-statblock p { margin: 0.3rem 0; }
+/* Run-view banner for the Build-set high-damage flag: same red family
+   as the Deadly difficulty chip, compact single line. */
+.encounter-run-highdamage {
+  font-size: 0.78rem; font-weight: 600; color: #c96a6a;
+  border: 1px solid #c96a6a; border-radius: 6px;
+  padding: 0.2rem 0.6rem; align-self: flex-start;
+}
