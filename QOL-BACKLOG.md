@@ -222,7 +222,8 @@ scattered CSS.
 
 ## Phase 11 (visual styling) — polish follow-ups
 
-- **Base `input` padding audit — open (Phase 17 follow-up session).**
+- **Base `input` padding audit — base fix APPLIED (same session);
+  iPad spot-check pending.**
   The app-wide `input, select, textarea` rule declares NO padding, so
   every text input that isn't covered by a scoped rule (e.g.
   `.modal-box input[type="text"]`) renders with its text clipping the

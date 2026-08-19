@@ -74,3 +74,21 @@ Campaign-specific values live in `public/config.js`. The GM email there
 must match the hardcoded email in `firestore.rules` (`isGM()`); rules
 can't read config files, so keep them in sync by hand. The Firebase
 config block is not a secret — access control is entirely rules + auth.
+
+## Credits & Licenses
+
+- **Daggerheart**: this app can import and display content from the
+  [Daggerheart System Reference Document](https://www.daggerheart.com/srd/)
+  (v1.0), which is Public Game Content under the
+  [Darrington Press Community Gaming License](https://www.darringtonpress.com/license).
+  Daggerheart and its SRD are © 2025 Critical Role LLC; all Daggerheart
+  game content and mechanics are the property of Darrington Press.
+  This is an unofficial fan-made tool, not affiliated with or endorsed
+  by Darrington Press or Critical Role.
+- **Icons**: the character sheet's gold-panel icons (Handfuls, Bags,
+  Chest) are by [Delapouite](https://delapouite.com/) and
+  [Lorc](https://lorcblog.blogspot.com/) from
+  [game-icons.net](https://game-icons.net/), used under
+  [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). All other
+  UI icons are [Lucide](https://lucide.dev/) (ISC).
+- **Map rendering**: [Leaflet](https://leafletjs.com/) (BSD-2-Clause).
