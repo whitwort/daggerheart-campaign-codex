@@ -222,6 +222,23 @@ scattered CSS.
 
 ## Phase 11 (visual styling) — polish follow-ups
 
+- **Base `input` padding audit — open (Phase 17 follow-up session).**
+  The app-wide `input, select, textarea` rule declares NO padding, so
+  every text input that isn't covered by a scoped rule (e.g.
+  `.modal-box input[type="text"]`) renders with its text clipping the
+  box edges. Fixed piecemeal twice in one session — the drop
+  recorder's Batch name field and the Encounters Build tab's name
+  input — which is exactly the drift pattern the button-width standing
+  rule exists to prevent. Real fix: add a sensible default to the base
+  rule (e.g. `padding: 0.4rem 0.6rem;` on inputs, aligning with the
+  existing `select { padding: 0.5rem 1rem; }`), then AUDIT every input
+  app-wide for double-padding/layout shifts (scoped rules that
+  currently add their own padding, width-sensitive inline fields like
+  `.encounter-players-input`, the map pin panel, character sheet
+  fields). Bigger blast radius than a spot fix, so do it as its own
+  dedicated pass with iPad verification — not piecemeal. Until then,
+  any NEW input needs explicit padding.
+
 - **Character-select dropdown JS error — open, deferred to Phase 14.**
   Confirmed to persist across multiple types of interactions in player
   view mode. Deferred to the future phase focused on player-view
