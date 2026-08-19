@@ -116,16 +116,18 @@ function normalizeEnvironmentRecord(raw) {
 // plain split(' - ') misses; hyphenated names ("Long-Term ...") have no
 // space after their hyphen so can't misparse, and 0 source features
 // contain a second " - " (verified against live source, design §3.1).
-// Environment features carry an extra `question` GM prompt (A1) —
-// appended to text as a trailing italic line rather than dropped.
+// Environment features' separate `question` field is deliberately
+// IGNORED: it's a redundant (sometimes truncated) extraction of the
+// italic GM prompt already embedded at the end of `text` in 78/78
+// source features -- appending it duplicated the prompt (A1 as
+// amended; caught in dev spot-check, Raging River / Dangerous
+// Crossing).
 function normalizeFeatureRecord(feature) {
   const rawName = String(feature.name || '');
   const m = rawName.match(/^(.*\S)\s*-\s+(\S.*)$/);
   const name = m ? m[1] : rawName;
   const type = m ? m[2] : 'Passive';
-  let text = feature.text || '';
-  if (feature.question) text += (text ? '\n\n' : '') + '*' + feature.question + '*';
-  return { name: name || 'Feature', text: text, type: type };
+  return { name: name || 'Feature', text: feature.text || '', type: type };
 }
 
 // Kept in sync with the copies in codex.js/import.js (small, not worth a
