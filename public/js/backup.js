@@ -28,8 +28,16 @@ import { firebaseApp } from './firebase.js';
 
 const db = getFirestore(firebaseApp);
 
-const COLLECTIONS = ['config', 'encounters', 'entities', 'images', 'joinRequests', 'loreItems', 'pins', 'players'];
-const RESTORABLE_COLLECTIONS = COLLECTIONS.filter(function (c) { return c !== 'joinRequests'; });
+const COLLECTIONS = ['config', 'encounters', 'entities', 'images', 'joinRequests', 'loreItems', 'notifications', 'pins', 'players', 'sources', 'threads', 'transferRequests'];
+// Client-side restore skips what the rules make impossible for a GM:
+// joinRequests and transferRequests (create is locked to the requesting
+// user's own email). threads restores its DOCS but not the messages
+// subcollection -- message create is author-role-locked and delete is
+// `if false` for everyone (immutable-chat-log design), so the client can
+// neither write player-authored history back nor wipe it. Full-fidelity
+// restore incl. messages is the Admin-SDK script's job (bypasses rules).
+const RESTORABLE_COLLECTIONS = COLLECTIONS.filter(function (c) { return c !== 'joinRequests' && c !== 'transferRequests'; });
+const SUBCOLLECTIONS = { threads: ['messages'] };
 const BATCH_LIMIT = 500;
 
 function serializeValue(v) {
@@ -64,9 +72,18 @@ async function runBackupExport() {
   const counts = [];
   for (const name of COLLECTIONS) {
     const snap = await getDocs(collection(db, name));
-    dump.collections[name] = snap.docs.map(function (d) {
-      return { id: d.id, data: serializeValue(d.data()) };
-    });
+    const entries = [];
+    for (const d of snap.docs) {
+      const entry = { id: d.id, data: serializeValue(d.data()) };
+      for (const sub of (SUBCOLLECTIONS[name] || [])) {
+        const subSnap = await getDocs(collection(db, name, d.id, sub));
+        entry[sub] = subSnap.docs.map(function (sd) {
+          return { id: sd.id, data: serializeValue(sd.data()) };
+        });
+      }
+      entries.push(entry);
+    }
+    dump.collections[name] = entries;
     counts.push(name + ': ' + snap.size);
   }
   const blob = new Blob([JSON.stringify(dump, null, 2)], { type: 'application/json' });
@@ -97,6 +114,9 @@ async function runBackupRestore(dump, mode, log) {
     for (const name of COLLECTIONS) {
       const n = await wipeCollection(name);
       log(name + ': wiped ' + n + ' docs');
+      if (name === 'threads' && n > 0) {
+        log('threads: message subcollections NOT wiped (rules forbid message deletes for everyone) \u2014 orphaned messages re-attach if a thread doc with the same email is recreated');
+      }
     }
   }
   for (const name of RESTORABLE_COLLECTIONS) {
@@ -109,8 +129,11 @@ async function runBackupRestore(dump, mode, log) {
       await batch.commit();
     }
     log(name + ': wrote ' + docs.length + ' docs');
+    if (name === 'threads' && docs.some(function (d) { return (d.messages || []).length; })) {
+      log('threads: messages skipped (author-role-locked create \u2014 use the Admin-SDK backup script for full-fidelity restore)');
+    }
   }
-  log('joinRequests: skipped (GM cannot recreate other users\u2019 pending requests \u2014 see backup.js header)');
+  log('joinRequests, transferRequests: skipped (creates are locked to the requesting user \u2014 see backup.js header)');
 }
 
 // --- UI wiring ----------------------------------------------------------
