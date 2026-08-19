@@ -2654,3 +2654,17 @@ button:disabled:hover { border-color: var(--void-line); }
 /* A1 Build/Run split: run view stacks full stat blocks + instance rows. */
 .encounter-run-view { display: flex; flex-direction: column; gap: 0.7rem; }
 .encounter-adv-statblock { font-size: 0.85rem; margin-top: 0.3rem; }
+/* Run-view density pass: details as a wrap-flow strip, not a bullet
+   list; dot separators between segments via ::before on all but the
+   first. Markdown body below gets tightened paragraph rhythm. */
+.encounter-statline-strip {
+  display: flex; flex-wrap: wrap; align-items: baseline;
+  column-gap: 0.7rem; row-gap: 0.15rem;
+  margin-top: 0.35rem; font-size: 0.8rem;
+}
+.encounter-statline-seg { white-space: nowrap; }
+.encounter-statline-seg + .encounter-statline-seg::before {
+  content: '\00b7'; margin-right: 0.7rem; color: var(--ink-soft);
+}
+.encounter-statline-seg-label { color: var(--ink-soft); font-size: 0.7rem; }
+.encounter-adv-statblock p { margin: 0.3rem 0; }
