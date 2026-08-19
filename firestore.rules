@@ -79,6 +79,16 @@ service cloud.firestore {
       allow read, write: if isGM();
     }
 
+    // Lore Drops (Phase 17): GM-only batched visibility-change docs
+    // ({name, status, changes[], createdAt, ranAt}). Recorded in the
+    // Codex, run/undone from the Stables tab. Same GM-only stance as
+    // encounters -- players only ever see the RESULTING visibility
+    // changes (written to entities/loreItems/images under the existing
+    // rules above) plus the consolidated 'lore-drop' notification.
+    match /loreDrops/{dropId} {
+      allow read, write: if isGM();
+    }
+
     // Maps: {name, image, parentMapId}. Root map has parentMapId == null.
     // `public` flag dropped, same as entries — see note above.
     match /maps/{mapId} {
