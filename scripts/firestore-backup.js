@@ -28,7 +28,12 @@
 const fs = require('fs');
 const admin = require('firebase-admin');
 
-const COLLECTIONS = ['config', 'encounters', 'entities', 'images', 'joinRequests', 'loreItems', 'pins', 'players'];
+const COLLECTIONS = ['config', 'encounters', 'entities', 'images', 'joinRequests', 'loreItems', 'notifications', 'pins', 'players', 'sources', 'threads', 'transferRequests'];
+// threads is this app's only collection with a subcollection (messages,
+// Phase 14 S6). Handled explicitly below on export/import/wipe -- a flat
+// top-level get() never sees subcollection docs, and deleting a thread
+// doc ORPHANS its messages rather than deleting them.
+const SUBCOLLECTIONS = { threads: ['messages'] };
 const BATCH_LIMIT = 500;
 
 function parseArgs(argv) {
@@ -77,9 +82,18 @@ async function runExport(db, outPath) {
   const dump = { exportedAt: new Date().toISOString(), collections: {} };
   for (const name of COLLECTIONS) {
     const snap = await db.collection(name).get();
-    dump.collections[name] = snap.docs.map(function (d) {
-      return { id: d.id, data: serializeValue(d.data()) };
-    });
+    const entries = [];
+    for (const d of snap.docs) {
+      const entry = { id: d.id, data: serializeValue(d.data()) };
+      for (const sub of (SUBCOLLECTIONS[name] || [])) {
+        const subSnap = await d.ref.collection(sub).get();
+        entry[sub] = subSnap.docs.map(function (sd) {
+          return { id: sd.id, data: serializeValue(sd.data()) };
+        });
+      }
+      entries.push(entry);
+    }
+    dump.collections[name] = entries;
     console.log(name + ': ' + snap.size + ' docs');
   }
   fs.writeFileSync(outPath, JSON.stringify(dump, null, 2));
@@ -88,7 +102,14 @@ async function runExport(db, outPath) {
 
 async function wipeCollection(db, name) {
   const snap = await db.collection(name).get();
-  const refs = snap.docs.map(function (d) { return d.ref; });
+  const refs = [];
+  for (const d of snap.docs) {
+    for (const sub of (SUBCOLLECTIONS[name] || [])) {
+      const subSnap = await d.ref.collection(sub).get();
+      subSnap.docs.forEach(function (sd) { refs.push(sd.ref); });
+    }
+    refs.push(d.ref);
+  }
   for (let i = 0; i < refs.length; i += BATCH_LIMIT) {
     const batch = db.batch();
     refs.slice(i, i + BATCH_LIMIT).forEach(function (ref) { batch.delete(ref); });
@@ -104,14 +125,23 @@ async function runImport(db, inPath, wipe) {
   }
   for (const name of COLLECTIONS) {
     const docs = dump.collections[name] || [];
-    for (let i = 0; i < docs.length; i += BATCH_LIMIT) {
-      const batch = db.batch();
-      docs.slice(i, i + BATCH_LIMIT).forEach(function (entry) {
-        batch.set(db.collection(name).doc(entry.id), deserializeValue(entry.data));
+    let subCount = 0;
+    const writes = [];
+    docs.forEach(function (entry) {
+      writes.push({ ref: db.collection(name).doc(entry.id), data: deserializeValue(entry.data) });
+      (SUBCOLLECTIONS[name] || []).forEach(function (sub) {
+        (entry[sub] || []).forEach(function (sd) {
+          writes.push({ ref: db.collection(name).doc(entry.id).collection(sub).doc(sd.id), data: deserializeValue(sd.data) });
+          subCount++;
+        });
       });
+    });
+    for (let i = 0; i < writes.length; i += BATCH_LIMIT) {
+      const batch = db.batch();
+      writes.slice(i, i + BATCH_LIMIT).forEach(function (w) { batch.set(w.ref, w.data); });
       await batch.commit();
     }
-    console.log(name + ': wrote ' + docs.length + ' docs');
+    console.log(name + ': wrote ' + docs.length + ' docs' + (subCount ? ' (+' + subCount + ' subcollection docs)' : ''));
   }
 }
 
