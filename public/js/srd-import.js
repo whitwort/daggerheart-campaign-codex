@@ -55,8 +55,78 @@ const SRD_TYPES = [
   { key: 'armor', category: 'Equipment', subtype: 'armor' },
   { key: 'consumables', category: 'Equipment', subtype: 'consumables' },
   { key: 'items', category: 'Equipment', subtype: 'items' },
-  { key: 'weapons', category: 'Equipment', subtype: 'weapons' }
+  { key: 'weapons', category: 'Equipment', subtype: 'weapons' },
+  // Phase 15 (phase-15-design.md §4.4/§4.5): the two types the sibling
+  // encounter-builder project imported from this same source. Their
+  // records use source-specific string encodings ("+3" atk, "8/15"
+  // thresholds, "Name - Type" features) no other type shares, so each
+  // carries a `normalize` pre-processor (applied in processType before
+  // buildTemplateData); all other types pass records through unchanged.
+  { key: 'adversaries', category: 'Adversary', subtype: null, normalize: normalizeAdversaryRecord },
+  { key: 'environments', category: 'Environment', subtype: null, normalize: normalizeEnvironmentRecord }
 ];
+
+// --- Phase 15 record normalizers (ported from encounter-builder's
+// mapAdversaryFromSRD/mapEnvironmentFromSRD/mapFeatureFromSRD, amended
+// per design §3.1 A1-A3) ------------------------------------------------
+
+// A2: buildTemplateData routes only description/note into the flavor
+// lore item, so all long-tail prose (motives, experience, impulses,
+// potential adversaries) is composed into `description` as markdown
+// here rather than passed through as keys (which would land as
+// meta-details leftover bullets instead).
+function normalizeAdversaryRecord(raw) {
+  const flavor = [raw.description || ''];
+  if (raw.motives_and_tactics) flavor.push('**Motives & Tactics:** ' + raw.motives_and_tactics);
+  if (raw.experience) flavor.push('**Experience:** ' + raw.experience);
+  return {
+    name: raw.name,
+    description: flavor.filter(Boolean).join('\n\n'),
+    type: raw.type || 'Standard',
+    tier: raw.tier,
+    difficulty: raw.difficulty,
+    hp: raw.hp,
+    stress: raw.stress,
+    thresholds: raw.thresholds || '0/0',  // "8/15" passthrough (D3)
+    attack_modifier: raw.atk,             // "+3" passthrough — display formats, not import
+    attack_name: raw.attack || 'Basic Attack',
+    attack_range: raw.range || 'Melee',
+    attack_damage: raw.damage || '',
+    feature: (raw.feature || []).map(normalizeFeatureRecord)
+  };
+}
+
+function normalizeEnvironmentRecord(raw) {
+  const flavor = [raw.description || ''];
+  if (raw.impulses) flavor.push('**Impulses:** ' + raw.impulses);
+  if (raw.potential_adversaries) flavor.push('**Potential Adversaries:** ' + raw.potential_adversaries);
+  return {
+    name: raw.name,
+    description: flavor.filter(Boolean).join('\n\n'),
+    type: raw.type || 'Exploration',
+    tier: raw.tier,
+    difficulty: raw.difficulty,
+    feature: (raw.feature || []).map(normalizeFeatureRecord)
+  };
+}
+
+// "Spit Acid - Action" -> {name: "Spit Acid", text: ..., type: "Action"}.
+// Greedy regex splits at the LAST "- " (A3): survives the one malformed
+// source name ("Take Off- Action", no space before the hyphen), which a
+// plain split(' - ') misses; hyphenated names ("Long-Term ...") have no
+// space after their hyphen so can't misparse, and 0 source features
+// contain a second " - " (verified against live source, design §3.1).
+// Environment features carry an extra `question` GM prompt (A1) —
+// appended to text as a trailing italic line rather than dropped.
+function normalizeFeatureRecord(feature) {
+  const rawName = String(feature.name || '');
+  const m = rawName.match(/^(.*\S)\s*-\s+(\S.*)$/);
+  const name = m ? m[1] : rawName;
+  const type = m ? m[2] : 'Passive';
+  let text = feature.text || '';
+  if (feature.question) text += (text ? '\n\n' : '') + '*' + feature.question + '*';
+  return { name: name || 'Feature', text: text, type: type };
+}
 
 // Kept in sync with the copies in codex.js/import.js (small, not worth a
 // shared-utils module split).
@@ -178,7 +248,15 @@ function buildTemplateData(rec, schema) {
     } else {
       usedKeys.feature = true;
       if (Array.isArray(rec.feature)) {
-        features = rec.feature.map(function (f) { return { name: f.name, text: f.text }; });
+        features = rec.feature.map(function (f) {
+          const out = { name: f.name, text: f.text };
+          // Phase 15 (D5): schemas with hasFeatureType carry the
+          // normalizer-split Action/Passive/Reaction on each feature.
+          // Gated so other types' features never gain the key, and
+          // conditional on presence so Firestore never sees undefined.
+          if (schema.hasFeatureType && f.type) out.type = f.type;
+          return out;
+        });
       }
       // Classes: hope_feature_name/hope_feature_text is a single extra
       // feature, not a separate mechanism -- appended to the same
@@ -340,6 +418,10 @@ function processType(typeDef, records, progressCb, results, srdSourceId) {
   const updateTargets = [];
 
   records.forEach(function (rec) {
+    // Phase 15: type-specific pre-processor (adversaries/environments
+    // only) reshapes the raw record into what buildTemplateData +
+    // the schema whitelist expect; every other type passes through.
+    if (typeDef.normalize) rec = typeDef.normalize(rec);
     if (!rec.name) { results.skipped += 1; return; }
     const slug = slugify(rec.name);
     const existing = state.allEntities.find(function (e) {
