@@ -2651,3 +2651,6 @@ button:disabled:hover { border-color: var(--void-line); }
 }
 .encounter-env-title { font-family: var(--font-display), sans-serif; font-size: 0.95rem; }
 .encounter-env-body { font-size: 0.85rem; }
+/* A1 Build/Run split: run view stacks full stat blocks + instance rows. */
+.encounter-run-view { display: flex; flex-direction: column; gap: 0.7rem; }
+.encounter-adv-statblock { font-size: 0.85rem; margin-top: 0.3rem; }

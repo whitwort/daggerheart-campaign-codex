@@ -253,12 +253,48 @@ function renderEncounterDetail() {
     detailEl.appendChild(p);
     return;
   }
-  detailEl.appendChild(buildHeaderRow(enc));
-  detailEl.appendChild(buildConfigRow(enc));
-  detailEl.appendChild(buildDifficultyPanel(enc));
-  detailEl.appendChild(buildAdversariesSection(enc));
+  // A1: Build/Run tab shell (Characters Cards/Sheet pattern).
+  const tabsRow = document.createElement('div');
+  tabsRow.className = 'character-detail-tabs';
+  [['build', 'Build'], ['run', 'Run']].forEach(function (pair) {
+    const tabBtn = document.createElement('button');
+    tabBtn.type = 'button';
+    tabBtn.textContent = pair[1];
+    if (state.encountersDetailTab === pair[0]) tabBtn.classList.add('active');
+    tabBtn.addEventListener('click', function () {
+      state.encountersDetailTab = pair[0];
+      renderEncountersTab();
+    });
+    tabsRow.appendChild(tabBtn);
+  });
+  detailEl.appendChild(tabsRow);
+
+  if (state.encountersDetailTab === 'run') {
+    detailEl.appendChild(buildRunView(enc));
+  } else {
+    detailEl.appendChild(buildHeaderRow(enc));
+    detailEl.appendChild(buildConfigRow(enc));
+    detailEl.appendChild(buildDifficultyPanel(enc));
+    detailEl.appendChild(buildAdversariesSection(enc));
+  }
+}
+
+function buildRunView(enc) {
+  const wrap = document.createElement('div');
+  wrap.className = 'encounter-run-view';
+  const groups = groupInstances(enc);
+  if (!groups.length) {
+    const p = document.createElement('p');
+    p.className = 'lore-empty';
+    p.textContent = 'No adversaries yet \u2014 add some on the Build tab.';
+    wrap.appendChild(p);
+  }
+  groups.forEach(function (g) {
+    wrap.appendChild(buildAdversaryGroup(enc, g, 'run'));
+  });
   const envBlock = buildEnvironmentBlock(enc);
-  if (envBlock) detailEl.appendChild(envBlock);
+  if (envBlock) wrap.appendChild(envBlock);
+  return wrap;
 }
 
 function buildHeaderRow(enc) {
@@ -485,7 +521,7 @@ function buildAdversariesSection(enc) {
   section.className = 'encounter-adversaries';
 
   groupInstances(enc).forEach(function (g) {
-    section.appendChild(buildAdversaryGroup(enc, g));
+    section.appendChild(buildAdversaryGroup(enc, g, 'build'));
   });
 
   const actions = document.createElement('div');
@@ -504,7 +540,7 @@ function buildAdversariesSection(enc) {
   return section;
 }
 
-function buildAdversaryGroup(enc, g) {
+function buildAdversaryGroup(enc, g, mode) {
   const wrap = document.createElement('div');
   wrap.className = 'encounter-adv-group';
 
@@ -537,7 +573,9 @@ function buildAdversaryGroup(enc, g) {
   }
   header.appendChild(title);
 
-  if (g.entity) {
+  // Build: one-line summary only. Run: the full stat block below
+  // carries all of this, so no duplicate line in the header (A1).
+  if (g.entity && mode === 'build') {
     const d = g.entity.details || {};
     const statLine = document.createElement('span');
     statLine.className = 'encounter-adv-statline';
@@ -571,12 +609,20 @@ function buildAdversaryGroup(enc, g) {
   header.appendChild(controls);
   wrap.appendChild(header);
 
-  const d = (g.entity && g.entity.details) || {};
-  const hpMax = parseInt(d.hp, 10);
-  const stressMax = parseInt(d.stress, 10);
-  g.instances.forEach(function (inst) {
-    wrap.appendChild(buildInstanceRow(enc, inst, hpMax, stressMax));
-  });
+  if (mode === 'run') {
+    if (g.entity) {
+      const statBlock = document.createElement('div');
+      statBlock.className = 'encounter-adv-statblock';
+      renderMarkdownInto(statBlock, resolveEntityStatBlockMarkdown(g.entity, viewerContext(), null));
+      wrap.appendChild(statBlock);
+    }
+    const d = (g.entity && g.entity.details) || {};
+    const hpMax = parseInt(d.hp, 10);
+    const stressMax = parseInt(d.stress, 10);
+    g.instances.forEach(function (inst) {
+      wrap.appendChild(buildInstanceRow(enc, inst, hpMax, stressMax));
+    });
+  }
 
   return wrap;
 }

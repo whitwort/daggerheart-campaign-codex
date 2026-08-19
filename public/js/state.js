@@ -89,4 +89,5 @@ export const state = {
   encountersUnsub: null,     // Phase 15 -- GM-only encounters collection listener (encounters.js)
   allEncounters: [],
   encountersSelectedId: null,
+  encountersDetailTab: 'build',  // Phase 15 A1 -- Build/Run tab shell in the encounter detail pane; shared + persistent across selection changes (charactersDetailTab precedent)
 };
