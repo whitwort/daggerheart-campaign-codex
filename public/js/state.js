@@ -86,4 +86,7 @@ export const state = {
   currentMapImageDims: null,  // {width,height} of currently-loaded map's image, for replace-dimension-change warning
   loadingMapId: null,  // guards against two near-simultaneous loadMap(mapId) calls (e.g. the entities-change handler and attachConfigListener both firing) racing to tear down each other's in-flight image listener before it ever gets its first snapshot
   imageCacheDbPromise: null,
+  encountersUnsub: null,     // Phase 15 -- GM-only encounters collection listener (encounters.js)
+  allEncounters: [],
+  encountersSelectedId: null,
 };

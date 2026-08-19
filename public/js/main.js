@@ -8,6 +8,7 @@ import { ensureImportEditorReady } from './import.js';
 import './backup.js';
 import { ensureTimelineTabReady } from './timeline.js';
 import { ensureCharactersTabReady, renderCharactersTab } from './characters.js';
+import { ensureEncountersTabReady } from './encounters.js';
 import { renderMessagesTray } from './messages.js';
 
 // Phase 14 S5: registered here (not at characters.js's own top level) --
@@ -61,6 +62,9 @@ document.getElementById('tab-btn-map').textContent = CONFIG.tabs.map;
         }
         if (btn.dataset.tab === 'characters-panel') {
           ensureCharactersTabReady();
+        }
+        if (btn.dataset.tab === 'encounters-panel') {
+          ensureEncountersTabReady();
         }
       });
     });

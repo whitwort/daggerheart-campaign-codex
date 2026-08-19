@@ -72,6 +72,13 @@ service cloud.firestore {
       allow write: if isGM();
     }
 
+    // Encounters (Phase 15): GM-only builder/tracker docs. No player
+    // surface in v1 (E2) -- does not touch the deferred player-write
+    // rules matrix.
+    match /encounters/{encId} {
+      allow read, write: if isGM();
+    }
+
     // Maps: {name, image, parentMapId}. Root map has parentMapId == null.
     // `public` flag dropped, same as entries — see note above.
     match /maps/{mapId} {
