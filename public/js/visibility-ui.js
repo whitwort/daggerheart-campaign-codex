@@ -53,20 +53,29 @@ document.addEventListener('keydown', function (e) {
   if (e.key === 'Escape') closeActivePopover();
 });
 
-// --- current-party PCs: players' characters (ownerId set), ordered by
-// player name then character name, per §6.1. A character whose owner has
-// since been removed from players/{email} still gets listed (falls back
-// to showing the raw ownerId) rather than silently disappearing from the
-// picker. ------------------------------------------------------------------
+// --- current-party PCs: PC-tagged characters (Phase 17 follow-up) OR
+// owner-assigned ones, ordered by player name then character name, per
+// §6.1. The PC-tag half lets the GM stage character-targeted flags
+// BEFORE a player registers/claims (tag 'PC' is already the app's PC
+// convention — the Characters tab's Claim flow and Create preset both
+// key off it); the ownerId half keeps any owned-but-untagged character
+// from vanishing out of the picker. An unowned PC shows '(unassigned)'
+// where the player name would be. A character whose owner has since
+// been removed from players/{email} still gets listed (falls back to
+// showing the raw ownerId) rather than silently disappearing. ---------------
 function partyCharacterOptions() {
   return state.allEntities
-    .filter(function (e) { return e.category === 'Character' && !!e.ownerId; })
+    .filter(function (e) {
+      if (e.category !== 'Character') return false;
+      const isPcTagged = (e.tags || []).some(function (t) { return t.toLowerCase() === 'pc'; });
+      return isPcTagged || !!e.ownerId;
+    })
     .map(function (e) {
-      const player = (state.allPlayers || []).find(function (p) { return p.id === e.ownerId; });
+      const player = e.ownerId ? (state.allPlayers || []).find(function (p) { return p.id === e.ownerId; }) : null;
       return {
         id: e.id,
         name: e.name || '(unnamed)',
-        playerName: (player && player.displayName) || e.ownerId,
+        playerName: e.ownerId ? ((player && player.displayName) || e.ownerId) : '(unassigned)',
         // Phase 14 S7 (§11.8): owner-picked badgeColor, same field/CSS-
         // var pattern buildCharacterBadge already uses -- null/unset
         // resolved to a deterministic per-name generated color at

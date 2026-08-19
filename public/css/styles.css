@@ -1024,7 +1024,9 @@ select {
 .vis-kebab-popover {
   position: absolute; top: calc(100% + 0.35rem); right: -0.4rem; z-index: 30;
   background: var(--parchment); border: 1px solid var(--ink-soft); border-radius: 6px;
-  padding: 0.35rem; width: 13rem; max-width: 80vw; max-height: 16rem; overflow-y: auto;
+  /* Phase 17 follow-up: widened from 13rem — character + player names
+     side by side were wrapping/overflowing at the old width. */
+  padding: 0.35rem; width: 19rem; max-width: 90vw; max-height: 16rem; overflow-y: auto;
   box-shadow: 0 4px 14px rgba(0,0,0,0.3);
 }
 .vis-kebab-option {
@@ -1044,7 +1046,13 @@ select {
   width: 0.55rem; height: 0.55rem; border-radius: 50%; flex-shrink: 0;
   background: var(--badge-color, var(--badge-default));
 }
-.vis-kebab-player-name { font-size: 0.72rem; color: var(--ink-soft); }
+.vis-kebab-player-name {
+  font-size: 0.72rem; color: var(--ink-soft);
+  /* Phase 17 follow-up: at the widened 19rem the two names usually fit
+     on one line; if a truly long pair still can't, truncate the player
+     half with an ellipsis rather than wrapping the row. */
+  max-width: 8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 .codex-related { margin-top: 1rem; }
 .codex-related-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
