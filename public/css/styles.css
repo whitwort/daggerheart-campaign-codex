@@ -206,6 +206,22 @@ input, select, textarea {
   border-radius: 6px;
   font-size: 0.9rem;
 }
+/* Base padding for text-like inputs (Phase 17 follow-up -- the audited
+   fix for the "base input declares no padding" bug class that produced
+   two piecemeal fixes in one session; see QOL-BACKLOG). Scoped to
+   text/number/search/email so radios/checkboxes/ranges/color/file
+   inputs (toggle switches, kebab radios, sliders, swatches) are
+   untouched. Attribute selectors give this (0,1,1) specificity: any
+   equal-specificity rule LATER in the file (.pane-filters input) and
+   every more-specific scoped rule (.modal-box, .entity-edit-field,
+   #msg-compose) still wins where it declares its own padding, so
+   already-tuned fields are unchanged; only previously-unpadded fields
+   gain this default. box-sizing: border-box so fixed-width fields
+   (.encounter-players-input et al.) don't grow their boxes. */
+input[type="text"], input[type="number"], input[type="search"], input[type="email"] {
+  padding: 0.4rem 0.6rem;
+  box-sizing: border-box;
+}
 input::placeholder, textarea::placeholder { color: var(--ink-soft); }
 
 /* Hide native number-input spinner arrows app-wide. Cross-browser
@@ -809,9 +825,7 @@ select {
 /* Recorder/Stables reuse .character-badge sizing via buildCharacterBadge;
    inside a change line kill its source-label-tuned margin. */
 .drop-change-line .character-badge { margin-left: 0; }
-/* Match the type select's box: base `input` declares no padding, so
-   the name field rendered visibly shorter than the select beside it. */
-.drop-recorder-name { width: 100%; margin: 0.3rem 0 0.5rem 0; padding: 0.5rem 0.7rem; font-size: 0.9rem; box-sizing: border-box; }
+.drop-recorder-name { width: 100%; margin: 0.3rem 0 0.5rem 0; }
 .drop-recorder-error { color: var(--notice); font-size: 0.85rem; margin: 0 0 0.5rem 0; }
 .drop-recorder-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
 .drop-recorder-actions button { width: 7rem; min-width: 7rem; padding: 0.4rem 0.7rem; }
@@ -1160,8 +1174,6 @@ select {
 .entity-edit-field > button { margin-top: 0.5rem; }
 
 #build-version { margin-top: 2rem; font-size: 0.7rem; color: var(--ink-soft); }
-#icon-credits { margin-top: 0.25rem; font-size: 0.7rem; color: var(--ink-soft); }
-#icon-credits a, #icon-credits a:visited { color: inherit; text-decoration: underline; }
 
 /* Lore items (Phase 8). Darker parchment-edge fill + left color strip
    (inset box-shadow) indicating GM-only (Hope) vs player-visible (Fear),
@@ -2698,11 +2710,7 @@ button:disabled:hover { border-color: var(--void-line); }
 /* Name input styled like an inline-edit field, sized to dominate the row. */
 .encounter-name-input {
   flex: 1 1 auto; min-width: 0;
-  font-family: var(--font-display), sans-serif; font-size: 1.15rem;
-  /* Base `input` declares no padding, so the 1.15rem display font was
-     clipping against the box edges -- give it real vertical room. Same
-     root cause as the drop recorder's name field. */
-  padding: 0.4rem 0.6rem; line-height: 1.3; box-sizing: border-box;
+  font-family: var(--font-display), sans-serif; font-size: 1.15rem; line-height: 1.3;
 }
 .encounter-config-row {
   display: flex; flex-wrap: wrap; align-items: center; gap: 1rem;
