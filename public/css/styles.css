@@ -761,6 +761,37 @@ select {
   font-weight: 500; font-size: 0.65625rem; padding: 0.125rem 0.5rem; border-radius: 4px;
   background: rgba(78,168,142,0.45); color: var(--seafoam); border: 1px solid var(--seafoam);
 }
+/* Phase 17 B1: "visible" state chip in drop change-log/summary lines —
+   fear-colored counterpart to .entity-hidden-badge, same geometry. */
+.entity-visible-badge {
+  font-weight: 500; font-size: 0.65625rem; padding: 0.125rem 0.5rem; border-radius: 4px;
+  background: var(--fear-glow); color: var(--fear); border: 1px solid var(--fear);
+}
+
+/* Phase 17 B1: Lore Drop recorder — floating draggable panel, same chrome
+   family as .gallery-picker-panel (which supplies position/background/
+   drag header); these rules are only the recorder's own body layout. */
+.drop-recorder-panel { width: 22rem; }
+.drop-recorder-hint { font-size: 0.85rem; margin: 0 0 0.5rem 0; color: rgba(233,221,194,0.85); }
+.drop-recorder-log {
+  max-height: 40vh; overflow-y: auto; margin-bottom: 0.75rem;
+  border: 1px solid var(--void-line); border-radius: 6px; padding: 0.5rem;
+  background: rgba(0,0,0,0.25);
+}
+.drop-recorder-empty { font-size: 0.8rem; color: rgba(233,221,194,0.6); margin: 0; }
+.drop-change-line {
+  display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;
+  padding: 0.25rem 0; font-size: 0.85rem;
+}
+.drop-change-label { flex: 1 1 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drop-change-arrow { color: rgba(233,221,194,0.6); }
+/* Recorder/Stables reuse .character-badge sizing via buildCharacterBadge;
+   inside a change line kill its source-label-tuned margin. */
+.drop-change-line .character-badge { margin-left: 0; }
+.drop-recorder-name { width: 100%; margin: 0.3rem 0 0.5rem 0; }
+.drop-recorder-error { color: var(--notice); font-size: 0.85rem; margin: 0 0 0.5rem 0; }
+.drop-recorder-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
+.drop-recorder-actions button { width: 7rem; min-width: 7rem; padding: 0.4rem 0.7rem; }
 
 /* Phase 17 A2: Show secrets mode — seafoam (the secret/character-state
    color) mode chrome so a filtered list is unmistakable: active button

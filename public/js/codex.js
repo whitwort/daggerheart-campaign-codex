@@ -1,5 +1,5 @@
 import {
-  getFirestore, collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc,
+  getFirestore, collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, addDoc,
   query, where, writeBatch, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp, CONFIG } from './firebase.js';
@@ -18,7 +18,7 @@ import { getTemplateSchema, normalizeSearchTerm, computeSearchIndex } from './te
 import {
   canSee, viewerContext, visibilityBadge, isShareableToWholeParty, visibilityStateClass,
   hasFullAuthority, isSharedWithActiveCharacter, isNoteAuthor, belongsOnLoreSurface,
-  entityHasSecretsFor
+  entityHasSecretsFor, resolveDropOverlay
 } from './visibility.js';
 import { shareEntityVisibility, shareLoreItemVisibility, shareImageVisibility, createLoreItemShared } from './sharing.js';
 import { buildVisibilityControl, buildSharedToggle, buildNoteToggle, buildCharacterBadge } from './visibility-ui.js';
@@ -675,11 +675,14 @@ gmViewSelect.addEventListener('change', function () {
 // gmView-only (hidden while previewing as player — recording is a GM
 // act) and locks while a recording is already open.
 const secretsBtn = document.getElementById('codex-secrets-btn');
+const newDropBtn = document.getElementById('codex-new-drop-btn');
 
 function updateListActionButtons(ctx, anySecrets, secretsActive) {
   secretsBtn.style.display = (!ctx.gmView && anySecrets) ? 'inline-block' : 'none';
   secretsBtn.textContent = secretsActive ? 'Show all' : 'Show secrets';
   secretsBtn.classList.toggle('secrets-mode-active', secretsActive);
+  newDropBtn.style.display = ctx.gmView ? 'inline-block' : 'none';
+  newDropBtn.disabled = !!state.dropRecording;
 }
 
 secretsBtn.addEventListener('click', function () {
@@ -687,6 +690,159 @@ secretsBtn.addEventListener('click', function () {
   if (state.secretsFilterActive) clearCodexSearchInput();
   renderList();
 });
+
+newDropBtn.addEventListener('click', function () { openDropRecorder(); });
+
+// --- Lore Drop recorder (Phase 17 B1) --------------------------------------
+
+// Visibility-state chip for a recorded from/to state, reusing the Entry
+// Browser badge language: gm-only = "hidden" (hope), all-players OR
+// character+shared = "visible" (fear), character-unshared = the target
+// character's own badge. Exported for stables.js's drop summaries (same
+// visual language in the Stables detail pane).
+function buildDropStateBadge(vs) {
+  if (vs.visibility === 'character' && !vs.characterShared && vs.characterId) {
+    const b = buildCharacterBadge(vs.characterId);
+    b.title = ''; // buildCharacterBadge's share-consent tooltip doesn't apply here
+    return b;
+  }
+  const span = document.createElement('span');
+  if (vs.visibility === 'gm-only') {
+    span.className = 'entity-hidden-badge';
+    span.textContent = 'hidden';
+  } else {
+    span.className = 'entity-visible-badge';
+    span.textContent = 'visible';
+  }
+  return span;
+}
+
+// One log/summary line per recorded change: label, from-chip, →, to-chip.
+// Shared by the recorder popup and the Stables detail pane.
+function buildDropChangeLine(change) {
+  const line = document.createElement('div');
+  line.className = 'drop-change-line';
+  const label = document.createElement('span');
+  label.className = 'drop-change-label';
+  label.textContent = change.label;
+  line.appendChild(label);
+  line.appendChild(buildDropStateBadge(change.from));
+  const arrow = document.createElement('span');
+  arrow.className = 'drop-change-arrow';
+  arrow.textContent = '\u2192';
+  line.appendChild(arrow);
+  line.appendChild(buildDropStateBadge(change.to));
+  return line;
+}
+
+function openDropRecorder() {
+  if (state.dropRecording) return;
+  if (document.querySelector('.drop-recorder-panel')) return;
+  state.dropRecording = { changes: [], overlay: {} };
+
+  const built = buildGalleryPickerPanel();
+  built.panel.classList.add('drop-recorder-panel');
+  const h3 = document.createElement('h3');
+  h3.textContent = 'New Lore Drop';
+  built.header.appendChild(h3);
+
+  const hint = document.createElement('p');
+  hint.className = 'drop-recorder-hint';
+  hint.textContent = 'Recording any visibility changes made in the Codex:';
+  built.body.appendChild(hint);
+
+  const log = document.createElement('div');
+  log.className = 'drop-recorder-log';
+  built.body.appendChild(log);
+
+  const nameLabel = document.createElement('label');
+  nameLabel.textContent = 'Batch name';
+  built.body.appendChild(nameLabel);
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.className = 'drop-recorder-name';
+  nameInput.placeholder = 'e.g. The Sunken Vault';
+  built.body.appendChild(nameInput);
+
+  const errorP = document.createElement('p');
+  errorP.className = 'drop-recorder-error';
+  errorP.style.display = 'none';
+  built.body.appendChild(errorP);
+
+  const actions = document.createElement('div');
+  actions.className = 'drop-recorder-actions';
+  const saveBtn = document.createElement('button');
+  saveBtn.textContent = 'Save';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = 'Cancel';
+  actions.appendChild(saveBtn);
+  actions.appendChild(cancelBtn);
+  built.body.appendChild(actions);
+
+  function renderLog() {
+    log.innerHTML = '';
+    if (!state.dropRecording.changes.length) {
+      const empty = document.createElement('p');
+      empty.className = 'drop-recorder-empty';
+      empty.textContent = 'No changes recorded yet \u2014 flip visibility toggles as usual; nothing is written until the drop runs.';
+      log.appendChild(empty);
+      return;
+    }
+    state.dropRecording.changes.forEach(function (c) { log.appendChild(buildDropChangeLine(c)); });
+  }
+  renderLog();
+
+  function onRecordingChange() {
+    renderLog();
+    // The overlay just changed what every surface should show.
+    renderList();
+    renderDetailForSelected();
+    notifyVisibilityChange();
+  }
+  document.addEventListener('droprecording:change', onRecordingChange);
+
+  function showError(msg) {
+    errorP.textContent = msg;
+    errorP.style.display = '';
+  }
+
+  // Save/Cancel both end recording; clearing state.dropRecording drops
+  // the overlay, so the follow-up re-render visually reverts everything.
+  function close() {
+    document.removeEventListener('droprecording:change', onRecordingChange);
+    state.dropRecording = null;
+    built.panel.remove();
+    renderList();
+    renderDetailForSelected();
+    notifyVisibilityChange();
+  }
+
+  saveBtn.addEventListener('click', function () {
+    const name = nameInput.value.trim();
+    const changes = state.dropRecording.changes.filter(function (c) {
+      // A toggled-and-back element is a no-op — don't persist it.
+      return JSON.stringify(c.from) !== JSON.stringify(c.to);
+    });
+    if (!name) { showError('Give the drop a name.'); return; }
+    if (!changes.length) { showError('No visibility changes recorded.'); return; }
+    if (changes.length > 400) { showError('Too many changes for one drop (max 400).'); return; }
+    saveBtn.disabled = true;
+    addDoc(collection(db, 'loreDrops'), {
+      name: name,
+      status: 'current',
+      changes: changes,
+      createdAt: serverTimestamp(),
+      ranAt: null
+    }).then(close).catch(function (err) {
+      saveBtn.disabled = false;
+      showError('Save failed: ' + err.message);
+    });
+  });
+
+  cancelBtn.addEventListener('click', close);
+
+  nameInput.focus();
+}
 
 // Authorship model: authorType is 'gm' (authorId null) or 'character'
 // (authorId = the authoring Player Character's entities/ doc id — never a
@@ -1278,9 +1434,9 @@ function buildEntityVisibilityToggle(entity) {
   const row = document.createElement('div');
   row.className = 'entity-visibility-toggle-row';
   row.appendChild(buildVisibilityControl({
-    getVisibility: function () { return entity.visibility; },
-    getCharacterId: function () { return entity.characterId; },
-    getCharacterShared: function () { return !!entity.characterShared; },
+    getVisibility: function () { return resolveDropOverlay(entity).visibility; },
+    getCharacterId: function () { return resolveDropOverlay(entity).characterId; },
+    getCharacterShared: function () { return !!resolveDropOverlay(entity).characterShared; },
     sourceId: entity.sourceId,
     confirmReveal: confirmRevealWithoutSource,
     onApply: function (patch) {
@@ -2749,7 +2905,7 @@ function renderLoreTab(container, entity, ctx, readOnly) {
       toggleRowRight.className = 'lore-item-toggle-row-right';
       if (noteChrome) {
         toggleRowRight.appendChild(buildNoteToggle({
-          getVisibility: function () { return item.visibility; },
+          getVisibility: function () { return resolveDropOverlay(item).visibility; },
           onToggle: function (newVisibility) {
             shareLoreItemVisibility(item.id, { visibility: newVisibility }).catch(function (err) {
               window.alert('Visibility change failed: ' + err.message);
@@ -2758,9 +2914,9 @@ function renderLoreTab(container, entity, ctx, readOnly) {
         }));
       } else if (entityAuthority) {
         toggleRowRight.appendChild(buildVisibilityControl({
-          getVisibility: function () { return item.visibility; },
-          getCharacterId: function () { return item.characterId; },
-          getCharacterShared: function () { return !!item.characterShared; },
+          getVisibility: function () { return resolveDropOverlay(item).visibility; },
+          getCharacterId: function () { return resolveDropOverlay(item).characterId; },
+          getCharacterShared: function () { return !!resolveDropOverlay(item).characterShared; },
           sourceId: item.sourceId,
           confirmReveal: confirmRevealWithoutSource,
           onApply: function (patch) {
@@ -3648,9 +3804,9 @@ function renderGalleryTab(container, entity, ctx, readOnly, imagesOverride) {
         const toggleBarDiv = document.createElement('div');
         toggleBarDiv.className = 'gallery-item-bar';
         toggleBarDiv.appendChild(buildVisibilityControl({
-          getVisibility: function () { return img.visibility; },
-          getCharacterId: function () { return img.characterId; },
-          getCharacterShared: function () { return !!img.characterShared; },
+          getVisibility: function () { return resolveDropOverlay(img).visibility; },
+          getCharacterId: function () { return resolveDropOverlay(img).characterId; },
+          getCharacterShared: function () { return !!resolveDropOverlay(img).characterShared; },
           sourceId: img.sourceId,
           confirmReveal: confirmRevealWithoutSource,
           onApply: function (patch) {
@@ -4544,5 +4700,5 @@ export {
   clearCodexSearchInput, buildEntityPreviewCard, categoryGroupLabel, entityMatchesQuery,
   renderEntityViewCard, applyWikiLinks, enterEntityEditMode, appendDateSegments,
   fitCodexTabHeight, footerReserve, switchToCodexTabForEntity, notifyVisibilityChange,
-  openNewEntityDialog, resolveEntityStatBlockMarkdown
+  openNewEntityDialog, resolveEntityStatBlockMarkdown, buildDropChangeLine
 };
