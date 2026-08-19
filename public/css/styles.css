@@ -2699,6 +2699,10 @@ button:disabled:hover { border-color: var(--void-line); }
 .encounter-name-input {
   flex: 1 1 auto; min-width: 0;
   font-family: var(--font-display), sans-serif; font-size: 1.15rem;
+  /* Base `input` declares no padding, so the 1.15rem display font was
+     clipping against the box edges -- give it real vertical room. Same
+     root cause as the drop recorder's name field. */
+  padding: 0.4rem 0.6rem; line-height: 1.3; box-sizing: border-box;
 }
 .encounter-config-row {
   display: flex; flex-wrap: wrap; align-items: center; gap: 1rem;
