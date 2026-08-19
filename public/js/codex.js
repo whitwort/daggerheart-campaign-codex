@@ -947,7 +947,8 @@ const CATEGORY_GROUP_LABELS = {
   'Character': 'Characters', 'Faction': 'Factions', 'Location': 'Locations',
   'Item': 'Items', 'World Facts': 'World Facts', 'Organization': 'Organizations',
   'Event': 'Events', 'Scene': 'Scenes', 'Ancestry': 'Ancestries', 'Community': 'Communities',
-  'Game Mechanics': 'Game Mechanics', 'Equipment': 'Equipment'
+  'Game Mechanics': 'Game Mechanics', 'Equipment': 'Equipment',
+  'Adversary': 'Adversaries', 'Environment': 'Environments'
 };
 function categoryGroupLabel(cat) {
   return CATEGORY_GROUP_LABELS[cat] || cat;

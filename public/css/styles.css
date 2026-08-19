@@ -41,6 +41,12 @@
   --cat-community:      #8E6A4F;
   --cat-game-mechanics: #5C5A66;
   --cat-equipment:      #4F7A6E;
+  /* Phase 15: Adversary reads as threat (the palette's only red-leaning
+     token besides --notice, deliberately darker/duller than it);
+     Environment a forest green, greener+darker than location's
+     grey-sage so the two don't blur on a busy map. */
+  --cat-adversary:      #A04F4F;
+  --cat-environment:    #557C5A;
 
   --font-display: 'Comfortaa', sans-serif;
   --font-body: 'Inter', sans-serif;
@@ -410,6 +416,8 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 .pin-cat-community { --pin-color: var(--cat-community); }
 .pin-cat-game-mechanics { --pin-color: var(--cat-game-mechanics); }
 .pin-cat-equipment { --pin-color: var(--cat-equipment); }
+.pin-cat-adversary { --pin-color: var(--cat-adversary); }
+.pin-cat-environment { --pin-color: var(--cat-environment); }
 .pin-cat-default { --pin-color: #888; }
 
 .map-pin-marker { filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)); }
