@@ -6,7 +6,18 @@ single-view premise (§1 "build-time and play-time collapse into one
 view") is replaced by a two-tab detail pane, Build / Run, after Gregg
 flagged that adversary features had no display surface at all. §5.2 is
 restructured below; the encounter doc model, calculator, and picker are
-unchanged. Second design doc under Phase 15
+unchanged.
+**Amended (session 38 — A2):** per-instance `note` (free text) is
+replaced by `conditions: [string]` (0–3 condition names). The note
+field was a stand-in for condition tracking Gregg always intended as
+real UI; Run rows render one compact select per applied condition plus
+one empty "add" select while under the cap of 3. Options come from
+`category === 'Game Mechanics' && subtype === 'conditions'` entities
+(the character deck's source), falling back to the three SRD core
+conditions (Hidden, Restrained, Vulnerable) if none exist. Names are
+stored, not entity ids — play-state is ephemeral and names display
+directly. Existing stored `note` values are simply no longer rendered
+(dev-only data). Second design doc under Phase 15
 (`daggerheart-encounter-builder` integration). Prerequisite landed:
 Adversary/Environment entity model (`phase-15-design.md`, sessions
 36–37). Scope of this doc: the encounter-builder workflow itself —
@@ -64,7 +75,7 @@ encounters/{encId}
       label: string,           // "Acid Burrower 2" — stable, E8
       hp: int,                 // marked HP count, clamped to live max on render
       stress: int,             // marked Stress count, same clamping
-      note: string }           // free text ("fled", "has the idol", …)
+      conditions: [string] }   // 0–3 condition names (A2; replaced `note`)
   ]
 ```
 
