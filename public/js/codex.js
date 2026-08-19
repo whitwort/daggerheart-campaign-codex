@@ -1144,7 +1144,14 @@ function entityMatchesQuery(entity, rawQuery) {
     });
     const qNorm = normalizeSearchTerm(q);
     const indexMatch = (entity.searchIndex || []).some(function (t) {
-      return t.indexOf(qNorm) !== -1;
+      // Trailing word-boundary: without this, "level 1" substring-matches
+      // "level 10" (Tier/Level/Base Score values collide numerically).
+      // Only the index entries get this treatment for now -- name/tag/
+      // alias substring matching is left as-is pending usability testing.
+      const i = t.indexOf(qNorm);
+      if (i === -1) return false;
+      const after = t.charAt(i + qNorm.length);
+      return !after || !/[a-z0-9]/.test(after);
     });
     return nameMatch || tagMatch || aliasMatch || indexMatch;
   });
