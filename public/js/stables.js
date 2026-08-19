@@ -23,7 +23,7 @@ import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
 import { trackWrite } from './connectivity.js';
-import { buildDropChangeLine } from './codex.js';
+import { buildDropChangeLine, DROP_TYPES, dropTypeLabel } from './codex.js';
 import { canSee } from './visibility.js';
 import { playersUniverse, exposedEmailSet } from './sharing.js';
 
@@ -261,27 +261,46 @@ function renderDropsList() {
     listEl.appendChild(p);
     return;
   }
-  const ul = document.createElement('ul');
-  ul.className = 'stables-drop-list';
+  // Type hierarchy (Phase 17 follow-up): drops grouped under their type
+  // label, in DROP_TYPES order. Missing/legacy type reads as 'lore'.
+  const byType = {};
   drops.forEach(function (d) {
-    const li = document.createElement('li');
-    li.className = 'stables-drop-row' + (d.id === state.stablesSelectedId ? ' active' : '');
-    const name = document.createElement('span');
-    name.className = 'stables-drop-name';
-    name.textContent = d.name || '(unnamed)';
-    li.appendChild(name);
-    const meta = document.createElement('span');
-    meta.className = 'stables-drop-meta';
-    meta.textContent = (d.changes ? d.changes.length : 0) + ' changes \u00B7 ' +
-      (state.stablesDropsTab === 'previous' ? 'ran ' + formatDropDate(d.ranAt) : formatDropDate(d.createdAt));
-    li.appendChild(meta);
-    li.addEventListener('click', function () {
-      state.stablesSelectedId = d.id;
-      renderStablesTab();
-    });
-    ul.appendChild(li);
+    const t = d.type || 'lore';
+    if (!byType[t]) byType[t] = [];
+    byType[t].push(d);
   });
-  listEl.appendChild(ul);
+  const orderedTypes = DROP_TYPES.map(function (t) { return t.key; })
+    .filter(function (k) { return byType[k]; });
+  Object.keys(byType).forEach(function (k) {
+    if (orderedTypes.indexOf(k) === -1) orderedTypes.push(k);
+  });
+  orderedTypes.forEach(function (typeKey) {
+    const header = document.createElement('div');
+    header.className = 'stables-drop-type-header';
+    header.textContent = dropTypeLabel(typeKey) + 's';
+    listEl.appendChild(header);
+    const ul = document.createElement('ul');
+    ul.className = 'stables-drop-list';
+    byType[typeKey].forEach(function (d) {
+      const li = document.createElement('li');
+      li.className = 'stables-drop-row' + (d.id === state.stablesSelectedId ? ' active' : '');
+      const name = document.createElement('span');
+      name.className = 'stables-drop-name';
+      name.textContent = d.name || '(unnamed)';
+      li.appendChild(name);
+      const meta = document.createElement('span');
+      meta.className = 'stables-drop-meta';
+      meta.textContent = (d.changes ? d.changes.length : 0) + ' changes \u00B7 ' +
+        (state.stablesDropsTab === 'previous' ? 'ran ' + formatDropDate(d.ranAt) : formatDropDate(d.createdAt));
+      li.appendChild(meta);
+      li.addEventListener('click', function () {
+        state.stablesSelectedId = d.id;
+        renderStablesTab();
+      });
+      ul.appendChild(li);
+    });
+    listEl.appendChild(ul);
+  });
 }
 
 function renderDropDetail() {
@@ -303,7 +322,7 @@ function renderDropDetail() {
 
   const meta = document.createElement('p');
   meta.className = 'stables-drop-detail-meta';
-  meta.textContent = 'Recorded ' + formatDropDate(drop.createdAt) +
+  meta.textContent = dropTypeLabel(drop.type || 'lore') + ' \u00B7 Recorded ' + formatDropDate(drop.createdAt) +
     (isPrevious ? ' \u00B7 Ran ' + formatDropDate(drop.ranAt) : '');
   detailEl.appendChild(meta);
 

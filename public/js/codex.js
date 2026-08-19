@@ -735,6 +735,20 @@ function buildDropChangeLine(change) {
   return line;
 }
 
+// Drop type vocabulary (Phase 17 follow-up): purely organizational for
+// now — no semantic meaning; Stables groups its browser by these. Enum
+// keys stored in the doc; labels rendered from this map. Missing/legacy
+// docs (pre-field) read as 'lore'.
+const DROP_TYPES = [
+  { key: 'lore', label: 'Lore drop' },
+  { key: 'scene', label: 'Scene drop' },
+  { key: 'loot', label: 'Loot drop' }
+];
+function dropTypeLabel(key) {
+  const t = DROP_TYPES.find(function (d) { return d.key === key; });
+  return (t || DROP_TYPES[0]).label;
+}
+
 function openDropRecorder() {
   if (state.dropRecording) return;
   if (document.querySelector('.drop-recorder-panel')) return;
@@ -754,6 +768,19 @@ function openDropRecorder() {
   const log = document.createElement('div');
   log.className = 'drop-recorder-log';
   built.body.appendChild(log);
+
+  const typeLabel = document.createElement('label');
+  typeLabel.textContent = 'Drop type';
+  built.body.appendChild(typeLabel);
+  const typeSelect = document.createElement('select');
+  typeSelect.className = 'drop-recorder-type';
+  DROP_TYPES.forEach(function (t) {
+    const opt = document.createElement('option');
+    opt.value = t.key;
+    opt.textContent = t.label;
+    typeSelect.appendChild(opt);
+  });
+  built.body.appendChild(typeSelect);
 
   const nameLabel = document.createElement('label');
   nameLabel.textContent = 'Batch name';
@@ -778,6 +805,39 @@ function openDropRecorder() {
   actions.appendChild(saveBtn);
   actions.appendChild(cancelBtn);
   built.body.appendChild(actions);
+
+  // Corner drag-to-resize (Phase 17 follow-up). Pointer-events, not CSS
+  // resize, so it works on iPad (Safari has no CSS resize handle) —
+  // same setPointerCapture pattern as the panel-move drag and the
+  // Messages panel edge handles. Explicit width/height once dragged;
+  // the log is the flex-grow region (CSS), so resizing the panel grows
+  // the change log first.
+  const resizeHandle = document.createElement('div');
+  resizeHandle.className = 'drop-recorder-resize-handle';
+  resizeHandle.title = 'Drag to resize';
+  built.panel.appendChild(resizeHandle);
+  let resizeDrag = null;
+  resizeHandle.addEventListener('pointerdown', function (ev) {
+    ev.preventDefault();
+    const rect = built.panel.getBoundingClientRect();
+    // Pin left/top so growing width/height extends right/down from the
+    // panel's current position regardless of its original right-anchor.
+    built.panel.style.left = rect.left + 'px';
+    built.panel.style.top = rect.top + 'px';
+    built.panel.style.right = 'auto';
+    resizeHandle.setPointerCapture(ev.pointerId);
+    resizeDrag = { startX: ev.clientX, startY: ev.clientY, origW: rect.width, origH: rect.height };
+  });
+  resizeHandle.addEventListener('pointermove', function (ev) {
+    if (!resizeDrag) return;
+    const w = Math.max(288, resizeDrag.origW + (ev.clientX - resizeDrag.startX));
+    const h = Math.max(320, resizeDrag.origH + (ev.clientY - resizeDrag.startY));
+    built.panel.style.width = w + 'px';
+    built.panel.style.height = h + 'px';
+  });
+  function endResizeDrag() { resizeDrag = null; }
+  resizeHandle.addEventListener('pointerup', endResizeDrag);
+  resizeHandle.addEventListener('pointercancel', endResizeDrag);
 
   function renderLog() {
     log.innerHTML = '';
@@ -829,6 +889,7 @@ function openDropRecorder() {
     saveBtn.disabled = true;
     addDoc(collection(db, 'loreDrops'), {
       name: name,
+      type: typeSelect.value,
       status: 'current',
       changes: changes,
       createdAt: serverTimestamp(),
@@ -4700,5 +4761,6 @@ export {
   clearCodexSearchInput, buildEntityPreviewCard, categoryGroupLabel, entityMatchesQuery,
   renderEntityViewCard, applyWikiLinks, enterEntityEditMode, appendDateSegments,
   fitCodexTabHeight, footerReserve, switchToCodexTabForEntity, notifyVisibilityChange,
-  openNewEntityDialog, resolveEntityStatBlockMarkdown, buildDropChangeLine
+  openNewEntityDialog, resolveEntityStatBlockMarkdown, buildDropChangeLine,
+  DROP_TYPES, dropTypeLabel
 };
