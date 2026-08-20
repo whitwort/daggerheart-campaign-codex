@@ -101,6 +101,16 @@ function partyCharacterOptions() {
 // Returns a DOM node (span.vis-control) to insert in place of the old
 // hand-built label+switch markup.
 function buildVisibilityControl(opts) {
+  // sourceId: accepts either a getter function (live-reads current value
+  // at reveal time -- required for callers backed by unsaved draft state,
+  // e.g. the lore-item edit box, where picking a source only mutates the
+  // draft without rebuilding this control) or a plain value (fine for
+  // callers backed by live Firestore data that write immediately, e.g.
+  // entity/gallery-image toggles). A snapshotted plain value from draft
+  // state would go stale the moment the source select changes.
+  function getSourceId() {
+    return (typeof opts.sourceId === 'function') ? opts.sourceId() : opts.sourceId;
+  }
   let currentV = opts.getVisibility();
   let currentCharId = opts.getCharacterId() || null;
   let currentCharShared = (opts.getCharacterShared && opts.getCharacterShared()) || false;
@@ -239,7 +249,7 @@ function buildVisibilityControl(opts) {
   function applyChange(newV, newCharId, clearShared) {
     const wasHidden = currentV === 'gm-only';
     const becomesRevealed = newV !== 'gm-only';
-    if (wasHidden && becomesRevealed && !opts.confirmReveal(opts.sourceId)) return false;
+    if (wasHidden && becomesRevealed && !opts.confirmReveal(getSourceId())) return false;
     const patch = { visibility: newV, characterId: newCharId };
     if (clearShared) patch.characterShared = false;
     currentV = newV;
