@@ -46,7 +46,23 @@ function createEntityImagesCache(onChange) {
         });
         onChange(images);
       },
-      function (err) { console.error('entity images cache listener error:', err.message); }
+      function (err) {
+        // Without this, a transient listener error (network blip, or a
+        // retarget racing an in-flight snapshot callback -- more exposed
+        // the more often a caller retargets, i.e. Map's Well C tapping
+        // between pins far more than Well B's once-per-map-load) leaves
+        // `unsub` holding a stale-but-truthy reference to a dead
+        // listener. setTarget's guard (targetId === entityId && unsub)
+        // then treats this entity as "already subscribed" forever --
+        // re-targeting the SAME id (re-tapping the same pin, or any
+        // unrelated notifyVisibilityChange elsewhere re-rendering this
+        // pane) becomes a permanent no-op for the rest of the session,
+        // and the portrait never appears. Nulling unsub here lets the
+        // next setTarget for this id actually retry instead of only
+        // ever giving up quietly.
+        unsub = null;
+        console.error('entity images cache listener error:', err.message);
+      }
     );
   }
 
