@@ -25,8 +25,9 @@ service cloud.firestore {
       return c.category == 'Character' && c.ownerId == request.auth.token.email;
     }
 
-    // Deploy metadata (_meta/version: deployed commit hash, written by CI
-    // via the Admin SDK, which bypasses rules — hence no client write path).
+    // Deploy metadata (_meta/version: deployed commit hash + semantic
+    // version, written by CI via the Admin SDK, which bypasses rules —
+    // hence no client write path).
     // Read for ANY signed-in user (not just GM/player) so even a not-yet-
     // whitelisted session can detect updates. Nothing sensitive in it.
     match /_meta/{docId} {
@@ -438,8 +439,8 @@ service cloud.firestore {
               && ownsCharacter(resource.data.authorId));
     }
 
-    // Deploy metadata (_meta/version): {hash, deployedAt}, written by CI
-    // via the Admin SDK (bypasses rules — no client write path at all).
+    // Deploy metadata (_meta/version): {hash, version, deployedAt}, written
+    // by CI via the Admin SDK (bypasses rules — no client write path at all).
     // Any signed-in user may read; no sensitive data.
     match /_meta/{docId} {
       allow read: if request.auth != null;

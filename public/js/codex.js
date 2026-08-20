@@ -222,7 +222,10 @@ function attachCodexListeners() {
       renderAdminPlayersList();
       notifyVisibilityChange();
     }), function (err) {
-      listEl.innerHTML = '<p>Error loading entities: ' + err.message + '</p>';
+      listEl.innerHTML = '';
+      const p = document.createElement('p');
+      p.textContent = 'Error loading entities: ' + err.message;
+      listEl.appendChild(p);
     });
   });
 
@@ -238,7 +241,10 @@ function attachCodexListeners() {
       renderDetailForSelected();
       notifyVisibilityChange();
     }), function (err) {
-      detailEl.innerHTML = '<p>Error loading lore: ' + err.message + '</p>';
+      detailEl.innerHTML = '';
+      const p = document.createElement('p');
+      p.textContent = 'Error loading lore: ' + err.message;
+      detailEl.appendChild(p);
     });
   });
 
