@@ -120,6 +120,12 @@ height, with NO per-context exceptions, except:**
     Cancel) can't fit the modal at the fixed width -- sized to
     content, matched to each other by shared padding, grouped
     lower-right. Applies to every `.modal-actions` row app-wide.
+23. Stables View pane's per-change remove -- `.drop-change-remove`
+    (Phase 17 follow-up), exception-4-like small round icon button
+    ("x"), sits at the trailing edge of a `.drop-change-line`.
+    `.stables-add-more-btn` stays default-width (grouped with the
+    other stacked default-width buttons in that pane, not this
+    exception).
 
 Base width lowered from 13rem to 12rem as of the "+ New party member"
 → "+ New member" rename (that label no longer defines the floor).

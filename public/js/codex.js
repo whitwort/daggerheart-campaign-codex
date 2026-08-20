@@ -718,8 +718,13 @@ function buildDropStateBadge(vs) {
 }
 
 // One log/summary line per recorded change: label, from-chip, →, to-chip.
-// Shared by the recorder popup and the Stables detail pane.
-function buildDropChangeLine(change) {
+// Shared by the recorder popup and the Stables detail pane. onRemove
+// (optional): Stables' View pane passes this to get a trailing "x"
+// button that pulls this one change out of a not-yet-run drop; the
+// recorder's own live log doesn't pass it (removing mid-recording isn't
+// this feature's ask — just stop toggling that element back and it's a
+// no-op on Save anyway).
+function buildDropChangeLine(change, onRemove) {
   const line = document.createElement('div');
   line.className = 'drop-change-line';
   const label = document.createElement('span');
@@ -732,6 +737,15 @@ function buildDropChangeLine(change) {
   arrow.textContent = '\u2192';
   line.appendChild(arrow);
   line.appendChild(buildDropStateBadge(change.to));
+  if (onRemove) {
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'drop-change-remove';
+    removeBtn.title = 'Remove from drop';
+    removeBtn.textContent = '\u2715';
+    removeBtn.addEventListener('click', function () { onRemove(change); });
+    line.appendChild(removeBtn);
+  }
   return line;
 }
 
@@ -749,15 +763,30 @@ function dropTypeLabel(key) {
   return (t || DROP_TYPES[0]).label;
 }
 
-function openDropRecorder() {
+// existingDrop (optional): Stables' "+ Add more" reopens the recorder
+// against an already-saved, not-yet-run drop instead of starting a new
+// one. Seeds state.dropRecording.changes AND .overlay from the drop's
+// current changes (so every surface immediately reflects the drop's
+// already-recorded to-states, same as resuming a session that was never
+// closed) and Save updateDoc's the existing doc instead of addDoc'ing a
+// new one. Re-toggling an already-recorded element keeps that element's
+// original `from` (maybeRecordDropChange reads it off the seeded
+// overlay) and just moves `to`, same no-op-on-round-trip guarantee as a
+// single unbroken recording session.
+function openDropRecorder(existingDrop) {
   if (state.dropRecording) return;
   if (document.querySelector('.drop-recorder-panel')) return;
-  state.dropRecording = { changes: [], overlay: {} };
+  const seedChanges = existingDrop ? JSON.parse(JSON.stringify(existingDrop.changes || [])) : [];
+  const overlay = {};
+  seedChanges.forEach(function (c) {
+    overlay[c.elementType + ':' + c.elementId] = { from: c.from, to: c.to };
+  });
+  state.dropRecording = { changes: seedChanges, overlay: overlay, editingDropId: existingDrop ? existingDrop.id : null };
 
   const built = buildGalleryPickerPanel();
   built.panel.classList.add('drop-recorder-panel');
   const h3 = document.createElement('h3');
-  h3.textContent = 'New Lore Drop';
+  h3.textContent = existingDrop ? 'Edit Lore Drop' : 'New Lore Drop';
   built.header.appendChild(h3);
 
   const hint = document.createElement('p');
@@ -780,6 +809,7 @@ function openDropRecorder() {
     opt.textContent = t.label;
     typeSelect.appendChild(opt);
   });
+  if (existingDrop) typeSelect.value = existingDrop.type || 'lore';
   built.body.appendChild(typeSelect);
 
   const nameLabel = document.createElement('label');
@@ -789,6 +819,7 @@ function openDropRecorder() {
   nameInput.type = 'text';
   nameInput.className = 'drop-recorder-name';
   nameInput.placeholder = 'e.g. The Sunken Vault';
+  if (existingDrop) nameInput.value = existingDrop.name || '';
   built.body.appendChild(nameInput);
 
   const errorP = document.createElement('p');
@@ -887,14 +918,17 @@ function openDropRecorder() {
     if (!changes.length) { showError('No visibility changes recorded.'); return; }
     if (changes.length > 400) { showError('Too many changes for one drop (max 400).'); return; }
     saveBtn.disabled = true;
-    addDoc(collection(db, 'loreDrops'), {
-      name: name,
-      type: typeSelect.value,
-      status: 'current',
-      changes: changes,
-      createdAt: serverTimestamp(),
-      ranAt: null
-    }).then(close).catch(function (err) {
+    const write = existingDrop
+      ? updateDoc(doc(db, 'loreDrops', existingDrop.id), { name: name, type: typeSelect.value, changes: changes })
+      : addDoc(collection(db, 'loreDrops'), {
+          name: name,
+          type: typeSelect.value,
+          status: 'current',
+          changes: changes,
+          createdAt: serverTimestamp(),
+          ranAt: null
+        });
+    write.then(close).catch(function (err) {
       saveBtn.disabled = false;
       showError('Save failed: ' + err.message);
     });
@@ -4819,5 +4853,5 @@ export {
   renderEntityViewCard, applyWikiLinks, enterEntityEditMode, appendDateSegments,
   fitCodexTabHeight, footerReserve, switchToCodexTabForEntity, notifyVisibilityChange,
   openNewEntityDialog, resolveEntityStatBlockMarkdown, buildDropChangeLine,
-  DROP_TYPES, dropTypeLabel
+  DROP_TYPES, dropTypeLabel, openDropRecorder
 };
