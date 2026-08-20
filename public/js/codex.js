@@ -2711,7 +2711,7 @@ function buildLoreEditBox(entity, editState, isNew) {
     getVisibility: function () { return editState.visibility; },
     getCharacterId: function () { return editState.characterId; },
     getCharacterShared: function () { return !!editState.characterShared; },
-    sourceId: editState.sourceId,
+    sourceId: function () { return editState.sourceId; },
     confirmReveal: confirmRevealWithoutSource,
     onApply: function (patch) {
       editState.visibility = patch.visibility;
