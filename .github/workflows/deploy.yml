@@ -18,16 +18,13 @@ jobs:
           node-version: '20'
 
       - name: Install firebase-tools
-        run: npm install -g firebase-tools
+        run: npm install -g firebase-tools@15.28.1
 
       - name: Lint (no-undef gate)
         run: npx --yes eslint@8 --no-eslintrc -c .eslintrc.check.json public/js/*.js
 
       - name: Stamp build label
         run: sed -i "s/__BUILD_LABEL__/build $(git rev-parse --short HEAD) (dev)/" public/index.html
-
-      - name: Stamp build hash
-        run: sed -i "s/__BUILD_HASH__/$(git rev-parse --short HEAD)/" public/index.html
 
       - name: Stamp build hash
         run: sed -i "s/__BUILD_HASH__/$(git rev-parse --short HEAD)/" public/index.html
@@ -80,20 +77,26 @@ jobs:
           node-version: '20'
 
       - name: Install firebase-tools
-        run: npm install -g firebase-tools
+        run: npm install -g firebase-tools@15.28.1
 
       - name: Lint (no-undef gate)
         run: npx --yes eslint@8 --no-eslintrc -c .eslintrc.check.json public/js/*.js
 
       - name: Stamp build label
-        env:
-          RELEASE_NAME: ${{ github.event.release.name }}
         run: |
           HASH=$(git rev-parse --short HEAD)
-          LABEL="version ${RELEASE_NAME} (${HASH} prod)"
+          VERSION=$(cat VERSION | tr -d '[:space:]')
+          LABEL="version ${VERSION} (${HASH} prod)"
           sed -i "s#__BUILD_LABEL__#${LABEL}#" public/index.html
           sed -i "s/__BUILD_HASH__/${HASH}/" public/index.html
-          sed -i "s/__BUILD_HASH__/${HASH}/" public/index.html
+          # Soft drift check only -- warns, doesn't fail the deploy, if the
+          # GitHub Release's tag doesn't look like it matches VERSION (e.g.
+          # Gregg forgot to bump VERSION before cutting the release, or
+          # typo'd the tag). Convention: tag is "v<VERSION>" (e.g. v0.1b).
+          TAG="${{ github.event.release.tag_name }}"
+          if [ "$TAG" != "v${VERSION}" ]; then
+            echo "::warning::Release tag '${TAG}' doesn't match VERSION file 'v${VERSION}' -- confirm this is intentional."
+          fi
 
       - name: Write service account key
         run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}' > /tmp/firebase-key.json
@@ -108,23 +111,25 @@ jobs:
           gcloud auth activate-service-account --key-file=/tmp/firebase-key.json
           TOKEN=$(gcloud auth print-access-token)
           HASH=$(git rev-parse --short HEAD)
+          VERSION=$(cat VERSION | tr -d '[:space:]')
           NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           curl -sS --fail-with-body -X PATCH \
             "https://firestore.googleapis.com/v1/projects/daggerheart-campaign-codex/databases/(default)/documents/_meta/version" \
             -H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json" \
-            -d "{\"fields\":{\"hash\":{\"stringValue\":\"${HASH}\"},\"deployedAt\":{\"timestampValue\":\"${NOW}\"}}}"
+            -d "{\"fields\":{\"hash\":{\"stringValue\":\"${HASH}\"},\"version\":{\"stringValue\":\"${VERSION}\"},\"deployedAt\":{\"timestampValue\":\"${NOW}\"}}}"
 
       - name: Publish deploy version doc
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-key.json
         run: |
           npm install --no-save firebase-admin@12
-          HASH=$(git rev-parse --short HEAD) node -e "
+          HASH=$(git rev-parse --short HEAD) VERSION=$(cat VERSION | tr -d '[:space:]') node -e "
             const admin = require('firebase-admin');
             admin.initializeApp({ projectId: 'daggerheart-campaign-codex' });
             admin.firestore().doc('_meta/version').set({
               hash: process.env.HASH,
+              version: process.env.VERSION,
               deployedAt: admin.firestore.FieldValue.serverTimestamp()
-            }).then(() => { console.log('version doc written:', process.env.HASH); process.exit(0); })
+            }).then(() => { console.log('version doc written:', process.env.HASH, process.env.VERSION); process.exit(0); })
              .catch(err => { console.error(err); process.exit(1); });
           "
