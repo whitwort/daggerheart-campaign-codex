@@ -17,13 +17,13 @@
 // interim manual changes to the same elements (design doc, accepted).
 
 import {
-  getFirestore, doc, collection, onSnapshot, writeBatch, deleteDoc, serverTimestamp
+  getFirestore, doc, collection, onSnapshot, writeBatch, deleteDoc, updateDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
 import { trackWrite } from './connectivity.js';
-import { buildDropChangeLine, DROP_TYPES, dropTypeLabel } from './codex.js';
+import { buildDropChangeLine, DROP_TYPES, dropTypeLabel, openDropRecorder } from './codex.js';
 import { canSee } from './visibility.js';
 import { playersUniverse, exposedEmailSet } from './sharing.js';
 
@@ -244,6 +244,19 @@ function deleteDrop(drop) {
   });
 }
 
+// Pulls one change out of a not-yet-run drop (View pane's per-line "x").
+// Only meaningful pre-Run: an already-run drop's changes are real
+// history of writes that happened, not a to-do list to edit. No confirm
+// -- low-stakes (the element just goes back to whatever "+ Add more"
+// or a future recording would find it at) and reversible via "+ Add
+// more" re-toggling.
+function removeChangeFromDrop(drop, change) {
+  const changes = (drop.changes || []).filter(function (c) { return c !== change; });
+  trackWrite(updateDoc(doc(db, 'loreDrops', drop.id), { changes: changes }), 'Updating drop').catch(function (err) {
+    window.alert('Remove failed: ' + err.message);
+  });
+}
+
 // --- render ------------------------------------------------------------
 
 function renderDropsList() {
@@ -328,14 +341,35 @@ function renderDropDetail() {
 
   const summary = document.createElement('div');
   summary.className = 'stables-drop-summary';
-  (drop.changes || []).forEach(function (c) { summary.appendChild(buildDropChangeLine(c)); });
+  const changes = drop.changes || [];
+  if (!changes.length) {
+    const emptyP = document.createElement('p');
+    emptyP.className = 'lore-empty';
+    emptyP.textContent = 'No changes recorded.';
+    summary.appendChild(emptyP);
+  } else {
+    changes.forEach(function (c) {
+      summary.appendChild(buildDropChangeLine(c, isPrevious ? null : function (change) { removeChangeFromDrop(drop, change); }));
+    });
+  }
   detailEl.appendChild(summary);
+
+  if (!isPrevious) {
+    const addMoreBtn = document.createElement('button');
+    addMoreBtn.type = 'button';
+    addMoreBtn.className = 'stables-add-more-btn';
+    addMoreBtn.textContent = '+ Add more';
+    addMoreBtn.disabled = !!state.dropRecording;
+    addMoreBtn.addEventListener('click', function () { openDropRecorder(drop); });
+    detailEl.appendChild(addMoreBtn);
+  }
 
   const actions = document.createElement('div');
   actions.className = 'stables-drop-actions';
   if (!isPrevious) {
     const runBtn = document.createElement('button');
     runBtn.textContent = 'Run';
+    runBtn.disabled = !changes.length;
     runBtn.addEventListener('click', function () { runDrop(drop); });
     actions.appendChild(runBtn);
   } else {

@@ -810,12 +810,20 @@ select {
   border-bottom-right-radius: 10px;
 }
 .drop-recorder-hint { font-size: 0.85rem; margin: 0 0 0.5rem 0; color: rgba(233,221,194,0.85); }
+/* Multi-column so a wide (resized) panel actually uses the extra width
+   instead of one long single-file list; grid (not CSS multicol columns)
+   because grid-auto-flow:row fills left-to-right/top-to-bottom and
+   overflows straight down -- CSS multicol would instead try to add MORE
+   columns off to the right before scrolling vertically, fighting the
+   fixed-height resizable panel. */
 .drop-recorder-log {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  align-content: start; gap: 0.15rem 0.75rem;
   overflow-y: auto; margin-bottom: 0.75rem;
   border: 1px solid var(--void-line); border-radius: 6px; padding: 0.5rem;
   background: rgba(0,0,0,0.25);
 }
-.drop-recorder-empty { font-size: 0.8rem; color: rgba(233,221,194,0.6); margin: 0; }
+.drop-recorder-empty { grid-column: 1 / -1; font-size: 0.8rem; color: rgba(233,221,194,0.6); margin: 0; }
 .drop-change-line {
   display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;
   padding: 0.25rem 0; font-size: 0.85rem;
@@ -825,6 +833,15 @@ select {
 /* Recorder/Stables reuse .character-badge sizing via buildCharacterBadge;
    inside a change line kill its source-label-tuned margin. */
 .drop-change-line .character-badge { margin-left: 0; }
+/* Stables View pane's per-line remove -- same small round icon-button
+   look as .vis-kebab-btn, pushed to the row's trailing edge. */
+.drop-change-remove {
+  margin-left: auto; width: 1.4rem; min-width: 1.4rem; height: 1.4rem; border-radius: 50%;
+  border: 1px solid var(--ink-soft); background: transparent; color: var(--ink-soft);
+  box-shadow: none; font-size: 0.75rem; line-height: 1; cursor: pointer; padding: 0;
+  display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+}
+.drop-change-remove:hover { background: rgba(58,46,34,0.16); color: var(--ink); border-color: var(--ink-soft); }
 .drop-recorder-name { width: 100%; margin: 0.3rem 0 0.5rem 0; }
 .drop-recorder-error { color: var(--notice); font-size: 0.85rem; margin: 0 0 0.5rem 0; }
 .drop-recorder-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
@@ -860,6 +877,7 @@ select {
   border: 1px solid var(--void-line); border-radius: 6px; padding: 0.5rem;
   background: rgba(0,0,0,0.15); margin-bottom: 0.75rem; max-height: 55vh; overflow-y: auto;
 }
+.stables-add-more-btn { margin: 0 0 0.75rem 0; }
 .stables-drop-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
 
 /* Phase 17 A2: Show secrets mode — seafoam (the secret/character-state
