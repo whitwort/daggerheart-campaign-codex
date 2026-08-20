@@ -18,7 +18,7 @@ window.APP_CONFIG = {
     codex: 'Codex'
   },
 
-  categories: ['Character', 'Faction', 'Location', 'Item', 'World Facts', 'Organization', 'Event', 'Scene', 'Ancestry', 'Community', 'Game Mechanics', 'Equipment', 'Adversary', 'Environment'],
+  categories: ['Character', 'Faction', 'Location', 'World Facts', 'Organization', 'Event', 'Scene', 'Ancestry', 'Community', 'Game Mechanics', 'Equipment', 'Adversary', 'Environment'],
 
   // "Meta" entry types: categories that describe rules/lore-as-fact
   // rather than something with a physical presence in the world, so they
