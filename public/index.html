@@ -77,6 +77,7 @@
   <link rel="modulepreload" href="js/dates.js">
   <link rel="modulepreload" href="js/encounters.js">
   <link rel="modulepreload" href="js/entity-images-cache.js">
+  <link rel="modulepreload" href="js/export-lore.js">
   <link rel="modulepreload" href="js/firebase.js">
   <link rel="modulepreload" href="js/images.js">
   <link rel="modulepreload" href="js/import.js">
@@ -393,7 +394,16 @@
       </div>
 
       <div id="admin-db-export" class="admin-db-tab-panel">
-        <p class="lore-empty">Export tools are coming in a future update.</p>
+        <p class="admin-hint">Pick an entry to export it (and its lore) as JSON in the same shape the Import Lore tab accepts.</p>
+        <input type="text" id="export-lore-search" class="entity-picker-search" placeholder="Search…">
+        <div id="export-lore-list" class="entity-picker-list"></div>
+        <div id="export-lore-preview" class="actions-row-left"></div>
+        <div class="actions-row">
+          <div class="actions-row-left"></div>
+          <div class="actions-row-right">
+            <button type="button" id="export-lore-btn" disabled>Export</button>
+          </div>
+        </div>
       </div>
 
       <div id="admin-db-backup" class="admin-db-tab-panel active">
