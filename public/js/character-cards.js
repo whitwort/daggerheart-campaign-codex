@@ -27,6 +27,7 @@ import { canSee } from './visibility.js';
 import { getTemplateSchema } from './templates.js';
 import { renderMarkdownInto } from './markdown.js';
 import { generateDefaultBadgeColor } from './badge-color.js';
+import { buildPickerPanel, attachPickerDismiss } from './picker-panel.js';
 
 function byName(a, b) { return (a.name || '').localeCompare(b.name || ''); }
 
@@ -439,21 +440,11 @@ function buildSingleEntityPicker(labelText, entities, currentId, onChange) {
   return wrap;
 }
 
-// --- Minimal floating popup panel, self-contained (no codex.js import,
-// see module header) -- same visual language as codex.js's
-// buildGalleryPickerPanel/openEntityPickerPopup (shares CSS classes),
-// duplicated rather than imported to avoid a codex.js <-> here cycle. ---
+// --- Floating popup panel: shared machinery now lives in
+// picker-panel.js (dependency-free, so no codex.js <-> here cycle --
+// the original reason this module carried its own copy). ---
 export function buildFloatingPickerPanel() {
-  const panel = document.createElement('div');
-  panel.className = 'gallery-picker-panel entity-picker-panel';
-  const header = document.createElement('div');
-  header.className = 'gallery-picker-header';
-  panel.appendChild(header);
-  const body = document.createElement('div');
-  body.className = 'gallery-picker-body';
-  panel.appendChild(body);
-  document.body.appendChild(panel);
-  return { panel: panel, header: header, body: body };
+  return buildPickerPanel({ className: 'entity-picker-panel' });
 }
 
 // Ability add-picker: search + domain-grouped list, same interaction
@@ -493,6 +484,7 @@ export function openExperiencePickerPopup(onAdd) {
   if (document.querySelector('.entity-picker-panel')) return;
   const built = buildFloatingPickerPanel();
   built.header.textContent = 'Add experience';
+  const close = attachPickerDismiss(built.panel);
 
   const nameField = document.createElement('div');
   nameField.className = 'entity-edit-field';
@@ -534,21 +526,13 @@ export function openExperiencePickerPopup(onAdd) {
   built.body.appendChild(actions);
 
   nameInput.focus();
-  function onDocClick(ev) { if (!built.panel.contains(ev.target)) close(); }
-  function onKeydown(ev) { if (ev.key === 'Escape') close(); }
-  setTimeout(function () { document.addEventListener('click', onDocClick); }, 0);
-  document.addEventListener('keydown', onKeydown);
-  function close() {
-    document.removeEventListener('click', onDocClick);
-    document.removeEventListener('keydown', onKeydown);
-    built.panel.remove();
-  }
 }
 
 export function openAbilityPickerPopup(title, candidates, onSelect) {
   if (document.querySelector('.entity-picker-panel')) return;
   const built = buildFloatingPickerPanel();
   built.header.textContent = title;
+  const close = attachPickerDismiss(built.panel);
 
   const searchInput = document.createElement('input');
   searchInput.type = 'text';
@@ -629,16 +613,6 @@ export function openAbilityPickerPopup(title, candidates, onSelect) {
   searchInput.addEventListener('input', renderResults);
   renderResults();
   searchInput.focus();
-
-  function onDocClick(ev) { if (!built.panel.contains(ev.target)) close(); }
-  function onKeydown(ev) { if (ev.key === 'Escape') close(); }
-  setTimeout(function () { document.addEventListener('click', onDocClick); }, 0);
-  document.addEventListener('keydown', onKeydown);
-  function close() {
-    document.removeEventListener('click', onDocClick);
-    document.removeEventListener('keydown', onKeydown);
-    built.panel.remove();
-  }
 }
 
 // Abilities: list+Remove, "+ Add ability" opens a search/domain-grouped

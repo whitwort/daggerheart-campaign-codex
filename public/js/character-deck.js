@@ -45,6 +45,7 @@ import { canSee, hasFullAuthority } from './visibility.js';
 import { renderMarkdownInto } from './markdown.js';
 import { trackWrite } from './connectivity.js';
 import { generateDefaultBadgeColor } from './badge-color.js';
+import { attachPickerDismiss } from './picker-panel.js';
 import { resolveEntityStatBlockMarkdown, switchToCodexTabForEntity, enterEntityEditMode } from './codex.js';
 import {
   DEFAULT_CARDS, TIER_OPTIONS, normalizeAncestryIds, resolveFunctionalIds,
@@ -319,6 +320,7 @@ function openCardPickerPopup(opts) {
   if (document.querySelector('.entity-picker-panel')) return;
   const built = buildFloatingPickerPanel();
   built.header.textContent = opts.title;
+  const close = attachPickerDismiss(built.panel);
 
   const searchInput = document.createElement('input');
   searchInput.type = 'text';
@@ -431,16 +433,6 @@ function openCardPickerPopup(opts) {
   searchInput.addEventListener('input', renderResults);
   renderResults();
   searchInput.focus();
-
-  function onDocClick(ev) { if (!built.panel.contains(ev.target)) close(); }
-  function onKeydown(ev) { if (ev.key === 'Escape') close(); }
-  setTimeout(function () { document.addEventListener('click', onDocClick); }, 0);
-  document.addEventListener('keydown', onKeydown);
-  function close() {
-    document.removeEventListener('click', onDocClick);
-    document.removeEventListener('keydown', onKeydown);
-    built.panel.remove();
-  }
 }
 
 // Experience add popup moved to character-cards.js (openExperiencePickerPopup)
