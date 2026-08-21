@@ -35,6 +35,10 @@ const COLLECTIONS = ['config', 'encounters', 'entities', 'images', 'joinRequests
 // doc ORPHANS its messages rather than deleting them.
 const SUBCOLLECTIONS = { threads: ['messages'] };
 const BATCH_LIMIT = 500;
+// A batched-write REQUEST also caps at ~10 MiB regardless of doc count
+// (same flaw fixed in public/js/backup.js: count-only batching made the
+// images batch throw and abort the restore). Budget well under it.
+const BATCH_BYTE_BUDGET = 8 * 1024 * 1024;
 
 function parseArgs(argv) {
   const args = { _: [] };
@@ -136,11 +140,19 @@ async function runImport(db, inPath, wipe) {
         });
       });
     });
-    for (let i = 0; i < writes.length; i += BATCH_LIMIT) {
-      const batch = db.batch();
-      writes.slice(i, i + BATCH_LIMIT).forEach(function (w) { batch.set(w.ref, w.data); });
-      await batch.commit();
+    let batch = db.batch();
+    let count = 0, bytes = 0;
+    for (const w of writes) {
+      const entrySize = JSON.stringify(w.data).length;
+      if (count > 0 && (count >= BATCH_LIMIT || bytes + entrySize > BATCH_BYTE_BUDGET)) {
+        await batch.commit();
+        batch = db.batch();
+        count = 0; bytes = 0;
+      }
+      batch.set(w.ref, w.data);
+      count++; bytes += entrySize;
     }
+    if (count > 0) await batch.commit();
     console.log(name + ': wrote ' + docs.length + ' docs' + (subCount ? ' (+' + subCount + ' subcollection docs)' : ''));
   }
 }
