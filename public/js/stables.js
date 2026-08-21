@@ -402,4 +402,4 @@ function ensureStablesTabReady() {
   renderStablesTab();
 }
 
-export { attachStablesListener, detachStablesListener, ensureStablesTabReady, renderStablesTab };
+export { attachStablesListener, detachStablesListener, ensureStablesTabReady };

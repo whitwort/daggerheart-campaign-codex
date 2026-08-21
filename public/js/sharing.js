@@ -37,7 +37,7 @@
 // here rather than leaving it implicit.
 
 import {
-  getFirestore, doc, collection, updateDoc, writeBatch, serverTimestamp
+  getFirestore, doc, collection, writeBatch, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp } from './firebase.js';
 import { state } from './state.js';

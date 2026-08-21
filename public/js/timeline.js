@@ -46,7 +46,6 @@ function switchToCodexEntity(entityId) {
 let dom = null; // populated once by buildShell()
 let dated = [];  // current gmView-filtered, dateSort-sorted Scene/Event entities
 let selectedId = null;
-let activeTab = 'lore';
 let scale = 1;
 let offset = 0; // in "years" (dateSort / YEAR_SECONDS)
 let fitted = false;
@@ -273,7 +272,6 @@ function openEntityInPanel(entityId) {
   const entity = dated.find(function (e) { return e.id === entityId; });
   if (!entity) return;
   selectedId = entityId;
-  activeTab = 'lore';
   renderCardPane();
   centerOnIfOffscreen(entity);
   render();
@@ -288,7 +286,6 @@ function selectFromList(entityId) {
   const entity = dated.find(function (e) { return e.id === entityId; });
   if (!entity) return;
   selectedId = entityId;
-  activeTab = 'lore';
   renderCardPane();
   zoomToIsolate(entity);
   dom.listPanel.classList.remove('open');

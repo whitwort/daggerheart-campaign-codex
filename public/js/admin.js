@@ -1,7 +1,7 @@
 import {
-  getFirestore, doc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, serverTimestamp
+  getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { firebaseApp, CONFIG } from './firebase.js';
+import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
 import { trackWrite } from './connectivity.js';

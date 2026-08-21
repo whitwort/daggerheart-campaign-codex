@@ -49,7 +49,7 @@ import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
 import { trackWrite } from './connectivity.js';
-import { canSee, viewerContext, hasFullAuthority } from './visibility.js';
+import { viewerContext, hasFullAuthority } from './visibility.js';
 import { switchToCodexTabForEntity, openNewEntityDialog } from './codex.js';
 import { generateDefaultBadgeColor } from './badge-color.js';
 import { approveTransferRequest, rejectTransferRequest } from './transfer-requests.js';

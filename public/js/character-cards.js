@@ -137,7 +137,7 @@ export function normalizeAncestryIds(cards) {
   if (cards.ancestryId) return [cards.ancestryId];
   return [];
 }
-export function resolveFunctionalAncestryIds(ancestryId) {
+function resolveFunctionalAncestryIds(ancestryId) {
   const anc = state.allEntities.find(function (e) { return e.id === ancestryId; });
   if (!anc) return [];
   const targets = anc.metaAncestryTargetIds;
@@ -204,7 +204,7 @@ function slotStatMarkdown(entity, tierFilter) {
 // this is description-only, purely to help verify the right thing got
 // picked. entity==null renders nothing (an empty "-- none --" slot
 // needs no placeholder of its own here).
-export function buildCardSlot(entity, opts) {
+function buildCardSlot(entity, opts) {
   const o = opts || {};
   const wrap = document.createElement('div');
   wrap.className = 'character-card-slot';
@@ -704,7 +704,7 @@ function buildAbilitiesPicker(cards, displayEntities, onChange, addCandidates) {
 // deck-viewer-only, play-time concept, this is the same flat-list
 // pattern buildAbilitiesPicker above already uses. Shares the exact
 // same add popup (openExperiencePickerPopup) as the deck viewer.
-export function buildExperiencesEditor(cards, onChange) {
+function buildExperiencesEditor(cards, onChange) {
   const wrap = document.createElement('div');
   wrap.className = 'entity-edit-field';
   const label = document.createElement('label');
@@ -763,7 +763,7 @@ const BADGE_COLORS = [
   '#8C8072', '#7C7A45', '#5A7690', '#8E6A4F', '#5C5A66', '#4F7A6E'
 ];
 
-export function buildBadgeColorPicker(draft, entityName, rerender) {
+function buildBadgeColorPicker(draft, entityName, rerender) {
   const wrap = document.createElement('div');
   wrap.className = 'entity-edit-field';
   const label = document.createElement('label');

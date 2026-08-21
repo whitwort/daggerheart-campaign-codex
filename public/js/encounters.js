@@ -1038,4 +1038,4 @@ function ensureEncountersTabReady() {
   renderEncountersTab();
 }
 
-export { attachEncountersListener, detachEncountersListener, ensureEncountersTabReady, renderEncountersTab, updateEncounter, getSelectedEncounter };
+export { attachEncountersListener, detachEncountersListener, ensureEncountersTabReady };
