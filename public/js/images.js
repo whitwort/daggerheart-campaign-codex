@@ -228,51 +228,6 @@ const IMAGE_CACHE_STORE = 'images';
       return batch.commit();
     }
 
-    // One-time, idempotent migration: an entity's OLD standalone map
-    // image (role:'map', deterministic doc ID entity_{id}_map, from
-    // before the Gallery's Set map button existed) becomes a normal
-    // gallery image with isMap:true instead. Safe to call repeatedly --
-    // once the legacy doc is gone, legacyDoc won't be found again and
-    // this is a no-op. Triggered from codex.js's setEntityImagesTarget
-    // whenever that entity's images are loaded (i.e. its Codex card is
-    // opened) and a legacy doc is present with no gallery image already
-    // holding isMap -- NOT run proactively for every entity, so an
-    // entity whose Codex card is never opened keeps working via
-    // map.js's own legacy-doc fallback read until it happens to migrate.
-    function migrateLegacyMapImageIfNeeded(entityId, images) {
-      const legacyDoc = images.find(function (img) { return img.ownerId === entityId && img.role === 'map'; });
-      if (!legacyDoc) return;
-      const alreadyHasNewMap = images.some(function (img) {
-        return img.ownerId === entityId && img.role === 'gallery' && img.isMap;
-      });
-      if (alreadyHasNewMap) return;
-      const newRef = doc(collection(db, 'images'));
-      const batch = writeBatch(db);
-      batch.set(newRef, {
-        ownerType: 'entity',
-        ownerId: entityId,
-        role: 'gallery',
-        visibility: 'gm-only',
-        sourceId: (sortedSources()[0] && sortedSources()[0].id) || null,
-        isMap: true,
-        data: legacyDoc.data,
-        contentType: legacyDoc.contentType,
-        width: legacyDoc.width,
-        height: legacyDoc.height,
-        sizeBytes: legacyDoc.sizeBytes,
-        uploadedAt: legacyDoc.uploadedAt || serverTimestamp()
-      });
-      batch.delete(doc(db, 'images', legacyDoc.id));
-      // hasMapImage is already true (that's how the legacy doc got
-      // created in the first place) -- but mapImageVisibleToPlayers may
-      // not exist yet on an entity doc this old, and the migrated image
-      // is always gm-only (see visibility above), so set it explicitly
-      // rather than leaving it absent.
-      batch.update(doc(db, 'entities', entityId), { mapImageVisibleToPlayers: false });
-      batch.commit().catch(function (err) {
-        console.error('[images] legacy map image migration failed:', err.message);
-      });
-    }
 
 
     function openImageCacheDb() {
@@ -325,6 +280,6 @@ const IMAGE_CACHE_STORE = 'images';
 
 export {
   uploadEntityGalleryImage, deleteEntityGalleryImage, setGalleryImageSource,
-  setEntityPortrait, setEntityMap, clearEntityMap, migrateLegacyMapImageIfNeeded,
+  setEntityPortrait, setEntityMap, clearEntityMap,
   getCachedImage, putCachedImage
 };

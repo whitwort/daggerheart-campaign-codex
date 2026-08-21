@@ -12,7 +12,7 @@ import { parseDateSpec, formatDateSegments } from './dates.js';
 import { buildSourceSelect, renderSourceLabel, registerSourcesChangeHandler, confirmRevealWithoutSource, sortedSources } from './sources.js';
 import {
   uploadEntityGalleryImage, deleteEntityGalleryImage, setGalleryImageSource,
-  setEntityPortrait, setEntityMap, clearEntityMap, migrateLegacyMapImageIfNeeded
+  setEntityPortrait, setEntityMap, clearEntityMap
 } from './images.js';
 import { getTemplateSchema, normalizeSearchTerm, computeSearchIndex } from './templates.js';
 import {
@@ -254,7 +254,12 @@ function attachCodexListeners() {
   // state docs only, a handful at any time) so the secret-children badge
   // and Show secrets mode can answer "does this entity have secret image
   // children" without loading every entity's gallery. The base64 `data`
-  // field is STRIPPED before storing — only metadata reaches state.
+  // field is deleted before storing so only metadata reaches state —
+  // that saves MEMORY, not bandwidth: Firestore still transmits the
+  // full doc (payload included) on attach and on every result-set
+  // change. Acceptable while secret images stay a handful; if that
+  // grows, replace this with a hasSecretImages mirror flag written on
+  // the entity doc at share time (sharing.js is already the write seam).
   attachListener('characterImagesUnsub', function () {
     return onSnapshot(
       query(collection(db, 'images'), where('visibility', '==', 'character')),
@@ -302,13 +307,6 @@ function setEntityImagesTarget(entityId) {
       snapshot.forEach(function (docSnap) {
         state.currentEntityImages.push(Object.assign({ id: docSnap.id }, docSnap.data()));
       });
-      // One-time, idempotent: an entity's old standalone map image
-      // (pre-Gallery-tab-Set-map) becomes a normal gallery image with
-      // isMap:true. GM-only (write access), no-op once already migrated
-      // — see migrateLegacyMapImageIfNeeded's own comment (images.js).
-      if (state.currentRole === 'gm') {
-        migrateLegacyMapImageIfNeeded(entityId, state.currentEntityImages);
-      }
       renderDetailForSelected();
     }),
     function (err) {
@@ -4660,13 +4658,23 @@ function renderEntityViewCard(container, entity, ctx, opts) {
   contentWrap.appendChild(sourceLabelDiv);
 }
 
+// Debounced a beat: renderList walks every entity through canSee +
+// entityMatchesQuery per keystroke; at SRD-import scale that's enough
+// work to stutter fast typing on an iPad. 120ms is under the
+// perceptible-lag threshold and collapses a burst of keystrokes into
+// one render. The keydown (Enter) handler below stays immediate.
+let searchDebounceTimer = null;
 searchEl.addEventListener('input', function () {
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(runSearchInput, 120);
+});
+function runSearchInput() {
   // Phase 17 A2: search and Show secrets mode are mutually exclusive —
   // typing a query exits secrets mode rather than intersecting with it.
   if (searchEl.value.trim().length > 0) state.secretsFilterActive = false;
   updateSearchClearBtnVisibility();
   renderList();
-});
+}
 
 searchEl.addEventListener('keydown', function (ev) {
   if (ev.key !== 'Enter') return;

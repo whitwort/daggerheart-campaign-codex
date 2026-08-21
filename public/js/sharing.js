@@ -24,7 +24,6 @@
 //   - codex.js saveNewEntity(): new entity default visibility:'gm-only'
 //   - characters.js "+ New character": new PC literal visibility:'gm-only'
 //   - images.js uploadEntityGalleryImage(): new upload default visibility:'gm-only'
-//   - images.js migrateLegacyMapImageIfNeeded(): legacy-doc migration default visibility:'gm-only'
 //   - import.js bulk JSON import (creates/replaces): literal visibility:'gm-only'
 //   - srd-import.js SRD import (create/update): literal visibility:'all-players' (public SRD text)
 //     (bulk imports are deliberately silent — re-importing the SRD must
