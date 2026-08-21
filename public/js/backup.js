@@ -42,33 +42,57 @@ const SUBCOLLECTIONS = { threads: ['messages'] };
 const BATCH_LIMIT = 500;
 // A batched-write REQUEST also caps at ~10 MiB regardless of doc count.
 // Image docs run up to ~1 MB of base64 each, so batching by count alone
-// made the images batch blow the request limit and throw -- and because
-// runBackupRestore's loop awaited each commit in sequence, that single
-// throw aborted the ENTIRE restore, silently dropping every collection
-// after images (loreDrops, loreItems, notifications, pins, players,
-// sources, threads): the first-prod-restore bug. Budget well under the
-// limit; JSON.stringify length is a close proxy for payload (base64
-// dominates the big docs).
-const BATCH_BYTE_BUDGET = 8 * 1024 * 1024;
+// made the images batch blow the request limit and throw -- the
+// first-prod-restore bug. Second prod-restore bug (observed with the
+// 8 MiB budget that first replaced it): this app forces the
+// long-polling Firestore transport (iOS fix, firebase.js), and repeated
+// multi-MiB commit POSTs over long-polling on iOS Safari can wedge the
+// write stream -- the commit PROMISE NEVER SETTLES (no throw), freezing
+// the restore loop silently after some batches land (prod showed
+// exactly batches 1-4 of images, then nothing). Hence: a small byte
+// budget long-polling handles comfortably, a watchdog timeout per
+// commit so a hang surfaces as an error, and one rebuild-and-retry
+// before giving up (a WriteBatch is single-use; retry rebuilds it).
+const BATCH_BYTE_BUDGET = 1.5 * 1024 * 1024;
+const COMMIT_TIMEOUT_MS = 45000;
+
+function commitTimeout() {
+  return new Promise(function (_, reject) {
+    setTimeout(function () { reject(new Error('commit timed out after ' + (COMMIT_TIMEOUT_MS / 1000) + 's (transport hang?)')); }, COMMIT_TIMEOUT_MS);
+  });
+}
 
 // Writes entries to collectionName in batches capped by BOTH count and
-// approximate payload bytes. A single entry over budget still goes
-// (alone) -- Firestore's own 1 MiB per-DOC limit governs that case, and
-// any doc in the dump already existed once, so it fits.
-async function writeEntriesBatched(collectionName, entries) {
-  let batch = writeBatch(db);
-  let count = 0, bytes = 0;
+// approximate payload bytes (JSON.stringify length; base64 dominates
+// the big docs). log (optional) gets per-chunk progress for multi-chunk
+// collections, so a stall is visible at the exact chunk it happens.
+async function writeEntriesBatched(collectionName, entries, log) {
+  const chunks = [];
+  let cur = [], bytes = 0;
   for (const entry of entries) {
     const entrySize = JSON.stringify(entry.data).length;
-    if (count > 0 && (count >= BATCH_LIMIT || bytes + entrySize > BATCH_BYTE_BUDGET)) {
-      await batch.commit();
-      batch = writeBatch(db);
-      count = 0; bytes = 0;
+    if (cur.length > 0 && (cur.length >= BATCH_LIMIT || bytes + entrySize > BATCH_BYTE_BUDGET)) {
+      chunks.push(cur); cur = []; bytes = 0;
     }
-    batch.set(doc(db, collectionName, entry.id), deserializeValue(entry.data));
-    count++; bytes += entrySize;
+    cur.push(entry); bytes += entrySize;
   }
-  if (count > 0) await batch.commit();
+  if (cur.length) chunks.push(cur);
+
+  for (let ci = 0; ci < chunks.length; ci++) {
+    const chunk = chunks[ci];
+    const buildBatch = function () {
+      const b = writeBatch(db);
+      chunk.forEach(function (entry) { b.set(doc(db, collectionName, entry.id), deserializeValue(entry.data)); });
+      return b;
+    };
+    try {
+      await Promise.race([buildBatch().commit(), commitTimeout()]);
+    } catch (err) {
+      if (log) log(collectionName + ': batch ' + (ci + 1) + '/' + chunks.length + ' failed (' + err.message + '), retrying once\u2026');
+      await Promise.race([buildBatch().commit(), commitTimeout()]);
+    }
+    if (log && chunks.length > 1) log(collectionName + ': batch ' + (ci + 1) + '/' + chunks.length + ' (' + chunk.length + ' docs) committed');
+  }
 }
 
 function serializeValue(v) {
@@ -141,6 +165,9 @@ async function wipeCollection(name) {
 }
 
 async function runBackupRestore(dump, mode, log) {
+  // Engine marker: settles instantly whether a run used current code
+  // (iOS Safari has served stale modules despite a fresh footer hash).
+  log('restore engine r3 (1.5 MiB batches, 45s commit watchdog)');
   if (mode === 'wipe') {
     for (const name of COLLECTIONS) {
       const n = await wipeCollection(name);
@@ -158,7 +185,7 @@ async function runBackupRestore(dump, mode, log) {
     // log it loudly and keep going, then throw at the end so the UI
     // still reports the run as failed.
     try {
-      await writeEntriesBatched(name, docs);
+      await writeEntriesBatched(name, docs, log);
     } catch (err) {
       failures++;
       log(name + ': FAILED after partial write -- ' + err.message);
@@ -277,6 +304,7 @@ function computeEntryRestorePlan(dump, entityId) {
 }
 
 async function runEntryRestore(entity, plan, log) {
+  log('restore engine r3');
   // entity is the flattened { id, ...data } object built for the picker/
   // search UI (entryRestoreEntityPool) -- id must NOT go into the document
   // body itself (Firestore doc data, not a stored field; isValidEntity()'s
@@ -291,7 +319,7 @@ async function runEntryRestore(entity, plan, log) {
       { collectionName: 'images', entries: plan.images },
     ]);
   for (const w of writes) {
-    await writeEntriesBatched(w.collectionName, w.entries);
+    await writeEntriesBatched(w.collectionName, w.entries, log);
     log(w.collectionName + ': wrote ' + w.entries.length + ' doc' + (w.entries.length === 1 ? '' : 's'));
   }
 }
