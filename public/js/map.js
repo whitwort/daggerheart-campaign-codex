@@ -1050,8 +1050,16 @@ function ensureMapTabReady() {
     return;
   }
   fitMapTabLayout();
-  renderMapCardPane();
+  // loadMap() before renderMapCardPane(): loadMap()'s teardownMapRuntime()
+  // destroys mapCardImagesCache (kills its current listener). Calling
+  // renderMapCardPane() first (the old order) set up a FRESH listener
+  // for the new entity via setTarget(), which teardownMapRuntime() then
+  // immediately destroyed before its first snapshot ever arrived --
+  // the portrait silently never appeared on first navigation to a new
+  // map/pin, only after some other render (e.g. opening the entity on
+  // the Codex tab) re-triggered setTarget() with no teardown in between.
   loadMap(state.currentMapEntityId);
+  renderMapCardPane();
 }
 
 // Re-render pins whenever entity/lore visibility or entity data changes
