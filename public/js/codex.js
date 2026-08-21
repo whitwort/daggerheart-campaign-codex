@@ -2404,6 +2404,24 @@ function createNewEntity(source) {
     if (source.cards) entityData.cards = Object.assign({}, source.cards);
     if (source.badgeColor) entityData.badgeColor = source.badgeColor;
   }
+  // Bug fix: cloning previously copied the entity-level template fields
+  // (details/features/useTemplate) but not the source's lore items --
+  // for a templated entry (e.g. an imported class), the Lore tab's
+  // Details/Features synthesis (resolveLoreItemMarkdown) only fires
+  // when a meta-details/meta-features lore item exists to anchor it,
+  // so a clone with no lore items rendered as if untemplated (empty
+  // Lore tab, no meta blocks) despite carrying the copied details/
+  // features data. Clone the source's non-note lore items (kind:'note'
+  // is per-author private and must never leak to a clone) so the new
+  // entity starts with the same anchors + any hand-authored content.
+  // Exposure state is NOT carried (matches the entity-level rule
+  // above): every cloned lore item starts gm-only regardless of the
+  // source item's own visibility.
+  const sourceLoreItems = source
+    ? state.allLoreItems
+        .filter(function (item) { return item.entityId === source.id && item.kind !== 'note'; })
+        .sort(function (a, b) { return (a.order || 0) - (b.order || 0); })
+    : [];
   if (cat === 'Character' && !ctx.gmView) {
     entityData.ownerId = ctx.email;
   }
@@ -2416,7 +2434,24 @@ function createNewEntity(source) {
   // second click that created a duplicate entity. Close/open optimistically;
   // .catch() below only surfaces an eventual failure, it doesn't try to
   // reopen state that's already moved on.
-  trackWrite(setDoc(doc(db, 'entities', newId), entityData), 'Saving entity').catch(function (err) {
+  const cloneBatch = writeBatch(db);
+  cloneBatch.set(doc(db, 'entities', newId), entityData);
+  sourceLoreItems.forEach(function (item) {
+    cloneBatch.set(doc(collection(db, 'loreItems')), {
+      entityId: newId,
+      kind: item.kind,
+      authorId: null,
+      authorType: 'gm',
+      visibility: 'gm-only',
+      content: item.content,
+      meta: item.meta || null,
+      sourceId: item.sourceId || null,
+      order: item.order || 0,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+  });
+  trackWrite(cloneBatch.commit(), 'Saving entity').catch(function (err) {
     window.alert('Save failed: ' + err.message);
   });
   entityNewSaveBtn.disabled = false;
