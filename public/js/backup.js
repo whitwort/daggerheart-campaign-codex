@@ -204,6 +204,17 @@ async function runBackupRestore(dump, mode, log) {
   let failures = 0;
   for (const name of RESTORABLE_COLLECTIONS) {
     const docs = (dump.collections && dump.collections[name]) || [];
+    // Merge-mode special case: notification UPDATES are recipient-locked
+    // (rules allow only the recipient flipping seenAt), so set() on an
+    // existing doc is denied even for the GM -- observed as a spurious
+    // FAILED on the first merge-mode prod restore. GM deletes ARE
+    // allowed, so make merge deterministic for this one collection by
+    // wiping it first and recreating from the dump (wipe mode already
+    // does exactly this globally).
+    if (mode !== 'wipe' && name === 'notifications' && docs.length) {
+      const n = await wipeCollection(name);
+      log('notifications: wiped ' + n + ' existing docs first (updates are recipient-locked; recreating from dump)');
+    }
     // Per-collection catch: one collection failing must not silently
     // abandon everything after it (the failure mode this replaces) --
     // log it loudly and keep going, then throw at the end so the UI
