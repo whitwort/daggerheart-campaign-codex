@@ -221,6 +221,16 @@ scattered CSS.
 
 ## Dev ergonomics
 
+- **iOS Safari stale JS modules survive reload (observed Aug 2026,
+  timeline cluster-zoom fix).** After a dev deploy, the iPad showed the
+  CORRECT footer build hash but ran the OLD timeline.js — normal reload
+  didn't help; only force-quitting Safari (App Switcher swipe-away) got
+  fresh modules. index.html revalidating (hash fresh) does NOT prove
+  the module graph revalidated; iOS can serve modules from its
+  in-memory map across reloads despite no-cache (modulepreload possibly
+  aggravates). Debugging rule: when dev behavior doesn't match freshly
+  pushed code on iPad, force-quit Safari BEFORE suspecting the code.
+
 - **Dev-only test Player login (2FA friction) — RESOLVED.** No longer
   an issue; Option A (separate non-private browser app for the second
   Google account, separate cookie jar) held. Option B (Email/Password
