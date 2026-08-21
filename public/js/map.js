@@ -140,8 +140,6 @@ let mapCardPinEntityId = null; // set by a tapped pin/breadcrumb ancestor/
                                 // or navigating to a different map
                                 // (loadMap) -- falls back to the
                                 // current map's own entity when null.
-let mapCardActiveTab = 'lore';
-
 // Phase 13 layout fix: #map-layout's height is set from JS to fill the
 // remaining window height below the header/nav -- same fitLayoutHeight
 // pattern as Timeline. #map-image-wrap similarly gets an exact px size
@@ -345,7 +343,6 @@ function renderMapCardPane() {
 // (the current map's own entity), not to an empty state.
 function closeMapCardPin() {
   mapCardPinEntityId = null;
-  mapCardActiveTab = 'lore';
   renderMapCardPane();
 }
 
@@ -357,7 +354,6 @@ function closeMapCardPin() {
 // never go through here.
 function openEntityInMapCard(entityId) {
   mapCardPinEntityId = entityId;
-  mapCardActiveTab = 'lore';
   renderMapCardPane();
   mapCardPaneEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
@@ -1395,5 +1391,5 @@ function detachMapDataListeners() {
 
 export {
   attachPinsListener, attachConfigListener, detachMapDataListeners,
-  ensureMapTabReady, loadMap
+  ensureMapTabReady
 };

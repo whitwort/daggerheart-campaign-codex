@@ -391,8 +391,6 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 #map-gm-controls { display: none; margin-top: 0.75rem; flex-shrink: 0; }
 #map-mode-hint { font-size: 0.85rem; color: var(--ink-soft); }
 #map-gm-controls button.active-mode { outline: 2px solid var(--fear); }
-#map-image-upload { display: none; gap: 0.5rem; align-items: center; margin-top: 0.5rem; font-size: 0.85rem; }
-#map-image-upload-status { color: var(--ink-soft); }
 
 /* Breadcrumb map navigation (replaces the old "back to parent map" button) */
 #map-breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; margin-top: 0.75rem; font-size: 0.9rem; flex-shrink: 0; }
@@ -458,16 +456,6 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
    shrink-to-fit — it rescales the entire page below 1 (observed
    scale 0.96), which is what made the nav bar appear to stop short
    of the window edge on the Map tab only. */
-.entity-preview-card h3 { margin: 0; font-size: 1.15rem; font-family: var(--font-display), sans-serif; font-weight: 400; }
-.entity-preview-card .entity-type-line { margin: 0.2rem 0 0.6rem; font-size: 0.85rem; }
-.entity-preview-card .entity-meta-line { font-size: 0.8rem; margin: -0.1rem 0 0.6rem; }
-.entity-preview-tags { margin: 0 0 0.6rem; }
-.entity-preview-tags span { display: inline-block; background: var(--parchment-edge); color: var(--ink); border-radius: 3px; padding: 0.1rem 0.4rem; font-size: 0.7rem; margin-right: 0.25rem; }
-.entity-preview-card .lore-item { margin-bottom: 0; }
-.entity-preview-card .lore-item-body { font-size: 0.85rem; }
-.entity-preview-more { text-align: center; color: var(--ink-soft); margin: 0.3rem 0 0; letter-spacing: 0.15em; }
-.entity-preview-hint { text-align: center; color: var(--ink-soft); font-size: 0.75rem; font-style: italic; margin: 0.6rem 0 0; }
-
 /* Leaflet zoom control: reskin to match the app's parchment card
    look (same treatment as pin preview popups/pin-panel) rather than
    Leaflet's default plain white buttons. */
@@ -1212,9 +1200,6 @@ select {
 .lore-item-toggle-row-right { display: flex; align-items: center; }
 .lore-item-meta-row { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.4rem; }
 .lore-item-actions-row { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.4rem; margin-top: 0.4rem; }
-.lore-vis-badge { padding: 0.1rem 0.45rem; font-size: 0.7rem; border-radius: 3px; }
-.lore-vis-badge.visible { background: var(--fear); color: #fff; box-shadow: 0 0 0.4rem var(--fear-glow); }
-.lore-vis-badge.hidden { background: var(--hope); color: var(--void); box-shadow: 0 0 0.4rem var(--hope-glow); }
 .lore-item-btn { cursor: pointer; }
 /* Exception (8): entry-card action buttons — lore Edit/Delete, + New
    lore, entity-level Edit/Delete, gallery + New image. All must
@@ -1351,9 +1336,7 @@ pre code { background: none; border: none; padding: 0; border-radius: 0; color: 
   border: 1px solid; /* color set per variant below */
   background: var(--void); color: var(--parchment);
 }
-.admin-notification-message { border-color: var(--hope); box-shadow: 0 0 0.4rem var(--hope-glow); }
 .admin-notification-warning { border-color: var(--notice); box-shadow: 0 0 0.4rem var(--notice-glow); }
-.admin-notification-error   { border-color: var(--notice); box-shadow: 0 0 0.6rem var(--notice-glow); }
 #admin-players-table { width: 100%; border-collapse: collapse; margin-bottom: 0.5rem; color: var(--parchment); }
 .table-scroll { overflow-x: auto; max-width: 100%; }
 #admin-players-table th, #admin-players-table td { text-align: left; padding: 0.35rem 0.5rem; border-bottom: 1px solid var(--void-line); }
@@ -1417,14 +1400,11 @@ pre code { background: none; border: none; padding: 0; border-radius: 0; color: 
    editor's Markdown-cheat-sheet link, Sources) use a different,
    inherit-color rule below instead — see that comment for the app-wide
    split. */
-.lore-item-body a, .entity-preview-card a, .msg-text a {
+.lore-item-body a, .msg-text a {
   color: var(--fear);
   text-decoration: underline;
 }
 
-/* Import conflict rows (Admin bulk import) */
-.import-conflict-row { display: flex; align-items: center; gap: 0.5rem; margin: 0.25rem 0; }
-.import-conflict-row select { min-width: 6.5rem; }
 .import-bulk-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0; padding: 0.4rem; background: var(--void-raised); border-radius: 4px; }
 
 /* Import conflicts grid: mobile-first (checkbox+name / lore+action
@@ -1935,7 +1915,7 @@ button:disabled:hover { border-color: var(--void-line); }
    slider color (all .toggle-switch inputs turn fear-colored when
    checked — this reuses that same association rather than introducing
    a new color mapping). Styled like the app's other small badges
-   (Tags, .lore-vis-badge) — solid background, small radius, no
+   (Tags) — solid background, small radius, no
    uppercase/pill treatment — rather than the low-contrast
    dark-text-on-tinted-background version from the first pass.
    .codex-tags .meta-tag (not just .meta-tag) needed: .codex-tags span's
@@ -2108,26 +2088,6 @@ button:disabled:hover { border-color: var(--void-line); }
    nested under anything either, so the base 1.375rem left padding just
    indented the dot/name for no reason. */
 #characters-player-own-list .entity-group-list li { padding-left: 0.375rem; }
-/* .character-name-chip (Phase 14 S5): a standalone class, NOT a reuse of
-   the existing .related-chip's actual CSS -- that class's real pill
-   styling (including its width:auto override, needed to beat the base
-   `button` rule's width:13rem) lives entirely under a `.codex-related-
-   chips` ANCESTOR selector (see the "Specificity note" above it) so that
-   it can out-specificity `.codex-entity-card button`. Reusing just the
-   bare class name here (no such ancestor exists in the Characters tab)
-   silently got none of that styling and fell through to the default
-   13rem button -- caught before commit. A plain class selector beats a
-   bare `button` element selector on specificity alone, so no container-
-   scoping trick is needed here. */
-.character-name-chip,
-.character-name-chip:active,
-.character-name-chip:focus {
-  display: inline-block; width: auto; min-width: 0; text-align: left;
-  background: rgba(94,130,150,0.18); color: #3D5464; border-radius: 16px;
-  padding: 0.3125rem 0.75rem; font-size: 0.8125rem; cursor: pointer;
-  border: 1px solid transparent; box-shadow: none; outline: none;
-}
-.character-name-chip:hover { border-color: rgba(61,84,100,0.4); }
 .characters-active-label { font-size: 0.72rem; color: var(--hope); font-weight: 600; }
 .character-card-editor { margin-top: 1rem; }
 .character-card-slot { margin: 0.3rem 0 0.9rem; }
@@ -2164,8 +2124,6 @@ button:disabled:hover { border-color: var(--void-line); }
   text-transform: uppercase; letter-spacing: 0.04em;
 }
 .codex-character-cards { margin-bottom: 1.2rem; }
-.character-player-eye-view { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--void-line); }
-.character-player-eye-view h4 { margin: 0 0 0.5rem; font-size: 0.85rem; color: var(--ink-soft); }
 /* Badge-color swatch grid -- small icon-only circular buttons, same
    exception class as .vis-kebab-btn/.image-lightbox-close (QOL-BACKLOG
    exception 4): needs its OWN width:auto/min-width:0 override, since the

@@ -955,7 +955,7 @@ function openDropRecorder(existingDrop) {
 // lives in visibility.js's canSee() -- see its author-only case.)
 function loreItemsForEntity(entityId, ctx) {
   // Phase 14 S4: notes (kind:'note') only join Lore-tab-style surfaces
-  // (this function's callers: renderLoreTab, buildEntityPreviewCard) once
+  // (this function's caller: renderLoreTab) once
   // canonized (visibility:'all-players'). A still-private note passes
   // canSee for its own author (that's the whole point of author-only),
   // but that's an access decision, not a tab-placement one -- without
@@ -1095,16 +1095,6 @@ function resolveEntityStatBlockMarkdown(entity, ctx, tierFilter) {
     }
   });
   return [detailsMd, featsMd].concat(leftoverParts).filter(Boolean).join('\n\n');
-}
-
-// Exported shim for map.js/timeline.js: pins pointing at player-invisible
-// entities are themselves hidden from players. Builds its own ctx via
-// viewerContext() so external callers don't need to -- codex.js's OWN
-// internal call sites call canSee(entity, ctx) directly instead, since
-// they already have ctx in scope (see phase-14-design.md §5.1).
-function isEntityPlayerVisible(entityId) {
-  const entity = state.allEntities.find(function (e) { return e.id === entityId; });
-  return !!entity && canSee(entity, viewerContext());
 }
 
 // hasMapImage alone only says "this Location has SOME map image" -- it
@@ -4173,76 +4163,6 @@ function buildEntityMetaLine(entity, ctx) {
   return wrap;
 }
 
-function buildEntityPreviewCard(entity, ctx) {
-  const card = document.createElement('div');
-  card.className = 'entity-preview-card';
-
-  const heading = document.createElement('h3');
-  heading.textContent = entity.name;
-  card.appendChild(heading);
-
-  const catP = document.createElement('p');
-  catP.className = 'entity-type-line';
-  const catEm = document.createElement('em');
-  catEm.textContent = entity.category || '';
-  catP.appendChild(catEm);
-  if (characterAncestryDisplayName(entity)) {
-    catP.appendChild(document.createTextNode(' \u2014 '));
-    const ancestrySpan = document.createElement('span');
-    ancestrySpan.textContent = characterAncestryDisplayName(entity);
-    catP.appendChild(ancestrySpan);
-    applyWikiLinks(ancestrySpan, entity.id, ctx);
-  }
-  if (entity.subtype) {
-    catP.appendChild(document.createTextNode(' \u2014 ' + entity.subtype));
-  }
-  card.appendChild(catP);
-
-  const metaLine = buildEntityMetaLine(entity, ctx);
-  if (metaLine) card.appendChild(metaLine);
-
-  if (entity.tags && entity.tags.length) {
-    // Class, not #codex-tags id — this card can coexist in the DOM
-    // with the real Codex tab's own #codex-detail (different active
-    // tab-panel), and ids must stay unique document-wide.
-    const tagsDiv = document.createElement('div');
-    tagsDiv.className = 'entity-preview-tags';
-    entity.tags.forEach(function (t) {
-      const span = document.createElement('span');
-      span.textContent = t;
-      tagsDiv.appendChild(span);
-    });
-    card.appendChild(tagsDiv);
-  }
-
-  const items = loreItemsForEntity(entity.id, ctx);
-  if (items.length) {
-    const first = items[0];
-    const itemDiv = document.createElement('div');
-    itemDiv.className = 'lore-item ' + visibilityStateClass(first);
-    const bodyDiv = document.createElement('div');
-    bodyDiv.className = 'lore-item-body';
-    renderMarkdownInto(bodyDiv, first.content).then(function () {
-      applyWikiLinks(bodyDiv, entity.id, ctx);
-    });
-    itemDiv.appendChild(bodyDiv);
-    card.appendChild(itemDiv);
-    if (items.length > 1) {
-      const moreP = document.createElement('p');
-      moreP.className = 'entity-preview-more';
-      moreP.textContent = '\u2026';
-      card.appendChild(moreP);
-    }
-  }
-
-  const hintP = document.createElement('p');
-  hintP.className = 'entity-preview-hint';
-  hintP.textContent = 'Tap/click to open';
-  card.appendChild(hintP);
-
-  return card;
-}
-
 function renderDetailForSelected() {
   const entity = state.allEntities.find(function (e) { return e.id === state.selectedId; });
   const ctx = viewerContext();
@@ -4541,8 +4461,7 @@ function renderDetailForSelected() {
 // ids from the pre-refactor single-instance version are now classes,
 // since this can render into more than one container in the DOM at once
 // (Codex tab + Timeline panel simultaneously) -- ids must stay
-// document-unique, same reasoning as buildEntityPreviewCard's existing
-// class-not-id comment.
+// document-unique.
 function renderEntityViewCard(container, entity, ctx, opts) {
   opts = opts || {};
   const allowEdit = !!opts.allowEdit;
@@ -4854,8 +4773,8 @@ if (searchHelpBtn && searchHelpPopup && searchHelpWrap) {
 
 export {
   attachCodexListeners, detachCodexListeners, renderList, renderDetailForSelected,
-  isEntityPlayerVisible, registerVisibilityChangeHandler, registerMapNavigationHandler,
-  clearCodexSearchInput, buildEntityPreviewCard, categoryGroupLabel, entityMatchesQuery,
+  registerVisibilityChangeHandler, registerMapNavigationHandler,
+  clearCodexSearchInput, categoryGroupLabel, entityMatchesQuery,
   renderEntityViewCard, applyWikiLinks, enterEntityEditMode, appendDateSegments,
   fitCodexTabHeight, footerReserve, switchToCodexTabForEntity, notifyVisibilityChange,
   openNewEntityDialog, resolveEntityStatBlockMarkdown, buildDropChangeLine,

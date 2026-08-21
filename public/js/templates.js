@@ -210,10 +210,6 @@ function getTemplateSchema(category, subtype) {
   return TEMPLATE_SCHEMAS[templateSchemaKey(category, subtype)] || null;
 }
 
-function hasTemplateSchema(category, subtype) {
-  return !!getTemplateSchema(category, subtype);
-}
-
 // --- Search index (display-time-adjacent, but this one IS stored: recomputed
 // on every entity save/import, not derived at render time like the Details/
 // Features markdown merge in codex.js) ---------------------------------
@@ -253,4 +249,4 @@ function computeSearchIndex(details, features, schema) {
   return idx;
 }
 
-export { TEMPLATE_SCHEMAS, getTemplateSchema, hasTemplateSchema, normalizeSearchTerm, computeSearchIndex };
+export { getTemplateSchema, normalizeSearchTerm, computeSearchIndex };
