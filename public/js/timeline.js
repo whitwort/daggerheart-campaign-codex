@@ -838,7 +838,19 @@ function attachStageInteraction() {
       const dim = rect.height || 400;
       const targetT = tMin + span / 2;
       const MARGIN_PX = 6; // same buffer as zoomToIsolate
-      scale = (CLUSTER_THRESHOLD_PX + MARGIN_PX) / minGap;
+      // Separation scale alone is wrong when the cluster holds a very
+      // tight pair inside a wide span: (THRESHOLD+MARGIN)/minGap zooms
+      // to a window only days wide while offset centers on the span
+      // MIDPOINT, which can land on empty timeline -- the "tap cluster,
+      // get a random empty date range" bug. Clamp to the scale that
+      // keeps the WHOLE cluster inside ~70% of the viewport: evenly
+      // spaced clusters still get the widest fully-separating zoom
+      // (min picks sepScale), tight-pair clusters fit all members and
+      // resolve the still-clustered pair on the next tap (recursive
+      // drill-down, terminating at the span<=0 picker above).
+      const sepScale = (CLUSTER_THRESHOLD_PX + MARGIN_PX) / minGap;
+      const fitScale = (dim * 0.7) / span;
+      scale = Math.min(sepScale, fitScale);
       offset = targetT - (dim / 2) / scale;
       render();
     }
