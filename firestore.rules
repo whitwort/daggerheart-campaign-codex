@@ -5,7 +5,7 @@ service cloud.firestore {
 
     function isGM() {
       return request.auth != null
-        && request.auth.token.email == 'whitwort@gmail.com'; // keep in sync with Config.gs gmEmail
+        && request.auth.token.email == 'whitwort@gmail.com'; // keep in sync with config.js gmEmail
     }
 
     // Phase 7a: authenticated + on the players whitelist.

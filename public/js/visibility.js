@@ -128,7 +128,7 @@ function isNoteAuthor(item, ctx) {
 // --- belongsOnLoreSurface (Phase 14 S4) -----------------------------------
 // Tab-placement rule, distinct from canSee's access decision: a note
 // (kind:'note') only joins general Lore-tab-style surfaces
-// (loreItemsForEntity's callers -- renderLoreTab, buildEntityPreviewCard)
+// (loreItemsForEntity's caller -- renderLoreTab)
 // once canonized. A still-private note passes canSee for its own author
 // (that's the whole point of author-only visibility) but should stay
 // exclusive to the Notes tab even then, so it isn't duplicated across both
