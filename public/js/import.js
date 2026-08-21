@@ -5,6 +5,7 @@ import {
 import { firebaseApp, CONFIG } from './firebase.js';
 import { state } from './state.js';
 import { parseDateSpec } from './dates.js';
+import { getTemplateSchema, computeSearchIndex } from './templates.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -14,10 +15,37 @@ const db = getFirestore(firebaseApp);
 //   { "entities": [ { "name", "category", "parentSlug": string|null,
 //       "relatedSlugs": [..]?, "tags": [..]?, "lore": ["md", ..]?,
 //       "ancestry": string?, "aliases": [..]?, "date": string?,
-//       "subtype": string? }, .. ] }
+//       "subtype": string?, "details": {..}?, "features": [..]? }, .. ] }
 // ancestry/aliases are meant for Characters, date for Scenes/Events,
 // subtype for Game Mechanics/Equipment (see CONFIG.subtypesByCategory) —
 // the importer doesn't enforce category pairing — the form does.
+// details/features (added for structured-template categories, e.g.
+// Adversary/Environment): optional. Only meaningful when
+// getTemplateSchema(category, subtype) resolves a schema (templates.js).
+// - "details": object keyed by schema.detailKeys[].key (e.g. "tier",
+//   "hp", "attack_range" for Adversary). Unknown keys are dropped
+//   (whitelisted the same way srd-import.js's buildTemplateData works).
+//   Values are coerced to strings, same as the manual-entry form.
+// - "features": [{ "name", "text", "type"? }, ..]. "type" (Action/
+//   Passive/Reaction — free string) is kept only when
+//   schema.hasFeatureType is true for this category.
+// - If either is present and a schema resolves, the created/replaced
+//   entity gets useTemplate: true, details, features, and a computed
+//   searchIndex, matching what the SRD importer and the manual "Use
+//   template" toggle produce. "lore" entries stay flavor-only (meta:
+//   null) exactly as before; the importer additionally writes the
+//   'meta-details'/'meta-features' anchor lore items (empty leftover
+//   content) so codex.js's display-time synthesis (resolveLoreItemMarkdown)
+//   has somewhere to attach the structured Details/Features block — the
+//   same anchor pattern srd-import.js's buildLoreDocs uses.
+// - Categories without a template schema silently ignore details/features
+//   (useTemplate stays false) — no error, since the importer doesn't
+//   enforce category/schema pairing any more than it enforces
+//   category/subtype pairing.
+// - "update" (merge) conflict choice: details/features/useTemplate are
+//   only touched when the corresponding key is present in the JSON
+//   (same "hasX" convention as tags/ancestry/etc.) — omit them to leave
+//   an existing entity's template data untouched.
 // Semantics:
 // - Dedup by slug (slugified name) against existing entities: each match
 //   is listed as a conflict with a per-entity choice:
@@ -282,6 +310,41 @@ function validateImport() {
     if (!Array.isArray(aliases) || aliases.some(function (a) { return typeof a !== 'string'; })) {
       errors.push(label + ' (' + name + '): aliases must be an array of strings'); return;
     }
+    if ('details' in raw && (typeof raw.details !== 'object' || raw.details === null || Array.isArray(raw.details))) {
+      errors.push(label + ' (' + name + '): details must be an object'); return;
+    }
+    if ('features' in raw) {
+      if (!Array.isArray(raw.features)) {
+        errors.push(label + ' (' + name + '): features must be an array'); return;
+      }
+      const badFeature = raw.features.some(function (f) {
+        return !f || typeof f !== 'object'
+          || typeof f.name !== 'string' || f.name.trim() === ''
+          || typeof f.text !== 'string';
+      });
+      if (badFeature) {
+        errors.push(label + ' (' + name + '): each feature needs a non-empty "name" and a "text" string'); return;
+      }
+    }
+    const schema = getTemplateSchema(raw.category, raw.subtype || null);
+    const hasDetails = ('details' in raw);
+    const hasFeatures = ('features' in raw);
+    let details = {};
+    let features = [];
+    if (schema && (hasDetails || hasFeatures)) {
+      schema.detailKeys.forEach(function (d) {
+        const val = raw.details && raw.details[d.key];
+        if (val !== null && val !== undefined && val !== '') details[d.key] = String(val);
+      });
+      features = (raw.features || []).map(function (f) {
+        const out = { name: f.name, text: f.text };
+        if (schema.hasFeatureType && f.type) out.type = f.type;
+        return out;
+      });
+    }
+    const searchIndex = (schema && (hasDetails || hasFeatures))
+      ? computeSearchIndex(details, features, schema) : [];
+    const useTemplate = !!(schema && (hasDetails || hasFeatures));
     const slug = slugify(name);
     if (slug === '') { errors.push(label + ' (' + name + '): name slugifies to empty'); return; }
     if (slug in batchBySlug) {
@@ -297,9 +360,11 @@ function validateImport() {
       ancestry: raw.ancestry || null, aliases: aliases, date: raw.date || null,
       dateSort: dateSort,
       subtype: raw.subtype || null,
+      useTemplate: useTemplate, details: details, features: features, searchIndex: searchIndex,
       hasRelated: ('relatedSlugs' in raw), hasTags: ('tags' in raw),
       hasAncestry: ('ancestry' in raw), hasAliases: ('aliases' in raw),
-      hasDate: ('date' in raw), hasSubtype: ('subtype' in raw)
+      hasDate: ('date' in raw), hasSubtype: ('subtype' in raw),
+      hasDetails: hasDetails, hasFeatures: hasFeatures
     });
   });
 
@@ -467,7 +532,13 @@ function runImport() {
 
   fetches.then(function () {
     const ops = [];
-    function newLoreOp(entityId, content, order) {
+    // meta defaults to null (plain lore item, same doc shape as before
+    // details/features existed) — pass 'meta-details'/'meta-features' for
+    // the anchor items a templated entity needs so codex.js's
+    // resolveLoreItemMarkdown has somewhere to attach the synthesized
+    // Details/Features block (see srd-import.js's buildLoreDocs, same
+    // pattern).
+    function newLoreOp(entityId, content, order, meta) {
       ops.push({
         type: 'set',
         ref: doc(collection(db, 'loreItems')),
@@ -478,11 +549,28 @@ function runImport() {
           authorType: 'gm',
           visibility: 'gm-only',
           content: content,
+          meta: meta || null,
           order: order,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         }
       });
+    }
+    // Anchor lore items are empty leftover content (details/features are
+    // fully structured on the entity doc, nothing unwhitelisted to carry
+    // as markdown) — content: ''. Appended after the flavor "lore" items
+    // so flavor always displays first.
+    function pushTemplateAnchors(it, startOrder) {
+      let next = startOrder;
+      if (it.useTemplate && Object.keys(it.details).length) {
+        newLoreOp(it.id, '', next, 'meta-details');
+        next += 1;
+      }
+      if (it.useTemplate && it.features.length) {
+        newLoreOp(it.id, '', next, 'meta-features');
+        next += 1;
+      }
+      return next;
     }
 
     creates.forEach(function (it) {
@@ -503,11 +591,16 @@ function runImport() {
           visibility: 'gm-only',
           hasMapImage: false,
           tags: it.tags,
+          useTemplate: it.useTemplate,
+          details: it.details,
+          features: it.features,
+          searchIndex: it.searchIndex,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         }
       });
       it.lore.forEach(function (content, order) { newLoreOp(it.id, content, order); });
+      pushTemplateAnchors(it, it.lore.length);
     });
 
     replaces.forEach(function (it) {
@@ -526,6 +619,10 @@ function runImport() {
         visibility: 'gm-only',
         hasMapImage: existing.hasMapImage || false,
         tags: it.tags,
+        useTemplate: it.useTemplate,
+        details: it.details,
+        features: it.features,
+        searchIndex: it.searchIndex,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       };
@@ -535,6 +632,7 @@ function runImport() {
         ops.push({ type: 'delete', ref: doc(db, 'loreItems', ld.id) });
       });
       it.lore.forEach(function (content, order) { newLoreOp(it.id, content, order); });
+      pushTemplateAnchors(it, it.lore.length);
     });
 
     updates.forEach(function (it) {
@@ -551,6 +649,13 @@ function runImport() {
       if (it.hasAliases) data.aliases = it.aliases;
       if (it.hasDate) { data.date = it.date; data.dateSort = it.dateSort; }
       if (it.hasSubtype) data.subtype = it.subtype;
+      const touchesTemplate = it.hasDetails || it.hasFeatures;
+      if (touchesTemplate) {
+        data.useTemplate = it.useTemplate;
+        data.details = it.details;
+        data.features = it.features;
+        data.searchIndex = it.searchIndex;
+      }
       ops.push({ type: 'update', ref: doc(db, 'entities', it.id), data: data });
       const existingLore = loreByEntity[it.id] || [];
       const existingContent = {};
@@ -560,6 +665,12 @@ function runImport() {
         if (typeof ld.data.order === 'number' && ld.data.order > maxOrder) {
           maxOrder = ld.data.order;
         }
+        // Merge replaces the anchors wholesale below (details/features are
+        // fully re-supplied, never partially) — the old anchor's stale
+        // synthesized content would otherwise linger next to fresh data.
+        if (touchesTemplate && (ld.data.meta === 'meta-details' || ld.data.meta === 'meta-features')) {
+          ops.push({ type: 'delete', ref: doc(db, 'loreItems', ld.id) });
+        }
       });
       let next = maxOrder + 1;
       it.lore.forEach(function (content) {
@@ -567,6 +678,7 @@ function runImport() {
         newLoreOp(it.id, content, next);
         next += 1;
       });
+      if (touchesTemplate) next = pushTemplateAnchors(it, next);
     });
 
     // Firestore writeBatch cap is 500 ops; chunk and commit sequentially.
