@@ -84,19 +84,16 @@ jobs:
 
       - name: Stamp build label
         run: |
+          # The Release tag is the single source of version truth:
+          # version = tag minus its leading "v" (v0.2b -> 0.2b). The old
+          # VERSION file + drift check are gone -- publishing a release
+          # IS the versioning act, nothing to keep in sync.
           HASH=$(git rev-parse --short HEAD)
-          VERSION=$(cat VERSION | tr -d '[:space:]')
+          TAG="${{ github.event.release.tag_name }}"
+          VERSION="${TAG#v}"
           LABEL="version ${VERSION} (${HASH} prod)"
           sed -i "s#__BUILD_LABEL__#${LABEL}#" public/index.html
           sed -i "s/__BUILD_HASH__/${HASH}/" public/index.html
-          # Soft drift check only -- warns, doesn't fail the deploy, if the
-          # GitHub Release's tag doesn't look like it matches VERSION (e.g.
-          # Gregg forgot to bump VERSION before cutting the release, or
-          # typo'd the tag). Convention: tag is "v<VERSION>" (e.g. v0.1b).
-          TAG="${{ github.event.release.tag_name }}"
-          if [ "$TAG" != "v${VERSION}" ]; then
-            echo "::warning::Release tag '${TAG}' doesn't match VERSION file 'v${VERSION}' -- confirm this is intentional."
-          fi
 
       - name: Write service account key
         run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}' > /tmp/firebase-key.json
@@ -111,7 +108,8 @@ jobs:
           gcloud auth activate-service-account --key-file=/tmp/firebase-key.json
           TOKEN=$(gcloud auth print-access-token)
           HASH=$(git rev-parse --short HEAD)
-          VERSION=$(cat VERSION | tr -d '[:space:]')
+          TAG="${{ github.event.release.tag_name }}"
+          VERSION="${TAG#v}"
           NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           curl -sS --fail-with-body -X PATCH \
             "https://firestore.googleapis.com/v1/projects/daggerheart-campaign-codex/databases/(default)/documents/_meta/version" \
@@ -123,7 +121,8 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-key.json
         run: |
           npm install --no-save firebase-admin@12
-          HASH=$(git rev-parse --short HEAD) VERSION=$(cat VERSION | tr -d '[:space:]') node -e "
+          TAG="${{ github.event.release.tag_name }}"
+          HASH=$(git rev-parse --short HEAD) VERSION="${TAG#v}" node -e "
             const admin = require('firebase-admin');
             admin.initializeApp({ projectId: 'daggerheart-campaign-codex' });
             admin.firestore().doc('_meta/version').set({
