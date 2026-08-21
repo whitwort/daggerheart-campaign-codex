@@ -628,6 +628,13 @@ function renderClaimPopup(ctx) {
 
 // --- Dispatch --------------------------------------------------------
 function renderCharactersTab() {
+  // Skip while the Characters panel is hidden -- every entities/players
+  // snapshot and visibility change lands here (visibilityChangeHandler
+  // registration in main.js), and a full deck/list rebuild for a tab
+  // nobody is looking at is wasted work. ensureCharactersTabReady
+  // re-renders on activation (main.js adds .active before calling it),
+  // same pattern as timeline.js's own active-panel guard.
+  if (!document.getElementById('characters-panel').classList.contains('active')) return;
   const ctx = viewerContext();
   charactersGmViewEl.style.display = ctx.gmView ? '' : 'none';
   charactersPlayerViewEl.style.display = ctx.gmView ? 'none' : '';

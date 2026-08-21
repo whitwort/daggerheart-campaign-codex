@@ -5,12 +5,28 @@
   <title>Aether's Children</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
   <script>
-    // TEMP debug aid (remove once root cause of blank-page issue is found):
-    // surfaces any uncaught error/rejection directly on the page, since no
-    // devtools are available on iOS. Classic script, runs before and
-    // independent of the module script, so it catches module load/eval
-    // failures too.
+    // Deliberate dev-only debug aid (not a leftover): surfaces any
+    // uncaught error/rejection directly on the page, since no devtools
+    // are available in this project's iOS-only workflow. Classic
+    // script, runs before and independent of the module script, so it
+    // catches module load/eval failures too.
+    //
+    // Suppressed on prod: __isDebugEnv() is evaluated at banner time
+    // (not load time -- window.APP_CONFIG isn't defined yet when this
+    // script runs) and shows the banner only on the dev Firebase
+    // project or an unstamped local build. Players never see it; the
+    // occasional spurious "0,0" network-blip error stays dev-only.
+    // firebase.js's persistence-fallback warning routes through the
+    // same gate.
+    function __isDebugEnv() {
+      try {
+        if (window.BUILD_HASH === '__BUILD' + '_HASH__') return true; // unstamped local build
+        var pid = window.APP_CONFIG && window.APP_CONFIG.firebase && window.APP_CONFIG.firebase.projectId;
+        return typeof pid === 'string' && pid.indexOf('-dev', pid.length - 4) !== -1;
+      } catch (e) { return false; }
+    }
     function __showDebugBanner(text) {
+      if (!__isDebugEnv()) return;
       var div = document.createElement('div');
       div.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#c00;color:#fff;' +
         'padding:0.5rem;font-family:sans-serif;font-size:0.75rem;z-index:99999;white-space:pre-wrap;';
