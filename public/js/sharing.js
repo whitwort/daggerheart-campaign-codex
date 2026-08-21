@@ -359,10 +359,11 @@ function shareImageVisibility(imageDocId, patch) {
   return batch.commit();
 }
 
-// playersUniverse/exposedEmailSet exported for stables.js's Run-time
+// playersUniverse/exposedEmailSet/recipientCtxFor exported for
+// stables.js's Run-time
 // consolidated 'lore-drop' notification computation (Phase 17 B4) — the
 // same before/after set diff this module uses for per-share fan-out.
 export {
   shareEntityVisibility, shareLoreItemVisibility, shareImageVisibility, createLoreItemShared,
-  playersUniverse, exposedEmailSet
+  playersUniverse, exposedEmailSet, recipientCtxFor
 };

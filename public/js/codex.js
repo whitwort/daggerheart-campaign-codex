@@ -22,6 +22,7 @@ import {
 } from './visibility.js';
 import { shareEntityVisibility, shareLoreItemVisibility, shareImageVisibility, createLoreItemShared } from './sharing.js';
 import { buildVisibilityControl, buildSharedToggle, buildNoteToggle, buildCharacterBadge } from './visibility-ui.js';
+import { buildPickerPanel, attachPickerDismiss } from './picker-panel.js';
 import { buildCharacterCardEditor, characterAncestryDisplayName, DEFAULT_CARDS } from './character-cards.js';
 
 const db = getFirestore(firebaseApp);
@@ -1809,6 +1810,7 @@ function openEntityPickerPopup(opts) {
   const built = buildGalleryPickerPanel();
   built.panel.classList.add('entity-picker-panel');
   built.header.textContent = opts.title || 'Choose an entry';
+  const close = attachPickerDismiss(built.panel);
 
   const searchInput = document.createElement('input');
   searchInput.type = 'text';
@@ -1890,23 +1892,6 @@ function openEntityPickerPopup(opts) {
   searchInput.addEventListener('input', renderResults);
   renderResults();
   searchInput.focus();
-
-  function onDocClick(ev) {
-    if (!built.panel.contains(ev.target)) close();
-  }
-  function onKeydown(ev) { if (ev.key === 'Escape') close(); }
-  // Deferred by a tick: the SAME click that opened this popup (the
-  // triggering "Add" button's own click event) is still bubbling up to
-  // document when this listener would otherwise attach synchronously,
-  // which would close the popup the instant it opens.
-  setTimeout(function () { document.addEventListener('click', onDocClick); }, 0);
-  document.addEventListener('keydown', onKeydown);
-
-  function close() {
-    document.removeEventListener('click', onDocClick);
-    document.removeEventListener('keydown', onKeydown);
-    built.panel.remove();
-  }
 }
 
 // "Suggest Related" (Phase 14 S8): scans this entity's OWN lore items'
@@ -3326,36 +3311,7 @@ function renderNotesTab(container, entity, ctx, readOnly) {
 let galleryPickMode = null;
 
 function buildGalleryPickerPanel() {
-  const panel = document.createElement('div');
-  panel.className = 'gallery-picker-panel';
-  const header = document.createElement('div');
-  header.className = 'gallery-picker-header';
-  panel.appendChild(header);
-  const body = document.createElement('div');
-  body.className = 'gallery-picker-body';
-  panel.appendChild(body);
-  document.body.appendChild(panel);
-
-  // Drag-to-move the panel itself, via the header.
-  let panelDrag = null;
-  header.addEventListener('pointerdown', function (ev) {
-    const rect = panel.getBoundingClientRect();
-    panel.style.left = rect.left + 'px';
-    panel.style.top = rect.top + 'px';
-    panel.style.right = 'auto';
-    header.setPointerCapture(ev.pointerId);
-    panelDrag = { startX: ev.clientX, startY: ev.clientY, origLeft: rect.left, origTop: rect.top };
-  });
-  header.addEventListener('pointermove', function (ev) {
-    if (!panelDrag) return;
-    panel.style.left = (panelDrag.origLeft + (ev.clientX - panelDrag.startX)) + 'px';
-    panel.style.top = (panelDrag.origTop + (ev.clientY - panelDrag.startY)) + 'px';
-  });
-  function endPanelDrag() { panelDrag = null; }
-  header.addEventListener('pointerup', endPanelDrag);
-  header.addEventListener('pointercancel', endPanelDrag);
-
-  return { panel: panel, header: header, body: body };
+  return buildPickerPanel({ draggable: true });
 }
 
 function openSetPortraitDialog(entity, images) {
