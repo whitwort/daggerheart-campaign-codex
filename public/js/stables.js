@@ -25,7 +25,7 @@ import { attachListener, detachListener, safeSnapshotHandler } from './listeners
 import { trackWrite } from './connectivity.js';
 import { buildDropChangeLine, DROP_TYPES, dropTypeLabel, openDropRecorder } from './codex.js';
 import { canSee } from './visibility.js';
-import { playersUniverse, exposedEmailSet } from './sharing.js';
+import { playersUniverse, exposedEmailSet, recipientCtxFor } from './sharing.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -132,21 +132,6 @@ function appendChangeWrite(batch, change, endpoint) {
 }
 
 // --- Run / Undo / Delete -----------------------------------------------
-
-// Per-recipient viewer ctx for the parent-entity gate — GM client, so
-// state.allPlayers carries every player's activeCharacterId.
-function recipientCtxFor(email) {
-  const p = (state.allPlayers || []).find(function (pp) { return pp.id === email; });
-  return {
-    role: 'player',
-    gmView: false,
-    email: email,
-    activeCharacterId: (p && p.activeCharacterId) || null,
-    ownedCharacterIds: state.allEntities
-      .filter(function (e) { return e.category === 'Character' && e.ownerId === email; })
-      .map(function (e) { return e.id; })
-  };
-}
 
 // entityIds each player is NEWLY exposed to by this drop: per change, the
 // exposedEmailSet before/after diff (same machinery as per-share fan-out),

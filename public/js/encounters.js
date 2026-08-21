@@ -12,6 +12,7 @@ import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
 import { trackWrite } from './connectivity.js';
+import { buildPickerPanel } from './picker-panel.js';
 import { switchToCodexTabForEntity, entityMatchesQuery, resolveEntityStatBlockMarkdown } from './codex.js';
 import { viewerContext } from './visibility.js';
 import { renderMarkdownInto } from './markdown.js';
@@ -868,35 +869,12 @@ function openAdversaryPicker(enc) {
   if (document.querySelector('.encounter-picker-panel')) return;
   const encId = enc.id;
 
-  const panel = document.createElement('div');
-  panel.className = 'gallery-picker-panel encounter-picker-panel';
-  const header = document.createElement('div');
-  header.className = 'gallery-picker-header';
-  header.textContent = 'Add adversary';
-  panel.appendChild(header);
-  const body = document.createElement('div');
-  body.className = 'gallery-picker-body';
-  panel.appendChild(body);
-  document.body.appendChild(panel);
-
-  // Drag-to-move via the header (gallery-picker pattern).
-  let panelDrag = null;
-  header.addEventListener('pointerdown', function (ev) {
-    const rect = panel.getBoundingClientRect();
-    panel.style.left = rect.left + 'px';
-    panel.style.top = rect.top + 'px';
-    panel.style.right = 'auto';
-    header.setPointerCapture(ev.pointerId);
-    panelDrag = { startX: ev.clientX, startY: ev.clientY, origLeft: rect.left, origTop: rect.top };
-  });
-  header.addEventListener('pointermove', function (ev) {
-    if (!panelDrag) return;
-    panel.style.left = (panelDrag.origLeft + (ev.clientX - panelDrag.startX)) + 'px';
-    panel.style.top = (panelDrag.origTop + (ev.clientY - panelDrag.startY)) + 'px';
-  });
-  function endPanelDrag() { panelDrag = null; }
-  header.addEventListener('pointerup', endPanelDrag);
-  header.addEventListener('pointercancel', endPanelDrag);
+  // Escape/Close-button dismissal only, NOT attachPickerDismiss's
+  // outside-click -- clicking Add repeatedly (multi-add) must not close
+  // the panel.
+  const built = buildPickerPanel({ draggable: true, className: 'encounter-picker-panel', title: 'Add adversary' });
+  const panel = built.panel;
+  const body = built.body;
 
   const searchInput = document.createElement('input');
   searchInput.type = 'text';
