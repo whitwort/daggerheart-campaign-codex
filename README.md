@@ -83,6 +83,7 @@ firestore.rules    security rules (writes GM-only except scoped player
 scripts/firestore-backup.js  Node/Admin-SDK export/import (CI backup +
                    local restore tooling)
 .eslintrc.check.json  no-undef lint gate config (also run in CI)
+HANDOFF.md         rolling session-transfer doc (rewritten each session)
 ```
 
 ## Deploys
