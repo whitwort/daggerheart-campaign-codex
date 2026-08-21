@@ -221,6 +221,15 @@ scattered CSS.
 
 ## Dev ergonomics
 
+- **Dev DB cleanup: purge two orphaned legacy image docs.** Ids
+  `map_A0351uUdz3yGyoJUqrdA_primary` and `map_ETX4fFFoCTcRLyvhCNFD_primary`
+  (retired maps/ scheme: ownerType:'map', role:'primary', no visibility
+  field). No app surface reads them; they can never be rewritten under
+  isValidImage(), which is why every backup restore has to skip them
+  (backup.js isRestorableImage). No UI can delete them -- needs the
+  Admin-SDK script or a one-off console delete. Low priority; the
+  restore-side skip makes them harmless.
+
 - **iOS Safari stale JS modules survive reload (observed Aug 2026,
   timeline cluster-zoom fix).** After a dev deploy, the iPad showed the
   CORRECT footer build hash but ran the OLD timeline.js — normal reload
