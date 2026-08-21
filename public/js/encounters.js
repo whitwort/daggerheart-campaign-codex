@@ -206,6 +206,9 @@ function getSelectedEncounter() {
 
 function renderEncountersTab() {
   if (state.currentRole !== 'gm') return;
+  // Hidden-panel guard, same reasoning as renderCharactersTab's
+  // (ensureEncountersTabReady re-renders on activation).
+  if (!document.getElementById('encounters-panel').classList.contains('active')) return;
   // Run mode collapses the list pane -- every horizontal rem goes to
   // the tracker (session 38 feedback). Build restores it. Selection and
   // creation are Build activities anyway. Guarded on a selection so an

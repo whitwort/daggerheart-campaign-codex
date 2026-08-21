@@ -371,6 +371,9 @@ function renderDropDetail() {
 }
 
 function renderStablesTab() {
+  // Hidden-panel guard, same reasoning as renderCharactersTab's
+  // (ensureStablesTabReady re-renders on activation).
+  if (!document.getElementById('stables-panel').classList.contains('active')) return;
   renderDropsList();
   renderDropDetail();
 }

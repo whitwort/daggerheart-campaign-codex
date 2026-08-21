@@ -1210,6 +1210,10 @@ function loadMap(mapEntityId) {
         // the owning entity for canSee's gm-only-owned-character case.
         if (!canSee(d, ctx)) return;
         if (d.role === 'gallery' && d.isMap) chosenData = d;
+        // Legacy pre-Gallery-tab standalone map doc (role:'map'). The
+        // per-view auto-migration to a gallery doc was removed in the
+        // prod-prep review; this read fallback is now the ONLY legacy
+        // path -- such docs keep displaying but stay legacy-shaped.
         else if (d.role === 'map') legacyData = d;
       });
       if (!chosenData) chosenData = legacyData;
