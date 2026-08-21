@@ -40,6 +40,36 @@ const COLLECTIONS = ['config', 'encounters', 'entities', 'images', 'joinRequests
 const RESTORABLE_COLLECTIONS = COLLECTIONS.filter(function (c) { return c !== 'joinRequests' && c !== 'transferRequests'; });
 const SUBCOLLECTIONS = { threads: ['messages'] };
 const BATCH_LIMIT = 500;
+// A batched-write REQUEST also caps at ~10 MiB regardless of doc count.
+// Image docs run up to ~1 MB of base64 each, so batching by count alone
+// made the images batch blow the request limit and throw -- and because
+// runBackupRestore's loop awaited each commit in sequence, that single
+// throw aborted the ENTIRE restore, silently dropping every collection
+// after images (loreDrops, loreItems, notifications, pins, players,
+// sources, threads): the first-prod-restore bug. Budget well under the
+// limit; JSON.stringify length is a close proxy for payload (base64
+// dominates the big docs).
+const BATCH_BYTE_BUDGET = 8 * 1024 * 1024;
+
+// Writes entries to collectionName in batches capped by BOTH count and
+// approximate payload bytes. A single entry over budget still goes
+// (alone) -- Firestore's own 1 MiB per-DOC limit governs that case, and
+// any doc in the dump already existed once, so it fits.
+async function writeEntriesBatched(collectionName, entries) {
+  let batch = writeBatch(db);
+  let count = 0, bytes = 0;
+  for (const entry of entries) {
+    const entrySize = JSON.stringify(entry.data).length;
+    if (count > 0 && (count >= BATCH_LIMIT || bytes + entrySize > BATCH_BYTE_BUDGET)) {
+      await batch.commit();
+      batch = writeBatch(db);
+      count = 0; bytes = 0;
+    }
+    batch.set(doc(db, collectionName, entry.id), deserializeValue(entry.data));
+    count++; bytes += entrySize;
+  }
+  if (count > 0) await batch.commit();
+}
 
 function serializeValue(v) {
   if (v instanceof Timestamp) {
@@ -120,14 +150,19 @@ async function runBackupRestore(dump, mode, log) {
       }
     }
   }
+  let failures = 0;
   for (const name of RESTORABLE_COLLECTIONS) {
     const docs = (dump.collections && dump.collections[name]) || [];
-    for (let i = 0; i < docs.length; i += BATCH_LIMIT) {
-      const batch = writeBatch(db);
-      docs.slice(i, i + BATCH_LIMIT).forEach(function (entry) {
-        batch.set(doc(db, name, entry.id), deserializeValue(entry.data));
-      });
-      await batch.commit();
+    // Per-collection catch: one collection failing must not silently
+    // abandon everything after it (the failure mode this replaces) --
+    // log it loudly and keep going, then throw at the end so the UI
+    // still reports the run as failed.
+    try {
+      await writeEntriesBatched(name, docs);
+    } catch (err) {
+      failures++;
+      log(name + ': FAILED after partial write -- ' + err.message);
+      continue;
     }
     log(name + ': wrote ' + docs.length + ' docs');
     if (name === 'threads' && docs.some(function (d) { return (d.messages || []).length; })) {
@@ -135,6 +170,7 @@ async function runBackupRestore(dump, mode, log) {
     }
   }
   log('joinRequests, transferRequests: skipped (creates are locked to the requesting user \u2014 see backup.js header)');
+  if (failures > 0) throw new Error(failures + ' collection(s) failed -- see log above; re-running restore in the same mode is safe (doc-id-preserving sets are idempotent)');
 }
 
 // --- UI wiring ----------------------------------------------------------
@@ -255,13 +291,7 @@ async function runEntryRestore(entity, plan, log) {
       { collectionName: 'images', entries: plan.images },
     ]);
   for (const w of writes) {
-    for (let i = 0; i < w.entries.length; i += BATCH_LIMIT) {
-      const batch = writeBatch(db);
-      w.entries.slice(i, i + BATCH_LIMIT).forEach(function (entry) {
-        batch.set(doc(db, w.collectionName, entry.id), deserializeValue(entry.data));
-      });
-      await batch.commit();
-    }
+    await writeEntriesBatched(w.collectionName, w.entries);
     log(w.collectionName + ': wrote ' + w.entries.length + ' doc' + (w.entries.length === 1 ? '' : 's'));
   }
 }
