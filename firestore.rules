@@ -35,22 +35,6 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Phase 0 smoke-test doc only.
-    match /_health/{docId} {
-      allow read: if true;
-      allow write: if isGM();
-    }
-
-    // Entries: content_gm vs content_player is still a client render choice
-    // (not a security boundary) for content readable at all. Auth-model
-    // overhaul (Aug 2026): no unauthenticated access at all — every user is
-    // either GM or a whitelisted Player. `public` flag from the earlier
-    // Phase 7a design is dropped; Phase 7a-1 supersedes it.
-    match /entries/{entryId} {
-      allow read: if isGM() || isPlayer();
-      allow write: if isGM();
-    }
-
     // GM's player whitelist. Any signed-in user can read their OWN doc (to
     // resolve their own role, including the not-yet-whitelisted case for
     // the join-request flow); only GM can read the whole collection's other
@@ -88,13 +72,6 @@ service cloud.firestore {
     // rules above) plus the consolidated 'lore-drop' notification.
     match /loreDrops/{dropId} {
       allow read, write: if isGM();
-    }
-
-    // Maps: {name, image, parentMapId}. Root map has parentMapId == null.
-    // `public` flag dropped, same as entries — see note above.
-    match /maps/{mapId} {
-      allow read: if isGM() || isPlayer();
-      allow write: if isGM();
     }
 
     // Images: {ownerType, ownerId, role, visibility, characterId,
@@ -437,14 +414,6 @@ service cloud.firestore {
         || (isPlayer() && ownsCharacter(resource.data.entityId))
         || (isPlayer() && resource.data.kind == 'note' && resource.data.authorType == 'character'
               && ownsCharacter(resource.data.authorId));
-    }
-
-    // Deploy metadata (_meta/version): {hash, version, deployedAt}, written
-    // by CI via the Admin SDK (bypasses rules — no client write path at all).
-    // Any signed-in user may read; no sensitive data.
-    match /_meta/{docId} {
-      allow read: if request.auth != null;
-      allow write: if false;
     }
 
     // Default deny for anything not explicitly matched above.
