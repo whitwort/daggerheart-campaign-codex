@@ -66,7 +66,31 @@ function commitTimeout() {
 // approximate payload bytes (JSON.stringify length; base64 dominates
 // the big docs). log (optional) gets per-chunk progress for multi-chunk
 // collections, so a stall is visible at the exact chunk it happens.
+// Docs that can never pass firestore.rules' isValidImage() again --
+// pre-Phase-14 relics from the retired maps/ scheme (ownerType:'map',
+// role:'primary', no visibility field). They exist on dev only because
+// they predate shape validation; any batch containing one is rejected
+// wholesale (batches are atomic), which is what stopped the first full
+// prod restore at images batch 38. No app surface reads them (map.js
+// only handles role 'gallery'+isMap and legacy role 'map'), so skipping
+// them loses nothing. Mirrors only the check they actually fail.
+function isRestorableImage(data) {
+  return ['gm-only', 'all-players', 'character'].indexOf(data && data.visibility) !== -1;
+}
+
+function filterRestorable(collectionName, entries, log) {
+  if (collectionName !== 'images') return entries;
+  const keep = [], skipped = [];
+  entries.forEach(function (e) { (isRestorableImage(e.data) ? keep : skipped).push(e); });
+  if (skipped.length && log) {
+    log('images: skipped ' + skipped.length + ' legacy doc(s) that cannot pass rules validation: ' +
+      skipped.map(function (e) { return e.id; }).join(', '));
+  }
+  return keep;
+}
+
 async function writeEntriesBatched(collectionName, entries, log) {
+  entries = filterRestorable(collectionName, entries, log);
   const chunks = [];
   let cur = [], bytes = 0;
   for (const entry of entries) {
@@ -167,7 +191,7 @@ async function wipeCollection(name) {
 async function runBackupRestore(dump, mode, log) {
   // Engine marker: settles instantly whether a run used current code
   // (iOS Safari has served stale modules despite a fresh footer hash).
-  log('restore engine r3 (1.5 MiB batches, 45s commit watchdog)');
+  log('restore engine r4 (1.5 MiB batches, 45s commit watchdog, legacy-doc skip)');
   if (mode === 'wipe') {
     for (const name of COLLECTIONS) {
       const n = await wipeCollection(name);
@@ -304,7 +328,7 @@ function computeEntryRestorePlan(dump, entityId) {
 }
 
 async function runEntryRestore(entity, plan, log) {
-  log('restore engine r3');
+  log('restore engine r4');
   // entity is the flattened { id, ...data } object built for the picker/
   // search UI (entryRestoreEntityPool) -- id must NOT go into the document
   // body itself (Firestore doc data, not a stored field; isValidEntity()'s
