@@ -2720,7 +2720,12 @@ function buildLoreEditBox(entity, editState, isNew) {
 
   const toggleRow = document.createElement('div');
   toggleRow.className = 'lore-item-toggle-row';
-  toggleRow.appendChild(buildVisibilityControl({
+  const toggleRowLeft = document.createElement('div');
+  toggleRowLeft.className = 'lore-item-toggle-row-left';
+  toggleRow.appendChild(toggleRowLeft);
+  const toggleRowRight = document.createElement('div');
+  toggleRowRight.className = 'lore-item-toggle-row-right';
+  toggleRowRight.appendChild(buildVisibilityControl({
     getVisibility: function () { return editState.visibility; },
     getCharacterId: function () { return editState.characterId; },
     getCharacterShared: function () { return !!editState.characterShared; },
@@ -2732,6 +2737,7 @@ function buildLoreEditBox(entity, editState, isNew) {
       if ('characterShared' in patch) editState.characterShared = patch.characterShared;
     }
   }));
+  toggleRow.appendChild(toggleRowRight);
   box.appendChild(toggleRow);
 
   const sourceRow = document.createElement('div');
@@ -2907,10 +2913,16 @@ function buildNoteEditBox(entity, editState, isNew) {
 
   const toggleRow = document.createElement('div');
   toggleRow.className = 'lore-item-toggle-row';
-  toggleRow.appendChild(buildNoteToggle({
+  const toggleRowLeft = document.createElement('div');
+  toggleRowLeft.className = 'lore-item-toggle-row-left';
+  toggleRow.appendChild(toggleRowLeft);
+  const toggleRowRight = document.createElement('div');
+  toggleRowRight.className = 'lore-item-toggle-row-right';
+  toggleRowRight.appendChild(buildNoteToggle({
     getVisibility: function () { return editState.visibility; },
     onToggle: function (newVisibility) { editState.visibility = newVisibility; }
   }));
+  toggleRow.appendChild(toggleRowRight);
   box.appendChild(toggleRow);
 
   const textarea = document.createElement('textarea');
@@ -3222,7 +3234,12 @@ function renderNotesTab(container, entity, ctx, readOnly) {
     if (!readOnly) {
       const toggleRow = document.createElement('div');
       toggleRow.className = 'lore-item-toggle-row';
-      toggleRow.appendChild(buildNoteToggle({
+      const toggleRowLeft = document.createElement('div');
+      toggleRowLeft.className = 'lore-item-toggle-row-left';
+      toggleRow.appendChild(toggleRowLeft);
+      const toggleRowRight = document.createElement('div');
+      toggleRowRight.className = 'lore-item-toggle-row-right';
+      toggleRowRight.appendChild(buildNoteToggle({
         getVisibility: function () { return item.visibility; },
         onToggle: function (newVisibility) {
           shareLoreItemVisibility(item.id, { visibility: newVisibility }).catch(function (err) {
@@ -3230,6 +3247,7 @@ function renderNotesTab(container, entity, ctx, readOnly) {
           });
         }
       }));
+      toggleRow.appendChild(toggleRowRight);
       itemDiv.appendChild(toggleRow);
     }
 
