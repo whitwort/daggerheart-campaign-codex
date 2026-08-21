@@ -92,7 +92,7 @@ function detachConnectivityListener() {
 // tell success from queued via the promise alone. This centralizes the
 // visual language; callers own when to call it (via trackWrite below).
 //
-// Bug fix: the original version had each flashPendingWrite() call
+// Bug fix: the original badge implementation had each badge-flash call
 // independently snapshot the pill's current display/class/text and
 // schedule its OWN setTimeout to restore that snapshot. Two writes
 // firing within the same ~1.2s window meant the second call's snapshot
@@ -134,16 +134,6 @@ function scheduleHideSavingBadge() {
   }, wait);
 }
 
-// Standalone flash, unused internally (trackWrite below drives the
-// badge itself) but kept exported for any future direct caller --
-// shares showSavingBadge/scheduleHideSavingBadge's single-timer state
-// with trackWrite, so calling both concurrently stays race-free.
-function flashPendingWrite(label) {
-  if (!statusEl || currentState === 'offline') return;
-  showSavingBadge(label);
-  scheduleHideSavingBadge();
-}
-
 // Pending-write counter: separate from (but paired with) the visual
 // badge above. Every New/Edit save handler in this app closes its edit
 // UI optimistically, synchronously, right after initiating the write
@@ -157,7 +147,7 @@ function flashPendingWrite(label) {
 // could genuinely lose the edit. trackWrite() wraps a write promise so
 // version.js has a real signal for "a write is still in flight" to
 // check instead/as well, and now also drives the Saving badge directly
-// (see the fix note above) instead of going through flashPendingWrite.
+// (see the fix note above).
 let pendingWriteCount = 0;
 function hasPendingWrites() { return pendingWriteCount > 0; }
 function trackWrite(promise, label) {
@@ -171,4 +161,4 @@ function trackWrite(promise, label) {
   return promise;
 }
 
-export { attachConnectivityListener, detachConnectivityListener, flashPendingWrite, hasPendingWrites, trackWrite };
+export { attachConnectivityListener, detachConnectivityListener, hasPendingWrites, trackWrite };

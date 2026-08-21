@@ -19,7 +19,7 @@ import { attachConnectivityListener, detachConnectivityListener } from './connec
 import { attachCharacterTransferListeners, detachCharacterTransferListeners } from './characters.js';
 import { attachMessagesListeners, detachMessagesListeners } from './messages.js';
 
-export const auth = getAuth(firebaseApp);
+const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 
 // DOM refs owned by other tabs/modules, needed here only for

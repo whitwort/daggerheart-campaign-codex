@@ -167,5 +167,5 @@ function confirmRevealWithoutSource(sourceId) {
 export {
   attachSourcesListener, detachSourcesListener, registerSourcesChangeHandler,
   addSource, updateSource, deleteSource, reorderSources, sortedSources, nextSourceOrder,
-  sourceById, buildSourceSelect, renderSourceLabel, confirmRevealWithoutSource
+  buildSourceSelect, renderSourceLabel, confirmRevealWithoutSource
 };
