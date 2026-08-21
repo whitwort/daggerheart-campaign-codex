@@ -5,6 +5,7 @@ import './admin.js';
 import { fitCodexTabHeight, registerVisibilityChangeHandler } from './codex.js';
 import './images.js';
 import { ensureImportEditorReady } from './import.js';
+import './export-lore.js';
 import './backup.js';
 import { ensureTimelineTabReady } from './timeline.js';
 import { ensureCharactersTabReady, renderCharactersTab } from './characters.js';
