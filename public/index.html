@@ -33,10 +33,54 @@
     // for unstamped local builds.
     window.BUILD_HASH = '__BUILD_HASH__';
   </script>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@400;600;700&family=Inter:wght@400;500;600;700&family=Varela+Round&display=swap" rel="stylesheet">
+  <!-- Load-time: the module graph is 10 imports deep and every asset is
+       served no-cache (see firebase.json / version.js), so without these
+       hints each depth level costs a serial revalidation round-trip
+       before first render. modulepreload flattens the whole local graph
+       (plus the three gstatic Firebase SDK modules) into one parallel
+       fetch wave; keep this list in sync when adding/removing modules
+       under js/. -->
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" crossorigin="anonymous">
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" crossorigin="anonymous">
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js" crossorigin="anonymous">
+  <link rel="modulepreload" href="js/admin.js">
+  <link rel="modulepreload" href="js/auth.js">
+  <link rel="modulepreload" href="js/backup.js">
+  <link rel="modulepreload" href="js/badge-color.js">
+  <link rel="modulepreload" href="js/character-cards.js">
+  <link rel="modulepreload" href="js/character-deck.js">
+  <link rel="modulepreload" href="js/character-sheet.js">
+  <link rel="modulepreload" href="js/characters.js">
+  <link rel="modulepreload" href="js/codex.js">
+  <link rel="modulepreload" href="js/connectivity.js">
+  <link rel="modulepreload" href="js/dates.js">
+  <link rel="modulepreload" href="js/encounters.js">
+  <link rel="modulepreload" href="js/entity-images-cache.js">
+  <link rel="modulepreload" href="js/firebase.js">
+  <link rel="modulepreload" href="js/images.js">
+  <link rel="modulepreload" href="js/import.js">
+  <link rel="modulepreload" href="js/listeners.js">
+  <link rel="modulepreload" href="js/main.js">
+  <link rel="modulepreload" href="js/map.js">
+  <link rel="modulepreload" href="js/markdown.js">
+  <link rel="modulepreload" href="js/messages.js">
+  <link rel="modulepreload" href="js/picker-panel.js">
+  <link rel="modulepreload" href="js/sharing.js">
+  <link rel="modulepreload" href="js/sources.js">
+  <link rel="modulepreload" href="js/srd-import.js">
+  <link rel="modulepreload" href="js/stables.js">
+  <link rel="modulepreload" href="js/state.js">
+  <link rel="modulepreload" href="js/templates.js">
+  <link rel="modulepreload" href="js/timeline.js">
+  <link rel="modulepreload" href="js/transfer-requests.js">
+  <link rel="modulepreload" href="js/version.js">
+  <link rel="modulepreload" href="js/visibility-ui.js">
+  <link rel="modulepreload" href="js/visibility.js">
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -498,7 +542,7 @@
     </div>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
+  <script src="vendor/leaflet/leaflet.js"></script>
 
   <script type="module" src="js/main.js"></script>
 
