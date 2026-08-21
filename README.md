@@ -7,18 +7,37 @@ players — live at the table and between sessions. Built for the
 
 ## What it does
 
-- **Codex**: campaign lore entries (characters, factions, locations, items,
-  history, events) with GM-only vs. player-visible content, tags,
-  search, and cross-links between entries.
+- **Codex**: campaign lore entities (characters, factions, locations,
+  items, events, adversaries, and more) with per-element GM/player/
+  character visibility, secrets discoverability, tags, aliases, search
+  (including SRD template fields), wiki-style cross-links, related-entry
+  suggestions, image galleries with portrait framing, and per-entity
+  lore items with sources and player-authored notes.
 - **Map**: nested zoomable maps (Leaflet) with pins linking to codex
-  entries or child maps. Map images are uploaded through the app
+  entities or child maps. Map images are uploaded through the app
   (client-side resize + libwebp WASM compression) and stored in
   Firestore.
+- **Timeline**: zoomable well of dated Scenes/Events with an inline
+  entry card.
+- **Characters**: player-facing character management — Daggerheart card
+  deck (ancestry/community/class/subclass/abilities), character sheet
+  (HP/Stress/Hope tracks, gold, experiences), claim/transfer flow, and
+  active-character selection.
+- **Encounters** (GM): native encounter builder/runner — adversary
+  picker, difficulty calculator, per-instance HP/Stress tracking,
+  Build/Run tabs.
+- **Stables** (GM): lore-drop batches — record a set of visibility
+  changes with the drop recorder, then Run/Undo/Delete them as a unit,
+  with notification fan-out to newly-exposed players.
+- **Messages**: per-player and campaign threads with unread tracking,
+  plus share/discovery notifications.
 - **Access control**: every user signs in (Google or GitHub). The GM is
   a single configured email; players are a GM-managed whitelist with an
   in-app join-request flow. No anonymous access.
-- **Admin tab** (GM only): approve/reject join requests, manage the
-  player whitelist, select the root map.
+- **Admin tab** (GM only): join requests, player whitelist, campaign
+  config (root map, sources), SRD import (`seansbox/daggerheart-srd`),
+  bulk lore import/export, and in-app Firestore backup/restore. A daily
+  CI workflow also exports prod Firestore to a private data repo.
 
 ## Stack
 
@@ -28,20 +47,41 @@ loads `js/main.js` as the module entry point.
 
 ```
 public/
-  config.js        campaign name, categories, GM email
+  config.js        campaign name, categories, subtypes, icons, GM email
   firebase-env.js  Firebase project identity (prod; dev CI swaps in firebase-env.dev.js)
   index.html       all markup; build hash stamped by CI
   css/styles.css
   js/
-    state.js       shared mutable app state (single exported object)
-    listeners.js   onSnapshot attach/detach lifecycle helper
-    firebase.js    Firebase app init
-    auth.js        sign-in, role resolution, listener orchestration
-    codex.js       entries list/detail/authoring
-    map.js         Leaflet maps, pins, navigation
-    images.js      upload pipeline (resize + WebP), IndexedDB image cache
-    admin.js       GM admin tab
-firestore.rules    security rules (writes GM-only; reads require GM/Player auth)
+    main.js          module entry point: tab wiring, handler registration
+    state.js         shared mutable app state (single exported object)
+    listeners.js     onSnapshot attach/detach lifecycle helper
+    firebase.js      Firebase app init (long-polling + persistent cache)
+    auth.js          sign-in, role resolution, listener orchestration
+    codex.js         entity list/detail/authoring, lore items, galleries
+    visibility.js    canSee() — the single read-side visibility seam
+    visibility-ui.js GM visibility controls (3-state, shared toggle)
+    sharing.js       visibility writes + notification fan-out (single write seam)
+    map.js           Leaflet maps, pins, navigation
+    timeline.js      dated Scene/Event well
+    characters.js    Characters tab (GM + player views)
+    character-cards.js / character-deck.js / character-sheet.js
+    encounters.js    GM encounter builder/runner
+    stables.js       GM lore-drop batches
+    messages.js      threads, notifications tray
+    images.js        upload pipeline (resize + WebP)
+    entity-images-cache.js  per-surface images watcher
+    import.js / srd-import.js  bulk lore + SRD imports
+    backup.js        in-app Firestore export/restore (Admin tab)
+    admin.js         GM admin tab
+    sources.js       lore sources
+    picker-panel.js  shared floating picker-panel machinery
+    templates.js     SRD template schemas + search index
+    connectivity.js / version.js / dates.js / markdown.js /
+    badge-color.js / transfer-requests.js
+firestore.rules    security rules (writes GM-only except scoped player
+                   paths; reads require GM/Player auth)
+scripts/firestore-backup.js  Node/Admin-SDK export/import (CI backup +
+                   local restore tooling)
 .eslintrc.check.json  no-undef lint gate config (also run in CI)
 ```
 

@@ -74,8 +74,8 @@ function patchCardLevel(entity, level) {
 // Phase 14 S17: Cards/Sheet tab shell wrapping buildCharacterDeck. Shared
 // by both the GM detail pane and the player selected-character pane (see
 // call sites below) -- one selector, one state field (state.charactersDetailTab),
-// since only one of the two panes is ever visible at a time. Sheet tab is
-// a placeholder here; commit 2+ fills it in (see phase-14-design.md §12).
+// since only one of the two panes is ever visible at a time. Sheet tab
+// implementation lives in character-sheet.js (phase-14-design.md §12).
 function buildCharacterDetailShell(entity, ctx) {
   const wrap = document.createElement('div');
   wrap.className = 'character-detail-shell';
