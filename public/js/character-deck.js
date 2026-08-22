@@ -948,14 +948,30 @@ function equipmentCardOptsForLinked(e, ctx) {
 function buildEquipmentSection(entity, cards, ctx, editable) {
   const cls = state.allEntities.find(function (e) { return e.id === cards.classId; });
   const d = cls ? (cls.details || {}) : {};
+  const equipment = cards.equipment || [];
+  function applySuggestedEquipment() {
+    const suggested = [d.suggested_armor, d.suggested_primary, d.suggested_secondary].filter(Boolean);
+    if (!suggested.length) return;
+    const existingLabels = equipment.map(function (it) { return (it.label || '').trim().toLowerCase(); });
+    const additions = [];
+    suggested.forEach(function (text) {
+      const norm = text.trim().toLowerCase();
+      if (existingLabels.indexOf(norm) !== -1) return; // already carried
+      const matched = state.allEntities.find(function (e) {
+        return e.category === 'Equipment' && (ctx.gmView || canSee(e, ctx))
+          && (e.name || '').trim().toLowerCase() === norm;
+      });
+      additions.push({ id: newLocalId(), entityId: matched ? matched.id : null, label: matched ? matched.name : text, qty: 1 });
+    });
+    if (additions.length) patchCards(entity, { equipment: equipment.concat(additions) });
+  }
   const infoIcon = buildInfoPopup([
     d.suggested_armor ? ('Suggested Armor: ' + d.suggested_armor) : null,
     d.suggested_primary ? ('Suggested Primary: ' + d.suggested_primary) : null,
     d.suggested_secondary ? ('Suggested Secondary: ' + d.suggested_secondary) : null
-  ], { title: 'Suggested equipment (from Class)' });
+  ], { title: 'Suggested equipment (from Class) -- click to add', onApply: editable ? applySuggestedEquipment : null });
   const section = buildSection('Equipment', infoIcon);
   const tray = buildTray();
-  const equipment = cards.equipment || [];
 
   equipment.forEach(function (it) {
     const linked = it.entityId ? state.allEntities.find(function (e) { return e.id === it.entityId && canSee(e, ctx); }) : null;
