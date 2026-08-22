@@ -47,6 +47,7 @@ import { trackWrite } from './connectivity.js';
 import { generateDefaultBadgeColor } from './badge-color.js';
 import { attachPickerDismiss } from './picker-panel.js';
 import { resolveEntityStatBlockMarkdown, switchToCodexTabForEntity, enterEntityEditMode } from './codex.js';
+import { buildInfoPopup } from './info-popup.js';
 import {
   DEFAULT_CARDS, TIER_OPTIONS, normalizeAncestryIds, resolveFunctionalIds,
   cumulativeTierKeys, buildFloatingPickerPanel, openAbilityPickerPopup, openExperiencePickerPopup,
@@ -945,7 +946,14 @@ function equipmentCardOptsForLinked(e, ctx) {
 // control that sets it moved. This section stays read-only display of
 // what's carried, same as Conditions/Experience.
 function buildEquipmentSection(entity, cards, ctx, editable) {
-  const section = buildSection('Equipment');
+  const cls = state.allEntities.find(function (e) { return e.id === cards.classId; });
+  const d = cls ? (cls.details || {}) : {};
+  const infoIcon = buildInfoPopup([
+    d.suggested_armor ? ('Suggested Armor: ' + d.suggested_armor) : null,
+    d.suggested_primary ? ('Suggested Primary: ' + d.suggested_primary) : null,
+    d.suggested_secondary ? ('Suggested Secondary: ' + d.suggested_secondary) : null
+  ], { title: 'Suggested equipment (from Class)' });
+  const section = buildSection('Equipment', infoIcon);
   const tray = buildTray();
   const equipment = cards.equipment || [];
 

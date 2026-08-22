@@ -26,6 +26,7 @@ import { state } from './state.js';
 import { canSee } from './visibility.js';
 import { DEFAULT_CARDS, tierForCharacterLevel } from './character-cards.js';
 import { renderMarkdownInto } from './markdown.js';
+import { buildInfoPopup } from './info-popup.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -708,6 +709,20 @@ export function buildCharacterSheet(entity, ctx, editable) {
 
   const wrap = document.createElement('div');
   wrap.className = 'character-sheet';
+
+  const traitsHeaderRow = document.createElement('div');
+  traitsHeaderRow.className = 'character-sheet-field-label-row';
+  const traitsTitle = document.createElement('span');
+  traitsTitle.className = 'character-sheet-field-label';
+  traitsTitle.textContent = 'Traits';
+  traitsHeaderRow.appendChild(traitsTitle);
+  const cls = state.allEntities.find(function (e) { return e.id === topCards.classId; });
+  const suggestedTraits = cls && cls.details ? cls.details.suggested_traits : null;
+  traitsHeaderRow.appendChild(buildInfoPopup(
+    [suggestedTraits ? ('Suggested Traits: ' + suggestedTraits) : null],
+    { title: 'Suggested traits (from Class)' }
+  ));
+  wrap.appendChild(traitsHeaderRow);
 
   const traitsRow = document.createElement('div');
   traitsRow.className = 'character-sheet-traits-row';
