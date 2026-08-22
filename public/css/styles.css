@@ -1851,11 +1851,14 @@ button:disabled:hover { border-color: var(--void-line); }
 .lore-edit-hint a,
 .lore-edit-hint a:visited,
 .map-source-label a,
-.map-source-label a:visited {
+.map-source-label a:visited,
+#build-footer-links a,
+#build-footer-links a:visited {
   color: inherit;
   text-decoration: underline;
 }
 .source-label p { margin: 0; display: inline; }
+#build-footer-links p { margin: 0.2rem 0 0; }
 
 /* Map tab source label: lives below the map image (not overlaid on
    the Leaflet canvas) -- same plain lower-left .source-label
