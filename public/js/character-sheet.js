@@ -716,11 +716,36 @@ export function buildCharacterSheet(entity, ctx, editable) {
   traitsTitle.className = 'character-sheet-field-label';
   traitsTitle.textContent = 'Traits';
   traitsHeaderRow.appendChild(traitsTitle);
+  const STANDARD_TRAIT_ARRAY = [2, 1, 1, 0, 0, -1];
   const cls = state.allEntities.find(function (e) { return e.id === topCards.classId; });
   const suggestedTraits = cls && cls.details ? cls.details.suggested_traits : null;
+  function applySuggestedTraits() {
+    if (!suggestedTraits) return;
+    // Only ever fills in a still-untouched sheet -- if the player has
+    // set ANY trait away from its 0 default, this is a no-op (never
+    // overwrites a player's own choices).
+    const allZero = TRAIT_KEYS.every(function (key) { return sheet.traits[key].value === 0; });
+    if (!allZero) return;
+    // Suggested Traits is a comma-separated ordered list of all 6
+    // trait names (SRD convention -- position, not the name itself,
+    // picks the standard array slot): "Agility, Strength, ..." means
+    // Agility gets the array's first (+2) slot, Strength the second
+    // (+1), and so on down STANDARD_TRAIT_ARRAY.
+    const names = suggestedTraits.split(',').map(function (s) { return s.trim().toLowerCase(); }).filter(Boolean);
+    const newTraits = Object.assign({}, sheet.traits);
+    let matched = 0;
+    names.forEach(function (name, i) {
+      if (i >= STANDARD_TRAIT_ARRAY.length) return;
+      const key = TRAIT_KEYS.indexOf(name) !== -1 ? name : null;
+      if (!key) return;
+      matched += 1;
+      newTraits[key] = Object.assign({}, newTraits[key], { value: STANDARD_TRAIT_ARRAY[i] });
+    });
+    if (matched) patchSheet(entity, { traits: newTraits });
+  }
   traitsHeaderRow.appendChild(buildInfoPopup(
     [suggestedTraits ? ('Suggested Traits: ' + suggestedTraits) : null],
-    { title: 'Suggested traits (from Class)' }
+    { title: 'Suggested traits (from Class) -- click to fill in', onApply: editable ? applySuggestedTraits : null }
   ));
   wrap.appendChild(traitsHeaderRow);
 
