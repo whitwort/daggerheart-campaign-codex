@@ -120,14 +120,21 @@ const TEMPLATE_SCHEMAS = {
     // hope_feature_name/hope_feature_text isn't a detail key -- it's
     // special-cased in buildTemplateData (srd-import.js) as an extra
     // entry appended to the structured `features` list, not a separate
-    // mechanism. background/connection (question arrays), items, and
-    // suggested_traits are left as detailsLeftoverMd (existing generic
-    // leftover handling, no schema entry needed).
+    // mechanism. background/connection (question arrays) and items
+    // are left as detailsLeftoverMd (existing generic leftover
+    // handling, no schema entry needed). suggested_traits WAS left as
+    // leftover too until the Character tab's Sheet-page (i) popup
+    // (Suggested Traits) needed to read it directly -- promoted to a
+    // structured key here so it's not entangled in freeform markdown
+    // alongside Background/Connection/Items. Existing classes need
+    // Admin > Import from SRD > Update entries (or a manual edit) to
+    // backfill this field; it won't retroactively populate on its own.
     detailKeys: [
       { key: 'domain_1', standalone: true, searchable: true },
       { key: 'domain_2', standalone: true, searchable: true },
       { key: 'subclass_1', standalone: true, searchable: true },
       { key: 'subclass_2', standalone: true, searchable: true },
+      { key: 'suggested_traits', standalone: true, searchable: true },
       { key: 'suggested_armor', standalone: true, searchable: true },
       { key: 'suggested_primary', standalone: true, searchable: true },
       { key: 'suggested_secondary', standalone: true, searchable: true },
