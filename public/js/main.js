@@ -12,6 +12,12 @@ import { ensureCharactersTabReady, renderCharactersTab } from './characters.js';
 import { ensureEncountersTabReady } from './encounters.js';
 import { ensureStablesTabReady } from './stables.js';
 import { renderMessagesTray } from './messages.js';
+import { renderMarkdownInto } from './markdown.js';
+
+renderMarkdownInto(
+  document.getElementById('build-footer-links'),
+  '[License & Project](https://github.com/whitwort/daggerheart-campaign-codex) information on Github.'
+);
 
 // Phase 14 S5: registered here (not at characters.js's own top level) --
 // see the NOTE at the bottom of characters.js for why a real import
