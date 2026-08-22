@@ -132,6 +132,16 @@ function slugify(name) {
 
 // Kept in sync with the copy in srd-import.js (small, not worth a
 // shared-utils module split -- same convention as slugify above).
+// Player display name for a stored ownerId (a player email -- see
+// characters.js's assignOwner). Falls back to the raw email when the
+// player doc has no displayName set, same "displayName || id"
+// convention characters.js's own Players & Characters panel already
+// uses (renderCharactersGmView's playersSorted).
+function playerDisplayName(email) {
+  const p = state.allPlayers.find(function (pl) { return pl.id === email; });
+  return (p && p.displayName) || email;
+}
+
 function humanizeKey(key) {
   return key.replace(/_/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
 }
@@ -4163,7 +4173,7 @@ function buildEntityMetaLine(entity, ctx) {
   if (showOwner) {
     const ownerDiv = document.createElement('div');
     ownerDiv.className = 'entity-meta-line';
-    ownerDiv.textContent = 'Owned by: ' + entity.ownerId;
+    ownerDiv.textContent = 'Owned by: ' + playerDisplayName(entity.ownerId);
     wrap.appendChild(ownerDiv);
   }
 
@@ -4339,7 +4349,7 @@ function renderDetailForSelected() {
       const ownerHint = document.createElement('p');
       ownerHint.className = 'admin-hint';
       ownerHint.textContent = draft.ownerId
-        ? ('Owned by: ' + draft.ownerId + ' -- reassign on the Characters tab.')
+        ? ('Owned by: ' + playerDisplayName(draft.ownerId) + ' -- reassign on the Characters tab.')
         : 'Unowned -- assign a party member on the Characters tab.';
       leftCol.appendChild(ownerHint);
     }
