@@ -20,7 +20,7 @@ import {
   hasFullAuthority, isSharedWithActiveCharacter, isNoteAuthor, belongsOnLoreSurface,
   entityHasSecretsFor, resolveDropOverlay
 } from './visibility.js';
-import { shareEntityVisibility, shareLoreItemVisibility, shareImageVisibility, createLoreItemShared } from './sharing.js';
+import { shareEntityVisibility, shareLoreItemVisibility, shareImageVisibility, createLoreItemShared, notifyCharacterEdited } from './sharing.js';
 import { buildVisibilityControl, buildSharedToggle, buildNoteToggle, buildCharacterBadge } from './visibility-ui.js';
 import { buildPickerPanel, attachPickerDismiss } from './picker-panel.js';
 import { buildCharacterCardEditor, characterAncestryDisplayName, DEFAULT_CARDS } from './character-cards.js';
@@ -1746,6 +1746,7 @@ function saveEntityEdit(entity) {
   trackWrite(updateDoc(doc(db, 'entities', entity.id), entityData), 'Saving entity').catch(function (err) {
     window.alert('Save failed: ' + err.message);
   });
+  notifyCharacterEdited(entity);
   state.detailEditMode = false;
   state.detailEditDraft = null;
   state.detailEditBaseUpdatedAtMs = null;

@@ -27,6 +27,7 @@ import { canSee } from './visibility.js';
 import { DEFAULT_CARDS, tierForCharacterLevel } from './character-cards.js';
 import { renderMarkdownInto } from './markdown.js';
 import { buildInfoPopup } from './info-popup.js';
+import { notifyCharacterEdited } from './sharing.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -72,6 +73,7 @@ function patchSheet(entity, patch) {
   const newCards = Object.assign({}, cards, { sheet: newSheet });
   trackWrite(updateDoc(doc(db, 'entities', entity.id), { cards: newCards, updatedAt: serverTimestamp() }), 'Saving character sheet')
     .catch(function (err) { window.alert('Save failed: ' + err.message); });
+  notifyCharacterEdited(entity);
 }
 
 // Top-level cards write (NOT cards.sheet) -- used by the Equipped slot
@@ -84,6 +86,7 @@ function writeCardsPatch(entity, patch) {
   const cards = Object.assign({}, DEFAULT_CARDS, entity.cards || {}, patch);
   trackWrite(updateDoc(doc(db, 'entities', entity.id), { cards: cards, updatedAt: serverTimestamp() }), 'Saving character')
     .catch(function (err) { window.alert('Save failed: ' + err.message); });
+  notifyCharacterEdited(entity);
 }
 
 // Writes a field patch AND (when this field has a live suggestion right

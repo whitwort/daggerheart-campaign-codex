@@ -53,6 +53,7 @@ import { viewerContext, hasFullAuthority } from './visibility.js';
 import { switchToCodexTabForEntity, openNewEntityDialog } from './codex.js';
 import { generateDefaultBadgeColor } from './badge-color.js';
 import { approveTransferRequest, rejectTransferRequest } from './transfer-requests.js';
+import { notifyCharacterEdited } from './sharing.js';
 import { buildCharacterDeck, buildDeckHeader } from './character-deck.js';
 import { buildCharacterSheet } from './character-sheet.js';
 import { DEFAULT_CARDS, CHARACTER_LEVEL_OPTIONS } from './character-cards.js';
@@ -69,6 +70,7 @@ function patchCardLevel(entity, level) {
   const cards = Object.assign({}, DEFAULT_CARDS, entity.cards || {}, { level: level });
   trackWrite(updateDoc(doc(db, 'entities', entity.id), { cards: cards, updatedAt: serverTimestamp() }), 'Saving character')
     .catch(function (err) { window.alert('Save failed: ' + err.message); });
+  notifyCharacterEdited(entity);
 }
 
 // Phase 14 S17: Cards/Sheet tab shell wrapping buildCharacterDeck. Shared
