@@ -18,6 +18,7 @@ import { attachVersionListener, detachVersionListener, initUpdateBanner } from '
 import { attachConnectivityListener, detachConnectivityListener } from './connectivity.js';
 import { attachCharacterTransferListeners, detachCharacterTransferListeners } from './characters.js';
 import { attachMessagesListeners, detachMessagesListeners } from './messages.js';
+import { attachPresenceHeartbeat, detachPresenceHeartbeat } from './presence.js';
 
 const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
@@ -118,6 +119,7 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
       detachSourcesListener();
       detachCharacterTransferListeners();
       detachMessagesListeners();
+      detachPresenceHeartbeat();
     }
 
     function updateAccessUI(role) {
@@ -128,6 +130,7 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
       document.getElementById('tab-btn-encounters').style.display = (role === 'gm') ? 'inline-block' : 'none';
       document.getElementById('tab-btn-stables').style.display = (role === 'gm') ? 'inline-block' : 'none';
       if (role === 'gm') { attachAdminListeners(); attachEncountersListener(); attachStablesListener(); }
+      if (role === 'player') attachPresenceHeartbeat();
       const hasAccess = (role === 'gm' || role === 'player');
       if (hasAccess) attachDataListeners();
       loginGateEl.style.display = hasAccess ? 'none' : 'flex';

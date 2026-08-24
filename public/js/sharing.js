@@ -36,9 +36,9 @@
 // here rather than leaving it implicit.
 
 import {
-  getFirestore, doc, collection, writeBatch, serverTimestamp
+  getFirestore, doc, collection, writeBatch, setDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { firebaseApp } from './firebase.js';
+import { firebaseApp, CONFIG } from './firebase.js';
 import { state } from './state.js';
 import { viewerContext, canSee } from './visibility.js';
 
@@ -185,9 +185,11 @@ function appendShareNotifications(batch, type, beforeSet, mergedElem) {
       }
     }
 
+    let exposedSomeone = false;
     Object.keys(after).forEach(function (email) {
       if (beforeSet[email] || email === ctx.email) return;
       if (type !== 'entity' && parentEntity && !canSee(parentEntity, recipientCtxFor(email))) return;
+      exposedSomeone = true;
       batch.set(doc(collection(db, 'notifications')), {
         recipientEmail: email,
         kind: kind,
@@ -198,9 +200,56 @@ function appendShareNotifications(batch, type, beforeSet, mergedElem) {
         seenAt: null
       });
     });
+
+    // GM notification (new, feature request Aug 2026): a player sharing a
+    // note or secret further into the party should reach the GM's
+    // Campaign digest too, same as the peer notifications above -- gated
+    // on a GENUINE new exposure (exposedSomeone), not fired for shares
+    // that expose nobody new (e.g. re-toggling something already
+    // party-visible), per Gregg's explicit call. GM-actor shares
+    // (ctx.gmView) are excluded -- the GM doesn't need to be told about
+    // their own share.
+    if (!ctx.gmView && exposedSomeone) {
+      batch.set(doc(collection(db, 'notifications')), {
+        recipientEmail: CONFIG.gmEmail,
+        kind: kind,
+        entityId: entityId,
+        loreItemId: loreItemId,
+        actorCharacterId: actorCharacterId,
+        createdAt: serverTimestamp(),
+        seenAt: null
+      });
+    }
   } catch (err) {
     console.error('notification fan-out failed (share write still applied):', err);
   }
+}
+
+// --- GM notification: owned-Character content edits (new, Aug 2026) --------
+// Coalesced one-doc-per-entity, refreshed in place (Gregg's call: a
+// notification per click/field-save would spam the digest). Deterministic
+// id keys the doc to the entity so every subsequent edit is a merge-update
+// of the SAME doc rather than a new one -- createdAt/seenAt both reset so
+// the digest re-surfaces it as unseen. Fire-and-forget, same defensive
+// stance as appendShareNotifications: never blocks the caller's real
+// write, and a failure here is just a missed GM notification, not a data
+// problem.
+function notifyCharacterEdited(entity) {
+  if (!entity || entity.category !== 'Character') return;
+  const ctx = viewerContext();
+  if (ctx.gmView) return; // only the owning player's own edits notify
+  if (entity.ownerId !== ctx.email) return;
+  setDoc(doc(db, 'notifications', 'charedit-' + entity.id), {
+    recipientEmail: CONFIG.gmEmail,
+    kind: 'character-edited',
+    entityId: entity.id,
+    loreItemId: null,
+    actorCharacterId: entity.id,
+    createdAt: serverTimestamp(),
+    seenAt: null
+  }, { merge: true }).catch(function (err) {
+    console.error('character-edit notify failed:', err);
+  });
 }
 
 // --- Drop-recording interception (Phase 17 B1) --------------------------------
@@ -364,5 +413,5 @@ function shareImageVisibility(imageDocId, patch) {
 // same before/after set diff this module uses for per-share fan-out.
 export {
   shareEntityVisibility, shareLoreItemVisibility, shareImageVisibility, createLoreItemShared,
-  playersUniverse, exposedEmailSet, recipientCtxFor
+  playersUniverse, exposedEmailSet, recipientCtxFor, notifyCharacterEdited
 };
