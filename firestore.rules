@@ -40,13 +40,14 @@ service cloud.firestore {
     // the join-request flow); only GM can read the whole collection's other
     // docs or write, EXCEPT a player may update their own `activeCharacterId`
     // (Phase 14 S1/§3.4 -- the nav dropdown / Characters tab's set-active
-    // control, S3) -- restricted to that one field via affectedKeys.
+    // control, S3) or `lastOnline` (presence heartbeat, presence.js) --
+    // restricted to those fields via affectedKeys.
     match /players/{email} {
       allow read: if isGM() || (request.auth != null && request.auth.token.email == email);
       allow create, delete: if isGM();
       allow update: if isGM() || (
         request.auth != null && request.auth.token.email == email &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['activeCharacterId'])
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['activeCharacterId', 'lastOnline'])
       );
     }
 
@@ -208,7 +209,7 @@ service cloud.firestore {
           ['recipientEmail', 'kind', 'entityId', 'loreItemId', 'actorCharacterId', 'createdAt', 'seenAt', 'requestEmail', 'provider',
            'dropName', 'entityIds'])
         && request.resource.data.recipientEmail is string
-        && request.resource.data.kind in ['discovered', 'learned', 'shared', 'joinRequest', 'lore-drop']
+        && request.resource.data.kind in ['discovered', 'learned', 'shared', 'joinRequest', 'lore-drop', 'character-edited']
         && (request.resource.data.kind != 'joinRequest' || request.resource.data.requestEmail is string)
         && (request.resource.data.kind != 'lore-drop' ||
             (request.resource.data.dropName is string && request.resource.data.entityIds is list))
@@ -220,8 +221,20 @@ service cloud.firestore {
         (isGM() || isPlayer()) ||
         (request.auth != null && request.resource.data.kind == 'joinRequest')
       );
-      allow update: if request.auth != null && resource.data.recipientEmail == request.auth.token.email
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt']);
+      // 'character-edited' docs (presence: coalesced GM notification for
+      // owned-Character edits, sharing.js notifyCharacterEdited) are keyed
+      // one-per-entity and refreshed in place by the OWNING player on every
+      // edit -- recipientEmail is the GM, not the writer, so the general
+      // recipient-updates-seenAt clause below doesn't cover this write; the
+      // owning player may only touch createdAt/seenAt (the refresh fields),
+      // never recipientEmail/kind/entityId.
+      allow update: if request.auth != null && (
+        (resource.data.recipientEmail == request.auth.token.email &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt'])) ||
+        (resource.data.kind == 'character-edited' &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['createdAt', 'seenAt']) &&
+         ownsCharacter(resource.data.entityId))
+      );
       allow delete: if isGM();
     }
 

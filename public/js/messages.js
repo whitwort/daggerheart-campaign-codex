@@ -255,10 +255,15 @@ function campaignUnreadCount() {
     return state.allNotifications.filter(function (n) { return !n.seenAt; }).length;
   }
   if (state.currentRole === 'gm') {
-    // GM is the recipient only for joinRequest notifications (§ Aug 2026
-    // addition) -- everything else in allNotifications is fan-out the GM
-    // sent, not received, so only joinRequest counts toward GM unread.
-    return state.allNotifications.filter(function (n) { return n.kind === 'joinRequest' && !n.seenAt; }).length;
+    // GM is the recipient of joinRequest notifications and, as of Aug
+    // 2026, player-initiated share/note/character-edit notifications
+    // (sharing.js) -- both carry recipientEmail == the GM's own email.
+    // Generalized on recipientEmail rather than a kind allowlist so any
+    // future GM-directed kind is covered without another edit here;
+    // everything ELSE in allNotifications is fan-out the GM sent (to
+    // players), not received, and doesn't count toward GM unread.
+    const email = state.currentUser && state.currentUser.email;
+    return state.allNotifications.filter(function (n) { return n.recipientEmail === email && !n.seenAt; }).length;
   }
   return 0;
 }
@@ -393,8 +398,9 @@ function markThreadRead(key) {
 
 function markCampaignSeen() {
   if (state.currentRole !== 'player' && state.currentRole !== 'gm') return;
+  const myEmail = state.currentUser && state.currentUser.email;
   const unseen = state.currentRole === 'gm'
-    ? state.allNotifications.filter(function (n) { return n.kind === 'joinRequest' && !n.seenAt; })
+    ? state.allNotifications.filter(function (n) { return n.recipientEmail === myEmail && !n.seenAt; })
     : state.allNotifications.filter(function (n) { return !n.seenAt; });
   if (!unseen.length) return;
   campaignNewIds = {};

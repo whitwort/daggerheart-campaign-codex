@@ -289,12 +289,30 @@ const adminSourceErrorEl = document.getElementById('admin-source-error');
       });
     }
 
+    // Presence status text (Status column). No presence backend -- this is
+    // the same "stamp under 5 min old = Online" heuristic as presence.js's
+    // heartbeat comment (4 min period, +1 min slack against a client
+    // mid-interval). Computed at render time only, same staleness
+    // tradeoff the Messages digest's relative-time already carries (no
+    // periodic re-render timer -- re-renders on the next players
+    // snapshot, admin.js's existing lifecycle).
+    const ONLINE_WINDOW_MS = 5 * 60 * 1000;
+    function tsMs(v) {
+      return (v && typeof v.toMillis === 'function') ? v.toMillis() : null;
+    }
+    function presenceStatusText(p) {
+      const ms = tsMs(p.lastOnline);
+      if (ms == null) return 'Never online';
+      if (Date.now() - ms < ONLINE_WINDOW_MS) return 'Online';
+      return 'Last online ' + new Date(ms).toLocaleString();
+    }
+
     function renderAdminPlayersList() {
       adminPlayersTbodyEl.innerHTML = '';
       if (state.allPlayers.length === 0) {
         const row = document.createElement('tr');
         const cell = document.createElement('td');
-        cell.colSpan = 3;
+        cell.colSpan = 4;
         cell.className = 'lore-empty';
         cell.textContent = 'No whitelisted party members yet.';
         row.appendChild(cell);
@@ -320,6 +338,10 @@ const adminSourceErrorEl = document.getElementById('admin-source-error');
           nameCell.textContent = p.displayName || '';
         }
         row.appendChild(nameCell);
+
+        const statusCell = document.createElement('td');
+        statusCell.textContent = presenceStatusText(p);
+        row.appendChild(statusCell);
 
         const actionsCell = document.createElement('td');
         const actions = document.createElement('div');

@@ -43,6 +43,7 @@ import { firebaseApp, CONFIG } from './firebase.js';
 import { state } from './state.js';
 import { canSee, hasFullAuthority } from './visibility.js';
 import { renderMarkdownInto } from './markdown.js';
+import { notifyCharacterEdited } from './sharing.js';
 import { trackWrite } from './connectivity.js';
 import { generateDefaultBadgeColor } from './badge-color.js';
 import { attachPickerDismiss } from './picker-panel.js';
@@ -63,6 +64,7 @@ function patchCards(entity, patch) {
   const cards = Object.assign({}, DEFAULT_CARDS, entity.cards || {}, patch);
   trackWrite(updateDoc(doc(db, 'entities', entity.id), { cards: cards, updatedAt: serverTimestamp() }), 'Saving character')
     .catch(function (err) { window.alert('Save failed: ' + err.message); });
+  notifyCharacterEdited(entity);
 }
 
 // --- Shared card/tray/section builders ------------------------------------
