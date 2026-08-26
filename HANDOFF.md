@@ -10,65 +10,71 @@ last present at the commit tagged v0.2b's successor). Code comments
 citing e.g. "phase-14-design.md §5.1" are historical pointers into
 those deleted docs — resolve via git history, don't "fix" the comments.
 
-## Current state (end of SRD-2.0-pivot session, Aug 26 2026)
+## Current state (end of SRD-2.0-extraction session 2, Aug 26 2026)
 
-HEAD: `d4304a7` (dev deploy green, verified via Actions API). Prod is
-LIVE (v0.2b released from b67e0d2); nothing since then (this session's
-commit included) has been released to prod yet — dev-only until Gregg
-cuts the next tag.
+HEAD: `f935056` (dev deploy green). Prod still at v0.2b; everything since
+is dev-only.
 
-**This session (single commit `d4304a7`, design doc: `docs/srd-update-process.md`):**
-SRD 2.0 dropped Aug 25 2026 (13 classes, 10 domains, new ancestries,
-Witherwild Campaign Frame, Supplemental Campaign Mechanics — roughly
-doubles 1.0's content). Upstream `seansbox/daggerheart-srd` showed no
-activity and months of unmerged PRs — no ETA. Investigated forking its
-`.build/` Go+marker-LLM pipeline (uploaded zip, read the source): stage
-1 (PDF→clean markdown) is the real bottleneck — `marker-pdf` + OpenAI +
-**manual markdown cleanup by hand**, not something forking avoids.
-Stages 2–3 (markdown→CSV→JSON) are structural/generic, cheap either
-way. Conclusion: skip the whole external pipeline, extract directly
-from the PDF as an LLM task, commit the output JSON into this repo.
+**This session (two commits `9e82211`, `f935056`):** bulk of SRD 2.0
+extraction landed. `public/data/srd/` now has: abilities (210), domains
+(10), ancestries (24), communities (15), classes (13), subclasses (26),
+beastforms (24), stances (16, NEW type), transformations (6, NEW type),
+conditions (3). Tooling in `scripts/srd-extract/` (README there):
+`cols.py` splits two-column pages via per-page gutter detection
+(`pdftotext -bbox`; fixed-width crops bleed glyphs), then regex parsers
+per section. All 1.0-overlapping text was diffed against the old
+upstream JSON — remaining diffs are genuine 2.0 wording changes.
 
-**Landed:**
-- `srd-import.js`: `fetchSrdType` now reads `/data/srd/{key}.json` by
-  default (`repo === 'local'`, the new default in admin.js). GitHub
-  fetch path kept as fallback only.
-- Added `conditions` to `SRD_TYPES` — upstream never parsed this type
-  even for 1.0 (encounters.js's hardcoded `CORE_CONDITIONS` fallback
-  was the tell). First real data file:
-  `public/data/srd/conditions.json` (Hidden/Restrained/Vulnerable, SRD
-  2.0 p.52). No `templates.js` schema needed — legacy markdown path.
-- `docs/srd-update-process.md`: architecture, major-vs-minor revision
-  workflows, current 2.0 extraction status table (page map against the
-  224-page PDF), and 4 flagged open design decisions that need Gregg's
-  call before continuing (see below).
+Code: `srd-import.js` SRD_TYPES + `templates.js` schemas for
+`Game Mechanics/stances` (tier) and `Game Mechanics/transformations`
+(features + question array); `config.js` subtypesByCategory updated;
+`character-deck.js` beastforms tab generalized into
+`buildTierGroupedPanel()` and Brawlers get a **Stances** sub-tab (gated
+on class name 'Brawler', mirroring the Druid gate — not on the Martial
+Artist subclass). No rules changes (no new entity fields).
 
-**NOT done — multi-session by design, see the doc's status table:**
-domains, classes (13)+subclasses, ancestries, communities, weapons,
-armor, items, consumables, and the ~90pp adversaries/environments
-section. Doc recommends starting with domains/ancestries/communities
-next (small, unblocked) before the large section or the design-decision
-items.
+**Gregg's decisions this session (recorded in
+`docs/srd-update-process.md`):** `suggested_*` class keys stay in schema
+but are empty (2.0 dropped them; GM fills manually). Transformations
+separate from beastforms. Combat Wheelchair skipped. Witherwild +
+Supplemental Campaign Mechanics ARE imported: **one Game Mechanics
+entity per section** — proposed subtype `campaign-mechanics`
+(Witherwild as a single entity; Faction Tracking, Everyday Hero
+Starting Equipment, Feasts, Grimdark, Tech-Based, Western, Colossal
+Adversaries, Floating Magic School, Fairy Tale, Monster Hunting, Hex
+Crawl as one each = 12). Record shape `{name, description}` markdown
+via the legacy `formatSrdRecord` path (like conditions); needs a new
+SRD_TYPES entry + config.js subtype, no schema.
 
-**Open design decisions (surface to Gregg before extracting, don't
-guess):**
-1. Transformations (SRD p.42–45) vs. existing `Game Mechanics/beastforms`
-   — rename, superset, or new adjacent mechanic? Unread as of this
-   session.
-2. Combat Wheelchair (p.70–71) — new Equipment subtype or a
-   weapon/armor variant?
-3. Witherwild Campaign Frame / Supplemental Campaign Mechanics
-   (p.184–205) — GM advice/setting content, doesn't naturally fit the
-   entity/lore-item model. Skip entirely, import as plain lore, or
-   something else?
-4. `abilities` source location unconfirmed against the new TOC — don't
-   assume domain-card feature text is still in the same relative spot
-   as 1.0 before extracting it.
+**NOT yet run:** Gregg hasn't done Admin > Import from SRD > Update
+entries in dev against the new data — do that + spot-check (a Brawler
+character's Stances tab, a transformation entity, Dread domain cards)
+before the next Release tag.
 
-**Prior session's item still open:** no manual QA pass yet on the
-presence/GM-notification feature set from the session before this one
-(Aug 24) — worth a click-through before the next Release tag, same as
-last handoff said.
+## Next session: finish SRD 2.0
+
+1. **Supplemental content (p.184–205)** — `python3 scripts/srd-extract/cols.py 184 205 /tmp/SRD2.pdf`
+   (page 184 begins with the tail of "Additional GM Guidance"; the
+   Witherwild frame starts at the "CAMPAIGN FRAMES" heading). This is
+   prose + cross-column tables (Faction Tracking, Feast ingredient
+   generator, Tech scrap tables, Hex crawl) — write the markdown by
+   hand per section, don't regex it. Budget a full session.
+2. **Equipment (p.55–84)**: weapons, armor, items, consumables — check
+   `templates.js` schemas (`Equipment/weapons`, `Equipment/armor`) for
+   field names before parsing; these are table-heavy, expect to use
+   `-bbox` coordinates rather than `-layout` text.
+3. **Adversaries/Environments (p.93–183)** — dedicated session;
+   `normalizeAdversaryRecord`/`normalizeEnvironmentRecord` in
+   srd-import.js define the expected raw shape.
+4. Update the status table in `docs/srd-update-process.md` each step.
+
+PDF: `https://www.daggerheart.com/wp-content/uploads/2026/08/DH_SRD_2_2026_08_25.pdf`
+→ `/tmp/SRD2.pdf` (scripts default to that path). Old upstream JSON for
+shape/diff reference: `https://raw.githubusercontent.com/seansbox/daggerheart-srd/main/.build/03_json/{type}.json`
+(has a UTF-8 BOM).
+
+**Prior session's item still open:** manual QA pass on the
+presence/GM-notification feature set (Aug 24) before the next Release.
 
 ## Prior session: Phase-14 features (Aug 24 2026)
 
