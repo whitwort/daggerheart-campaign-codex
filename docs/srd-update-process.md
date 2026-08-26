@@ -104,11 +104,11 @@ this is 2.0's map, not guaranteed stable for future revisions):
 
 | Section | Pages | `SRD_TYPES` key(s) | Status |
 |---|---|---|---|
-| Domains | 7 | `domains` | not started |
+| Domains | 7 | `domains` | **done** (10 records; `card` per-level lists derived from abilities.json) |
 | Classes | 8–31 | `classes` | not started |
 | (Subclasses are embedded within Classes, not a separate page range) | 8–31 | `subclasses` | not started |
-| Ancestries | 32–37 | `ancestries` | not started |
-| Communities | 38–41 | `communities` | not started |
+| Ancestries | 32–38 | `ancestries` | **done** (24 records: 1.0's 18 + Aetheris, Gnome, Earthkin/Emberkin/Skykin/Tidekin; "Elemental Kin" parent intro and "Mixed Ancestry" rules are NOT records) |
+| Communities | 38–42 | `communities` | **done** (15 records; adjective sentence → `note`) |
 | Transformations | 42–45 | `beastforms`? | **design decision needed** — see below |
 | Conditions | 52 | `conditions` | **done** (`public/data/srd/conditions.json`, 3 records) |
 | Weapons | 55–69 | `weapons` | not started |
@@ -119,7 +119,7 @@ this is 2.0's map, not guaranteed stable for future revisions):
 | Adversaries and Environments | 93–183 | `adversaries`, `environments` | not started — largest section, ~90pp |
 | Witherwild Campaign Frame | 184–189 | none | **design decision needed** — narrative/setting content, not a stat-block type |
 | Supplemental Campaign Mechanics | 190–205 | none | **design decision needed** — GM-guidance variants (Feasts, Grimdark, Western, Hex Crawl, etc.), not naturally SRD_TYPES entities |
-| Domain Card Reference (Appendix) | 206–224 | `abilities`? | **needs confirmation** — check whether this is where domain-card *feature text* actually lives (as opposed to just the domains.json card-name list), since old pipeline's `abilities.json` source is unconfirmed against this new TOC |
+| Domain Card Reference (Appendix) | 206–224 | `abilities` | **done** (210 records = 10 domains × 21; confirmed this IS the card feature-text source; 1.0 card names all present, 3 text changes vs 1.0: Earthquake typo fix, Notorious lost its loadout-exemption sentence, Divination quote marks) |
 
 **Open design decisions before continuing extraction (flag to Gregg, don't
 guess):**
@@ -135,12 +135,12 @@ guess):**
   reference-only in the source PDF, not imported), import as plain lore
   items under a new category, or something else. This needs Gregg's call,
   same as any other "design decisions require Gregg's input" case.
-- **`abilities` source location**: confirm where individual domain card
-  *feature text* (not just names) lives in the 2.0 TOC before extracting —
-  don't assume it's still called "abilities" or in the same relative
-  position as 1.0.
 
-Next session picking this up: start with `domains` (small, foundational —
-class records reference domain names) and `ancestries`/`communities`
-(small, no design decisions pending), before tackling the ~90pp
-Adversaries/Environments section or the flagged design-decision items.
+Extraction tooling lives in `scripts/srd-extract/` (column-split via
+per-page gutter detection + regex parsers; see its README). TOC page
+numbers were off by one at section ends (ancestries actually run to 38,
+communities to 42) — always confirm boundaries in the text.
+
+Next: `classes`/`subclasses` (8–31, largest remaining non-adversary
+section), then equipment types, then Adversaries/Environments; the
+flagged design-decision items need Gregg's call first.
