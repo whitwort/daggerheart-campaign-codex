@@ -108,17 +108,19 @@ const adminSourceErrorEl = document.getElementById('admin-source-error');
         });
     });
 
-    // --- Admin: SRD import repo setting (Phase 12b scaffolding). Actual
-    // SRD parsing/import lands in a future session (Phase 13); this wires
-    // the repo setting to config/campaign and stubs the button.
+    // --- Admin: SRD import source setting. 'local' (default, Phase 16) reads
+    // our own committed public/data/srd/*.json — see docs/srd-update-process.md.
+    // Any other value is treated as a GitHub 'owner/repo' fetched the original
+    // (Phase 12b) way, kept only in case an upstream project is ever worth
+    // pointing at again.
 
     function renderAdminSrdRepo() {
       if (document.activeElement === adminSrdRepoEl) return;
-      adminSrdRepoEl.value = state.srdRepo || '';
+      adminSrdRepoEl.value = state.srdRepo || 'local';
     }
 
     adminSrdRepoEl.addEventListener('change', function () {
-      const newSrdRepo = adminSrdRepoEl.value.trim() || 'seansbox/daggerheart-srd';
+      const newSrdRepo = adminSrdRepoEl.value.trim() || 'local';
       adminSrdRepoEl.value = newSrdRepo;
       adminSrdRepoStatusEl.textContent = 'Saving...';
       setDoc(doc(db, 'config', 'campaign'), { srdRepo: newSrdRepo }, { merge: true })
@@ -132,7 +134,7 @@ const adminSourceErrorEl = document.getElementById('admin-source-error');
 
     adminSrdUpdateBtnEl.addEventListener('click', function () {
       adminSrdUpdateBtnEl.disabled = true;
-      const repo = (state.srdRepo || 'seansbox/daggerheart-srd').trim();
+      const repo = (state.srdRepo || 'local').trim();
       adminSrdUpdateStatusEl.textContent = 'Starting...';
       runSrdImport(repo, function (line) {
         adminSrdUpdateStatusEl.textContent = line;
