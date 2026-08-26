@@ -10,11 +10,62 @@ last present at the commit tagged v0.2b's successor). Code comments
 citing e.g. "phase-14-design.md §5.1" are historical pointers into
 those deleted docs — resolve via git history, don't "fix" the comments.
 
-## Current state (end of prod-launch session, Aug 21 2026)
+## Current state (end of Phase-14-features session, Aug 24 2026)
 
-Prod is LIVE (v0.2b released from b67e0d2) and fully populated from
-the dev dump. Latest main additionally carries: merge-mode
-notifications fix, tag-derived versioning (below), this cleanup.
+HEAD: `48d09bf` (dev deploy green). Prod is LIVE (v0.2b released from
+b67e0d2) and fully populated from the dev dump; nothing in this
+session's commit has been released to prod yet (dev-only until Gregg
+cuts the next tag).
+
+**This session added (design doc: none written — scoped inline in
+chat, sign-off given, single commit `48d09bf`):**
+- **Party presence**: `players/{email}.lastOnline`, written by new
+  `presence.js` heartbeat (stamp on attach/tab-foreground + 4 min
+  interval while a player's tab is open; GM has no `players/` doc, so
+  player-only). Rules: `players/{email}` update whitelist now allows
+  `lastOnline` alongside `activeCharacterId`. Admin > Manage Party has
+  a new **Status** column — "Online" (stamp <5 min old), "Last online
+  \<local date/time\>", or "Never online" — computed at render time,
+  no refresh timer (same staleness tradeoff the Messages digest's
+  relative-time already carries; consistent with existing precedent,
+  not a new pattern).
+- **GM notifications for player-initiated activity** (previously
+  invisible to the GM):
+  - Owned-Character content edits (sheet/deck/level/gold/main edit
+    form) → coalesced ONE notification per entity, refreshed in place
+    on every edit (`sharing.js: notifyCharacterEdited`, doc id
+    `charedit-{entityId}`, upserted via `setDoc(..., {merge:true})`).
+    New `kind: 'character-edited'`; new rules clause lets the OWNING
+    player (not the recipient GM) touch just `createdAt`/`seenAt` on
+    that specific kind — the general recipient-updates-seenAt clause
+    didn't cover this since recipientEmail is the GM, not the writer.
+  - Notes/secrets a player shares further into the party → reuses the
+    existing `appendShareNotifications` exposure fan-out; GM added as
+    an extra `kind:'shared'` recipient ONLY when the share genuinely
+    exposes a party member who didn't already have access (Gregg's
+    explicit call — a share that exposes nobody new, e.g. a private
+    note aimed only at the GM, or re-sharing something already
+    party-visible, does NOT notify). No rules change needed (`shared`
+    kind/shape was already valid).
+  - `campaignUnreadCount`/`markCampaignSeen` (messages.js) generalized
+    from a hardcoded `kind === 'joinRequest'` check to
+    `recipientEmail === self`, so both old (joinRequest) and new
+    (character-edited, GM-directed shared) kinds count toward GM
+    unread without another special case later.
+- `index.html` modulepreload list updated (`presence.js` inserted
+  alphabetically). All 5 owned-entity write sites hooked:
+  `character-sheet.js` ×2, `character-deck.js`, `characters.js`,
+  `codex.js`'s `saveEntityEdit`.
+
+**NOT yet done from this feature set:** no manual QA pass in the dev
+UI (session moved straight to SRD ingest per Gregg) — worth a quick
+click-through of Admin > Manage Party Status and a player-side
+edit/share before the next Release tag.
+
+## Prior session: prod launch (Aug 21 2026)
+
+Latest main from that session additionally carries: merge-mode
+notifications fix, tag-derived versioning (below), full-repo cleanup.
 
 **Versioning (changed!):** the `VERSION` file is GONE. The Release tag
 is the single source of truth: prod job derives `version = tag minus
@@ -72,6 +123,26 @@ just STOPS (no FAILED line) = hung promise, not a throw.
   (characters/encounters/stables), 120 ms codex search debounce,
   debug banner is dev-only by design (projectId -dev or unstamped).
 
+## Next session: SRD data ingest (version mismatch)
+
+**The standing topic for the next session.** A new Daggerheart SRD
+version has dropped, but `seansbox/daggerheart-srd` — the upstream
+repo `srd-import.js` pulls pre-parsed JSON from (see that file's
+header comment) — has NOT been updated to parse it yet. Need to
+figure out, with Gregg, one of:
+- Wait for upstream to catch up (check repo activity/issues first).
+- Fork/patch the parse ourselves against the new PDF (scope unknown —
+  haven't looked at what changed in the new version vs. what
+  `srd-import.js` currently expects the JSON shape to be).
+- Hand-patch just the delta into the existing SRD source content
+  without touching the automated import path at all.
+Start by diffing what's new/changed in the SRD version bump against
+current `SRD_SOURCE_ID`-attributed content, then bring options back
+to Gregg — this needs a design decision, not a unilateral call.
+Project files include `DH-SRD-1_0-June-26-2025.pdf` and
+`DaggerheartErrata5202025.pdf` — check whether either is already the
+new version or still the one `daggerheart-srd` parses.
+
 ## Open items
 
 - Purge the 2 legacy image docs from dev (Admin-SDK script).
@@ -83,6 +154,8 @@ just STOPS (no FAILED line) = hung promise, not a throw.
 - `setEntityImagesTarget` stuck-listener gap (pre-launch review era).
 - Encounter-builder integration exploration; single-entry restore
   "delete orphans" mode — both deferred.
+- Manual QA pass on this session's presence/GM-notification features
+  (see above) before the next Release tag.
 
 ## Session ritual
 
