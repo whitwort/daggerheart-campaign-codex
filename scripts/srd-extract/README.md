@@ -14,3 +14,9 @@ from abilities.json (inline one-off, see git history of the 2.0 commit).
 Post-processing (drop "Elemental Kin"/"Mixed Ancestry" pseudo-records,
 split the "X are often …" adjective sentence into `note`) was done by
 hand; re-check the output shape against `templates.js` before committing.
+
+`campaign-mechanics.json` (Witherwild + Supplemental Campaign Mechanics,
+p.184-205) is NOT regex-parsed: the prose and cross-column tables are
+hand-written markdown in `campaign-mechanics/*.md` (first line `# Name`,
+rest = description). `python3 build_campaign_mechanics.py` assembles the
+JSON in page order. Edit the .md files, rebuild, commit both.
