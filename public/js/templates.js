@@ -116,6 +116,23 @@ const TEMPLATE_SCHEMAS = {
     ],
     hasFeatures: true
   },
+  // SRD 2.0: Brawler (Martial Artist) stances. One-line rules text per
+  // stance lives in `description` (flavor lore item); tier is the only
+  // structured field. standalone:false for the same bare-number reason
+  // as beastforms' tier.
+  'Game Mechanics/stances': {
+    detailKeys: [
+      { key: 'tier', standalone: false, searchable: true }
+    ],
+    hasFeatures: false
+  },
+  // SRD 2.0: transformations (vampire, ghost, demigod, ...). Two features
+  // each; the source's `question` prompt array falls through the generic
+  // question-array leftover path (same as classes' background/connection).
+  'Game Mechanics/transformations': {
+    detailKeys: [],
+    hasFeatures: true
+  },
   'Game Mechanics/classes': {
     // hope_feature_name/hope_feature_text isn't a detail key -- it's
     // special-cased in buildTemplateData (srd-import.js) as an extra
