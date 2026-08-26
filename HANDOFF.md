@@ -10,15 +10,71 @@ last present at the commit tagged v0.2b's successor). Code comments
 citing e.g. "phase-14-design.md §5.1" are historical pointers into
 those deleted docs — resolve via git history, don't "fix" the comments.
 
-## Current state (end of Phase-14-features session, Aug 24 2026)
+## Current state (end of SRD-2.0-pivot session, Aug 26 2026)
 
-HEAD: `48d09bf` (dev deploy green). Prod is LIVE (v0.2b released from
-b67e0d2) and fully populated from the dev dump; nothing in this
-session's commit has been released to prod yet (dev-only until Gregg
-cuts the next tag).
+HEAD: `d4304a7` (dev deploy green, verified via Actions API). Prod is
+LIVE (v0.2b released from b67e0d2); nothing since then (this session's
+commit included) has been released to prod yet — dev-only until Gregg
+cuts the next tag.
 
-**This session added (design doc: none written — scoped inline in
-chat, sign-off given, single commit `48d09bf`):**
+**This session (single commit `d4304a7`, design doc: `docs/srd-update-process.md`):**
+SRD 2.0 dropped Aug 25 2026 (13 classes, 10 domains, new ancestries,
+Witherwild Campaign Frame, Supplemental Campaign Mechanics — roughly
+doubles 1.0's content). Upstream `seansbox/daggerheart-srd` showed no
+activity and months of unmerged PRs — no ETA. Investigated forking its
+`.build/` Go+marker-LLM pipeline (uploaded zip, read the source): stage
+1 (PDF→clean markdown) is the real bottleneck — `marker-pdf` + OpenAI +
+**manual markdown cleanup by hand**, not something forking avoids.
+Stages 2–3 (markdown→CSV→JSON) are structural/generic, cheap either
+way. Conclusion: skip the whole external pipeline, extract directly
+from the PDF as an LLM task, commit the output JSON into this repo.
+
+**Landed:**
+- `srd-import.js`: `fetchSrdType` now reads `/data/srd/{key}.json` by
+  default (`repo === 'local'`, the new default in admin.js). GitHub
+  fetch path kept as fallback only.
+- Added `conditions` to `SRD_TYPES` — upstream never parsed this type
+  even for 1.0 (encounters.js's hardcoded `CORE_CONDITIONS` fallback
+  was the tell). First real data file:
+  `public/data/srd/conditions.json` (Hidden/Restrained/Vulnerable, SRD
+  2.0 p.52). No `templates.js` schema needed — legacy markdown path.
+- `docs/srd-update-process.md`: architecture, major-vs-minor revision
+  workflows, current 2.0 extraction status table (page map against the
+  224-page PDF), and 4 flagged open design decisions that need Gregg's
+  call before continuing (see below).
+
+**NOT done — multi-session by design, see the doc's status table:**
+domains, classes (13)+subclasses, ancestries, communities, weapons,
+armor, items, consumables, and the ~90pp adversaries/environments
+section. Doc recommends starting with domains/ancestries/communities
+next (small, unblocked) before the large section or the design-decision
+items.
+
+**Open design decisions (surface to Gregg before extracting, don't
+guess):**
+1. Transformations (SRD p.42–45) vs. existing `Game Mechanics/beastforms`
+   — rename, superset, or new adjacent mechanic? Unread as of this
+   session.
+2. Combat Wheelchair (p.70–71) — new Equipment subtype or a
+   weapon/armor variant?
+3. Witherwild Campaign Frame / Supplemental Campaign Mechanics
+   (p.184–205) — GM advice/setting content, doesn't naturally fit the
+   entity/lore-item model. Skip entirely, import as plain lore, or
+   something else?
+4. `abilities` source location unconfirmed against the new TOC — don't
+   assume domain-card feature text is still in the same relative spot
+   as 1.0 before extracting it.
+
+**Prior session's item still open:** no manual QA pass yet on the
+presence/GM-notification feature set from the session before this one
+(Aug 24) — worth a click-through before the next Release tag, same as
+last handoff said.
+
+## Prior session: Phase-14 features (Aug 24 2026)
+
+Party presence (`presence.js` heartbeat, Admin > Manage Party Status
+column) + GM notifications for player-initiated activity (character
+edits, shares that expose new party members) — single commit `48d09bf`.
 - **Party presence**: `players/{email}.lastOnline`, written by new
   `presence.js` heartbeat (stamp on attach/tab-foreground + 4 min
   interval while a player's tab is open; GM has no `players/` doc, so
@@ -123,25 +179,18 @@ just STOPS (no FAILED line) = hung promise, not a throw.
   (characters/encounters/stables), 120 ms codex search debounce,
   debug banner is dev-only by design (projectId -dev or unstamped).
 
-## Next session: SRD data ingest (version mismatch)
+## Next session: continue SRD 2.0 extraction
 
-**The standing topic for the next session.** A new Daggerheart SRD
-version has dropped, but `seansbox/daggerheart-srd` — the upstream
-repo `srd-import.js` pulls pre-parsed JSON from (see that file's
-header comment) — has NOT been updated to parse it yet. Need to
-figure out, with Gregg, one of:
-- Wait for upstream to catch up (check repo activity/issues first).
-- Fork/patch the parse ourselves against the new PDF (scope unknown —
-  haven't looked at what changed in the new version vs. what
-  `srd-import.js` currently expects the JSON shape to be).
-- Hand-patch just the delta into the existing SRD source content
-  without touching the automated import path at all.
-Start by diffing what's new/changed in the SRD version bump against
-current `SRD_SOURCE_ID`-attributed content, then bring options back
-to Gregg — this needs a design decision, not a unilateral call.
-Project files include `DH-SRD-1_0-June-26-2025.pdf` and
-`DaggerheartErrata5202025.pdf` — check whether either is already the
-new version or still the one `daggerheart-srd` parses.
+Read `docs/srd-update-process.md` in full before starting — it has the
+architecture, the page map, and the 4 open design decisions. Short
+version: start with `domains`/`ancestries`/`communities` (small,
+unblocked), surface the 4 flagged design decisions to Gregg before
+extracting anything that depends on them, save the ~90pp
+adversaries/environments section for last (or a dedicated session).
+`DH_SRD_2_2026_08_25.pdf` isn't in project files as of this session —
+fetch fresh from `https://www.daggerheart.com/wp-content/uploads/2026/08/DH_SRD_2_2026_08_25.pdf`
+and extract locally with `pdftotext -layout` (don't rely on web_fetch
+for a 224-page document — it truncates).
 
 ## Open items
 
