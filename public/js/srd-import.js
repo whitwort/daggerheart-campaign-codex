@@ -19,15 +19,25 @@ const db = getFirestore(firebaseApp);
 const SRD_SOURCE_ID = 'srd-daggerheart';
 const SRD_SOURCE_TEXT = 'Daggerheart SRD/Darrington Press: [www.darringtonpress.com/license](https://www.darringtonpress.com/license)';
 
-// --- SRD import (Phase 12b) ----------------------------------------------
+// --- SRD import (Phase 12b; local-source pivot Phase 16) -----------------
 // GM-only, driven by the Admin tab's "Import from SRD" tab (conditional on
-// campaignType === 'daggerheart'). Pulls pre-parsed JSON from a GitHub repo
-// (default seansbox/daggerheart-srd) that itself parses the official SRD
-// PDF — much easier than us writing a PDF parser, and the upstream repo
-// tracks SRD updates (e.g. the Hope & Fear expansion) automatically.
-// Source shape/URL convention taken from the sibling daggerheart-encounter-
-// builder project, which already imports `adversaries`/`environments` the
-// same way from the same kind of repo.
+// campaignType === 'daggerheart'). Originally pulled pre-parsed JSON from
+// the seansbox/daggerheart-srd GitHub repo (which parses the official SRD
+// PDF via its own Go/Marker-LLM pipeline). As of the SRD 2.0 revision
+// (Aug 2026), that upstream project had not updated for the new PDF and
+// showed no active maintenance signal, so extraction moved in-house: the
+// SAME per-type record shape (one JSON array per SRD_TYPES key, snake_case
+// field names) is now produced by hand/LLM-assisted extraction from the
+// official PDF and committed to public/data/srd/*.json in THIS repo, rather
+// than fetched from an external GitHub repo at runtime. See
+// docs/srd-update-process.md for the full extraction process, field-shape
+// reference per type, and how to apply future SRD revisions (minor or
+// major) without repeating this from scratch.
+//
+// The repo-fetch path is kept (see fetchSrdType below) since re-pointing at
+// an upstream repo if one ever resumes maintenance is a one-field change,
+// not a design change — but 'local' (the default) is the maintained path
+// going forward.
 //
 // Mapping (per Gregg's design, Phase 12b handoff): ancestries -> Ancestry,
 // communities -> Community (own categories, no subtype). abilities,
@@ -56,6 +66,13 @@ const SRD_TYPES = [
   { key: 'consumables', category: 'Equipment', subtype: 'consumables' },
   { key: 'items', category: 'Equipment', subtype: 'items' },
   { key: 'weapons', category: 'Equipment', subtype: 'weapons' },
+  // Phase 16 (SRD 2.0 local-source pivot): upstream never parsed this type
+  // even for SRD 1.0 (no conditions.json ever existed in their .build/
+  // output) — encounters.js carried a 3-item hardcoded CORE_CONDITIONS
+  // fallback (Hidden/Restrained/Vulnerable) as a result. No schema entry
+  // in templates.js needed: 3 short records (name + description) pass
+  // through the existing legacy formatSrdRecord path same as domains.
+  { key: 'conditions', category: 'Game Mechanics', subtype: 'conditions' },
   // Phase 15 (phase-15-design.md §4.4/§4.5): the two types the sibling
   // encounter-builder project imported from this same source. Their
   // records use source-specific string encodings ("+3" atk, "8/15"
@@ -313,8 +330,15 @@ function stripBom(text) {
   return text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;
 }
 
+// repo === 'local' (the default, see admin.js) reads our own committed
+// JSON, same shape as the old upstream .build/03_json output. Any other
+// value is treated as a GitHub 'owner/repo' and fetched the original way,
+// in case an upstream project (this one or a future replacement) is ever
+// worth pointing at again — see docs/srd-update-process.md.
 function fetchSrdType(repo, key) {
-  const url = 'https://raw.githubusercontent.com/' + repo + '/main/.build/03_json/' + key + '.json';
+  const url = (!repo || repo === 'local')
+    ? '/data/srd/' + key + '.json'
+    : 'https://raw.githubusercontent.com/' + repo + '/main/.build/03_json/' + key + '.json';
   return fetch(url).then(function (res) {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     return res.text();
