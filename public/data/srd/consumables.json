@@ -1,0 +1,722 @@
+[
+  {
+    "name": "Stride Potion",
+    "description": "You gain a +1 bonus to your next Agility Roll.",
+    "roll": "01",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Vial of Darksmoke",
+    "description": "When an adversary attacks you, use this vial and roll a number of d6s equal to your Agility. Add the highest result to your Evasion against the attack.",
+    "roll": "16",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Bolster Potion",
+    "description": "You gain a +1 bonus to your next Strength Roll.",
+    "roll": "02",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Jumping Root",
+    "description": "Eat this root to leap up to Far range once without needing to roll.",
+    "roll": "17",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Control Potion",
+    "description": "You gain a +1 bonus to your next Finesse Roll.",
+    "roll": "03",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Snap Powder",
+    "description": "Mark a Stress and clear a HP.",
+    "roll": "18",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Attune Potion",
+    "description": "You gain a +1 bonus to your next Instinct Roll.",
+    "roll": "04",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Health Potion",
+    "description": "Clear 1d4+1 HP.",
+    "roll": "19",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Charm Potion",
+    "description": "You gain a +1 bonus to your next Presence Roll.",
+    "roll": "05",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Stamina Potion",
+    "description": "Clear 1d4+1 Stress.",
+    "roll": "20",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Enlighten Potion",
+    "description": "You gain a +1 bonus to your next Knowledge Roll.",
+    "roll": "06",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Armor Stitcher",
+    "description": "You can use this stitcher to spend any number of Hope and clear that many Armor Slots.",
+    "roll": "21",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Minor Health Potion",
+    "description": "Clear 1d4 HP.",
+    "roll": "07",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Gill Salve",
+    "description": "You can apply this salve to your neck to breathe underwater for a number of minutes equal to your level.",
+    "roll": "22",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Minor Stamina Potion",
+    "description": "Clear 1d4 Stress.",
+    "roll": "08",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Replication Parchment",
+    "description": "By touching this piece of parchment to another, you can perfectly copy the second parchment’s contents. Once used, this parchment becomes mundane paper.",
+    "roll": "23",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Grindletooth Venom",
+    "description": "You can apply this venom to a weapon that deals physical damage to add a d6 to your next damage roll with that weapon.",
+    "roll": "09",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Varik Leaves",
+    "description": "You can eat these paired leaves to immediately gain 2 Hope.",
+    "roll": "10",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Improved Arcane Shard",
+    "description": "You can make a Finesse Roll to throw this shard at a group of adversaries within Far range. Targets you succeed against take 2d20 magic damage.",
+    "roll": "24",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Vial of Moondrip",
+    "description": "When you drink the contents of this vial, you can see in total darkness until your next rest.",
+    "roll": "11",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Major Stride Potion",
+    "description": "You gain a +1 bonus to your Agility until your next rest.",
+    "roll": "25",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Unstable Arcane Shard",
+    "description": "You can make a Finesse Roll to throw this shard at a group of adversaries within Far range. Targets you succeed against take 1d20 magic damage.",
+    "roll": "12",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Major Bolster Potion",
+    "description": "You gain a +1 bonus to your Strength until your next rest.",
+    "roll": "26",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Major Control Potion",
+    "description": "You gain a +1 bonus to your Finesse until your next rest.",
+    "roll": "27",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Potion of Stability",
+    "description": "You can drink this potion to choose one additional downtime move.",
+    "roll": "13",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Major Attune Potion",
+    "description": "You gain a +1 bonus to your Instinct until your next rest.",
+    "roll": "28",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Improved Grindletooth Venom",
+    "description": "You can apply this venom to a weapon that deals physical damage to add a d8 to your next damage roll with that weapon.",
+    "roll": "14",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Major Charm Potion",
+    "description": "You gain a +1 bonus to your Presence until your next rest.",
+    "roll": "29",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Morphing Clay",
+    "description": "You can spend a Hope to use this clay, altering your face enough to make you unrecognizable until your next rest.",
+    "roll": "15",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Major Enlighten Potion",
+    "description": "You gain a +1 bonus to your Knowledge until your next rest.",
+    "roll": "30",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Blood of the Yorgi",
+    "description": "You can drink this blood to disappear from where you are and immediately reappear at a point you can see within Very Far range.",
+    "roll": "31",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Jar of Lost Voices",
+    "description": "You can open this jar to release a deafening echo of voices for a number of minutes equal to your Instinct. Creatures within Far range unprepared for the sound take 6d8 magic damage.",
+    "roll": "47",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Homet’s Secret Potion",
+    "description": "After drinking this potion, the next successful attack you make critically succeeds.",
+    "roll": "32",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Dragonbloom Tea",
+    "description": "You can drink this tea to unleash a fiery breath attack. Make an Instinct Roll against all adversaries in front of you within Close range. Targets you succeed against take d20 physical damage using your Proficiency.",
+    "roll": "48",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Redthorn Saliva",
+    "description": "You can apply this saliva to a weapon that deals physical damage to add a d12 to your next damage roll with that weapon.",
+    "roll": "33",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Channelstone",
+    "description": "You can use this stone to take a spell or grimoire from your vault, use it once, and return it to your vault.",
+    "roll": "34",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Bridge Seed",
+    "description": "Thick vines grow from your location to a point of your choice within Far range, allowing you to climb up or across them. The vines dissipate on your next short rest.",
+    "roll": "49",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Mythic Dust",
+    "description": "You can apply this dust to a weapon that deals magic damage to add a d12 to your next damage roll with that weapon.",
+    "roll": "35",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Sleeping Sap",
+    "description": "You can drink this potion to fall asleep for a full night’s rest. You clear all Stress upon waking.",
+    "roll": "50",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Acidpaste",
+    "description": "This paste eats away walls and other surfaces in bright flashes.",
+    "roll": "36",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Feast of Xuria",
+    "description": "You can eat this meal to clear all HP and Stress and gain 1d4 Hope.",
+    "roll": "51",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Hopehold Flare",
+    "description": "When you use this flare, allies within Close range roll a d6 when they spend a Hope. On a result of 6, they gain the effect of that Hope without spending it. The flare lasts until the end of the scene.",
+    "roll": "37",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Bonding Honey",
+    "description": "This honey can be used to glue two objects together permanently.",
+    "roll": "52",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Shrinking Potion",
+    "description": "You can drink this potion to halve your size until you choose to drop this form or your next rest. While in this form, you have a +2 bonus to Agility and a −1 penalty to your Proficiency.",
+    "roll": "53",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Major Arcane Shard",
+    "description": "You can make a Finesse Roll to throw this shard at a group of adversaries within Far range. Targets you succeed against take 4d20 magic damage.",
+    "roll": "38",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Growing Potion",
+    "description": "You can drink this potion to double your size until you choose to drop this form or your next rest. While in this form, you have a +2 bonus to Strength and a +1 bonus to your Proficiency.",
+    "roll": "54",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Featherbone",
+    "description": "You can use this bone to control your falling speed for a number of minutes equal to your level.",
+    "roll": "39",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Circle of the Void",
+    "description": "Mark a Stress to create a void that extends up to Far range. No magic can be cast inside the void, and creatures within the void are immune to magic damage.",
+    "roll": "40",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Knowledge Stone",
+    "description": "If you die while holding this stone, an ally can take a card from your loadout to place in their loadout or vault. After they take this knowledge, the stone crumbles.",
+    "roll": "55",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Sun Tree Sap",
+    "description": "Consume this sap to roll a d6. On a result of 5–6, clear 2 HP. On a result of 2–4, clear 3 Stress. On a result of 1, see through the veil of death and return changed, gaining one scar.",
+    "roll": "41",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Sweet Moss",
+    "description": "You can consume this moss during a rest to clear 1d10 HP or 1d10 Stress.",
+    "roll": "56",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Blinding Orb",
+    "description": "You can activate this orb to create a flash of bright light. All targets within Close range become Vulnerable until they mark HP.",
+    "roll": "57",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Dripfang Poison",
+    "description": "A creature who consumes this poison takes 8d10 direct magic damage.",
+    "roll": "42",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Major Health Potion",
+    "description": "Clear 1d4+2 HP.",
+    "roll": "43",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Death Tea",
+    "description": "After you drink this tea, you instantly kill your target when you critically succeed on an attack. If you don’t critically succeed on an attack before your next long rest, you die.",
+    "roll": "58",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Major Stamina Potion",
+    "description": "Clear 1d4+2 Stress.",
+    "roll": "44",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Ogre Musk",
+    "description": "You can use this musk to prevent anyone from tracking you by mundane or magical means until your next rest.",
+    "roll": "45",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Mirror of Marigold",
+    "description": "When you take damage, you can spend a Hope to negate that damage, after which the mirror shatters.",
+    "roll": "59",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Wingsprout",
+    "description": "You gain magic wings that allow you to fly for a number of minutes equal to your level.",
+    "roll": "46",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Stardrop",
+    "description": "You can use this stardrop to summon a hailstorm of comets that deals 8d20 physical damage to all targets within Very Far range.",
+    "roll": "60",
+    "source_set": "Core Set"
+  },
+  {
+    "name": "Warding Candle",
+    "description": "You can light this candle to fill an area within Close range with a halo of light. A creature outside the halo can’t enter it if they have ill intent toward a creature within it. The candle burns for an hour.",
+    "roll": "1",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Red Ooze Oil",
+    "description": "You can coat your weapon in this oil. The next successful attack you make with this weapon deals an extra 1d8 magic damage and temporarily Ignites the target. While Ignited, the target takes 1d4 magic damage when they take the spotlight.",
+    "roll": "15",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Iridian Dust",
+    "description": "This multicolored powder sticks to everything and prevents creatures covered in it from becoming Hidden.",
+    "roll": "2",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Instant Camp",
+    "description": "You can unfold this small mechanical box into a camping tent large enough to safely house six people. The tent collapses at the end of your next long rest.",
+    "roll": "16",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Verglasian Seed",
+    "description": "You can use this ice shard to instantly freeze an area of water up to Close range.",
+    "roll": "3",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Bundle of Spiderlegs",
+    "description": "You can eat these spiderlegs to walk on walls until your next rest.",
+    "roll": "17",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Cupbearer’s Bezoar",
+    "description": "You can swallow this bezoar to become immune to poisons until your next long rest.",
+    "roll": "4",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Ciscan Fog Bottle",
+    "description": "You can break this jar to fill the area within Close range with magical mist. A creature who enters the mist clears a Stress and becomes Hidden.",
+    "roll": "18",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Mossmantle Potion",
+    "description": "You can drink this tea to perfectly blend into natural environments until your next rest.",
+    "roll": "5",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Snapthorn Seed",
+    "description": "You can throw this seed at a point you can see. It explodes into a tangle of binding vines that temporarily Restrains all creatures within Close range of that point.",
+    "roll": "19",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Lyrebird Lozenge",
+    "description": "You can dissolve this lozenge in your mouth to perfectly mimic any voice you’ve heard until the end of the scene.",
+    "roll": "6",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Vial of Featherfall",
+    "description": "You can drink this potion to ignore damage from falling for the next 10 minutes.",
+    "roll": "7",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Sprite Bottle",
+    "description": "When you mark your last Hit Point, this bottle shatters to release the Sprite inside. The Sprite clears all your Hit Points before fading from the Mortal Realm.",
+    "roll": "20",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Chimeric Saliva",
+    "description": "You can apply this saliva to a weapon that deals physical damage to change its damage type to magic until your next rest.",
+    "roll": "8",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Gravity Bomb",
+    "description": "You can throw this peach-sized mechanical orb at a point within Far range. It implodes and pulls all creatures and objects within Close range of that point into Melee range with it.",
+    "roll": "21",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Packet of Space Dust",
+    "description": "This dust causes anything it covers to become lighter than air. One packet contains enough dust to cover the contents of a picnic basket, and the effects last for an hour.",
+    "roll": "9",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Gossip Flower",
+    "description": "You can plant this seed in soil. It instantly grows into a small flower that records everything it hears for up to one week. When plucked, the flower recites what it recorded in real time, then withers.",
+    "roll": "22",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Pipeweed",
+    "description": "When you choose the Clear Stress downtime move during a short rest, you can smoke this non-intoxicating leaf to clear an additional Stress. Any other PCs who chose the Clear Stress downtime move also gain this benefit.",
+    "roll": "10",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Displacement Token",
+    "description": "You can swallow this token to conjure two illusions of yourself that you can control. Each illusion lasts until it takes damage or until your next rest.",
+    "roll": "23",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Deathseer’s Powder",
+    "description": "You can sprinkle this powder over a recently deceased corpse to conjure a spectral reprise of their final minute of life.",
+    "roll": "11",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Night Hag’s Dust",
+    "description": "You can blow this dust in an adversary’s face to prevent them from clearing Stress until your next long rest.",
+    "roll": "24",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Slayer’s Salt",
+    "description": "You can spread this salt in a line along windowsills or thresholds to create a magical barrier that undead creatures can’t cross until the line is broken.",
+    "roll": "12",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Self-Sewing Thread",
+    "description": "You can use this thread to clear either a Hit Point or 2 Armor Slots.",
+    "roll": "25",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Yakamel Milk",
+    "description": "After consuming this milk, the next time you clear 1 or more Hit Points, you clear an additional Hit Point.",
+    "roll": "13",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Stonemason’s Fortune",
+    "description": "When you throw this gray brick on the ground, it immediately grows into a 6-foot-tall, 10-foot-wide, and 2-foot- deep wall of solid stone.",
+    "roll": "26",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Glowmoss Mushroom",
+    "description": "You can break this mushroom into pieces, causing it to glow bright blue until your next long rest.",
+    "roll": "14",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Mnemonic Potion",
+    "description": "You can drink this potion to Utilize an Experience without spending a Hope.",
+    "roll": "27",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Cockerel Claw Tea",
+    "description": "You can drink this tea to refresh your features as if you had taken a long rest.",
+    "roll": "39",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Salamander Salve",
+    "description": "You can apply this salve to your skin to make yourself immune to heat until your next rest.",
+    "roll": "28",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Potion of Vigilance",
+    "description": "You can drink this potion to gain a +1 bonus to your Evasion until you mark a Hit Point.",
+    "roll": "40",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Green Ooze Oil",
+    "description": "You can coat your weapon in this oil. The next successful attack you make with this weapon deals an extra 1d8 magic damage and temporarily Corrodes the target. While Corroded, the target gains a −2 penalty to their damage thresholds.",
+    "roll": "29",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Cacophonous Concoction",
+    "description": "When you drink this potion, anything you say or do in the next hour becomes impossible for a witness to recount. Any attempts they make to communicate what they saw, heard, or otherwise sensed comes out garbled or nonsensical.",
+    "roll": "41",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Sunlight Orb",
+    "description": "You can shatter this orb to make the area within Very Far range appear as though it’s sunlit daytime for the next 24 hours.",
+    "roll": "30",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Nightmare Mead",
+    "description": "You can drink this potion to discover the deepest fear of the next person you make eye contact with. When you do, the GM gains a Fear.",
+    "roll": "42",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Moonlight Orb",
+    "description": "You can shatter this orb to make the area within Very Far range appear as though it’s moonlit nighttime for the next 24 hours.",
+    "roll": "31",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Stake of Abjuration",
+    "description": "You can hammer this stake into the ground and make a proclamation. Until your next rest, a creature within Far range of the stake who transgresses that proclamation must mark a Stress. The stake lasts until your next rest, then it shatters.",
+    "roll": "43",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Midas Flask",
+    "description": "You can pour this small flask of alchemical liquid over a mundane item to instantly transmute it into a handful of gold.",
+    "roll": "32",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Psychopomp’s Shroud",
+    "description": "You can place this shroud over the corpse of a recently deceased creature. The creature’s spirit enters the shroud and becomes your spectral assistant until the next sunrise, when they pass through the veil of death and take the shroud with them.",
+    "roll": "44",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Staff of Reversal",
+    "description": "You can break this staff against the ground to reverse one magical transformation or effect within Far range.",
+    "roll": "33",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Berserker’s Brew",
+    "description": "When you drink this dram of liquid, you gain a bonus to your Strength and a penalty to your Finesse and Knowledge equal to your Instinct (minimum 1). This effect lasts until you make a death move or until your next rest.",
+    "roll": "34",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Phial of Deep Ink",
+    "description": "You can drink this bottle of ink to transform into a cephalopod of roughly your size for the next hour. You gain rubbery skin, soft bones, the ability to breathe underwater, and new limbs until you have eight total.",
+    "roll": "45",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Emberite Shard",
+    "description": "Choose a point within Far range. All targets within Close range of that point must succeed on a Reaction Roll (16) or take 3d6 magic damage and become temporarily Ablaze. While Ablaze, a creature must roll a d4 whenever they make an action roll. On a result of 1, they mark a Hit Point. On a result of 4, they clear the Ablaze condition.",
+    "roll": "35",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Mesmer’s Tonic",
+    "description": "When you drink this tonic, the only thing you can hear until your next rest are the surface thoughts of creatures within Very Close range.",
+    "roll": "46",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Invisibility Potion",
+    "description": "You are Hidden until you deal damage to another creature or until your next rest.",
+    "roll": "47",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Formoid Serum",
+    "description": "You can drink this potion to become a swarm of 16 million ants until the end of the scene. You keep and have access to all equipment, loot, and features.",
+    "roll": "48",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Arcticite Shard",
+    "description": "Choose a point within Far range. All targets within Close range of that point must succeed on a Reaction Roll (16) or take 3d6 magic damage and become temporarily Restrained by ice.",
+    "roll": "36",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Steelskin Salve",
+    "description": "You can apply this salve to your skin to gain a bonus to your damage thresholds equal to your tier until the end of the scene.",
+    "roll": "49",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Fulgurite Shard",
+    "description": "Choose a point within Far range. All targets within Close range of that point must succeed on a Reaction Roll (16) or take 3d6 magic damage and mark 1d4 Stress as lightning crackles through the area.",
+    "roll": "37",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Godling’s Pomelo",
+    "description": "You can eat this citrus fruit to clear all Hit Points and Stress.",
+    "roll": "50",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Snakeskin Spirit",
+    "description": "You can drink this potion to slough off your outer layer of skin and heal a scar.",
+    "roll": "51",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Demiurge’s Draught",
+    "description": "You can drink this draught to gain a +1 bonus to your Proficiency for your next successful attack roll. GOLD",
+    "roll": "38",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Magic-User’s Malison",
+    "description": "When you release this spellcaster’s Gold is an abstract measurement of how much wealth a trapped soul, you can cast one spell handfuls, bags, chests, character has, and is measured in and from a card in your vault as if it were with 10 handfuls to 1 bag, and 10 bags to 1 chest. When you in your loadout. This doesn’t work for have marked all of the slots in a category and you gain another permanently vaulted cards. gold reward in that category, mark a slot in the following",
+    "roll": "52",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Quintessential Severant",
+    "description": "You can use this magic blade to cut category and clear all the slots in the current one. one magical or metaphysical bond, such as an enchantment, contract, For example, if you have 9 handfuls and gain another, you magical tether, or divine oath. When instead mark 1 bag and erase all handfuls. If you have 9 bags you do, the blade shatters. and gain another, you mark 1 chest and erase all bags.",
+    "roll": "53",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Mask of the Echoed Self",
+    "description": "You can wear this mask during your You can’t have more than 1 chest, so if all your Gold slots are next level up to swap the values of any marked, you’ll need to spend some of your gold or store it of your traits. When you do, the mask somewhere else before you can acquire more. becomes your permanent face.",
+    "roll": "54",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Necroprancer’s Bell",
+    "description": "You can break this rusted, clapperless bell against the ground to summon a Optional Rule: Gold Coins skeletal steed that climbs out of the If your group wants to track gold with more granularity, earth and serves you until the next you can add coins as your lowest denomination. Following sunrise. the established pattern, 10 coins equal 1 handful.",
+    "roll": "55",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Drakemantle",
+    "description": "You can use this enchanted ancient dragon hide to gain draconic characteristics until the end of the scene, when the hide falls aways in tatters. Until then, you can fly and gain a +5 bonus to your damage thresholds and a +1 bonus to your Proficiency.",
+    "roll": "56",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Gambler’s Fallacy",
+    "description": "You can spend any number of handfuls of gold by placing them into this slotted ceramic jar shaped like a pig. When you throw the jar at a point within Far range, it explodes and deals 1d20 magic damage for each handful of gold spent to all creatures within Close range of that point. All gold within the jar is destroyed.",
+    "roll": "57",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Lionheart Tonic",
+    "description": "You can drink this tonic to gain a +1 bonus to your Proficiency until you roll with Fear.",
+    "roll": "58",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Tears of the Undying Hero",
+    "description": "When you drink this potion, death can’t touch you until your next long rest. When you would mark your last Hit Point, instead of making a death move, you make one final action roll before falling into a dreamless slumber until an ally chooses the Tend to Wounds downtime move to clear your Hit Points.",
+    "roll": "59",
+    "source_set": "Hope & Fear"
+  },
+  {
+    "name": "Featherstep Potion",
+    "description": "You can drink this potion to sprout small wings from your ankles that give you a bonus to your Evasion equal to your tier until your next rest.",
+    "roll": "60",
+    "source_set": "Hope & Fear"
+  }
+]

@@ -1,0 +1,4340 @@
+[
+  {
+    "name": "Broadsword",
+    "trait": "Agility",
+    "range": "Melee",
+    "damage": "d8 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Reliable",
+        "text": "+1 to attack rolls"
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Katana",
+    "trait": "Agility",
+    "range": "Melee",
+    "damage": "d10+3 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Quick",
+        "text": "When you make an attack, you can mark a Stress to target another creature within range."
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Longsword",
+    "trait": "Agility",
+    "range": "Melee",
+    "damage": "d10+3 phy",
+    "burden": "Two-Handed",
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Battleaxe",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d10+3 phy",
+    "burden": "Two-Handed",
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Brass Knuckles",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d8+1 phy",
+    "burden": "One-Handed",
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Greatsword",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d10+3 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Massive",
+        "text": "−1 to Evasion; on a successful attack, roll an additional damage die and discard the lowest result."
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Mace",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d8+1 phy",
+    "burden": "One-Handed",
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Warhammer",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d12+3 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Heavy",
+        "text": "−1 to Evasion"
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Dagger",
+    "trait": "Finesse",
+    "range": "Melee",
+    "damage": "d8+1 phy",
+    "burden": "One-Handed",
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Quarterstaff",
+    "trait": "Instinct",
+    "range": "Melee",
+    "damage": "d10+3 phy",
+    "burden": "Two-Handed",
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Cutlass",
+    "trait": "Presence",
+    "range": "Melee",
+    "damage": "d8+1 phy",
+    "burden": "One-Handed",
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Rapier",
+    "trait": "Presence",
+    "range": "Melee",
+    "damage": "d8 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Quick",
+        "text": "When you make an attack, you can mark a Stress to target another creature within range."
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Scimitar",
+    "trait": "Presence",
+    "range": "Melee",
+    "damage": "d8+1 phy",
+    "burden": "One-Handed",
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Twisted Dagger",
+    "trait": "Knowledge",
+    "range": "Melee",
+    "damage": "d8 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Piercing",
+        "text": "Damage dealt with this weapon treats the target’s Major threshold as having a −2 penalty."
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Halberd",
+    "trait": "Strength",
+    "range": "Very Close",
+    "damage": "d10+2 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Cumbersome",
+        "text": "−1 to Finesse"
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Spear",
+    "trait": "Finesse",
+    "range": "Very Close",
+    "damage": "d8+3 phy",
+    "burden": "Two-Handed",
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Whipsword",
+    "trait": "Finesse",
+    "range": "Very Close",
+    "damage": "d8 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Versatile",
+        "text": "This weapon can also be used with these statistics—Finesse, Melee, d10."
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Rope Dart",
+    "trait": "Instinct",
+    "range": "Close",
+    "damage": "d6+1 phy",
+    "burden": "Two-Handed",
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Shortbow",
+    "trait": "Agility",
+    "range": "Far",
+    "damage": "d6+3 phy",
+    "burden": "Two-Handed",
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Crossbow",
+    "trait": "Finesse",
+    "range": "Far",
+    "damage": "d6+1 phy",
+    "burden": "One-Handed",
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Longbow",
+    "trait": "Agility",
+    "range": "Very Far",
+    "damage": "d8+3 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Cumbersome",
+        "text": "−1 to Finesse"
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Arcane Gauntlets",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d10+3 mag",
+    "burden": "Two-Handed",
+    "tier": "1",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Brightsword",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d10+3 mag",
+    "burden": "Two-Handed",
+    "tier": "1",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Hallowed Axe",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d8+1 mag",
+    "burden": "One-Handed",
+    "tier": "1",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Shadowblade",
+    "trait": "Presence",
+    "range": "Melee",
+    "damage": "d8 phy/mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Otherworldly",
+        "text": "On a successful attack, you can deal physical or magic damage."
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Glowing Rings",
+    "trait": "Agility",
+    "range": "Very Close",
+    "damage": "d10+2 mag",
+    "burden": "Two-Handed",
+    "tier": "1",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Hand Runes",
+    "trait": "Instinct",
+    "range": "Very Close",
+    "damage": "d10 mag",
+    "burden": "One-Handed",
+    "tier": "1",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Enchanted Chakram",
+    "trait": "Finesse",
+    "range": "Close",
+    "damage": "d6+1 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Ricochet",
+        "text": "When you throw this weapon, it returns to your hand. When you make an attack, you can mark a Stress to target another creature within Very Close range of the first target with that attack."
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Returning Blade",
+    "trait": "Finesse",
+    "range": "Close",
+    "damage": "d8 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Returning",
+        "text": "When this weapon is thrown within its range, it appears in your hand immediately after the attack."
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Casting Dagger",
+    "trait": "Instinct",
+    "range": "Close",
+    "damage": "d6 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Versatile",
+        "text": "This weapon can also be used with these statistics—Instinct, Melee, d8."
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Shortstaff",
+    "trait": "Instinct",
+    "range": "Close",
+    "damage": "d8+1 mag",
+    "burden": "One-Handed",
+    "tier": "1",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Dualstaff",
+    "trait": "Instinct",
+    "range": "Far",
+    "damage": "d6+3 mag",
+    "burden": "Two-Handed",
+    "tier": "1",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Scepter",
+    "trait": "Presence",
+    "range": "Far",
+    "damage": "d6 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Versatile",
+        "text": "This weapon can also be used with these statistics—Presence, Melee, d8."
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Runelock Pistol",
+    "trait": "Knowledge",
+    "range": "Far",
+    "damage": "d6+3 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Reloading",
+        "text": "After you make an attack, roll a d6. On a result of 1, you must mark a Stress to reload this weapon before you can fire it again."
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Wand",
+    "trait": "Knowledge",
+    "range": "Far",
+    "damage": "d6+1 mag",
+    "burden": "One-Handed",
+    "tier": "1",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Arcane Rifle",
+    "trait": "Agility",
+    "range": "Very Far",
+    "damage": "d10+3 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Aimed",
+        "text": "Your attack has disadvantage if the target is within Very Close range of you or within Melee range of one of your allies. You can mark a Stress to ignore this penalty."
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Greatstaff",
+    "trait": "Knowledge",
+    "range": "Very Far",
+    "damage": "d6 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Powerful",
+        "text": "On a successful attack, roll an additional damage die and discard the lowest result."
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Broadsword",
+    "trait": "Agility",
+    "range": "Melee",
+    "damage": "d8+3 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Reliable",
+        "text": "+1 to attack rolls"
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Katana",
+    "trait": "Agility",
+    "range": "Melee",
+    "damage": "d10+6 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Quick",
+        "text": "When you make an attack, you can mark a Stress to target another creature within range."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Longsword",
+    "trait": "Agility",
+    "range": "Melee",
+    "damage": "d10+6 phy",
+    "burden": "Two-Handed",
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Battleaxe",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d10+6 phy",
+    "burden": "Two-Handed",
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Brass Knuckles",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d8+4 phy",
+    "burden": "One-Handed",
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Greatsword",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d10+6 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Massive",
+        "text": "−1 to Evasion; on a successful attack, roll an additional damage die and discard the lowest result."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Mace",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d8+4 phy",
+    "burden": "One-Handed",
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Warhammer",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d12+6 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Heavy",
+        "text": "−1 to Evasion"
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Dagger",
+    "trait": "Finesse",
+    "range": "Melee",
+    "damage": "d8+4 phy",
+    "burden": "One-Handed",
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Quarterstaff",
+    "trait": "Instinct",
+    "range": "Melee",
+    "damage": "d10+6 phy",
+    "burden": "Two-Handed",
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Cutlass",
+    "trait": "Presence",
+    "range": "Melee",
+    "damage": "d8+4 phy",
+    "burden": "One-Handed",
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Rapier",
+    "trait": "Presence",
+    "range": "Melee",
+    "damage": "d8+3 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Quick",
+        "text": "When you make an attack, you can mark a Stress to target another creature within range."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Scimitar",
+    "trait": "Presence",
+    "range": "Melee",
+    "damage": "d8+4 phy",
+    "burden": "One-Handed",
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Twisted Dagger",
+    "trait": "Knowledge",
+    "range": "Melee",
+    "damage": "d8+3 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Piercing",
+        "text": "Damage dealt with this weapon treats the target’s Major threshold as having a −2 penalty."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Halberd",
+    "trait": "Strength",
+    "range": "Very Close",
+    "damage": "d10+5 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Cumbersome",
+        "text": "−1 to Finesse"
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Spear",
+    "trait": "Finesse",
+    "range": "Very Close",
+    "damage": "d8+6 phy",
+    "burden": "Two-Handed",
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Whipsword",
+    "trait": "Finesse",
+    "range": "Very Close",
+    "damage": "d8+3 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Versatile",
+        "text": "This weapon can also be used with these statistics—Finesse, Melee, d10+3."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Rope Dart",
+    "trait": "Instinct",
+    "range": "Close",
+    "damage": "d6+4 phy",
+    "burden": "Two-Handed",
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Shortbow",
+    "trait": "Agility",
+    "range": "Far",
+    "damage": "d6+6 phy",
+    "burden": "Two-Handed",
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Crossbow",
+    "trait": "Finesse",
+    "range": "Far",
+    "damage": "d6+4 phy",
+    "burden": "One-Handed",
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Longbow",
+    "trait": "Agility",
+    "range": "Very Far",
+    "damage": "d8+6 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Cumbersome",
+        "text": "−1 to Finesse"
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Gilded Falchion",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d10+4 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Powerful",
+        "text": "On a successful attack, roll an additional damage die and discard the lowest result."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Knuckle Blades",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d10+6 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Brutal",
+        "text": "When you roll the maximum value on a damage die, roll an additional damage die."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "War Pick",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d8+3 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Deadly",
+        "text": "When you deal Severe damage, the target must mark an additional HP."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Cane Sword",
+    "trait": "Finesse",
+    "range": "Melee",
+    "damage": "d8+4 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Retractable",
+        "text": "The blade can be hidden in the cane to avoid detection."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Urok Broadsword",
+    "trait": "Finesse",
+    "range": "Melee",
+    "damage": "d8+3 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Deadly",
+        "text": "When you deal Severe damage, the target must mark an additional HP."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Bladed Fan",
+    "trait": "Presence",
+    "range": "Melee",
+    "damage": "d8+3 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Parry",
+        "text": "When you are attacked, roll this weapon’s damage dice. If any of the attacker’s damage dice rolled the same value as your dice, the matching results are discarded from the attacker’s damage dice before the damage you take is totaled."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Cyrurgien’s Scalpel",
+    "trait": "Knowledge",
+    "range": "Melee",
+    "damage": "d8+3 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Scary",
+        "text": "On a successful attack, the target must mark a Stress."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Bladed Whip",
+    "trait": "Agility",
+    "range": "Very Close",
+    "damage": "d8+3 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Quick",
+        "text": "When you make an attack, you can mark a Stress to target another creature within range."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Javelins",
+    "trait": "Agility",
+    "range": "Very Close",
+    "damage": "d6+6 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Stockpiled",
+        "text": "You can throw this weapon at a target within Far range by making an attack roll using Agility without having to retrieve it, as you always have another one on hand."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Steelforged Halberd",
+    "trait": "Strength",
+    "range": "Very Close",
+    "damage": "d8+4 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Scary",
+        "text": "On a successful attack, the target must mark a Stress."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "War Scythe",
+    "trait": "Finesse",
+    "range": "Very Close",
+    "damage": "d8+5 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Reliable",
+        "text": "+1 to attack rolls"
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Lance",
+    "trait": "Instinct",
+    "range": "Very Close",
+    "damage": "d10+5 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Cumbersome",
+        "text": "−1 to Finesse"
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Blunderbuss",
+    "trait": "Finesse",
+    "range": "Close",
+    "damage": "d8+6 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Reloading",
+        "text": "After you make an attack, roll a d6. On a result of 1, you must mark a Stress to reload this weapon before you can fire it again."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Greatbow",
+    "trait": "Strength",
+    "range": "Far",
+    "damage": "d6+6 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Powerful",
+        "text": "On a successful attack, roll an additional damage die and discard the lowest result."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Finehair Bow",
+    "trait": "Agility",
+    "range": "Very Far",
+    "damage": "d6+5 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Reliable",
+        "text": "+1 to attack rolls"
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Arcane Gauntlets",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d10+6 mag",
+    "burden": "Two-Handed",
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Brightsword",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d10+6 mag",
+    "burden": "Two-Handed",
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Hallowed Axe",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d8+4 mag",
+    "burden": "One-Handed",
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Shadowblade",
+    "trait": "Presence",
+    "range": "Melee",
+    "damage": "d8+3",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Otherworldly",
+        "text": "On a successful attack, you can deal physical or magic damage."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Glowing Rings",
+    "trait": "Agility",
+    "range": "Very Close",
+    "damage": "d10+5 mag",
+    "burden": "Two-Handed",
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Hand Runes",
+    "trait": "Instinct",
+    "range": "Very Close",
+    "damage": "d10+3 mag",
+    "burden": "One-Handed",
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Enchanted Chakram",
+    "trait": "Finesse",
+    "range": "Close",
+    "damage": "d6+4 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Ricochet",
+        "text": "When you throw this weapon, it returns to your hand. When you make an attack, you can mark a Stress to target another creature within Very Close range of the first target with that attack."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Returning Blade",
+    "trait": "Finesse",
+    "range": "Close",
+    "damage": "d8+3 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Returning",
+        "text": "When this weapon is thrown within its range, it appears in your hand immediately after the attack."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Casting Dagger",
+    "trait": "Instinct",
+    "range": "Close",
+    "damage": "d6+3 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Versatile",
+        "text": "This weapon can also be used with these statistics—Instinct, Melee, d8+3."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Shortstaff",
+    "trait": "Instinct",
+    "range": "Close",
+    "damage": "d8+4 mag",
+    "burden": "One-Handed",
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Dualstaff",
+    "trait": "Instinct",
+    "range": "Far",
+    "damage": "d6+6 mag",
+    "burden": "Two-Handed",
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Scepter",
+    "trait": "Presence",
+    "range": "Far",
+    "damage": "d6+3 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Versatile",
+        "text": "This weapon can also be used with these statistics—Presence, Melee, d8+3."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Runelock Pistol",
+    "trait": "Knowledge",
+    "range": "Far",
+    "damage": "d6+6 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Reloading",
+        "text": "After you make an attack, roll a d6. On a result of 1, you must mark a Stress to reload this weapon before you can fire it again."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Wand",
+    "trait": "Knowledge",
+    "range": "Far",
+    "damage": "d6+4 mag",
+    "burden": "One-Handed",
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Arcane Rifle",
+    "trait": "Agility",
+    "range": "Very Far",
+    "damage": "d10+6 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Aimed",
+        "text": "Your attack has disadvantage if the target is within Very Close range of you or within Melee range of one of your allies. You can mark a Stress to ignore this penalty."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Improved Greatstaff",
+    "trait": "Knowledge",
+    "range": "Very Far",
+    "damage": "d6+3 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Powerful",
+        "text": "On a successful attack, roll an additional damage die and discard the lowest result."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Ego Blade",
+    "trait": "Agility",
+    "range": "Melee",
+    "damage": "d12+4 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Pompous",
+        "text": "You must have a Presence of 0 or lower to use this weapon."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Casting Sword",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d10+4 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Versatile",
+        "text": "This weapon can also be used with these statistics—Knowledge, Far, d6+3."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Enchanted Shillelagh",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d8+3 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Protective",
+        "text": "+1 to your Armor Score"
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Devouring Dagger",
+    "trait": "Finesse",
+    "range": "Melee",
+    "damage": "d8+4 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Scary",
+        "text": "On a successful attack, the target must mark a Stress."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Displacement Razor",
+    "trait": "Finesse",
+    "range": "Melee",
+    "damage": "d8+3 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Omnipresent",
+        "text": "You can make attacks against targets within Very Far range, but must do so with disadvantage."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Hammer of Exota",
+    "trait": "Instinct",
+    "range": "Melee",
+    "damage": "d8+6 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Eruptive",
+        "text": "On a successful attack against a target within Melee range, all other adversaries within Very Close range must succeed on a reaction roll (14) or take half damage."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Spellbound Bangles",
+    "trait": "Knowledge",
+    "range": "Melee",
+    "damage": "d10+6 mag",
+    "burden": "Two-Handed",
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Fury Gem",
+    "trait": "Instinct",
+    "range": "Close",
+    "damage": "d8+3 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Burning",
+        "text": "When you roll the maximum result on a damage die, the target must mark a Stress."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Enchanted Lute",
+    "trait": "Presence",
+    "range": "Close",
+    "damage": "d8+3 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Invigorating",
+        "text": "On a successful attack, roll a d4. On a result of 4, clear a Stress."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Splintershaft Bow",
+    "trait": "Agility",
+    "range": "Far",
+    "damage": "d6+6 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Volleyed",
+        "text": "Spend a Hope to target a group of creatures within range. Targets you succeed against take half damage."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Yutari Bloodbow",
+    "trait": "Finesse",
+    "range": "Far",
+    "damage": "d6+4 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Brutal",
+        "text": "When you roll the maximum value on a damage die, roll an additional damage die."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Elder Bow",
+    "trait": "Instinct",
+    "range": "Far",
+    "damage": "d6+4 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Powerful",
+        "text": "On a successful attack, roll an additional damage die and discard the lowest result."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Scepter of Elias",
+    "trait": "Presence",
+    "range": "Far",
+    "damage": "d6+3 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Invigorating",
+        "text": "On a successful attack, roll a d4. On a result of 4, clear a Stress."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Wand of Enthrallment",
+    "trait": "Presence",
+    "range": "Far",
+    "damage": "d6+4 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Persuasive",
+        "text": "Before you make a Presence Roll, you can mark a Stress to gain a +2 bonus to the result."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Keeper's Staff",
+    "trait": "Knowledge",
+    "range": "Far",
+    "damage": "d6+4 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Reliable",
+        "text": "+1 to attack rolls"
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Broadsword",
+    "trait": "Agility",
+    "range": "Melee",
+    "damage": "d8+6 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Reliable",
+        "text": "+1 to attack rolls"
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Katana",
+    "trait": "Agility",
+    "range": "Melee",
+    "damage": "d10+9 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Quick",
+        "text": "When you make an attack, you can mark a Stress to target another creature within range."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Longsword",
+    "trait": "Agility",
+    "range": "Melee",
+    "damage": "d10+9 phy",
+    "burden": "Two-Handed",
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Battleaxe",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d10+9 phy",
+    "burden": "Two-Handed",
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Brass Knuckles",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d8+7 phy",
+    "burden": "One-Handed",
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Greatsword",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d10+9 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Massive",
+        "text": "−1 to Evasion; on a successful attack, roll an additional damage die and discard the lowest result."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Mace",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d8+7 phy",
+    "burden": "One-Handed",
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Warhammer",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d12+9 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Heavy",
+        "text": "−1 to Evasion"
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Dagger",
+    "trait": "Finesse",
+    "range": "Melee",
+    "damage": "d8+7 phy",
+    "burden": "One-Handed",
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Quarterstaff",
+    "trait": "Instinct",
+    "range": "Melee",
+    "damage": "d10+9 phy",
+    "burden": "Two-Handed",
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Cutlass",
+    "trait": "Presence",
+    "range": "Melee",
+    "damage": "d8+7 phy",
+    "burden": "One-Handed",
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Rapier",
+    "trait": "Presence",
+    "range": "Melee",
+    "damage": "d8+6 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Quick",
+        "text": "When you make an attack, you can mark a Stress to target another creature within range."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Scimitar",
+    "trait": "Presence",
+    "range": "Melee",
+    "damage": "d8+7 phy",
+    "burden": "One-Handed",
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Twisted Dagger",
+    "trait": "Knowledge",
+    "range": "Melee",
+    "damage": "d8+6 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Piercing",
+        "text": "Damage dealt with this weapon treats the target’s Major threshold as having a −2 penalty."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Halberd",
+    "trait": "Strength",
+    "range": "Very Close",
+    "damage": "d10+8 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Cumbersome",
+        "text": "−1 to Finesse"
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Spear",
+    "trait": "Finesse",
+    "range": "Very Close",
+    "damage": "d8+9 phy",
+    "burden": "Two-Handed",
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Whipsword",
+    "trait": "Finesse",
+    "range": "Very Close",
+    "damage": "d8+6 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Versatile",
+        "text": "This weapon can also be used with these statistics—Finesse, Melee, d10+6."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Rope Dart",
+    "trait": "Instinct",
+    "range": "Close",
+    "damage": "d6+7 phy",
+    "burden": "Two-Handed",
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Shortbow",
+    "trait": "Agility",
+    "range": "Far",
+    "damage": "d6+9 phy",
+    "burden": "Two-Handed",
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Crossbow",
+    "trait": "Finesse",
+    "range": "Far",
+    "damage": "d6+7 phy",
+    "burden": "One-Handed",
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Longbow",
+    "trait": "Agility",
+    "range": "Very Far",
+    "damage": "d8+9 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Cumbersome",
+        "text": "−1 to Finesse"
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Flickerfly Blade",
+    "trait": "Agility",
+    "range": "Melee",
+    "damage": "d8+5 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Sharpwing",
+        "text": "Gain a bonus to your damage rolls equal to your Agility."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Blitz Hammer",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d10+7 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Accelerator",
+        "text": "Once per scene, mark a Stress to move to Far range then make an attack. Gain a +1 bonus to your Proficiency on this attack."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Bravesword",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d12+7 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Brave",
+        "text": "−1 to Evasion; +3 to Severe damage threshold"
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Hammer of Wrath",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d10+7 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Devastating",
+        "text": "Before you make an attack roll, you can mark a Stress to use a d20 as your damage die."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Labrys Axe",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d10+7 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Protective",
+        "text": "+1 to Armor Score"
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Platinum Estoc",
+    "trait": "Finesse",
+    "range": "Melee",
+    "damage": "d8+7 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Piercing",
+        "text": "Damage dealt with this weapon treats the target’s Major threshold as having a −2 penalty."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Meridian Cutlass",
+    "trait": "Presence",
+    "range": "Melee",
+    "damage": "d10+5 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Dueling",
+        "text": "When there are no other creatures within Close range of the target, gain advantage on your attack roll against them."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Retractable Saber",
+    "trait": "Presence",
+    "range": "Melee",
+    "damage": "d10+7 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Retractable",
+        "text": "The blade can be hidden in the hilt to avoid detection."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Double Flail",
+    "trait": "Agility",
+    "range": "Very Close",
+    "damage": "d10+8 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Powerful",
+        "text": "On a successful attack, roll an additional damage die and discard the lowest result."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Soldier’s Pike",
+    "trait": "Agility",
+    "range": "Very Close",
+    "damage": "d10+5 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Braced",
+        "text": "When an adversary within this weapon’s range deals damage to you, you can mark 2 Stress to force them to mark a Hit Point."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Chained Scythe",
+    "trait": "Instinct",
+    "range": "Very Close",
+    "damage": "d10+5 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Quick",
+        "text": "When you make an attack, you can mark a Stress to target another creature within range."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Singing Sword",
+    "trait": "Presence",
+    "range": "Very Close",
+    "damage": "d8+5 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Bolstering",
+        "text": "When you critically succeed on an attack, all PCs within Close range gain a Hope."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Talon Blades",
+    "trait": "Finesse",
+    "range": "Close",
+    "damage": "d10+7 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Brutal",
+        "text": "When you roll the maximum value on a damage die, roll an additional damage die."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Bladed Star",
+    "trait": "Knowledge",
+    "range": "Close",
+    "damage": "d8+7 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Rebounding",
+        "text": "When you throw this weapon, it returns to your hand. On a failed attack, you can reroll your attack with disadvantage."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Black Powder Revolver",
+    "trait": "Finesse",
+    "range": "Far",
+    "damage": "d6+8 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Reloading",
+        "text": "After you make an attack, roll a d6. On a result of 1, you must mark a Stress to reload this weapon before you can fire it again."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Spiked Bow",
+    "trait": "Agility",
+    "range": "Very Far",
+    "damage": "d6+7 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Versatile",
+        "text": "This weapon can also be used with these statistics—Agility, Melee, d10+5."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Arcane Gauntlets",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d10+9 mag",
+    "burden": "Two-Handed",
+    "tier": "3",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Brightsword",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d10+9 mag",
+    "burden": "Two-Handed",
+    "tier": "3",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Hallowed Axe",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d8+7 mag",
+    "burden": "One-Handed",
+    "tier": "3",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Shadowblade",
+    "trait": "Presence",
+    "range": "Melee",
+    "damage": "d8+6",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Otherworldly",
+        "text": "On a successful attack, you can deal physical or magic damage."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Glowing Rings",
+    "trait": "Agility",
+    "range": "Very Close",
+    "damage": "d10+8 mag",
+    "burden": "Two-Handed",
+    "tier": "3",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Hand Runes",
+    "trait": "Instinct",
+    "range": "Very Close",
+    "damage": "d10+6 mag",
+    "burden": "One-Handed",
+    "tier": "3",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Enchanted Chakram",
+    "trait": "Finesse",
+    "range": "Close",
+    "damage": "d6+7 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Ricochet",
+        "text": "When you throw this weapon, it returns to your hand. When you make an attack, you can mark a Stress to target another creature within Very Close range of the first target with that attack."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Returning Blade",
+    "trait": "Finesse",
+    "range": "Close",
+    "damage": "d8+6 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Returning",
+        "text": "When this weapon is thrown within its range, it appears in your hand immediately after the attack."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Casting Dagger",
+    "trait": "Instinct",
+    "range": "Close",
+    "damage": "d6+6 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Versatile",
+        "text": "This weapon can also be used with these statistics—Instinct, Melee, d8+6."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Shortstaff",
+    "trait": "Instinct",
+    "range": "Close",
+    "damage": "d8+7 mag",
+    "burden": "One-Handed",
+    "tier": "3",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Dualstaff",
+    "trait": "Instinct",
+    "range": "Far",
+    "damage": "d6+9 mag",
+    "burden": "Two-Handed",
+    "tier": "3",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Scepter",
+    "trait": "Presence",
+    "range": "Far",
+    "damage": "d6+6 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Versatile",
+        "text": "This weapon can also be used with these statistics—Presence, Melee, d8+4."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Runelock Pistol",
+    "trait": "Knowledge",
+    "range": "Far",
+    "damage": "d6+9 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Reloading",
+        "text": "After you make an attack, roll a d6. On a result of 1, you must mark a Stress to reload this weapon before you can fire it again."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Wand",
+    "trait": "Knowledge",
+    "range": "Far",
+    "damage": "d6+7 mag",
+    "burden": "One-Handed",
+    "tier": "3",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Arcane Rifle",
+    "trait": "Agility",
+    "range": "Very Far",
+    "damage": "d10+9 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Aimed",
+        "text": "Your attack has disadvantage if the target is within Very Close range of you or within Melee range of one of your allies. You can mark a Stress to ignore this penalty."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Advanced Greatstaff",
+    "trait": "Knowledge",
+    "range": "Very Far",
+    "damage": "d6+6 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Powerful",
+        "text": "On a successful attack, roll an additional damage die and discard the lowest result."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Rocket Maul",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d10+7 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Concussive",
+        "text": "On a successful attack, you can spend a Hope to knock the target back to Far range."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Crystal Spear",
+    "trait": "Finesse",
+    "range": "Very Close",
+    "damage": "d10+6 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Piercing",
+        "text": "Damage dealt with this weapon treats the target’s Major threshold as having a −2 penalty."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Arc Wand",
+    "trait": "Presence",
+    "range": "Close",
+    "damage": "d8+6 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Bouncing",
+        "text": "Mark any number of Stress to target that many additional creatures in range of the attack."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Rime Scepter",
+    "trait": "Knowledge",
+    "range": "Close",
+    "damage": "d8+6 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Freezing",
+        "text": "When an attack from this weapon causes a target to mark 2 or more HP, they become temporarily Restrained."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Gunblade",
+    "trait": "Agility",
+    "range": "Far",
+    "damage": "d6+6 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Versatile",
+        "text": "This weapon can also be used with these statistics—Agility, Melee, d8+6 phy."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Staff of Augma",
+    "trait": "Instinct",
+    "range": "Far",
+    "damage": "d6+7 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Catalytic",
+        "text": "On a successful attack, you can mark a Stress to give an ally within Close range a +3 bonus to their next attack roll."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Broadsword",
+    "trait": "Agility",
+    "range": "Melee",
+    "damage": "d8+9 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Reliable",
+        "text": "+1 to attack rolls"
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Katana",
+    "trait": "Agility",
+    "range": "Melee",
+    "damage": "d10+12 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Quick",
+        "text": "When you make an attack, you can mark a Stress to target another creature within range."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Longsword",
+    "trait": "Agility",
+    "range": "Melee",
+    "damage": "d10+12 phy",
+    "burden": "Two-Handed",
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Battleaxe",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d10+12 phy",
+    "burden": "Two-Handed",
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Brass Knuckles",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d8+10 phy",
+    "burden": "One-Handed",
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Greatsword",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d10+12 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Massive",
+        "text": "−1 to Evasion; on a successful attack, roll an additional damage die and discard the lowest result."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Mace",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d8+10 phy",
+    "burden": "One-Handed",
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Warhammer",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d12+12 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Heavy",
+        "text": "−1 to Evasion"
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Dagger",
+    "trait": "Finesse",
+    "range": "Melee",
+    "damage": "d8+10 phy",
+    "burden": "One-Handed",
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Quarterstaff",
+    "trait": "Instinct",
+    "range": "Melee",
+    "damage": "d10+12 phy",
+    "burden": "Two-Handed",
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Cutlass",
+    "trait": "Presence",
+    "range": "Melee",
+    "damage": "d8+10 phy",
+    "burden": "One-Handed",
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Rapier",
+    "trait": "Presence",
+    "range": "Melee",
+    "damage": "d8+9 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Quick",
+        "text": "When you make an attack, you can mark a Stress to target another creature within range."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Scimitar",
+    "trait": "Presence",
+    "range": "Melee",
+    "damage": "d8+10 phy",
+    "burden": "One-Handed",
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Twisted Dagger",
+    "trait": "Knowledge",
+    "range": "Melee",
+    "damage": "d8+9 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Piercing",
+        "text": "Damage dealt with this weapon treats the target’s Major threshold as having a −2 penalty."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Halberd",
+    "trait": "Strength",
+    "range": "Very Close",
+    "damage": "d10+11 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Cumbersome",
+        "text": "−1 to Finesse"
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Spear",
+    "trait": "Finesse",
+    "range": "Very Close",
+    "damage": "d8+12 phy",
+    "burden": "Two-Handed",
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Whipsword",
+    "trait": "Finesse",
+    "range": "Very Close",
+    "damage": "d8+9 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Versatile",
+        "text": "This weapon can also be used with these statistics—Finesse, Melee, d10+9."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Rope Dart",
+    "trait": "Instinct",
+    "range": "Close",
+    "damage": "d6+10 phy",
+    "burden": "Two-Handed",
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Shortbow",
+    "trait": "Agility",
+    "range": "Far",
+    "damage": "d6+12 phy",
+    "burden": "Two-Handed",
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Crossbow",
+    "trait": "Finesse",
+    "range": "Far",
+    "damage": "d6+10 phy",
+    "burden": "One-Handed",
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Longbow",
+    "trait": "Agility",
+    "range": "Very Far",
+    "damage": "d8+12 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Cumbersome",
+        "text": "−1 to Finesse"
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Dual-Ended Sword",
+    "trait": "Agility",
+    "range": "Melee",
+    "damage": "d10+9 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Quick",
+        "text": "When you make an attack, you can mark a Stress to target another creature within range."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Impact Gauntlet",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d10+11 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Concussive",
+        "text": "On a successful attack, you can spend a Hope to knock the target back to Far range."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Sledge Axe",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d12+13 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Destructive",
+        "text": "−1 to Agility; on a successful attack, all adversaries within Very Close range must mark a Stress."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Curved Dagger",
+    "trait": "Finesse",
+    "range": "Melee",
+    "damage": "d8+9 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Serrated",
+        "text": "When you roll a 1 on a damage die, it deals 8 damage instead."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Severed Dragon Claw",
+    "trait": "Instinct",
+    "range": "Melee",
+    "damage": "d10+11 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Destructive",
+        "text": "−1 to Agility; on a successful attack, all adversaries within Very Close range must mark a Stress."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Infinite Staff",
+    "trait": "Presence",
+    "range": "Melee",
+    "damage": "d10+9 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Extending",
+        "text": "You can increase the range of this weapon up to Very Far. You gain a −1 penalty to attack rolls for each step you increase the range by (such as Melee to Very Close, Very Close to Close, or Close to Far)."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Bec de Corbin",
+    "trait": "Agility",
+    "range": "Very Close",
+    "damage": "d10+9 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Devastating",
+        "text": "Before you make an attack roll, you can mark a Stress to use a d20 as your damage die."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Extended Polearm",
+    "trait": "Finesse",
+    "range": "Very Close",
+    "damage": "d8+10 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Long",
+        "text": "This weapon’s attack targets all adversaries in a line within range."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Swinging Ropeblade",
+    "trait": "Presence",
+    "range": "Close",
+    "damage": "d8+9 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Grappling",
+        "text": "On a successful attack, you can spend a Hope to Restrain the target or pull them into Melee range with you."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Black Powder Serpentine",
+    "trait": "Strength",
+    "range": "Far",
+    "damage": "d8+12 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Incendiary",
+        "text": "−1 to Agility; on a successful attack, all creatures within Very Close range of the target must mark a Hit Point."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Ricochet Axes",
+    "trait": "Agility",
+    "range": "Far",
+    "damage": "d6+11 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Bouncing",
+        "text": "Mark 1 or more Stress to hit that many targets in range of the attack."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Aantari Bow",
+    "trait": "Finesse",
+    "range": "Far",
+    "damage": "d6+11 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Reliable",
+        "text": "+1 to attack rolls"
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Clockwork Crossbow",
+    "trait": "Finesse",
+    "range": "Far",
+    "damage": "d6+11 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Quick",
+        "text": "When you make an attack, you can mark a Stress to target another creature within range."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Arquebus",
+    "trait": "Knowledge",
+    "range": "Far",
+    "damage": "d8+10 phy",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Reloading",
+        "text": "After you make an attack, roll a d6. On a result of 1, you must mark a Stress to reload this weapon before you can fire it again."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Hand Cannon",
+    "trait": "Finesse",
+    "range": "Very Far",
+    "damage": "d6+12 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Reloading",
+        "text": "After you make an attack, roll a d6. On a 1, you must mark a Stress to reload this weapon before you can fire it again."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Arcane Gauntlets",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d10+12 mag",
+    "burden": "Two-Handed",
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Brightsword",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d10+12 mag",
+    "burden": "Two-Handed",
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Hallowed Axe",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d8+10 mag",
+    "burden": "One-Handed",
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Shadowblade",
+    "trait": "Presence",
+    "range": "Melee",
+    "damage": "d8+9",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Otherworldly",
+        "text": "On a successful attack, you can deal physical or magic damage."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Glowing Rings",
+    "trait": "Agility",
+    "range": "Very Close",
+    "damage": "d10+11 mag",
+    "burden": "Two-Handed",
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Hand Runes",
+    "trait": "Instinct",
+    "range": "Very Close",
+    "damage": "d10+9 mag",
+    "burden": "One-Handed",
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Enchanted Chakram",
+    "trait": "Finesse",
+    "range": "Close",
+    "damage": "d6+10 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Ricochet",
+        "text": "When you throw this weapon, it returns to your hand. When you make an attack, you can mark a Stress to target another creature within Very Close range of the first target with that attack."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Returning Blade",
+    "trait": "Finesse",
+    "range": "Close",
+    "damage": "d8+9 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Returning",
+        "text": "When this weapon is thrown within its range, it appears in your hand immediately after the attack."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Casting Dagger",
+    "trait": "Instinct",
+    "range": "Close",
+    "damage": "d6+9 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Versatile",
+        "text": "This weapon can also be used with these statistics—Instinct, Melee, d8+9."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Shortstaff",
+    "trait": "Instinct",
+    "range": "Close",
+    "damage": "d8+10 mag",
+    "burden": "One-Handed",
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Dualstaff",
+    "trait": "Instinct",
+    "range": "Far",
+    "damage": "d8+12 mag",
+    "burden": "Two-Handed",
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Scepter",
+    "trait": "Presence",
+    "range": "Far",
+    "damage": "d6+9 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Versatile",
+        "text": "This weapon can also be used with these statistics—Presence, Melee, d8+6."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Runelock Pistol",
+    "trait": "Knowledge",
+    "range": "Far",
+    "damage": "d6+12 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Reloading",
+        "text": "After you make an attack, roll a d6. On a result of 1, you must mark a Stress to reload this weapon before you can fire it again."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Wand",
+    "trait": "Knowledge",
+    "range": "Far",
+    "damage": "d6+10 mag",
+    "burden": "One-Handed",
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Arcane Rifle",
+    "trait": "Agility",
+    "range": "Very Far",
+    "damage": "d10+12 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Aimed",
+        "text": "Your attack has disadvantage if the target is within Very Close range of you or within Melee range of one of your allies. You can mark a Stress to ignore this penalty."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Legendary Greatstaff",
+    "trait": "Knowledge",
+    "range": "Very Far",
+    "damage": "d6+9 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Powerful",
+        "text": "On a successful attack, roll an additional damage die and discard the lowest result."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Starmetal Blade",
+    "trait": "Agility",
+    "range": "Melee",
+    "damage": "d8+10 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Serrated",
+        "text": "When you roll a 1 on a damage die, it deals 8 damage instead."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Sword of Light & Flame",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d10+11 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Hot",
+        "text": "This weapon cuts through solid material."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Adder’s Fang",
+    "trait": "Finesse",
+    "range": "Melee",
+    "damage": "d8+9 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Venomous",
+        "text": "When you deal Major or greater damage with this weapon, the target becomes temporarily Vulnerable."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Demon’s Edge",
+    "trait": "Presence",
+    "range": "Melee",
+    "damage": "d8+10 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Disturbing",
+        "text": "When you defeat a creature with this weapon, all adversaries within Close range must mark a Stress."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Siphoning Gauntlets",
+    "trait": "Presence",
+    "range": "Melee",
+    "damage": "d10+9 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Lifestealing",
+        "text": "On a successful attack, roll a d6. On a result of 6, clear a Hit Point or clear a Stress."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Midas Scythe",
+    "trait": "Knowledge",
+    "range": "Melee",
+    "damage": "d10+9 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Greedy",
+        "text": "Spend a handful of gold to gain a +1 bonus to your Proficiency on a damage roll."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Storm God’s Greataxe",
+    "trait": "Strength",
+    "range": "Very Close",
+    "damage": "d10+9 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Bouncing",
+        "text": "Mark any number of Stress to target that many additional creatures in range of the attack."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Ethereal Zweihänder",
+    "trait": "Instinct",
+    "range": "Very Close",
+    "damage": "d10+9 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Ethereal",
+        "text": "You must mark a Stress to conjure this weapon. It lasts until the end of the scene."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Floating Bladeshards",
+    "trait": "Instinct",
+    "range": "Close",
+    "damage": "d8+9 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Powerful",
+        "text": "On a successful attack, roll an additional damage die and discard the lowest result."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Bloodstaff",
+    "trait": "Instinct",
+    "range": "Far",
+    "damage": "d20+7 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Painful",
+        "text": "Each time you make a successful attack, you must mark a Stress."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Thistlebow",
+    "trait": "Instinct",
+    "range": "Far",
+    "damage": "d6+13 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Reliable",
+        "text": "+1 to attack rolls"
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Gravity Arbalest",
+    "trait": "Knowledge",
+    "range": "Far",
+    "damage": "d8+6 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Magnetic",
+        "text": "When you make an attack with this weapon, you can spend a Hope to force all adversaries within Very Close range of the target to make a Reaction Roll (16). Creatures who fail must mark a Stress and are pulled into Melee range of the target."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Wand of Essek",
+    "trait": "Knowledge",
+    "range": "Far",
+    "damage": "d8+13 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Timebending",
+        "text": "You can choose the target of your attack after making your attack roll."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Magus Revolver",
+    "trait": "Finesse",
+    "range": "Very Far",
+    "damage": "d6+13 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Reloading",
+        "text": "After you make an attack, roll a d6. On a result of 1, you must mark a Stress to reload this weapon before you can fire it again."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Fusion Gloves",
+    "trait": "Knowledge",
+    "range": "Very Far",
+    "damage": "d6+9 mag",
+    "burden": "Two-Handed",
+    "feature": [
+      {
+        "name": "Bonded",
+        "text": "Gain a bonus to your damage rolls equal to your level."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Magical",
+    "primary_or_secondary": "Primary"
+  },
+  {
+    "name": "Hatchet",
+    "trait": "Agility",
+    "range": "Melee",
+    "damage": "d8 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Follow-Up",
+        "text": "On a successful attack with your primary weapon within Melee range, you can mark a Stress to gain a +1 bonus to your Proficiency for this attack."
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Shortsword",
+    "trait": "Agility",
+    "range": "Melee",
+    "damage": "d8 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Paired",
+        "text": "+2 to primary weapon damage to targets within Melee range"
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Offhand Brass Knuckles",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d8 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Paired",
+        "text": "+2 to primary weapon damage to targets within Melee range"
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Round Shield",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d4 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Protective",
+        "text": "+1 to Armor Score"
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Tower Shield",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d6 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Barrier",
+        "text": "+2 to Armor Score; −1 to Evasion"
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Small Dagger",
+    "trait": "Finesse",
+    "range": "Melee",
+    "damage": "d8 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Paired",
+        "text": "+2 to primary weapon damage to targets within Melee range"
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Throwing Knives",
+    "trait": "Finesse",
+    "range": "Melee",
+    "damage": "d8 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Stockpiled",
+        "text": "You can throw this weapon within Close range by making an attack roll using Finesse. You don’t have to retrieve it, as you always have another on hand."
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Fighting Cloak",
+    "trait": "Presence",
+    "range": "Melee",
+    "damage": "d4 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Padded",
+        "text": "+2 to damage thresholds"
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Rune Shield",
+    "trait": "Knowledge",
+    "range": "Melee",
+    "damage": "d4 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Protective",
+        "text": "+1 to Armor Score"
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Focus Runes",
+    "trait": "Instinct",
+    "range": "Very Close",
+    "damage": "d6 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Focused",
+        "text": "+1 to primary weapon damage to targets within Very Close range"
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Whip",
+    "trait": "Presence",
+    "range": "Very Close",
+    "damage": "d6 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Startling",
+        "text": "Mark a Stress to crack the whip and force all adversaries within Melee range back to Close range."
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Grappler",
+    "trait": "Finesse",
+    "range": "Close",
+    "damage": "d6 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Hooked",
+        "text": "On a successful attack, you can pull the target into Melee range."
+      }
+    ],
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Hand Crossbow",
+    "trait": "Finesse",
+    "range": "Far",
+    "damage": "d6+1 phy",
+    "burden": "One-Handed",
+    "tier": "1",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Improved Hatchet",
+    "trait": "Agility",
+    "range": "Melee",
+    "damage": "d8+2 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Follow-Up",
+        "text": "On a successful attack with your primary weapon within Melee range, you can mark a Stress to gain a +1 bonus to your Proficiency for this attack."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Improved Shortsword",
+    "trait": "Agility",
+    "range": "Melee",
+    "damage": "d8+2 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Paired",
+        "text": "+3 to primary weapon damage to targets within Melee range"
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Improved Offhand Brass Knuckles",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d8+2 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Paired",
+        "text": "+3 to primary weapon damage to targets within Melee range"
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Improved Round Shield",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d4+2 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Protective",
+        "text": "+2 to Armor Score"
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Improved Tower Shield",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d6+2 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Barrier",
+        "text": "+3 to Armor Score; −1 to Evasion"
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Improved Small Dagger",
+    "trait": "Finesse",
+    "range": "Melee",
+    "damage": "d8+2 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Paired",
+        "text": "+3 to primary weapon damage to targets within Melee range"
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Improved Throwing Knives",
+    "trait": "Finesse",
+    "range": "Melee",
+    "damage": "d8+2 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Stockpiled",
+        "text": "You can throw this weapon within Close range by making an attack roll using Finesse. You don’t have to retrieve it, as you always have another on hand."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Improved Fighting Cloak",
+    "trait": "Presence",
+    "range": "Melee",
+    "damage": "d4+2 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Padded",
+        "text": "+3 to damage thresholds"
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Improved Rune Shield",
+    "trait": "Knowledge",
+    "range": "Melee",
+    "damage": "d4+2 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Protective",
+        "text": "+2 to Armor Score"
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Improved Focus Runes",
+    "trait": "Instinct",
+    "range": "Very Close",
+    "damage": "d6+2 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Focused",
+        "text": "+1 to primary weapon damage to targets within Very Close range"
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Improved Whip",
+    "trait": "Presence",
+    "range": "Very Close",
+    "damage": "d6+2 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Startling",
+        "text": "Mark a Stress to crack the whip and force all adversaries within Melee range back to Close range."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Improved Grappler",
+    "trait": "Finesse",
+    "range": "Close",
+    "damage": "d6+2 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Hooked",
+        "text": "On a successful attack, you can pull the target into Melee range."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Improved Hand Crossbow",
+    "trait": "Finesse",
+    "range": "Far",
+    "damage": "d6+3 phy",
+    "burden": "One-Handed",
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Collapsible Baton",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d8 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Nonlethal",
+        "text": "When a target would mark any number of Hit Points from an attack with this weapon, they mark an equal number of Stress instead."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Spiked Shield",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d6+2 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Double Duty",
+        "text": "+1 to Armor Score; +1 to primary weapon damage within Melee range"
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Parrying Dagger",
+    "trait": "Finesse",
+    "range": "Melee",
+    "damage": "d6+2 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Parry",
+        "text": "When you are attacked, roll this weapon's damage dice. If any of the attacker's damage dice rolled the same value as your dice, the matching results are discarded from the attacker's damage dice before the damage you take is totaled."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Eldritch Vambrace",
+    "trait": "Instinct",
+    "range": "Melee",
+    "damage": "d8 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Deflecting",
+        "text": "When you are attacked, you can mark an Armor Slot to gain a bonus to your Evasion equal to your Armor Score against the attack."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Segmented Staff",
+    "trait": "Agility",
+    "range": "Very Close",
+    "damage": "d6+4 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Double Duty",
+        "text": "+1 to Armor Score; +1 to primary weapon damage within Melee range"
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Razor Wire",
+    "trait": "Finesse",
+    "range": "Very Close",
+    "damage": "d6+3 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Entangling",
+        "text": "On a successful attack with your primary weapon against a target within Very Close range, you can spend a Hope to make the target temporarily Vulnerable."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Returning Axe",
+    "trait": "Agility",
+    "range": "Close",
+    "damage": "d6+4 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Returning",
+        "text": "When this weapon is thrown within its range, it appears in your hand immediately after the attack."
+      }
+    ],
+    "tier": "2",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Advanced Hatchet",
+    "trait": "Agility",
+    "range": "Melee",
+    "damage": "d8+4 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Follow-Up",
+        "text": "On a successful attack with your primary weapon within Melee range, you can mark a Stress to gain a +1 bonus to your Proficiency for this attack."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Advanced Shortsword",
+    "trait": "Agility",
+    "range": "Melee",
+    "damage": "d8+4 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Paired",
+        "text": "+4 to primary weapon damage to targets within Melee range"
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Advanced Offhand Brass Knuckles",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d8+4 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Paired",
+        "text": "+4 to primary weapon damage to targets within Melee range"
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Advanced Round Shield",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d4+4 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Protective",
+        "text": "+3 to Armor Score"
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Advanced Tower Shield",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d6+4 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Barrier",
+        "text": "+4 to Armor Score; −1 to Evasion"
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Advanced Small Dagger",
+    "trait": "Finesse",
+    "range": "Melee",
+    "damage": "d8+4 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Paired",
+        "text": "+4 to primary weapon damage to targets within Melee range"
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Advanced Throwing Knives",
+    "trait": "Finesse",
+    "range": "Melee",
+    "damage": "d8+4 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Stockpiled",
+        "text": "You can throw this weapon within Close range by making an attack roll using Finesse. You don’t have to retrieve it, as you always have another on hand."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Advanced Fighting Cloak",
+    "trait": "Presence",
+    "range": "Melee",
+    "damage": "d4+4 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Padded",
+        "text": "+4 to damage thresholds"
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Advanced Rune Shield",
+    "trait": "Knowledge",
+    "range": "Melee",
+    "damage": "d4+4 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Protective",
+        "text": "+3 to Armor Score"
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Advanced Focus Runes",
+    "trait": "Instinct",
+    "range": "Very Close",
+    "damage": "d6+4 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Focused",
+        "text": "+1 to primary weapon damage to targets within Very Close range"
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Advanced Whip",
+    "trait": "Presence",
+    "range": "Very Close",
+    "damage": "d6+4 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Startling",
+        "text": "Mark a Stress to crack the whip and force all adversaries within Melee range back to Close range."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Advanced Grappler",
+    "trait": "Finesse",
+    "range": "Close",
+    "damage": "d6+4 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Hooked",
+        "text": "On a successful attack, you can pull the target into Melee range."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Advanced Hand Crossbow",
+    "trait": "Finesse",
+    "range": "Far",
+    "damage": "d6+5 phy",
+    "burden": "One-Handed",
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Buckler",
+    "trait": "Agility",
+    "range": "Melee",
+    "damage": "d4+4 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Deflecting",
+        "text": "When you are attacked, you can mark an Armor Slot to gain a bonus to your Evasion equal to your available Armor Score against the attack."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Tinker’s Hammer",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d8+4 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Trusty",
+        "text": "+1 to attack rolls made with your primary weapon"
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Vorpal Shard",
+    "trait": "Knowledge",
+    "range": "Melee",
+    "damage": "d4 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Targeted",
+        "text": "When you fail a weapon attack, you can spend a Hope to succeed on your next weapon attack."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Soul Chain",
+    "trait": "Presence",
+    "range": "Very Close",
+    "damage": "d6+5 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Draining",
+        "text": "On a successful attack, you can spend a Hope to force the target to mark a Stress. If they do, you clear a Stress."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Powered Gauntlet",
+    "trait": "Knowledge",
+    "range": "Close",
+    "damage": "d6+4 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Charged",
+        "text": "Mark a Stress to gain a +1 bonus to your Proficiency on a primary weapon attack."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "War Dart",
+    "trait": "Agility",
+    "range": "Far",
+    "damage": "d6+5 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Versatile",
+        "text": "This weapon can also be used with these statistics—Agility, Melee, d8+5."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Hand Sling",
+    "trait": "Finesse",
+    "range": "Very Far",
+    "damage": "d6+4 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Versatile",
+        "text": "This weapon can also be used with these statistics—Finesse, Close, d8+4."
+      }
+    ],
+    "tier": "3",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Legendary Hatchet",
+    "trait": "Agility",
+    "range": "Melee",
+    "damage": "d8+6 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Follow-Up",
+        "text": "On a successful attack with your primary weapon within Melee range, you can mark a Stress to gain a +1 bonus to your Proficiency for this attack."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Legendary Shortsword",
+    "trait": "Agility",
+    "range": "Melee",
+    "damage": "d8+6 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Paired",
+        "text": "+5 to primary weapon damage to targets within Melee range"
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Legendary Offhand Brass Knuckles",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d8+6 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Paired",
+        "text": "+5 to primary weapon damage to targets within Melee range"
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Legendary Round Shield",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d4+6 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Protective",
+        "text": "+4 to Armor Score"
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Legendary Tower Shield",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d6+6 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Barrier",
+        "text": "+5 to Armor Score; −1 to Evasion."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Legendary Small Dagger",
+    "trait": "Finesse",
+    "range": "Melee",
+    "damage": "d8+6 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Paired",
+        "text": "+5 to primary weapon damage to targets within Melee range"
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Legendary Throwing Knives",
+    "trait": "Finesse",
+    "range": "Melee",
+    "damage": "d8+6 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Stockpiled",
+        "text": "You can throw this weapon within Close range by making an attack roll using Finesse. You don’t have to retrieve it, as you always have another on hand."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Legendary Fighting Cloak",
+    "trait": "Presence",
+    "range": "Melee",
+    "damage": "d4+6 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Padded",
+        "text": "+5 to damage thresholds"
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Legendary Rune Shield",
+    "trait": "Knowledge",
+    "range": "Melee",
+    "damage": "d4+6 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Protective",
+        "text": "+4 to Armor Score"
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Legendary Focus Runes",
+    "trait": "Instinct",
+    "range": "Very Close",
+    "damage": "d6+6 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Focused",
+        "text": "+1 to primary weapon damage to targets within Very Close range"
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Legendary Whip",
+    "trait": "Presence",
+    "range": "Very Close",
+    "damage": "d6+6 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Startling",
+        "text": "Mark a Stress to crack the whip and force all adversaries within Melee range back to Close range."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Legendary Grappler",
+    "trait": "Finesse",
+    "range": "Close",
+    "damage": "d6+6 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Hooked",
+        "text": "On a successful attack, you can pull the target into Melee range."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Legendary Hand Crossbow",
+    "trait": "Finesse",
+    "range": "Far",
+    "damage": "d6+7 phy",
+    "burden": "One-Handed",
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Braveshield",
+    "trait": "Agility",
+    "range": "Melee",
+    "damage": "d4+6 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Sheltering",
+        "text": "When you mark an Armor Slot, it reduces damage for you and all allies within Melee range of you who took the same damage."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Knuckle Claws",
+    "trait": "Strength",
+    "range": "Melee",
+    "damage": "d6+8 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Doubled Up",
+        "text": "When you make an attack with your primary weapon, you can deal damage to another target within Melee range."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Void Needle",
+    "trait": "Finesse",
+    "range": "Melee",
+    "damage": "d4+6 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Inverted",
+        "text": "When you roll a weapon attack with Fear, you gain a Hope."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Echo Blade",
+    "trait": "Presence",
+    "range": "Melee",
+    "damage": "d4+6 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Doubled Up",
+        "text": "When you succeed on an attack with your primary weapon, you can deal damage to another target within Melee range."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Möbius Orb",
+    "trait": "Knowledge",
+    "range": "Melee",
+    "damage": "d8+6 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Recursive",
+        "text": "When you roll the maximum value on a damage die, roll an additional damage die and add the result to the total damage. This feature can trigger repeatedly."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Primer Shard",
+    "trait": "Instinct",
+    "range": "Very Close",
+    "damage": "d4 phy",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Locked On",
+        "text": "On a successful attack, your next attack against the same target with your primary weapon automatically succeeds."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  },
+  {
+    "name": "Blackblood Tendril",
+    "trait": "Instinct",
+    "range": "Close",
+    "damage": "d6+8 mag",
+    "burden": "One-Handed",
+    "feature": [
+      {
+        "name": "Poisonous",
+        "text": "When a target marks any number of Hit Points from an attack you rolled with Fear, they mark an equal number of Stress."
+      }
+    ],
+    "tier": "4",
+    "physical_or_magical": "Physical",
+    "primary_or_secondary": "Secondary"
+  }
+]
