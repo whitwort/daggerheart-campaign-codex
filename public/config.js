@@ -35,7 +35,7 @@ window.APP_CONFIG = {
   // added for manually-entered Condition entries (Hidden, Restrained,
   // Poisoned, etc.).
   subtypesByCategory: {
-    'Game Mechanics': ['abilities', 'beastforms', 'classes', 'conditions', 'domains', 'stances', 'subclasses', 'transformations', "Aether's Children"],
+    'Game Mechanics': ['abilities', 'beastforms', 'campaign-mechanics', 'classes', 'conditions', 'domains', 'stances', 'subclasses', 'transformations', "Aether's Children"],
     'Equipment': ['armor', 'consumables', 'items', 'weapons']
   },
 

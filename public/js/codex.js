@@ -1252,7 +1252,10 @@ function isSubtypeCollapsed(cat, subtype) {
   return state.subtypeCollapse[subtypeCollapseKey(cat, subtype)] !== false;
 }
 function subtypeLabel(subtype) {
-  return subtype.charAt(0).toUpperCase() + subtype.slice(1);
+  // Hyphenated subtypes ('campaign-mechanics') read as title-cased words.
+  return subtype.split('-').map(function (w) {
+    return w.charAt(0).toUpperCase() + w.slice(1);
+  }).join(' ');
 }
 
 // TOC group headers show the category as a group label ("Characters (41)")
