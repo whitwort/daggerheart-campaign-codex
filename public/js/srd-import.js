@@ -83,6 +83,12 @@ const SRD_TYPES = [
   // get Beastforms.
   { key: 'transformations', category: 'Game Mechanics', subtype: 'transformations' },
   { key: 'stances', category: 'Game Mechanics', subtype: 'stances' },
+  // SRD 2.0 (p.184-205): the Witherwild campaign frame + Supplemental
+  // Campaign Mechanics, one entity per section (Gregg's call). Prose +
+  // tables hand-written as markdown (scripts/srd-extract/campaign-
+  // mechanics/*.md -> build_campaign_mechanics.py); {name, description}
+  // only, so the legacy formatSrdRecord path applies -- no schema.
+  { key: 'campaign-mechanics', category: 'Game Mechanics', subtype: 'campaign-mechanics' },
   // Phase 15 (phase-15-design.md §4.4/§4.5): the two types the sibling
   // encounter-builder project imported from this same source. Their
   // records use source-specific string encodings ("+3" atk, "8/15"

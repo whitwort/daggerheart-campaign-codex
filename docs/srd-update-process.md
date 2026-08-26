@@ -119,15 +119,15 @@ this is 2.0's map, not guaranteed stable for future revisions):
 | Loot & Items | 75–79 | `items` | not started |
 | Consumables | 80–84 | `consumables` | not started |
 | Adversaries and Environments | 93–183 | `adversaries`, `environments` | not started — largest section, ~90pp |
-| Witherwild Campaign Frame | 184–189 | TBD | **include** (Gregg's call) — shape/category still to be decided |
-| Supplemental Campaign Mechanics | 190–205 | TBD | **include** (Gregg's call) — shape/category still to be decided |
+| Witherwild Campaign Frame | 184–189 | `campaign-mechanics` | **done** (1 record; full frame as one markdown entity) |
+| Supplemental Campaign Mechanics | 190–205 | `campaign-mechanics` | **done** (11 records, one per section: Faction Tracking, Everyday Hero Starting Equipment, Feasts, Grimdark, Tech-Based, Western, Colossal Adversaries, Floating Magic School, Fairy Tale, Monster Hunting, Hex Crawl). Hand-written markdown sources in `scripts/srd-extract/campaign-mechanics/*.md`, built by `build_campaign_mechanics.py` — edit the .md, rerun the script, never the JSON directly |
 | Domain Card Reference (Appendix) | 206–224 | `abilities` | **done** (210 records = 10 domains × 21; confirmed this IS the card feature-text source; 1.0 card names all present, 3 text changes vs 1.0: Earthquake typo fix, Notorious lost its loadout-exemption sentence, Divination quote marks) |
 
 **Decisions made (Gregg, Aug 26 2026):** Transformations are their own
 type; Combat Wheelchair skipped; `suggested_*` class keys retained empty
 for manual GM entry; Witherwild + Supplemental Campaign Mechanics ARE to
-be imported — remaining open question is only the shape (one entity per
-supplemental mechanic under a new Game Mechanics subtype vs. plain lore).
+be imported as one `Game Mechanics/campaign-mechanics` entity per section
+(`{name, description}` markdown via the legacy `formatSrdRecord` path).
 
 Extraction tooling lives in `scripts/srd-extract/` (column-split via
 per-page gutter detection + regex parsers; see its README). TOC page
