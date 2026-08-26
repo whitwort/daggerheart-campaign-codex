@@ -678,7 +678,46 @@ function buildClassSection(entity, cards, ctx, editable) {
   return section;
 }
 
-// --- Abilities (Active / Vault / Beastforms-if-Druid tabs) ----------------
+// Tier-grouped mini-card panel over a Game Mechanics subtype (beastforms
+// for Druids, stances for Brawlers). Active-state class comes from
+// state.characterDeckAbilityTab === subtype, so the subtype doubles as the
+// tab key.
+function buildTierGroupedPanel(subtype, ctx, opts) {
+  const panel = document.createElement('div');
+  panel.className = 'character-deck-tab-panel' + (state.characterDeckAbilityTab === subtype ? ' active' : '');
+  const items = state.allEntities.filter(function (e) {
+    return e.category === 'Game Mechanics' && e.subtype === subtype && (ctx.gmView || canSee(e, ctx));
+  });
+  const byTier = {};
+  items.forEach(function (e) {
+    const t = (e.details && e.details.tier) || 'Other';
+    (byTier[t] = byTier[t] || []).push(e);
+  });
+  const tray = buildTray();
+  Object.keys(byTier).sort(function (a, b) { return (parseInt(a, 10) || 99) - (parseInt(b, 10) || 99); }).forEach(function (t) {
+    const label = document.createElement('div');
+    label.className = 'character-deck-tier-group-label';
+    label.textContent = /^\d+$/.test(t) ? ('Tier ' + t) : t;
+    tray.appendChild(label);
+    byTier[t].sort(byName).forEach(function (item) {
+      const d = item.details || {};
+      tray.appendChild(buildMiniCard({
+        title: item.name,
+        badge: d.tier ? ('T' + d.tier) : null,
+        metaLines: opts.metaLines(d),
+        bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(item, ctx, null), {
+          stripBulletLabels: opts.stripBulletLabels
+        }),
+        codexEntityId: item.id
+      }));
+    });
+  });
+  if (!tray.children.length) buildEmptyNote(tray, opts.emptyText);
+  panel.appendChild(tray);
+  return panel;
+}
+
+// --- Abilities (Active / Vault / Beastforms-if-Druid, Stances-if-Brawler tabs) --
 function buildAbilitiesSection(entity, cards, ctx, editable) {
   const section = buildSection('Abilities');
   const abilityIds = cards.abilityIds || [];
@@ -686,10 +725,15 @@ function buildAbilitiesSection(entity, cards, ctx, editable) {
   const activeIds = abilityIds.filter(function (id) { return vaultIds.indexOf(id) === -1; });
 
   const selectedClass = state.allEntities.find(function (e) { return e.id === cards.classId; });
-  const isDruid = !!selectedClass && (selectedClass.name || '').trim() === 'Druid';
+  const className = selectedClass ? (selectedClass.name || '').trim() : '';
+  const isDruid = className === 'Druid';
+  // SRD 2.0: Brawlers get a Stances tab (Martial Artist subclass's tiered
+  // stance list), same shape/placement as the Druid Beastforms tab.
+  const isBrawler = className === 'Brawler';
 
   const tabs = [['active', 'Active'], ['vault', 'Vault'], ['experience', 'Experience']];
   if (isDruid) tabs.push(['beastforms', 'Beastforms']);
+  if (isBrawler) tabs.push(['stances', 'Stances']);
   if (!tabs.some(function (t) { return t[0] === state.characterDeckAbilityTab; })) {
     state.characterDeckAbilityTab = 'active';
   }
@@ -836,39 +880,20 @@ function buildAbilitiesSection(entity, cards, ctx, editable) {
   }
 
   if (isDruid) {
-    const panel = document.createElement('div');
-    panel.className = 'character-deck-tab-panel' + (state.characterDeckAbilityTab === 'beastforms' ? ' active' : '');
-    const beastforms = state.allEntities.filter(function (e) {
-      return e.category === 'Game Mechanics' && e.subtype === 'beastforms' && (ctx.gmView || canSee(e, ctx));
+    panels.beastforms = buildTierGroupedPanel('beastforms', ctx, {
+      metaLines: beastformMetaLines,
+      stripBulletLabels: ['Tier', 'Trait Bonus', 'Evasion Bonus', 'Attack', 'Advantages', 'Examples'],
+      emptyText: 'No beastforms available.'
     });
-    const byTier = {};
-    beastforms.forEach(function (e) {
-      const t = (e.details && e.details.tier) || 'Other';
-      (byTier[t] = byTier[t] || []).push(e);
+    section.appendChild(panels.beastforms);
+  }
+  if (isBrawler) {
+    panels.stances = buildTierGroupedPanel('stances', ctx, {
+      metaLines: function () { return []; },
+      stripBulletLabels: ['Tier'],
+      emptyText: 'No stances available.'
     });
-    const tray = buildTray();
-    Object.keys(byTier).sort(function (a, b) { return (parseInt(a, 10) || 99) - (parseInt(b, 10) || 99); }).forEach(function (t) {
-      const label = document.createElement('div');
-      label.className = 'character-deck-tier-group-label';
-      label.textContent = /^\d+$/.test(t) ? ('Tier ' + t) : t;
-      tray.appendChild(label);
-      byTier[t].sort(byName).forEach(function (bf) {
-        const d = bf.details || {};
-        tray.appendChild(buildMiniCard({
-          title: bf.name,
-          badge: d.tier ? ('T' + d.tier) : null,
-          metaLines: beastformMetaLines(d),
-          bodyMd: cleanCardMd(resolveEntityStatBlockMarkdown(bf, ctx, null), {
-            stripBulletLabels: ['Tier', 'Trait Bonus', 'Evasion Bonus', 'Attack', 'Advantages', 'Examples']
-          }),
-          codexEntityId: bf.id
-        }));
-      });
-    });
-    if (!tray.children.length) buildEmptyNote(tray, 'No beastforms available.');
-    panel.appendChild(tray);
-    panels.beastforms = panel;
-    section.appendChild(panel);
+    section.appendChild(panels.stances);
   }
 
   return section;

@@ -105,36 +105,29 @@ this is 2.0's map, not guaranteed stable for future revisions):
 | Section | Pages | `SRD_TYPES` key(s) | Status |
 |---|---|---|---|
 | Domains | 7 | `domains` | **done** (10 records; `card` per-level lists derived from abilities.json) |
-| Classes | 8–31 | `classes` | not started |
-| (Subclasses are embedded within Classes, not a separate page range) | 8–31 | `subclasses` | not started |
+| Classes | 8–31 | `classes` | **done** (13; `suggested_*` keys kept but empty — 2.0 dropped suggested traits/equipment, GM fills manually; companion/beastform/stance rules prose not imported, same as 1.0) |
+| (Subclasses are embedded within Classes, not a separate page range) | 8–31 | `subclasses` | **done** (26) |
 | Ancestries | 32–38 | `ancestries` | **done** (24 records: 1.0's 18 + Aetheris, Gnome, Earthkin/Emberkin/Skykin/Tidekin; "Elemental Kin" parent intro and "Mixed Ancestry" rules are NOT records) |
 | Communities | 38–42 | `communities` | **done** (15 records; adjective sentence → `note`) |
-| Transformations | 42–45 | `beastforms`? | **design decision needed** — see below |
+| Transformations | 42–45 | `transformations` | **done** (6) — NEW type, separate from beastforms (Gregg's call) |
+| Beastforms (inside Druid) | 14–16 | `beastforms` | **done** (24) |
+| Martial Stances (inside Brawler) | 13 | `stances` | **done** (16) — NEW type; Brawlers get a Stances deck sub-tab like Druids' Beastforms |
 | Conditions | 52 | `conditions` | **done** (`public/data/srd/conditions.json`, 3 records) |
 | Weapons | 55–69 | `weapons` | not started |
-| Combat Wheelchair | 70–71 | none yet | **design decision needed** |
+| Combat Wheelchair | 70–71 | none | **skipped** (Gregg's call) |
 | Armor | 72–74 | `armor` | not started |
 | Loot & Items | 75–79 | `items` | not started |
 | Consumables | 80–84 | `consumables` | not started |
 | Adversaries and Environments | 93–183 | `adversaries`, `environments` | not started — largest section, ~90pp |
-| Witherwild Campaign Frame | 184–189 | none | **design decision needed** — narrative/setting content, not a stat-block type |
-| Supplemental Campaign Mechanics | 190–205 | none | **design decision needed** — GM-guidance variants (Feasts, Grimdark, Western, Hex Crawl, etc.), not naturally SRD_TYPES entities |
+| Witherwild Campaign Frame | 184–189 | TBD | **include** (Gregg's call) — shape/category still to be decided |
+| Supplemental Campaign Mechanics | 190–205 | TBD | **include** (Gregg's call) — shape/category still to be decided |
 | Domain Card Reference (Appendix) | 206–224 | `abilities` | **done** (210 records = 10 domains × 21; confirmed this IS the card feature-text source; 1.0 card names all present, 3 text changes vs 1.0: Earthquake typo fix, Notorious lost its loadout-exemption sentence, Divination quote marks) |
 
-**Open design decisions before continuing extraction (flag to Gregg, don't
-guess):**
-- **Transformations (42–45) vs. Beastforms**: is this a rename/restructure
-  of the existing `Game Mechanics/beastforms` category, a superset, or a
-  genuinely new adjacent mechanic? Read the section before assuming either.
-- **Combat Wheelchair**: new equipment subtype under `Equipment`, or a
-  special-cased weapon/armor variant? Small section (2pp), low risk either
-  way, but pick one convention.
-- **Witherwild Campaign Frame / Supplemental Campaign Mechanics**: this is
-  GM advice and an optional setting, not stat blocks — forcing it into the
-  entity/lore-item model may not fit. Options: skip entirely (stays
-  reference-only in the source PDF, not imported), import as plain lore
-  items under a new category, or something else. This needs Gregg's call,
-  same as any other "design decisions require Gregg's input" case.
+**Decisions made (Gregg, Aug 26 2026):** Transformations are their own
+type; Combat Wheelchair skipped; `suggested_*` class keys retained empty
+for manual GM entry; Witherwild + Supplemental Campaign Mechanics ARE to
+be imported — remaining open question is only the shape (one entity per
+supplemental mechanic under a new Game Mechanics subtype vs. plain lore).
 
 Extraction tooling lives in `scripts/srd-extract/` (column-split via
 per-page gutter detection + regex parsers; see its README). TOC page
