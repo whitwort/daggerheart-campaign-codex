@@ -118,7 +118,8 @@ this is 2.0's map, not guaranteed stable for future revisions):
 | Armor | 72–74 | `armor` | **done** (69 records; `parse_equip.py ARMOR`) |
 | Loot & Items | 75–79 | `items` | **done** (120 records = 60 Core Set + 60 Hope & Fear "Additional Items"; new `source_set` field; `parse_loot.py`) |
 | Consumables | 80–84 | `consumables` | **done** (120 records, same split + `source_set`; side-by-side tables handled by `parse_loot.py`) |
-| Adversaries and Environments | 93–183 | `adversaries`, `environments` | not started — largest section, ~90pp |
+| Adversaries | 97–158 | `adversaries` | **done** (264 records, up from 1.0's 129; only Outer Realms Corruptor is gone. `scripts/srd-extract/parse_adv.py` over `pdftohtml -xml` — font styling drives bold/italic markdown and feature-header detection. New 2.0 `Evolution` feature type passes through `normalizeFeatureRecord` untouched (type is a free string). Tier/Horde digits are private-use glyphs, mapped in the parser) |
+| Environments | 160–183 | `environments` | **done** (47 records, up from 19; Necromancer's Ossuary gone. Same parser; GM prompt questions kept as trailing italic paragraph + `question` field, as in 1.0) |
 | Witherwild Campaign Frame | 184–189 | `campaign-mechanics` | **done** (1 record; full frame as one markdown entity) |
 | Supplemental Campaign Mechanics | 190–205 | `campaign-mechanics` | **done** (11 records, one per section: Faction Tracking, Everyday Hero Starting Equipment, Feasts, Grimdark, Tech-Based, Western, Colossal Adversaries, Floating Magic School, Fairy Tale, Monster Hunting, Hex Crawl). Hand-written markdown sources in `scripts/srd-extract/campaign-mechanics/*.md`, built by `build_campaign_mechanics.py` — edit the .md, rerun the script, never the JSON directly |
 | Domain Card Reference (Appendix) | 206–224 | `abilities` | **done** (210 records = 10 domains × 21; confirmed this IS the card feature-text source; 1.0 card names all present, 3 text changes vs 1.0: Earthquake typo fix, Notorious lost its loadout-exemption sentence, Divination quote marks) |
@@ -134,6 +135,6 @@ per-page gutter detection + regex parsers; see its README). TOC page
 numbers were off by one at section ends (ancestries actually run to 38,
 communities to 42) — always confirm boundaries in the text.
 
-Next: `classes`/`subclasses` (8–31, largest remaining non-adversary
-section), then equipment types, then Adversaries/Environments; the
-flagged design-decision items need Gregg's call first.
+SRD 2.0 extraction is complete (all rows above done/skipped). Remaining
+step is running Admin > Import from SRD > Update entries in dev and
+spot-checking each type.
