@@ -73,6 +73,16 @@ const SRD_TYPES = [
   // in templates.js needed: 3 short records (name + description) pass
   // through the existing legacy formatSrdRecord path same as domains.
   { key: 'conditions', category: 'Game Mechanics', subtype: 'conditions' },
+  // SRD 2.0 (Aug 2026): two new player-facing mechanics with no 1.0
+  // analogue. Transformations (SRD 2.0 p.42-45) are a separate mechanic
+  // from beastforms per Gregg's call (optional identity cards granted
+  // by the GM: description + features + prompt questions, shaped like a
+  // class record minus the stats). Stances (p.13, Brawler's Martial
+  // Artist subclass) are tiered one-liners modeled like beastforms --
+  // character-deck.js gives Brawlers a Stances sub-tab the way Druids
+  // get Beastforms.
+  { key: 'transformations', category: 'Game Mechanics', subtype: 'transformations' },
+  { key: 'stances', category: 'Game Mechanics', subtype: 'stances' },
   // Phase 15 (phase-15-design.md §4.4/§4.5): the two types the sibling
   // encounter-builder project imported from this same source. Their
   // records use source-specific string encodings ("+3" atk, "8/15"
