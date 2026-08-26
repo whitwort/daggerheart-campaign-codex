@@ -30,3 +30,18 @@ alignment drifts per line in the text rendering):
 
 Items/consumables carry `source_set` ('Core Set' | 'Hope & Fear') since
 2.0 prints two separately-numbered roll tables per type.
+
+Adversaries (p.97-158) and environments (p.160-183) use `pdftohtml -xml`
+rather than pdftotext, because the stat blocks rely on inline styling
+(bold-italic feature headers, bold damage, italic conditions and GM
+prompts) that plain text loses:
+
+    pdftohtml -xml -i -f 97 -l 183 -stdout SRD.pdf > adv.xml
+    python3 parse_adv.py adv.xml adversaries.json environments.json
+
+Tier numbers and Horde `X/HP` digits are private-use-area glyphs in the
+PDF (U+E53F..E549 -> 0-9); `parse_adv.py` maps them. Ligature glyphs
+(fi/fl/ff) come out with a stray space; the fixes are a small closed set
+checked by hand against this page range — re-check if the PDF changes.
+Volcanic Eruption sits under a mislaid Tier 4 header on p.178; the glyph
+and the by-tier index both say Tier 3, and the parser trusts the glyph.
