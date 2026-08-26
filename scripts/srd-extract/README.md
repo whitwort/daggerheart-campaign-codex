@@ -20,3 +20,13 @@ p.184-205) is NOT regex-parsed: the prose and cross-column tables are
 hand-written markdown in `campaign-mechanics/*.md` (first line `# Name`,
 rest = description). `python3 build_campaign_mechanics.py` assembles the
 JSON in page order. Edit the .md files, rebuild, commit both.
+
+Equipment (p.55-84) uses word coordinates, not `-layout` text (column
+alignment drifts per line in the text rendering):
+
+    pdftotext -f 55 -l 69 -tsv SRD.pdf weap.tsv;  python3 parse_equip.py weap.tsv weapons.json WEAPONS
+    pdftotext -f 72 -l 74 -tsv SRD.pdf armor.tsv; python3 parse_equip.py armor.tsv armor.json ARMOR
+    pdftotext -f 75 -l 84 -tsv SRD.pdf loot.tsv;  python3 parse_loot.py loot.tsv items.json consumables.json
+
+Items/consumables carry `source_set` ('Core Set' | 'Hope & Fear') since
+2.0 prints two separately-numbered roll tables per type.

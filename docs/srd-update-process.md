@@ -113,11 +113,11 @@ this is 2.0's map, not guaranteed stable for future revisions):
 | Beastforms (inside Druid) | 14–16 | `beastforms` | **done** (24) |
 | Martial Stances (inside Brawler) | 13 | `stances` | **done** (16) — NEW type; Brawlers get a Stances deck sub-tab like Druids' Beastforms |
 | Conditions | 52 | `conditions` | **done** (`public/data/srd/conditions.json`, 3 records) |
-| Weapons | 55–69 | `weapons` | not started |
+| Weapons | 55–69 | `weapons` | **done** (303 records; `scripts/srd-extract/parse_equip.py WEAPONS` — word-coordinate parser over `pdftotext -tsv`; 1.0's 192 weapons all present except 9 dropped/renamed; secondaries tagged Physical as in 1.0) |
 | Combat Wheelchair | 70–71 | none | **skipped** (Gregg's call) |
-| Armor | 72–74 | `armor` | not started |
-| Loot & Items | 75–79 | `items` | not started |
-| Consumables | 80–84 | `consumables` | not started |
+| Armor | 72–74 | `armor` | **done** (69 records; `parse_equip.py ARMOR`) |
+| Loot & Items | 75–79 | `items` | **done** (120 records = 60 Core Set + 60 Hope & Fear "Additional Items"; new `source_set` field; `parse_loot.py`) |
+| Consumables | 80–84 | `consumables` | **done** (120 records, same split + `source_set`; side-by-side tables handled by `parse_loot.py`) |
 | Adversaries and Environments | 93–183 | `adversaries`, `environments` | not started — largest section, ~90pp |
 | Witherwild Campaign Frame | 184–189 | `campaign-mechanics` | **done** (1 record; full frame as one markdown entity) |
 | Supplemental Campaign Mechanics | 190–205 | `campaign-mechanics` | **done** (11 records, one per section: Faction Tracking, Everyday Hero Starting Equipment, Feasts, Grimdark, Tech-Based, Western, Colossal Adversaries, Floating Magic School, Fairy Tale, Monster Hunting, Hex Crawl). Hand-written markdown sources in `scripts/srd-extract/campaign-mechanics/*.md`, built by `build_campaign_mechanics.py` — edit the .md, rerun the script, never the JSON directly |
