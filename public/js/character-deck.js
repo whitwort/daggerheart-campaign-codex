@@ -899,9 +899,16 @@ function buildAbilitiesSection(entity, cards, ctx, editable) {
   return section;
 }
 
-// --- Conditions --------------------------------------------------------
+// --- Conditions / Transformations ---------------------------------------
+// SRD 2.0 transformations (GM-granted identity cards) live in the same
+// tray and the same cards.conditions array as conditions: both are
+// "states currently applied to the character" with an optional linked
+// Game Mechanics entity, and neither needs its own schema. The picker
+// groups them by subtype.
+const CONDITION_SUBTYPES = { conditions: 'Conditions', transformations: 'Transformations' };
+
 function buildConditionsSection(entity, cards, ctx, editable) {
-  const section = buildSection('Conditions');
+  const section = buildSection('Conditions / Transformations');
   const tray = buildTray();
   const conditions = cards.conditions || [];
 
@@ -923,12 +930,12 @@ function buildConditionsSection(entity, cards, ctx, editable) {
   if (editable) {
     tray.appendChild(buildAddSlot('+ Add condition', function () {
       const candidates = state.allEntities.filter(function (e) {
-        return e.category === 'Game Mechanics' && e.subtype === 'conditions' && (ctx.gmView || canSee(e, ctx));
+        return e.category === 'Game Mechanics' && CONDITION_SUBTYPES[e.subtype] && (ctx.gmView || canSee(e, ctx));
       });
       openCardPickerPopup({
-        title: 'Add condition',
+        title: 'Add condition or transformation',
         candidates: candidates,
-        groupFn: null,
+        groupFn: function (e) { return CONDITION_SUBTYPES[e.subtype] || 'Other'; },
         customLabel: 'Custom condition',
         customExtraField: 'note',
         onSelect: function (e) {
@@ -940,7 +947,7 @@ function buildConditionsSection(entity, cards, ctx, editable) {
       });
     }));
   }
-  if (!tray.children.length && !editable) buildEmptyNote(tray, 'No conditions.');
+  if (!tray.children.length && !editable) buildEmptyNote(tray, 'No conditions or transformations.');
   section.appendChild(tray);
   return section;
 }
