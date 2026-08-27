@@ -43,11 +43,16 @@ run green). Prod code is current; prod DATA is not yet (see next step).
 - Release **v0.7b** created via API (tag pushed with git first — the
   Releases API 422s on a non-existent tag; note for next time).
 
-**Next step (Gregg):** dev→prod data migration so prod gets SRD 2.0
-content: dev Admin > Backup > Download backup; prod Admin > Backup >
-Upload → Wipe and replace → Restore. Then run Update entries in prod is
-NOT needed (the dump already carries the 2.0 entities). Also click
-"Purge legacy image docs" in dev first so the dump is clean.
+**Data flow rule (Gregg, Aug 27 2026): PROD IS THE SOURCE OF TRUTH.
+dev→prod backup/restore is no longer a route.** Prod gets SRD 2.0 by
+running Admin > Import from SRD > Update entries IN PROD (idempotent by
+category/subtype/slug; source select is `local` — a stale stored
+seansbox value is normalized to local by map.js, so it's safe). Dev is
+refreshed FROM prod (prod Download backup → dev Wipe-and-replace) when
+dev data needs to match. "Purge legacy image docs" is a dev-only chore.
+
+**Next step (Gregg):** in prod, Admin > Import from SRD > Update entries;
+spot-check one of each new type.
 
 **Still open:** manual QA pass on presence/GM notifications (shipped in
 v0.7b untested — QA in prod now counts).

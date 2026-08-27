@@ -1,7 +1,8 @@
 // Full raw database backup/restore, client-side (Admin tab, Database >
 // Backup sub-tab). Distinct from import.js's structured entity/lore
 // importer above it: this dumps/restores every collection verbatim by
-// doc id, for dev<->prod migration and manual ad hoc backups. GM-only —
+// doc id, for prod->dev refresh (prod is source of truth; never the
+// reverse) and manual ad hoc backups. GM-only —
 // gated by the same Firestore Security Rules as every other admin write,
 // not by anything in this file. No Admin SDK, no service account, no
 // cross-project credentials: export and restore are both same-project
