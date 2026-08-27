@@ -120,7 +120,7 @@ config block is not a secret — access control is entirely rules + auth.
 
 - **Daggerheart**: this app can import and display content from the
   [Daggerheart System Reference Document](https://www.daggerheart.com/srd/)
-  (v1.0), which is Public Game Content under the
+  (v2.0), which is Public Game Content under the
   [Darrington Press Community Gaming License](https://www.darringtonpress.com/license).
   Daggerheart and its SRD are © 2025 Critical Role LLC; all Daggerheart
   game content and mechanics are the property of Darrington Press.
