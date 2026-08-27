@@ -10,73 +10,57 @@ last present at the commit tagged v0.2b's successor). Code comments
 citing e.g. "phase-14-design.md §5.1" are historical pointers into
 those deleted docs — resolve via git history, don't "fix" the comments.
 
-## Current state (end of SRD-2.0-extraction session 3, Aug 26 2026)
+## Current state (end of session, Aug 27 2026)
 
-HEAD: `ce9e54c` (dev deploy green). Prod still at v0.2b; everything since
-is dev-only.
+HEAD: `1a08007` = tag **v0.7b**, deployed to BOTH dev and prod (release
+run green). Prod code is current; prod DATA is not yet (see next step).
 
-**This session (commits `3cebd1d`, `ce9e54c`):**
-- **Campaign mechanics (p.184–205) done.** New SRD type
-  `Game Mechanics/campaign-mechanics` — 12 entities: The Witherwild
-  (whole frame as one entity) + 11 supplemental sections (Faction
-  Tracking, Everyday Hero Starting Equipment, Feasts, Grimdark,
-  Tech-Based, Western, Colossal Adversaries, Floating Magic School,
-  Fairy Tale, Monster Hunting, Hex Crawl). Prose + tables hand-written as
-  markdown in `scripts/srd-extract/campaign-mechanics/*.md`, assembled
-  by `build_campaign_mechanics.py` → `public/data/srd/campaign-mechanics.json`.
-  Edit the .md and rebuild; never hand-edit the JSON. `{name,
-  description}` only → legacy `formatSrdRecord` path, no schema. Code:
-  `SRD_TYPES` entry (srd-import.js), `config.js` subtype, and
-  `codex.js subtypeLabel()` now title-cases hyphenated subtypes.
-  Judgment calls: Scrap Table merged cells expanded as spans; tiered
-  weapon damage collapsed into one cell ("Tier 1: … / Tier 2: …").
-- **Equipment (p.55–84) done.** weapons 303, armor 69, items 120,
-  consumables 120. New parsers `parse_equip.py` / `parse_loot.py` work
-  from `pdftotext -tsv` word coordinates (the `-layout` text drifts
-  column alignment per line — don't go back to it for tables). Items/
-  consumables gained `source_set` ('Core Set' | 'Hope & Fear') because
-  2.0 prints two separately numbered roll tables. Secondaries tagged
-  `physical_or_magical: 'Physical'` as 1.0 did. Diffed against the 1.0
-  upstream JSON: only genuine 2.0 changes remain. 9 1.0 weapons no
-  longer exist (Axe of Fortunis, Blessed Anlace, Firestaff, Ghostblade,
-  Gilded Bow, Ilmari's Rifle, Mage Orb, Runes of Ruination, Widogast
-  Pendant) — existing dev entities for them just won't be touched by
-  Update entries; delete manually if desired.
+**This session:**
+- **SRD 2.0 extraction COMPLETE.** Adversaries (264) + environments (47)
+  via new `scripts/srd-extract/parse_adv.py` over `pdftohtml -xml -i`
+  (inline styling → markdown; PUA tier/horde digits U+E53F..E549 → 0–9;
+  ligature gaps fixed by a closed word list; Volcanic Eruption is Tier 3
+  per glyph + index despite the misplaced Tier 4 header on p.178). Output
+  matches 1.0 upstream shape on shared records modulo typography. 2.0's
+  `Evolution` feature type passes through `normalizeFeatureRecord` (type
+  is a free string). Status table in `docs/srd-update-process.md` all
+  done. Gregg ran Update entries in dev and confirmed parse looks good.
+- **Bug found by that import:** dev `config/campaign.srdRepo` still held
+  `seansbox/daggerheart-srd`, so the first Update entries run pulled 1.0
+  data from GitHub (770 overwritten with 1.0, 4 new types 404). Fixed
+  `5b4ce5c`: Admin SRD source is a `<select>` with only `local`; map.js
+  normalizes a stored seansbox value to `local`. Re-run in dev restored
+  2.0 content.
+- Character deck: Conditions tray → "Conditions / Transformations";
+  picker offers both `Game Mechanics` subtypes grouped, same
+  `cards.conditions` array (`CONDITION_SUBTYPES` in character-deck.js).
+- Admin > Database > Backup > **Maintenance > Purge legacy image docs**:
+  deletes exactly what `isRestorableImage` rejects (GM delete needs no
+  validation). Closes the "Admin-SDK script only" item. NOT yet run in
+  dev — Gregg to click it once.
+- `setEntityImagesTarget` error handler now clears `entityImagesUnsub`/
+  `entityImagesTargetId` so a dead listener reattaches on next render.
+- Release **v0.7b** created via API (tag pushed with git first — the
+  Releases API 422s on a non-existent tag; note for next time).
 
-**Session 2 recap (`9e82211`, `f935056`):** abilities (210), domains
-(10), ancestries (24), communities (15), classes (13), subclasses (26),
-beastforms (24), stances (16, new type), transformations (6, new type),
-conditions (3). Brawlers get a Stances deck sub-tab (gated on class name).
+**Next step (Gregg):** dev→prod data migration so prod gets SRD 2.0
+content: dev Admin > Backup > Download backup; prod Admin > Backup >
+Upload → Wipe and replace → Restore. Then run Update entries in prod is
+NOT needed (the dump already carries the 2.0 entities). Also click
+"Purge legacy image docs" in dev first so the dump is clean.
 
-**NOT yet run:** Gregg hasn't done Admin > Import from SRD > Update
-entries in dev against any of the 2.0 data. Do that + spot-check: a
-Brawler's Stances tab, a transformation, Dread domain cards, a
-campaign-mechanics entity with tables (marked GFM tables + `breaks:
-true` — confirm they render), a weapon and an armor entity, an
-`Additional Items` item (shows `Source set` detail).
+**Still open:** manual QA pass on presence/GM notifications (shipped in
+v0.7b untested — QA in prod now counts).
 
-## Next session: Adversaries & Environments (p.93–183) — LAST SRD 2.0 item
+## Next: Phase 15 encounter-builder reimplementation
 
-Dedicated session; ~90 pages. `normalizeAdversaryRecord` /
-`normalizeEnvironmentRecord` in srd-import.js define the expected raw
-shape (source-specific string encodings: "+3" atk, "8/15" thresholds,
-"Name - Type" features) — read those first, and the old upstream JSON
-(`.build/03_json/adversaries.json`, `environments.json`) for the target
-shape. Stat blocks are prose blocks, not tables — `cols.py` (per-page
-gutter split) + a regex block parser is probably the right tool, as with
-classes; use `-tsv` only if a page has cross-column tables. Watch for
-2.0 additions (Colossus type is documented in campaign-mechanics but any
-example colossi live elsewhere; Withered/Shadow-Touched are frame
-features, not adversaries). Update the status table in
-`docs/srd-update-process.md` when done; that closes SRD 2.0.
-
-Tooling: `python3 scripts/srd-extract/cols.py <from> <to> /tmp/SRD2.pdf`;
-PDF at `https://www.daggerheart.com/wp-content/uploads/2026/08/DH_SRD_2_2026_08_25.pdf`;
-old upstream JSON at `https://raw.githubusercontent.com/seansbox/daggerheart-srd/main/.build/03_json/{type}.json`
-(UTF-8 BOM).
-
-**Still open from earlier:** manual QA pass on presence/GM-notification
-features (Aug 24) before the next Release tag.
+Design doc `phase-15-encounter-workflow-design.md` is in git history
+(`git log --all --oneline -- 'phase-*.md'`). Encounters tab, Firestore
+`encounters` collection, per-instance HP/Stress, Run tab with full stat
+blocks. Adversary/environment data is now 2.0 and local; the sibling
+Apps Script encounter-builder is the reference for the difficulty
+calculator (SRD 2.0 Battle Points table is on p.94 of the PDF — check it
+against the builder's constants before porting).
 
 ## Prior session: Phase-14 features (Aug 24 2026)
 
@@ -189,17 +173,16 @@ just STOPS (no FAILED line) = hung promise, not a throw.
 
 ## Open items
 
-- Purge the 2 legacy image docs from dev (Admin-SDK script).
+- Click Purge legacy image docs in dev (UI now exists).
 - Deploy-workflow hardening: approval gate, rules unit tests,
   pre-deploy backup, post-deploy smoke test — decide priority.
 - Post-launch optimizations: dynamic-import GM-only modules (~3k
   lines), codex.js split (4.8k lines, 5-module cycle), vendor/**
   long-cache header.
-- `setEntityImagesTarget` stuck-listener gap (pre-launch review era).
 - Encounter-builder integration exploration; single-entry restore
   "delete orphans" mode — both deferred.
-- Manual QA pass on this session's presence/GM-notification features
-  (see above) before the next Release tag.
+- Manual QA pass on presence/GM-notification features (shipped in
+  v0.7b).
 
 ## Session ritual
 
