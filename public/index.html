@@ -419,6 +419,16 @@
         </div>
         <p id="backup-download-status"></p>
 
+        <h3>Maintenance</h3>
+        <p class="admin-hint">Delete image documents that no longer pass validation (relics of retired schemes; restore already skips them). Reads the whole images collection.</p>
+        <div class="actions-row">
+          <div class="actions-row-left"></div>
+          <div class="actions-row-right">
+            <button type="button" id="backup-purge-images-btn">Purge legacy image docs</button>
+          </div>
+        </div>
+        <p id="backup-purge-images-status"></p>
+
         <h3>Restore from backup</h3>
         <p class="admin-hint">Restore the current database from a backup.</p>
         <div class="actions-row">
