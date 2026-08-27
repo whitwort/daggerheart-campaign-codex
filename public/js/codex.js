@@ -320,7 +320,13 @@ function setEntityImagesTarget(entityId) {
       renderDetailForSelected();
     }),
     function (err) {
+      // Firestore does not retry a listener that errored (e.g. a rules
+      // denial); leaving state.entityImagesUnsub set would make the
+      // early-return above skip reattaching for this entity for the rest
+      // of the session. Clear both so the next render re-subscribes.
       console.error('entity images listener error:', err.message);
+      state.entityImagesUnsub = null;
+      state.entityImagesTargetId = null;
     });
 }
 

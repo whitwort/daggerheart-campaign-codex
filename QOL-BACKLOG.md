@@ -226,9 +226,10 @@ scattered CSS.
   (retired maps/ scheme: ownerType:'map', role:'primary', no visibility
   field). No app surface reads them; they can never be rewritten under
   isValidImage(), which is why every backup restore has to skip them
-  (backup.js isRestorableImage). No UI can delete them -- needs the
-  Admin-SDK script or a one-off console delete. Low priority; the
-  restore-side skip makes them harmless.
+  (backup.js isRestorableImage). **Resolved Aug 27 2026:** Admin >
+  Database > Backup > Maintenance > "Purge legacy image docs" deletes
+  exactly the docs isRestorableImage rejects (GM delete needs no
+  validation). Run it once in dev; prod never received them.
 
 - **iOS Safari stale JS modules survive reload (observed Aug 2026,
   timeline cluster-zoom fix).** After a dev deploy, the iPad showed the
