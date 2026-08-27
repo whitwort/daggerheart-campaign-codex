@@ -459,11 +459,13 @@
       </div>
 
       <div id="admin-db-srd" class="admin-db-tab-panel">
-        <p class="admin-hint">Pull entity data from a Daggerheart SRD parse repository on GitHub.</p>
+        <p class="admin-hint">Pull entity data from the bundled SRD 2.0 JSON.</p>
         <div class="actions-row">
           <div class="actions-row-left">
-            <label for="admin-srd-repo" class="admin-hint">SRD parse repository</label>
-            <input type="text" id="admin-srd-repo" placeholder="seansbox/daggerheart-srd">
+            <label for="admin-srd-repo" class="admin-hint">SRD source</label>
+            <select id="admin-srd-repo">
+              <option value="local">Bundled SRD 2.0 (local)</option>
+            </select>
           </div>
         </div>
         <p id="admin-srd-repo-status"></p>
