@@ -1006,7 +1006,11 @@ function attachConfigListener() {
       const wasFollowingRoot = state.currentMapEntityId === lastKnownRootEntityId;
       state.rootEntityId = newRoot;
       state.campaignType = docSnap.exists() ? (docSnap.data().campaignType || 'daggerheart') : 'daggerheart';
-      state.srdRepo = docSnap.exists() && docSnap.data().srdRepo ? docSnap.data().srdRepo : 'seansbox/daggerheart-srd';
+      // Phase 16: default is the bundled local JSON. A stored
+      // 'seansbox/daggerheart-srd' is the pre-2.0 default, not a choice --
+      // treat it as local so a stale config doc can't silently re-import 1.0.
+      const storedRepo = docSnap.exists() ? docSnap.data().srdRepo : null;
+      state.srdRepo = (storedRepo && storedRepo !== 'seansbox/daggerheart-srd') ? storedRepo : 'local';
       if (wasFollowingRoot) {
         state.currentMapEntityId = newRoot;
       } else {
