@@ -27,6 +27,7 @@ export const state = {
   versionUnsub: null,  // _meta/version deploy-detection listener (version.js)
   allJoinRequests: [],
   allPlayers: [],
+  allPresence: [],  // presence/{email} docs: [{id: email, lastOnline}], admin.js Status column only (Aug 2026 -- split out of players/ to stop heartbeat writes from re-rendering the whole app, see auth.js/presence.js)
   adminPlayerEditId: null,
   adminPlayerEditDraft: '',
   allSources: [],
