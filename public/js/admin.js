@@ -182,6 +182,24 @@ const adminSourceErrorEl = document.getElementById('admin-source-error');
         });
       });
 
+      // Presence (Aug 2026): split from players/ so presence.js's
+      // heartbeat (every 4 min + every visibilitychange) can't trigger
+      // renderCharactersTab() on every whitelisted player's heartbeat --
+      // same class of bug as the entity-edit-form-loses-focus fix, just
+      // on the GM side. Status column only; deliberately doesn't touch
+      // renderCharactersTab().
+      attachListener('presenceUnsub', function () {
+        return onSnapshot(collection(db, 'presence'), safeSnapshotHandler('presence', function (snapshot) {
+          state.allPresence = [];
+          snapshot.forEach(function (docSnap) {
+            state.allPresence.push(Object.assign({ id: docSnap.id }, docSnap.data()));
+          });
+          renderAdminPlayersList();
+        }), function (err) {
+          console.error('presence listener failed:', err.message);
+        });
+      });
+
       // Character transfer requests (Phase 14 §3.5/§6.5/§8 D8, S5): GM's
       // full collection, consolidated with joinRequests into one Requests
       // section per Gregg's placement call (extend the existing Admin tab
@@ -296,14 +314,15 @@ const adminSourceErrorEl = document.getElementById('admin-source-error');
     // heartbeat comment (4 min period, +1 min slack against a client
     // mid-interval). Computed at render time only, same staleness
     // tradeoff the Messages digest's relative-time already carries (no
-    // periodic re-render timer -- re-renders on the next players
-    // snapshot, admin.js's existing lifecycle).
+    // periodic re-render timer -- re-renders on the next presence
+    // snapshot, admin.js's own listener, split from players/ Aug 2026).
     const ONLINE_WINDOW_MS = 5 * 60 * 1000;
     function tsMs(v) {
       return (v && typeof v.toMillis === 'function') ? v.toMillis() : null;
     }
     function presenceStatusText(p) {
-      const ms = tsMs(p.lastOnline);
+      const presenceDoc = state.allPresence.find(function (pr) { return pr.id === p.id; });
+      const ms = tsMs(presenceDoc && presenceDoc.lastOnline);
       if (ms == null) return 'Never online';
       if (Date.now() - ms < ONLINE_WINDOW_MS) return 'Online';
       return 'Last online ' + new Date(ms).toLocaleString();

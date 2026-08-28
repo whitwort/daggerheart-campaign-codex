@@ -1,10 +1,22 @@
 // presence.js -- last-online heartbeat for the Admin > Manage Party Status
 // column (admin.js). No presence backend exists (no Realtime Database), so
-// "online" is approximated: stamp players/{email}.lastOnline on attach and
+// "online" is approximated: stamp presence/{email}.lastOnline on attach and
 // on every tab-foreground, plus a background heartbeat every 4 min while
 // the tab stays open/focused. admin.js treats a stamp under 5 min old as
 // "Online" -- comfortably wider than the heartbeat period so a client
 // mid-interval doesn't flicker to stale.
+//
+// Lives in its own presence/{email} doc, NOT players/{email} (fixed Aug
+// 2026 -- was originally on players/{email}.lastOnline). That put a
+// high-frequency writer (every 4 min + every visibilitychange, and iOS
+// Safari fires visibilitychange when a native <select> popup or the
+// keyboard opens) on the same doc as role/activeCharacterId state, which
+// auth.js's playerDocUnsub re-renders the whole app on. Every heartbeat
+// was silently wiping the entity edit form mid-interaction for whoever's
+// editing -- reported as "dropdown/textbox loses focus the moment you
+// touch it," player-only because only players get a heartbeat. Splitting
+// the doc removes the interaction entirely rather than special-casing
+// around it.
 //
 // Player-only: GM has no players/ doc (role resolved via CONFIG.gmEmail,
 // not the whitelist), so there's nothing to stamp for a GM session.
@@ -28,7 +40,7 @@ function stampOnline() {
   if (state.currentRole !== 'player') return;
   const email = state.currentUser && state.currentUser.email;
   if (!email) return;
-  setDoc(doc(db, 'players', email), { lastOnline: serverTimestamp() }, { merge: true })
+  setDoc(doc(db, 'presence', email), { lastOnline: serverTimestamp() }, { merge: true })
     .catch(function (err) { console.error('presence heartbeat failed:', err.message); });
 }
 

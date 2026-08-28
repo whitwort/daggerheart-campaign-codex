@@ -40,15 +40,30 @@ service cloud.firestore {
     // the join-request flow); only GM can read the whole collection's other
     // docs or write, EXCEPT a player may update their own `activeCharacterId`
     // (Phase 14 S1/§3.4 -- the nav dropdown / Characters tab's set-active
-    // control, S3) or `lastOnline` (presence heartbeat, presence.js) --
-    // restricted to those fields via affectedKeys.
+    // control, S3).
     match /players/{email} {
       allow read: if isGM() || (request.auth != null && request.auth.token.email == email);
       allow create, delete: if isGM();
       allow update: if isGM() || (
         request.auth != null && request.auth.token.email == email &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['activeCharacterId', 'lastOnline'])
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['activeCharacterId'])
       );
+    }
+
+    // Presence heartbeat (Aug 2026, split out of players/{email}.lastOnline
+    // -- that put a high-frequency writer on the same doc as role/
+    // activeCharacterId state, which caused a re-render on every heartbeat
+    // wherever that doc was listened to; see presence.js/auth.js). Each
+    // player can only touch their own doc, write-only field `lastOnline`.
+    // Only GM reads it (Admin > Manage Party Status column) -- a player
+    // never needs to read anyone's presence, including their own.
+    match /presence/{email} {
+      allow read: if isGM();
+      allow create: if request.auth != null && request.auth.token.email == email &&
+        request.resource.data.keys().hasOnly(['lastOnline']);
+      allow update: if request.auth != null && request.auth.token.email == email &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastOnline']);
+      allow delete: if isGM();
     }
 
     // Map pins: {entryId, x, y} linking a point on the base map image to a
