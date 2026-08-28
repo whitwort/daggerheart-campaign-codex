@@ -228,7 +228,7 @@ function attachCodexListeners() {
         state.allEntities.push(Object.assign({ id: docSnap.id }, docSnap.data()));
       });
       renderList();
-      renderDetailForSelected();
+      safeRenderDetailForSelected();
       renderAdminRootEntitySelect();
       renderAdminPlayersList();
       notifyVisibilityChange();
@@ -249,7 +249,7 @@ function attachCodexListeners() {
       // Lore visibility affects which entities appear in the player
       // list and which pins render, not just the open detail.
       renderList();
-      renderDetailForSelected();
+      safeRenderDetailForSelected();
       notifyVisibilityChange();
     }), function (err) {
       detailEl.innerHTML = '';
@@ -317,7 +317,7 @@ function setEntityImagesTarget(entityId) {
       snapshot.forEach(function (docSnap) {
         state.currentEntityImages.push(Object.assign({ id: docSnap.id }, docSnap.data()));
       });
-      renderDetailForSelected();
+      safeRenderDetailForSelected();
     }),
     function (err) {
       // Firestore does not retry a listener that errored (e.g. a rules
@@ -596,7 +596,7 @@ function notifyVisibilityChange() {
 
 // Live-refresh the currently-rendered card (source labels/dropdowns)
 // whenever a GM edit to the Sources list comes in.
-registerSourcesChangeHandler(function () { renderDetailForSelected(); });
+registerSourcesChangeHandler(function () { safeRenderDetailForSelected(); });
 
 // map.js registers its "switch to Map tab and load this Location's map"
 // function here (same inverted-dependency pattern as above).
@@ -1620,6 +1620,47 @@ function updatedAtMs(entity) {
   const t = entity && entity.updatedAt;
   return (t && typeof t.toMillis === 'function') ? t.toMillis() : null;
 }
+
+// Bug (Aug 2026, player-reported): entities/loreItems/entityImages
+// onSnapshot handlers all call renderDetailForSelected() unconditionally,
+// even mid-edit. That render does detailEl.innerHTML='' + full rebuild,
+// which kills focus and closes any open native <select> popup -- so any
+// snapshot arriving while the user has a field/dropdown open silently
+// reverts their in-progress interaction. Most reliable trigger: the
+// per-entity images listener (setEntityImagesTarget) -- switching to an
+// entity not yet viewed this session always attaches a FRESH listener,
+// and its first snapshot lands a moment later, mid-interaction. "Edit in
+// Codex" (character-deck.js) combines select+enter-edit in one click, so
+// a player hits this window almost every time; a GM editing an
+// already-open Codex entity usually doesn't (listener/snapshot already
+// settled).
+//
+// Fix: route onSnapshot-triggered detail renders through this instead of
+// calling renderDetailForSelected() directly. If we're mid-edit and focus
+// is inside the edit form, defer the rebuild (state is already updated,
+// so nothing is lost) and catch up on the next focusout. Native <select>
+// keeps document.activeElement as itself while its OS popup is open, so
+// this correctly covers "dropdown open" too, not just typing.
+let deferredDetailRerenderPending = false;
+function safeRenderDetailForSelected() {
+  if (state.detailEditMode && detailEl.contains(document.activeElement)) {
+    deferredDetailRerenderPending = true;
+    return;
+  }
+  deferredDetailRerenderPending = false;
+  renderDetailForSelected();
+}
+detailEl.addEventListener('focusout', function () {
+  if (!deferredDetailRerenderPending) return;
+  // Let focus settle onto whatever's next (could be another field in the
+  // same form) before deciding whether it's safe to rebuild.
+  setTimeout(function () {
+    if (!deferredDetailRerenderPending) return;
+    if (state.detailEditMode && detailEl.contains(document.activeElement)) return;
+    deferredDetailRerenderPending = false;
+    renderDetailForSelected();
+  }, 0);
+});
 
 // Selects entityId in the Codex tab's list/detail and switches the
 // active tab to Codex, without entering edit mode. Shared by: the
