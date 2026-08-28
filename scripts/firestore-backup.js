@@ -14,7 +14,9 @@
 // - Collections covered: entities, images, joinRequests, loreItems, pins,
 //   players. `_meta` is deliberately excluded — it's CI-managed deploy
 //   version state, not campaign data, and importing it would clobber the
-//   destination's live deployed-version doc.
+//   destination's live deployed-version doc. `presence` (Aug 2026) is also
+//   deliberately excluded for the same reason — ephemeral heartbeat
+//   timestamps, not campaign data, and stale on restore anyway.
 // - Document IDs are preserved on import (entityId/ownerId/authorId fields
 //   elsewhere in the app reference these ids directly, not Firestore refs).
 // - createdAt/updatedAt/addedAt/requestedAt/uploadedAt Timestamp fields are
