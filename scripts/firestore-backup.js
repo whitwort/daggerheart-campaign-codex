@@ -82,15 +82,41 @@ function deserializeValue(v) {
   return v;
 }
 
+// Retry wrapper for transient Firestore errors (RESOURCE_EXHAUSTED code 8,
+// UNAVAILABLE code 14) -- e.g. the backup running back-to-back with a
+// heavy admin session (bulk SRD import/purge) can trip a momentary quota/
+// rate hiccup that would otherwise kill the whole export. Exponential
+// backoff, 5 tries. Any other error code rethrows immediately (no point
+// retrying a real failure like permission-denied).
+function isTransientFirestoreError(err) {
+  return err && (err.code === 8 || err.code === 14);
+}
+async function getWithRetry(ref) {
+  const MAX_TRIES = 5;
+  let lastErr = null;
+  for (let attempt = 1; attempt <= MAX_TRIES; attempt++) {
+    try {
+      return await ref.get();
+    } catch (err) {
+      lastErr = err;
+      if (!isTransientFirestoreError(err) || attempt === MAX_TRIES) throw err;
+      const delayMs = 1000 * Math.pow(2, attempt - 1); // 1s, 2s, 4s, 8s
+      console.log('Transient Firestore error (' + err.code + '), retry ' + attempt + '/' + (MAX_TRIES - 1) + ' in ' + delayMs + 'ms...');
+      await new Promise(function (resolve) { setTimeout(resolve, delayMs); });
+    }
+  }
+  throw lastErr;
+}
+
 async function runExport(db, outPath) {
   const dump = { exportedAt: new Date().toISOString(), collections: {} };
   for (const name of COLLECTIONS) {
-    const snap = await db.collection(name).get();
+    const snap = await getWithRetry(db.collection(name));
     const entries = [];
     for (const d of snap.docs) {
       const entry = { id: d.id, data: serializeValue(d.data()) };
       for (const sub of (SUBCOLLECTIONS[name] || [])) {
-        const subSnap = await d.ref.collection(sub).get();
+        const subSnap = await getWithRetry(d.ref.collection(sub));
         entry[sub] = subSnap.docs.map(function (sd) {
           return { id: sd.id, data: serializeValue(sd.data()) };
         });
@@ -105,11 +131,11 @@ async function runExport(db, outPath) {
 }
 
 async function wipeCollection(db, name) {
-  const snap = await db.collection(name).get();
+  const snap = await getWithRetry(db.collection(name));
   const refs = [];
   for (const d of snap.docs) {
     for (const sub of (SUBCOLLECTIONS[name] || [])) {
-      const subSnap = await d.ref.collection(sub).get();
+      const subSnap = await getWithRetry(d.ref.collection(sub));
       subSnap.docs.forEach(function (sd) { refs.push(sd.ref); });
     }
     refs.push(d.ref);
