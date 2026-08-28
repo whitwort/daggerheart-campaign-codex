@@ -216,10 +216,25 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
           // change so a live switch (nav dropdown/Characters tab, S3)
           // re-filters the whole UI without a reload -- see
           // registerVisibilityChangeHandler's fan-out in codex.js.
+          //
+          // Bugfix (Aug 2026, player-reported): this doc also receives
+          // presence.js's heartbeat writes (lastOnline) -- on attach, every
+          // 4 min, and on every 'visibilitychange' (which iOS Safari fires
+          // when a native <select> popup or the keyboard opens). Previously
+          // this called updateAccessUI()/notifyVisibilityChange() on EVERY
+          // snapshot unconditionally, which calls the Codex tab's raw
+          // renderDetailForSelected() and wipes the entity edit form mid-
+          // interaction -- a heartbeat-only write has no role or active-
+          // character change, so it needs no UI reconciliation at all. Only
+          // fire when something that actually affects the UI changed.
           const data = snap.data();
-          state.activeCharacterId = (data && data.activeCharacterId) || null;
-          updateAccessUI(snap.exists() ? 'player' : 'viewer');
-          notifyVisibilityChange();
+          const newActiveCharacterId = (data && data.activeCharacterId) || null;
+          const newRole = snap.exists() ? 'player' : 'viewer';
+          const activeCharacterChanged = state.activeCharacterId !== newActiveCharacterId;
+          const roleChanged = state.currentRole !== newRole;
+          state.activeCharacterId = newActiveCharacterId;
+          if (roleChanged) updateAccessUI(newRole);
+          if (roleChanged || activeCharacterChanged) notifyVisibilityChange();
         }), function (err) {
           console.error('players doc listener failed:', err.message);
         });
