@@ -1998,7 +1998,8 @@ button:disabled:hover { border-color: var(--void-line); }
    since they don't also carry .pane-title. ID-scoped override (S11)
    matches specificity and wins on source order, put back flush with
    the pane's own top padding like #codex-list-pane's heading. */
-#characters-gm-list-pane .pane-title, #characters-player-list-pane .pane-title { margin-top: 0; }
+#characters-gm-list-pane .pane-title, #characters-player-list-pane .pane-title,
+#encounters-list-pane .pane-title, #stables-list-pane .pane-title { margin-top: 0; }
 .characters-detail-pane { flex: 1; min-width: 0; }
 /* .characters-add-btn / .characters-remove-btn: small icon-only circular
    buttons, same exception family as .vis-kebab-btn (QOL-BACKLOG
