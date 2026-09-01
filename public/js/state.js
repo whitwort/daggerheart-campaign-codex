@@ -99,4 +99,5 @@ export const state = {
   allEncounters: [],
   encountersSelectedId: null,
   encountersDetailTab: 'build',  // Phase 15 A1 -- Build/Run tab shell in the encounter detail pane; shared + persistent across selection changes (charactersDetailTab precedent)
+  encountersListTab: 'active',   // Sep 2026 -- Encounters list browser: 'active' | 'completed' (stablesDropsTab precedent)
 };
