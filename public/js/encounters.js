@@ -727,8 +727,11 @@ function buildAdversariesSection(enc) {
     function (checked) { updateEncounter(enc.id, { revealAdversariesTiming: checked ? 'completion' : 'off' }); }
   );
   completionField.querySelector('input').disabled = (timing === 'start');
-  section.appendChild(startField);
-  section.appendChild(completionField);
+  const revealRow = document.createElement('div');
+  revealRow.className = 'encounter-reveal-row';
+  revealRow.appendChild(startField);
+  revealRow.appendChild(completionField);
+  section.appendChild(revealRow);
 
   groupInstances(enc).forEach(function (g) {
     section.appendChild(buildAdversaryGroup(enc, g, 'build'));
@@ -1081,8 +1084,6 @@ function buildLootSection(enc) {
     !!enc.lootAutoReveal,
     function (checked) { updateEncounter(enc.id, { lootAutoReveal: checked }); }
   );
-  revealField.classList.add('encounter-loot-reveal-field');
-  section.appendChild(revealField);
 
   // Inert placeholder (header comment).
   const showOnCompletionField = buildToggleField(
@@ -1090,8 +1091,12 @@ function buildLootSection(enc) {
     !!enc.revealLootOnCompletion,
     function (checked) { updateEncounter(enc.id, { revealLootOnCompletion: checked }); }
   );
-  showOnCompletionField.classList.add('encounter-loot-reveal-field');
-  section.appendChild(showOnCompletionField);
+
+  const revealRow = document.createElement('div');
+  revealRow.className = 'encounter-reveal-row';
+  revealRow.appendChild(revealField);
+  revealRow.appendChild(showOnCompletionField);
+  section.appendChild(revealRow);
 
   const actions = document.createElement('div');
   actions.className = 'actions-row';
