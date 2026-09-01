@@ -2861,11 +2861,14 @@ button:disabled:hover { border-color: var(--void-line); }
   color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em;
 }
 .encounter-loot { margin-top: 1.2rem; }
-/* Reveal-timing/auto-reveal toggles: same field shape as the config row's
-   High Damage switch, stacked full-width instead of inline (label text
-   is longer here than "High damage"). */
+/* Reveal-timing/auto-reveal toggle pairs: side by side, wrap to a
+   second line on narrow widths rather than the previous one-per-row
+   stack (feedback: "the two checkboxes can be on the same row"). */
+.encounter-reveal-row {
+  display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; margin-top: 0.5rem;
+}
 .encounter-toggle-field, .encounter-loot-reveal-field {
-  display: flex; align-items: center; gap: 0.5rem; margin-top: 0.4rem;
+  display: flex; align-items: center; gap: 0.5rem;
 }
 .encounter-toggle-field .encounter-config-label,
 .encounter-loot-reveal-field .encounter-config-label { flex: 0 0 auto; }
@@ -2878,10 +2881,16 @@ button:disabled:hover { border-color: var(--void-line); }
    (QOL-BACKLOG) -- width:auto, sized to label, sits in the SAME row as
    the Build/Run tab buttons, pushed right by margin-left:auto so it
    renders above the tabsRow border-bottom rather than inside either
-   panel's content. */
+   panel's content. Hope outline+fill so they read as clearly-actionable
+   buttons, not flat tab-style chrome (feedback: "look more like
+   buttons"). */
 .encounter-detail-tabs { position: relative; }
 .encounter-run-actions {
   margin-left: auto; display: flex; gap: 0.5rem; align-items: center;
   padding-bottom: 0.4rem;
 }
-.encounter-run-actions button { width: auto; min-width: 0; }
+.encounter-run-actions button {
+  width: auto; min-width: 0;
+  background: var(--hope-glow); color: var(--hope); border: 1px solid var(--hope);
+}
+.encounter-run-actions button:hover { background: var(--hope); color: #2a2010; }
