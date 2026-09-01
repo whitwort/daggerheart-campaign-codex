@@ -94,6 +94,40 @@ jobs:
       - name: Firestore Security Rules unit tests
         run: npm run test:rules
 
+      - name: Checkout private backups repo
+        uses: actions/checkout@v4
+        with:
+          repository: whitwort/aethers-children-data
+          token: ${{ secrets.BACKUP_REPO_PAT }}
+          path: backup-repo
+
+      - name: Install firebase-admin (for pre-deploy backup)
+        run: npm install --no-save firebase-admin@12
+
+      - name: Write Firestore admin key (for pre-deploy backup)
+        run: echo '${{ secrets.FIRESTORE_ADMIN_SERVICE_ACCOUNT_KEY }}' > /tmp/firestore-admin-key.json
+
+      - name: Pre-deploy backup (per-release rollback point)
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/firestore-admin-key.json
+        run: |
+          # Same script/creds as the daily cron (backup.yml), same
+          # private repo, but named after the release tag instead of
+          # the date -- gives a rollback point tied to this exact
+          # deploy, distinct from the daily rolling backup. Not a
+          # replacement for the cron; keep both.
+          TAG="${{ github.event.release.tag_name }}"
+          node scripts/firestore-backup.js export \
+            --project daggerheart-campaign-codex \
+            --out backup-repo/prod-release-${TAG}.json
+          cd backup-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git diff --staged --quiet && echo "No changes" && exit 0
+          git commit -m "Pre-deploy backup for release ${TAG}"
+          git push
+
       - name: Stamp build label
         run: |
           # The Release tag is the single source of version truth:
@@ -144,3 +178,28 @@ jobs:
             }).then(() => { console.log('version doc written:', process.env.HASH, process.env.VERSION); process.exit(0); })
              .catch(err => { console.error(err); process.exit(1); });
           "
+
+      - name: Post-deploy smoke test
+        run: |
+          # Confirms the live site actually served THIS build, not a
+          # stale CDN edge or a broken deploy -- fetches the default
+          # .web.app URL (works regardless of any custom domain) and
+          # checks the stamped build hash appears in the HTML. Retries
+          # for up to ~60s since Hosting propagation isn't always
+          # instant. Failure here doesn't roll anything back (no
+          # approval gate/auto-rollback yet, deliberately deferred) --
+          # it fails the workflow run so Gregg notices immediately
+          # instead of finding out from a player.
+          HASH=$(git rev-parse --short HEAD)
+          URL="https://daggerheart-campaign-codex.web.app"
+          for i in 1 2 3 4 5 6; do
+            BODY=$(curl -sS --fail "$URL" || true)
+            if echo "$BODY" | grep -q "$HASH"; then
+              echo "Smoke test OK: $HASH found at $URL"
+              exit 0
+            fi
+            echo "Attempt $i: hash $HASH not yet visible at $URL, retrying in 10s..."
+            sleep 10
+          done
+          echo "Smoke test FAILED: $HASH never appeared at $URL"
+          exit 1
