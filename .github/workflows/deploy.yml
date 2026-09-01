@@ -23,6 +23,12 @@ jobs:
       - name: Lint (no-undef gate)
         run: npx --yes eslint@8 --no-eslintrc -c .eslintrc.check.json public/js/*.js
 
+      - name: Install rules test deps
+        run: npm install
+
+      - name: Firestore Security Rules unit tests
+        run: npm run test:rules
+
       - name: Stamp build label
         run: sed -i "s/__BUILD_LABEL__/build $(git rev-parse --short HEAD) (dev)/" public/index.html
 
@@ -81,6 +87,12 @@ jobs:
 
       - name: Lint (no-undef gate)
         run: npx --yes eslint@8 --no-eslintrc -c .eslintrc.check.json public/js/*.js
+
+      - name: Install rules test deps
+        run: npm install
+
+      - name: Firestore Security Rules unit tests
+        run: npm run test:rules
 
       - name: Stamp build label
         run: |

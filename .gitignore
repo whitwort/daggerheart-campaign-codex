@@ -22,3 +22,7 @@ node_modules/
 *.swp
 *~
 __pycache__/
+
+# Firestore emulator debug logs (test:rules)
+firestore-debug.log
+ui-debug.log
