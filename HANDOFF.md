@@ -10,7 +10,81 @@ last present at the commit tagged v0.2b's successor). Code comments
 citing e.g. "phase-14-design.md §5.1" are historical pointers into
 those deleted docs — resolve via git history, don't "fix" the comments.
 
-## Current state (end of session, Aug 27 2026)
+## Current state (end of session, Aug 28 2026)
+
+HEAD: `a883ec4`. Deployed to **dev only** (push-to-main auto-deploys dev;
+no Release tag cut this session, so prod is still on v0.7b/`1a08007`).
+
+**This session: player-reported bug — entity edit form (Codex tab) loses
+focus / reverts the instant you touch any field, dropdown included.**
+Three commits, in order of what was actually wrong:
+
+1. `2c8f09a` — defensive-but-wrong-target fix: guarded codex.js's own
+   `entities`/`loreItems`/`entityImages` `onSnapshot` handlers so a
+   snapshot arriving mid-edit doesn't force the destructive
+   `detailEl.innerHTML=''` rebuild while focus is inside the form
+   (`safeRenderDetailForSelected`, defers to next `focusout`). Deployed,
+   retested by Gregg, **did not fix it** — wrong listener.
+2. `f577631` — actual trigger found: `auth.js`'s `playerDocUnsub`
+   (listens on `players/{email}`) called `updateAccessUI()` +
+   `renderDetailForSelected()` unconditionally on EVERY snapshot of that
+   doc — including `presence.js`'s heartbeat writes to that same doc's
+   `lastOnline` field (on attach, every 4 min, and on every
+   `visibilitychange` — which iOS Safari fires when a native `<select>`
+   popup or the keyboard opens). GM has no `players/` doc → no
+   heartbeat → player-only symptom, matching the report exactly. Patched
+   to only re-render when role/`activeCharacterId` actually changed.
+   This alone would have fixed it.
+3. `a883ec4` — root-cause fix, done at Gregg's request after a retro
+   (see below): split the heartbeat into its own `presence/{email}` doc
+   instead of sharing `players/{email}`, so no future write to that doc
+   can ever trigger this class of bug again. New Firestore rule
+   (`presence/{email}`: write-only `lastOnline`, own doc only, GM-only
+   read), new `admin.js` `presenceUnsub` listener feeding
+   `state.allPresence` (re-renders only the Status column, never
+   `renderCharactersTab()`), `state.allPresence` added. Also fixed the
+   **same bug's mirror image on the GM side** while tracing it:
+   `admin.js`'s old `players` listener called `renderCharactersTab()` on
+   every snapshot too, so any player's heartbeat would have reset a GM's
+   in-progress Characters-tab edit — never reported, caught by
+   inspection. `presence` deliberately excluded from both backup
+   scripts' `COLLECTIONS` (ephemeral, same reasoning as `_meta`). Old
+   `players/{email}.lastOnline` fields are stale/orphaned now — harmless,
+   left in place (no cleanup pass).
+
+**Retro discussion (why this took 3 commits):** static analysis
+(ESLint/`node --check`) can't catch this class of bug — it's a runtime
+data-flow interaction through Firestore (write to doc X → fires listener
+on doc X → triggers render), not a JS syntax/scope issue. The real fix
+is architectural (separate docs for separate write-frequency/consumer
+patterns, done here) rather than tooling. Considered adding a Playwright
+player-role smoke test to CI (sign in as test player, open an edit form,
+wait past a heartbeat/visibilitychange window, assert focus survives) —
+new infra, not yet built; revisit if this class of bug recurs.
+
+**Also this session:** `scripts/firestore-backup.js` had no retry logic
+— a transient `RESOURCE_EXHAUSTED` (backup run #22, Aug 27, coincided
+with a heavy admin session: two SRD imports + a purge run) killed the
+whole export. Added `getWithRetry()`: 5 tries, exponential backoff
+(1/2/4/8s), only for codes 8 (`RESOURCE_EXHAUSTED`) / 14 (`UNAVAILABLE`)
+— anything else rethrows immediately. Backup history otherwise clean
+(8/22–8/26 all succeeded); not re-verified since (next cron or a manual
+`workflow_dispatch` will confirm).
+
+**Next step (Gregg):** retest the player edit-form fix (Characters →
+Edit in Codex → open a dropdown / type in a field). Should be solid now
+— `a883ec4` removes the trigger rather than filtering it.
+
+**Carried over, unchanged from last session (still open):**
+- Prod SRD 2.0 migration: in **prod**, Admin > Import from SRD > Update
+  entries; spot-check one of each new type. (Dev's copy is done and
+  confirmed good.)
+- Manual QA pass on presence/GM-notification features (shipped v0.7b,
+  never clicked through in the UI) — do this together with the above
+  retest, same session.
+- Click "Purge legacy image docs" in dev (UI exists, never run).
+
+## Prior session: SRD 2.0 extraction complete, v0.7b (Aug 27 2026)
 
 HEAD: `1a08007` = tag **v0.7b**, deployed to BOTH dev and prod (release
 run green). Prod code is current; prod DATA is not yet (see next step).
@@ -72,12 +146,13 @@ against the builder's constants before porting).
 Party presence (`presence.js` heartbeat, Admin > Manage Party Status
 column) + GM notifications for player-initiated activity (character
 edits, shares that expose new party members) — single commit `48d09bf`.
-- **Party presence**: `players/{email}.lastOnline`, written by new
-  `presence.js` heartbeat (stamp on attach/tab-foreground + 4 min
+- **Party presence**: originally `players/{email}.lastOnline`, written
+  by `presence.js` heartbeat (stamp on attach/tab-foreground + 4 min
   interval while a player's tab is open; GM has no `players/` doc, so
-  player-only). Rules: `players/{email}` update whitelist now allows
-  `lastOnline` alongside `activeCharacterId`. Admin > Manage Party has
-  a new **Status** column — "Online" (stamp <5 min old), "Last online
+  player-only). **Moved to its own `presence/{email}` doc Aug 28 2026**
+  — see Current State above; sharing the doc with role/activeCharacterId
+  caused a focus-loss bug in the entity edit form. Admin > Manage Party
+  has a **Status** column — "Online" (stamp <5 min old), "Last online
   \<local date/time\>", or "Never online" — computed at render time,
   no refresh timer (same staleness tradeoff the Messages digest's
   relative-time already carries; consistent with existing precedent,
@@ -180,14 +255,18 @@ just STOPS (no FAILED line) = hung promise, not a throw.
 
 - Click Purge legacy image docs in dev (UI now exists).
 - Deploy-workflow hardening: approval gate, rules unit tests,
-  pre-deploy backup, post-deploy smoke test — decide priority.
+  pre-deploy backup, post-deploy smoke test — decide priority. (A
+  player-role Playwright smoke test came up again this session re: the
+  focus-loss bug retro — still not built, still just an idea.)
 - Post-launch optimizations: dynamic-import GM-only modules (~3k
   lines), codex.js split (4.8k lines, 5-module cycle), vendor/**
   long-cache header.
 - Encounter-builder integration exploration; single-entry restore
   "delete orphans" mode — both deferred.
 - Manual QA pass on presence/GM-notification features (shipped in
-  v0.7b).
+  v0.7b) — bundle with retesting the Aug 28 focus-loss fix.
+- Confirm firestore-backup.js's new retry logic actually helps: next
+  cron run or a manual workflow_dispatch will tell.
 
 ## Session ritual
 
