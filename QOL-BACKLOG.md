@@ -130,8 +130,9 @@ height, with NO per-context exceptions, except:**
     `.encounter-run-actions button` (Sep 2026, run state machine).
     Sit in the same row as the Build/Run tab buttons themselves
     (pushed right via `margin-left:auto` on the group), not stacked
-    with any other button group -- sized to label, exception-9-like.
-    `width: auto; min-width: 0;`.
+    with any other button group -- all three matching, sized to fit
+    the longest label ("Complete"), exception-10-like.
+    `width: 7rem; min-width: 7rem;`.
 
 Base width lowered from 13rem to 12rem as of the "+ New party member"
 → "+ New member" rename (that label no longer defines the floor).
