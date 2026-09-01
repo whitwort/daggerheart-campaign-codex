@@ -41,6 +41,7 @@ import { renderMarkdownInto } from './markdown.js';
 const db = getFirestore(firebaseApp);
 
 const listEl = document.getElementById('encounters-list');
+const listTabsEl = document.getElementById('encounters-list-tabs');
 const detailEl = document.getElementById('encounters-detail-pane');
 const newBtn = document.getElementById('encounters-new-btn');
 
@@ -87,7 +88,15 @@ function createEncounter() {
     runStatus: 'pristine'
   };
   trackWrite(addDoc(collection(db, 'encounters'), data), 'Creating encounter')
-    .then(function (ref) { state.encountersSelectedId = ref.id; renderEncountersTab(); });
+    .then(function (ref) {
+      // New encounters are always pristine -> Active; switch the list
+      // tab too so a GM sitting on Completed doesn't create one and
+      // see it vanish from the visible list (same as new detail
+      // selection, just for the filter).
+      state.encountersListTab = 'active';
+      state.encountersSelectedId = ref.id;
+      renderEncountersTab();
+    });
 }
 
 // Every mutation goes through here: partial field update + updatedAt
@@ -272,9 +281,24 @@ function renderEncountersTab() {
   renderEncounterDetail();
 }
 
+// Active = pristine|started (an encounter you'd still pick up and run);
+// Completed = finished. Same split as the Run tab's own state machine
+// (isFullyDefeated/completionFields) -- no separate "archived" status,
+// Reset from Completed moves an encounter straight back to Active.
+function encountersForListTab() {
+  const tab = state.encountersListTab;
+  return state.allEncounters.filter(function (enc) {
+    const finished = (enc.runStatus || 'pristine') === 'finished';
+    return tab === 'completed' ? finished : !finished;
+  });
+}
+
 function renderEncounterList() {
+  listTabsEl.querySelectorAll('button').forEach(function (b) {
+    b.classList.toggle('active', b.dataset.listTab === state.encountersListTab);
+  });
   listEl.innerHTML = '';
-  const encounters = state.allEncounters.slice().sort(function (a, b) {
+  const encounters = encountersForListTab().sort(function (a, b) {
     // updatedAt desc (OI4); serverTimestamp is briefly null on the
     // local echo of a fresh write — treat null as newest.
     const am = a.updatedAt ? a.updatedAt.toMillis() : Infinity;
@@ -284,7 +308,9 @@ function renderEncounterList() {
   if (!encounters.length) {
     const p = document.createElement('p');
     p.className = 'lore-empty';
-    p.textContent = 'No encounters yet.';
+    p.textContent = state.encountersListTab === 'completed'
+      ? 'No completed encounters yet.'
+      : 'No active encounters. Create one, or check Completed.';
     listEl.appendChild(p);
     return;
   }
@@ -1478,6 +1504,14 @@ function openLootPicker(enc) {
   renderResults();
   searchInput.focus();
 }
+
+listTabsEl.querySelectorAll('button').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    state.encountersListTab = btn.dataset.listTab;
+    state.encountersSelectedId = null;
+    renderEncountersTab();
+  });
+});
 
 newBtn.addEventListener('click', createEncounter);
 

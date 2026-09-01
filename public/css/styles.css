@@ -838,15 +838,16 @@ select {
 /* Phase 17 B3: Stables tab. Drop browser sub-tabs mirror #admin-db-tabs'
    flat tab treatment (QOL exception 2 family); list rows mirror the
    Entry Browser's flat-row look; Run/Undo/Delete use the app-default
-   button width. */
-#stables-drops-tabs { display: flex; gap: 0.25rem; margin-top: 0.25rem; border-bottom: 1px solid rgba(0,0,0,0.6); }
-#stables-drops-tabs button {
+   button width. Encounters list tab (Sep 2026, Active/Completed) reuses
+   this same treatment -- identical shape, no need for a second block. */
+#stables-drops-tabs, #encounters-list-tabs { display: flex; gap: 0.25rem; margin-top: 0.25rem; border-bottom: 1px solid rgba(0,0,0,0.6); }
+#stables-drops-tabs button, #encounters-list-tabs button {
   padding: 0.4rem 0.9rem; cursor: pointer; background: none; border: none; border-radius: 0; box-shadow: none;
   border-bottom: 3px solid transparent; font-size: 0.9rem; color: var(--ink-soft);
   font-family: var(--font-display), sans-serif; font-weight: 400;
   width: auto; min-width: 0; text-align: left;
 }
-#stables-drops-tabs button.active { border-bottom-color: var(--hope); color: var(--parchment); }
+#stables-drops-tabs button.active, #encounters-list-tabs button.active { border-bottom-color: var(--hope); color: var(--parchment); }
 .stables-drop-list { list-style: none; padding: 0; margin: 0.25rem 0 0 0; }
 .stables-drop-type-header {
   margin-top: 0.6rem; font-family: var(--font-display), sans-serif;
