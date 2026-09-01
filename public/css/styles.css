@@ -2894,5 +2894,7 @@ button:disabled:hover { border-color: var(--void-line); }
 .encounter-run-actions button {
   width: 7rem; min-width: 7rem;
   background: var(--hope-glow); color: var(--hope); border: 1px solid var(--hope);
+  border-radius: 8px; text-align: center; padding: 0.5rem 1rem; font-size: 0.9rem;
+  font-family: var(--font-body), sans-serif;
 }
 .encounter-run-actions button:hover { background: var(--hope); color: #2a2010; }
