@@ -3,10 +3,31 @@
 // per encounter (build-time and play-time are the same surface — E1/§1),
 // battle-point difficulty calculator ported from
 // daggerheart-encounter-builder (§4), per-instance HP/Stress tracking.
+//
+// Post-Phase-15 addition (Sep 2026): Loot section (Build tab, Equipment
+// entities, same picker/instance-group shape as Adversaries but no
+// per-instance play state — a loot list is just "what this encounter
+// drops", not individually trackable). `lootAutoReveal` is the one wired
+// behavior: at Run completion, any loot entity still `visibility:
+// 'gm-only'` flips to `'all-players'` ("Party"). The three
+// `revealAdversariesTiming`/`revealLootOnCompletion` toggles are captured
+// but INERT — their actual effect is scoped to the future Codex Scene
+// <-> encounter integration, not decided yet. Don't wire behavior to them
+// without checking that design first.
+//
+// Run state machine: `runStatus` ('pristine'|'started'|'finished') is a
+// stored field, not purely derived — see maybeAutoTransition/
+// isFullyDefeated for why (can't distinguish "never touched" from
+// "touched then healed back down", and edge-triggering the reveal-on-
+// completion effects needs a real transition, not a level-triggered
+// recheck every render). Auto pristine->started is scoped to actual
+// play-time marks (HP/Stress/conditions via patchInstance) only — adding/
+// removing adversaries or loot from the roster does not by itself start
+// the run; see maybeAutoTransition's comment.
 
 import {
   getFirestore, doc, collection, addDoc, deleteDoc, updateDoc,
-  onSnapshot, serverTimestamp
+  onSnapshot, serverTimestamp, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
@@ -57,7 +78,13 @@ function createEncounter() {
     partyTier: 2,
     highDamage: false,
     environmentId: null,
-    instances: []
+    instances: [],
+    loot: [],
+    lootAutoReveal: false,
+    // Inert placeholders — see header comment. 'off'|'start'|'completion'.
+    revealAdversariesTiming: 'off',
+    revealLootOnCompletion: false,
+    runStatus: 'pristine'
   };
   trackWrite(addDoc(collection(db, 'encounters'), data), 'Creating encounter')
     .then(function (ref) { state.encountersSelectedId = ref.id; renderEncountersTab(); });
@@ -204,6 +231,32 @@ function getSelectedEncounter() {
   return state.allEncounters.find(function (e) { return e.id === state.encountersSelectedId; }) || null;
 }
 
+// Shared toggle-switch field builder (house style: toggle-switch, not
+// checkbox, per QOL-BACKLOG). Returns the wrapping <label> so callers can
+// add classes; the <input> is reachable via .querySelector('input') if a
+// caller needs to set .disabled (buildAdversariesSection's mutual-
+// exclusivity pair does this).
+function buildToggleField(labelText, checked, onChange) {
+  const wrap = document.createElement('label');
+  wrap.className = 'encounter-config-field encounter-toggle-field';
+  const span = document.createElement('span');
+  span.className = 'encounter-config-label';
+  span.textContent = labelText;
+  wrap.appendChild(span);
+  const switchLabel = document.createElement('label');
+  switchLabel.className = 'toggle-switch';
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  input.checked = checked;
+  const slider = document.createElement('span');
+  slider.className = 'toggle-slider';
+  switchLabel.appendChild(input);
+  switchLabel.appendChild(slider);
+  wrap.appendChild(switchLabel);
+  input.addEventListener('change', function () { onChange(input.checked); });
+  return wrap;
+}
+
 function renderEncountersTab() {
   if (state.currentRole !== 'gm') return;
   // Hidden-panel guard, same reasoning as renderCharactersTab's
@@ -265,7 +318,7 @@ function renderEncounterDetail() {
   }
   // A1: Build/Run tab shell (Characters Cards/Sheet pattern).
   const tabsRow = document.createElement('div');
-  tabsRow.className = 'character-detail-tabs';
+  tabsRow.className = 'character-detail-tabs encounter-detail-tabs';
   [['build', 'Build'], ['run', 'Run']].forEach(function (pair) {
     const tabBtn = document.createElement('button');
     tabBtn.type = 'button';
@@ -277,6 +330,9 @@ function renderEncounterDetail() {
     });
     tabsRow.appendChild(tabBtn);
   });
+  if (state.encountersDetailTab === 'run') {
+    tabsRow.appendChild(buildRunActionsGroup(enc));
+  }
   detailEl.appendChild(tabsRow);
 
   if (state.encountersDetailTab === 'run') {
@@ -286,6 +342,7 @@ function renderEncounterDetail() {
     detailEl.appendChild(buildConfigRow(enc));
     detailEl.appendChild(buildDifficultyPanel(enc));
     detailEl.appendChild(buildAdversariesSection(enc));
+    detailEl.appendChild(buildLootSection(enc));
   }
 }
 
@@ -531,7 +588,118 @@ function patchInstance(enc, target, fields) {
   const instances = (enc.instances || []).map(function (i) {
     return i === target ? Object.assign({}, i, fields) : i;
   });
-  updateEncounter(enc.id, { instances: instances });
+  const updates = { instances: instances };
+  maybeAutoTransition(enc, updates);
+  updateEncounter(enc.id, updates);
+}
+
+// --- Run state machine ---------------------------------------------------
+// pristine -> started: Start click (startRun) or the first play-time
+// mutation (any instance/loot HP/Stress/condition change) while still
+// pristine. started -> finished: Complete click (completeRun) or every
+// adversary instance derived-defeated (same hpMax/hp>=hpMax check
+// buildInstanceRow uses). {pristine,started} -> pristine: Reset, which
+// also zeroes every adversary instance's hp/stress/conditions (Loot has
+// no per-instance state to clear — see header comment).
+
+function isFullyDefeated(enc) {
+  const groups = groupInstances(enc);
+  const adversaryGroups = groups.filter(function (g) { return g.entity; });
+  if (!adversaryGroups.length) return false; // nothing to fight -> never auto-completes
+  return adversaryGroups.every(function (g) {
+    const hpMax = parseInt((g.entity.details || {}).hp, 10);
+    if (isNaN(hpMax) || hpMax <= 0) return false; // unknown max can never derive defeated (E4/§3)
+    return g.instances.every(function (i) { return (i.hp || 0) >= hpMax; });
+  });
+}
+
+// Called only from patchInstance (HP/Stress track-box clicks, condition
+// select changes) -- deliberately NOT from addInstance/removeGroupInstance.
+// Those fire from the Build tab's own "+ Add adversary"/group controls
+// (and the Run tab's mirrored header controls), and assembling/adjusting
+// the roster shouldn't by itself declare the fight "started"; only actual
+// play-time marks should. `updates` is the in-flight updateEncounter
+// payload for THIS write -- mutated in place so the runStatus transition
+// rides the same write instead of a second round-trip.
+function maybeAutoTransition(enc, updates) {
+  const status = enc.runStatus || 'pristine';
+  if (status === 'pristine') {
+    updates.runStatus = 'started';
+  }
+  const nextEnc = Object.assign({}, enc, updates);
+  if ((updates.runStatus || status) === 'started' && isFullyDefeated(nextEnc)) {
+    Object.assign(updates, completionFields(enc));
+  }
+}
+
+// Fields to merge into an update that transitions the encounter into
+// 'finished' -- shared by the auto-detect path (maybeAutoTransition) and
+// the explicit Complete button (completeRun). Also fires the ONE wired
+// reveal effect: lootAutoReveal flips any still-hidden loot entity to
+// Party. (revealAdversariesTiming/revealLootOnCompletion are read here
+// for future wiring but currently do nothing -- see header comment.)
+function completionFields(enc) {
+  if (enc.lootAutoReveal) revealHiddenLoot(enc);
+  return { runStatus: 'finished' };
+}
+
+function revealHiddenLoot(enc) {
+  const hidden = (enc.loot || [])
+    .map(function (inst) { return entityById(inst.entityId); })
+    .filter(function (e) { return e && e.visibility === 'gm-only'; });
+  if (!hidden.length) return;
+  const batch = writeBatch(db);
+  const seen = {};
+  hidden.forEach(function (e) {
+    if (seen[e.id]) return; // multiple loot instances can point at the same entity
+    seen[e.id] = true;
+    batch.update(doc(db, 'entities', e.id), { visibility: 'all-players', updatedAt: serverTimestamp() });
+  });
+  trackWrite(batch.commit(), 'Revealing loot');
+}
+
+function startRun(enc) {
+  updateEncounter(enc.id, { runStatus: 'started' });
+}
+
+function completeRun(enc) {
+  updateEncounter(enc.id, completionFields(enc));
+}
+
+function resetRun(enc) {
+  if (!window.confirm('Reset this run? All HP/Stress marks and conditions will be cleared.')) return;
+  const instances = (enc.instances || []).map(function (i) {
+    return Object.assign({}, i, { hp: 0, stress: 0, conditions: [] });
+  });
+  updateEncounter(enc.id, { instances: instances, runStatus: 'pristine' });
+}
+
+// Right-aligned action group for the Build/Run tabsRow, Run tab only
+// (§ user request: "buttons on upper right of tab, above tab menu
+// horizontal line" -- same flex row as the Build/Run tab buttons
+// themselves, pushed right, sitting above tabsRow's border-bottom).
+function buildRunActionsGroup(enc) {
+  const group = document.createElement('div');
+  group.className = 'encounter-run-actions';
+  const status = enc.runStatus || 'pristine';
+
+  function btn(label, onClick) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    b.addEventListener('click', onClick);
+    group.appendChild(b);
+  }
+
+  if (status === 'pristine') {
+    btn('Start', function () { startRun(enc); });
+  } else if (status === 'started') {
+    btn('Reset', function () { resetRun(enc); });
+    btn('Complete', function () { completeRun(enc); });
+  } else {
+    btn('Reset', function () { resetRun(enc); });
+  }
+  return group;
 }
 
 // --- Adversaries section (§5.2 item 4) --------------------------------
@@ -539,6 +707,28 @@ function patchInstance(enc, target, fields) {
 function buildAdversariesSection(enc) {
   const section = document.createElement('div');
   section.className = 'encounter-adversaries';
+
+  const heading = document.createElement('div');
+  heading.className = 'encounter-section-heading';
+  heading.textContent = 'Adversaries';
+  section.appendChild(heading);
+
+  // Inert placeholders (header comment) -- mutual exclusivity: checking
+  // "on start" disables (not just unchecks) "on completion", per spec.
+  const timing = enc.revealAdversariesTiming || 'off';
+  const startField = buildToggleField(
+    'Show adversaries on start',
+    timing === 'start',
+    function (checked) { updateEncounter(enc.id, { revealAdversariesTiming: checked ? 'start' : 'off' }); }
+  );
+  const completionField = buildToggleField(
+    'Show adversaries on completion',
+    timing === 'completion',
+    function (checked) { updateEncounter(enc.id, { revealAdversariesTiming: checked ? 'completion' : 'off' }); }
+  );
+  completionField.querySelector('input').disabled = (timing === 'start');
+  section.appendChild(startField);
+  section.appendChild(completionField);
 
   groupInstances(enc).forEach(function (g) {
     section.appendChild(buildAdversaryGroup(enc, g, 'build'));
@@ -824,6 +1014,156 @@ function buildAdvStatStrip(entity) {
   return stripEl;
 }
 
+// --- Loot section (Build tab only -- no per-instance play state, see --
+// --- header comment; same picker/instance-group shape as Adversaries --
+// --- minus hp/stress/conditions) ---------------------------------------
+
+function groupLoot(enc) {
+  const groups = [];
+  const byEntity = {};
+  (enc.loot || []).forEach(function (inst) {
+    let g = byEntity[inst.entityId];
+    if (!g) {
+      g = { entityId: inst.entityId, entity: entityById(inst.entityId), instances: [] };
+      byEntity[inst.entityId] = g;
+      groups.push(g);
+    }
+    g.instances.push(inst);
+  });
+  return groups;
+}
+
+function nextLootLabel(enc, entityId, name) {
+  let maxN = 0;
+  (enc.loot || []).forEach(function (inst) {
+    if (inst.entityId !== entityId) return;
+    const m = /(\d+)$/.exec(inst.label || '');
+    if (m) maxN = Math.max(maxN, parseInt(m[1], 10));
+  });
+  return name + ' ' + (maxN + 1);
+}
+
+function addLootInstance(enc, entity) {
+  const loot = (enc.loot || []).slice();
+  loot.push({ entityId: entity.id, fallbackName: entity.name, label: nextLootLabel(enc, entity.id, entity.name) });
+  updateEncounter(enc.id, { loot: loot });
+}
+
+// No undamaged-preference here (OI3 was HP/Stress-specific) -- loot has
+// no damage concept, always removes the highest-labeled instance.
+function removeLootGroupInstance(enc, entityId) {
+  const loot = (enc.loot || []).slice();
+  const group = loot.filter(function (i) { return i.entityId === entityId; });
+  if (!group.length) return;
+  function suffix(inst) {
+    const m = /(\d+)$/.exec(inst.label || '');
+    return m ? parseInt(m[1], 10) : 0;
+  }
+  const victim = group.reduce(function (a, b) { return suffix(b) > suffix(a) ? b : a; });
+  updateEncounter(enc.id, { loot: loot.filter(function (i) { return i !== victim; }) });
+}
+
+function buildLootSection(enc) {
+  const section = document.createElement('div');
+  section.className = 'encounter-adversaries encounter-loot';
+
+  const heading = document.createElement('div');
+  heading.className = 'encounter-section-heading';
+  heading.textContent = 'Loot';
+  section.appendChild(heading);
+
+  groupLoot(enc).forEach(function (g) {
+    section.appendChild(buildLootGroup(enc, g));
+  });
+
+  const revealField = buildToggleField(
+    'Auto-reveal to Party on drop (hidden items only)',
+    !!enc.lootAutoReveal,
+    function (checked) { updateEncounter(enc.id, { lootAutoReveal: checked }); }
+  );
+  revealField.classList.add('encounter-loot-reveal-field');
+  section.appendChild(revealField);
+
+  // Inert placeholder (header comment).
+  const showOnCompletionField = buildToggleField(
+    'Show loot on completion',
+    !!enc.revealLootOnCompletion,
+    function (checked) { updateEncounter(enc.id, { revealLootOnCompletion: checked }); }
+  );
+  showOnCompletionField.classList.add('encounter-loot-reveal-field');
+  section.appendChild(showOnCompletionField);
+
+  const actions = document.createElement('div');
+  actions.className = 'actions-row';
+  const right = document.createElement('div');
+  right.className = 'actions-row-right';
+  const addBtn = document.createElement('button');
+  addBtn.className = 'action-btn-compact';
+  addBtn.textContent = '+ Add loot';
+  addBtn.addEventListener('click', function () { openLootPicker(enc); });
+  right.appendChild(addBtn);
+  actions.appendChild(right);
+  section.appendChild(actions);
+
+  return section;
+}
+
+function buildLootGroup(enc, g) {
+  const wrap = document.createElement('div');
+  wrap.className = 'encounter-adv-group';
+
+  const header = document.createElement('div');
+  header.className = 'encounter-adv-group-header';
+
+  const title = document.createElement('span');
+  title.className = 'encounter-adv-group-title';
+  const countSpan = document.createElement('span');
+  countSpan.textContent = g.instances.length + '\u00d7 ';
+  title.appendChild(countSpan);
+  if (g.entity) {
+    const link = document.createElement('a');
+    link.href = '#';
+    link.className = 'entity-map-link';
+    link.textContent = g.entity.name;
+    link.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      switchToCodexTabForEntity(g.entity.id);
+    });
+    title.appendChild(link);
+  } else {
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = g.instances[0].fallbackName || '(missing entry)';
+    title.appendChild(nameSpan);
+    const missing = document.createElement('span');
+    missing.className = 'encounter-adv-missing';
+    missing.textContent = ' entry missing';
+    title.appendChild(missing);
+  }
+  header.appendChild(title);
+
+  const controls = document.createElement('div');
+  controls.className = 'encounter-adv-group-controls';
+  const minus = document.createElement('button');
+  minus.className = 'characters-remove-btn';
+  minus.textContent = '\u2212';
+  minus.title = 'Remove one';
+  minus.addEventListener('click', function () { removeLootGroupInstance(enc, g.entityId); });
+  controls.appendChild(minus);
+  const plus = document.createElement('button');
+  plus.className = 'characters-add-btn';
+  plus.textContent = '+';
+  plus.title = 'Add another';
+  plus.disabled = !g.entity;
+  plus.addEventListener('click', function () {
+    if (g.entity) addLootInstance(enc, g.entity);
+  });
+  controls.appendChild(plus);
+  header.appendChild(controls);
+  wrap.appendChild(header);
+
+  return wrap;
+}
+
 // --- Environment block (§5.2 item 5) ----------------------------------
 
 function buildEnvironmentBlock(enc) {
@@ -1009,6 +1349,127 @@ function openAdversaryPicker(enc) {
   searchInput.addEventListener('input', renderResults);
   tierSelect.addEventListener('change', renderResults);
   typeSelect.addEventListener('change', renderResults);
+  renderResults();
+  searchInput.focus();
+}
+
+// --- Loot picker (parallel to the Adversary picker above, Equipment --
+// --- category, subtype filter instead of Tier/Type) --------------------
+
+function openLootPicker(enc) {
+  if (document.querySelector('.encounter-picker-panel')) return;
+  const encId = enc.id;
+
+  const built = buildPickerPanel({ draggable: true, className: 'encounter-picker-panel', title: 'Add loot' });
+  const panel = built.panel;
+  const body = built.body;
+
+  const searchInput = document.createElement('input');
+  searchInput.type = 'text';
+  searchInput.placeholder = 'Search\u2026';
+  searchInput.className = 'encounter-picker-search';
+  body.appendChild(searchInput);
+
+  const filterRow = document.createElement('div');
+  filterRow.className = 'encounter-picker-filters';
+  const equipment = state.allEntities.filter(function (e) { return e.category === 'Equipment'; });
+
+  const subtypeSelect = document.createElement('select');
+  const anyOpt = document.createElement('option');
+  anyOpt.value = ''; anyOpt.textContent = 'Any type';
+  subtypeSelect.appendChild(anyOpt);
+  Array.from(new Set(equipment.map(function (e) { return e.subtype || ''; })))
+    .filter(Boolean)
+    .sort()
+    .forEach(function (t) {
+      const opt = document.createElement('option');
+      opt.value = t; opt.textContent = t.charAt(0).toUpperCase() + t.slice(1);
+      subtypeSelect.appendChild(opt);
+    });
+  filterRow.appendChild(subtypeSelect);
+  body.appendChild(filterRow);
+
+  const results = document.createElement('div');
+  results.className = 'encounter-picker-results';
+  body.appendChild(results);
+
+  const actions = document.createElement('div');
+  actions.className = 'modal-actions';
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = 'Close';
+  closeBtn.addEventListener('click', closePanel);
+  actions.appendChild(closeBtn);
+  body.appendChild(actions);
+
+  function closePanel() {
+    document.removeEventListener('keydown', onKey);
+    panel.remove();
+  }
+  function onKey(ev) {
+    if (ev.key === 'Escape') closePanel();
+  }
+  document.addEventListener('keydown', onKey);
+
+  // Equipment's structured `details` vary wildly by subtype (weapons:
+  // trait/range/damage; armor: base_score/base_thresholds; consumables/
+  // items mostly live in markdown lore items, not `details` at all --
+  // see srd-import.js). No subtype-specific bespoke summary line here;
+  // just join whatever scalar detail fields exist, capped, same
+  // degrade-gracefully approach as the missing-entity fallback elsewhere.
+  function summaryLine(e) {
+    const d = e.details || {};
+    const bits = [];
+    if (d.tier) bits.push('Tier ' + d.tier);
+    Object.keys(d).filter(function (k) { return k !== 'tier'; }).slice(0, 2)
+      .forEach(function (k) { bits.push(String(d[k])); });
+    return bits.join(' \u00b7 ');
+  }
+
+  function renderResults() {
+    results.innerHTML = '';
+    const q = (searchInput.value || '').trim().toLowerCase();
+    const subtype = subtypeSelect.value;
+    const matches = state.allEntities
+      .filter(function (e) {
+        if (e.category !== 'Equipment') return false;
+        if (subtype && e.subtype !== subtype) return false;
+        return !q || entityMatchesQuery(e, q);
+      })
+      .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+    if (!matches.length) {
+      const p = document.createElement('p');
+      p.className = 'lore-empty';
+      p.textContent = 'No loot matches.';
+      results.appendChild(p);
+      return;
+    }
+    matches.forEach(function (e) {
+      const row = document.createElement('div');
+      row.className = 'encounter-picker-row';
+      const info = document.createElement('div');
+      info.className = 'encounter-picker-row-info';
+      const name = document.createElement('div');
+      name.className = 'entity-name';
+      name.textContent = e.name;
+      info.appendChild(name);
+      const sub = document.createElement('div');
+      sub.className = 'encounter-picker-row-sub';
+      sub.textContent = summaryLine(e);
+      info.appendChild(sub);
+      row.appendChild(info);
+      const addBtn = document.createElement('button');
+      addBtn.textContent = 'Add';
+      addBtn.addEventListener('click', function () {
+        const live = state.allEncounters.find(function (x) { return x.id === encId; });
+        if (live) addLootInstance(live, e);
+      });
+      row.appendChild(addBtn);
+      results.appendChild(row);
+    });
+  }
+
+  searchInput.addEventListener('input', renderResults);
+  subtypeSelect.addEventListener('change', renderResults);
   renderResults();
   searchInput.focus();
 }
