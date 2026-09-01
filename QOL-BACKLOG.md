@@ -126,6 +126,12 @@ height, with NO per-context exceptions, except:**
     `.stables-add-more-btn` stays default-width (grouped with the
     other stacked default-width buttons in that pane, not this
     exception).
+24. Encounters Run tab's Start/Reset/Complete buttons --
+    `.encounter-run-actions button` (Sep 2026, run state machine).
+    Sit in the same row as the Build/Run tab buttons themselves
+    (pushed right via `margin-left:auto` on the group), not stacked
+    with any other button group -- sized to label, exception-9-like.
+    `width: auto; min-width: 0;`.
 
 Base width lowered from 13rem to 12rem as of the "+ New party member"
 → "+ New member" rename (that label no longer defines the floor).
