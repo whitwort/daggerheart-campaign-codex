@@ -520,6 +520,33 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 .modal-actions button { padding: 0.4rem 0.9rem; cursor: pointer; width: auto; min-width: 0; }
 .modal-error { color: var(--notice); font-size: 0.85rem; margin-top: 0.5rem; display: none; }
 
+/* op-status.js: global "Restore/Import/Upload in progress" dialog, shown
+   to every connected client (GM and players). Reuses .modal-overlay/
+   .modal-box but is never dismissable -- no close/cancel button, no
+   backdrop click handler -- it reflects server-driven state and hides
+   itself the moment opStatus/current.active flips false. */
+.op-status-box { text-align: center; }
+.op-status-progress-text {
+  font-size: 0.85rem; color: var(--ink-soft); min-height: 1.2em;
+  white-space: pre-wrap; word-break: break-word;
+}
+.op-status-hint { font-size: 0.8rem; color: var(--ink-soft); margin-top: 1rem; margin-bottom: 0; }
+.op-status-bar-track {
+  height: 0.6rem; border-radius: 999px; background: var(--parchment-edge);
+  overflow: hidden; margin-top: 0.75rem;
+}
+.op-status-bar-fill {
+  height: 100%; width: 0; background: var(--hope);
+  border-radius: 999px; transition: width 0.3s ease;
+}
+.op-status-bar-fill.op-status-bar-indeterminate {
+  width: 40% !important; animation: op-status-indeterminate 1.4s ease-in-out infinite;
+}
+@keyframes op-status-indeterminate {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+
 /* Map pin action buttons: own exception (7), narrower than the base
    13rem-era width, sized to fit the longest label "Remove pin" — all
    three must match each other. */

@@ -6,6 +6,7 @@ import { state } from './state.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
 import { trackWrite } from './connectivity.js';
 import { runSrdImport } from './srd-import.js';
+import { beginOp, updateOp, endOp } from './op-status.js';
 import { renderMarkdownInto } from './markdown.js';
 import { addSource, updateSource, deleteSource, reorderSources, sortedSources, registerSourcesChangeHandler } from './sources.js';
 import { renderCharactersTab } from './characters.js';
@@ -178,17 +179,25 @@ const adminSourceErrorEl = document.getElementById('admin-source-error');
       adminSrdUpdateBtnEl.disabled = true;
       const repo = (state.srdRepo || 'local').trim();
       adminSrdUpdateStatusEl.textContent = 'Starting...';
+      beginOp('srd-import', 'Updating entries from SRD\u2026');
+      // Indeterminate bar: progress spans 17 content types, each with its
+      // own nested fetch/resolve/write sub-steps (see srd-import.js) --
+      // not worth modeling as one overall percent for a run that
+      // normally finishes in well under a minute.
       runSrdImport(repo, function (line) {
         adminSrdUpdateStatusEl.textContent = line;
+        updateOp(line, null);
       }).then(function (results) {
         adminSrdUpdateBtnEl.disabled = false;
         let summary = 'Done: ' + results.created + ' created, ' + results.updated + ' updated';
         if (results.skipped) summary += ', ' + results.skipped + ' skipped (no name)';
         if (results.errors.length) summary += '. Errors: ' + results.errors.join('; ');
         adminSrdUpdateStatusEl.textContent = summary;
+        endOp(summary);
       }).catch(function (err) {
         adminSrdUpdateBtnEl.disabled = false;
         adminSrdUpdateStatusEl.textContent = 'Update failed: ' + err.message;
+        endOp('Update failed: ' + err.message);
       });
     });
 

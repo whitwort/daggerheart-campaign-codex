@@ -27,6 +27,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp } from './firebase.js';
 import { entityMatchesQuery, categoryGroupLabel } from './codex.js';
+import { beginOp, updateOp, endOp } from './op-status.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -335,13 +336,30 @@ restoreRunBtn.addEventListener('click', function () {
 
   restoreRunBtn.disabled = true;
   const lines = [];
-  function log(line) { lines.push(line); restoreSummaryEl.textContent = lines.join('\n'); }
+  // Rough step count for the progress bar: wipe mode does a wipe pass
+  // AND a write pass over the same collection list; merge mode just the
+  // write pass. Not exact (collections vary wildly in doc count) but
+  // good enough for "still moving" feedback, and every RESTORABLE_
+  // COLLECTIONS entry logs exactly one 'wrote N docs' line so the count
+  // is easy to track against.
+  let stepsSeen = 0;
+  const totalSteps = RESTORABLE_COLLECTIONS.length * (mode === 'wipe' ? 2 : 1);
+  function log(line) {
+    lines.push(line);
+    restoreSummaryEl.textContent = lines.join('\n');
+    if (/: (wiped|wrote) /.test(line)) stepsSeen++;
+    updateOp(line, Math.round(100 * stepsSeen / totalSteps));
+  }
 
-  runBackupRestore(pendingDump, mode, log).then(function () {
+  beginOp('restore', 'Restoring database (' + mode + ' mode)\u2026').then(function () {
+    return runBackupRestore(pendingDump, mode, log);
+  }).then(function () {
     log('Done.');
+    endOp('Restore complete.');
     restoreRunBtn.disabled = false;
   }).catch(function (err) {
     log('Restore failed: ' + err.message);
+    endOp('Restore failed: ' + err.message);
     restoreRunBtn.disabled = false;
   });
 });
