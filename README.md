@@ -35,7 +35,7 @@ players — live at the table and between sessions. Built for the
   a single configured email; players are a GM-managed whitelist with an
   in-app join-request flow. No anonymous access.
 - **Admin tab** (GM only): join requests, player whitelist, campaign
-  config (root map, sources), SRD import (`seansbox/daggerheart-srd`),
+  config (root map, sources), SRD import from PDF source,
   bulk lore import/export, and in-app Firestore backup/restore. A daily
   CI workflow also exports prod Firestore to a private data repo.
 
