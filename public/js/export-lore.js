@@ -22,7 +22,7 @@ import {
   resolveEntityStatBlockMarkdown, categoryPinClassLocal, isCategoryCollapsed,
   isSubtypeCollapsed, subtypeCollapseKey, subtypeLabel
 } from './codex.js';
-import { canSee, viewerContext } from './visibility.js';
+import { canSee, viewerContext, entityHasSecretsFor, belongsOnLoreSurface } from './visibility.js';
 import {
   fetchImagesForEntities, buildSourcesWarning, buildMarkdownDocument,
   buildDocxBlob, buildPdfBlob
@@ -248,10 +248,19 @@ searchEl.addEventListener('input', renderExportLoreList);
 // ownedCharacterIds still contains the character so their own
 // character-sheet gm-only content stays included -- see isSecretFor's
 // definition in visibility.js, which this mirrors exactly.
+//
+// Character mode's pool is deliberately narrow (per Gregg's call): NOT
+// "everything this character can see" -- just their own character
+// entity, plus (when secrets are included) any OTHER entity that IS a
+// secret for them or CONTAINS one (entityHasSecretsFor, the same check
+// that drives the Codex tab's own "secret" badge/Show-secrets filter).
+// All-players content the character merely has ordinary access to
+// (like any party member) is out of scope for this export.
 function resolveExportContext() {
   const mode = modeSelect.value;
   if (mode === 'party') {
-    return { ctx: { gmView: false, activeCharacterId: null, ownedCharacterIds: [] }, pool: partyOrCharacterPool({ gmView: false, activeCharacterId: null, ownedCharacterIds: [] }) };
+    const ctx = { gmView: false, activeCharacterId: null, ownedCharacterIds: [] };
+    return { ctx: ctx, pool: partyVisiblePool(ctx) };
   }
   if (mode === 'character') {
     const charId = characterSelect.value;
@@ -259,19 +268,26 @@ function resolveExportContext() {
     const ctx = includeSecrets
       ? { gmView: false, activeCharacterId: charId, ownedCharacterIds: charId ? [charId] : [] }
       : { gmView: false, activeCharacterId: null, ownedCharacterIds: charId ? [charId] : [] };
-    return { ctx: ctx, pool: charId ? partyOrCharacterPool(ctx) : [] };
+    return { ctx: ctx, pool: charId ? characterPool(charId, ctx, includeSecrets) : [] };
   }
   const ctx = viewerContext();
   const pool = state.allEntities.filter(function (e) { return selectedIds.has(e.id); });
   return { ctx: ctx, pool: pool };
 }
-function partyOrCharacterPool(ctx) {
-  return state.allEntities.filter(function (e) {
-    return canSee(e, ctx) || !!resolveEntityStatBlockMarkdown(e, ctx, null).trim();
+function partyVisiblePool(ctx) {
+  return state.allEntities.filter(function (e) { return canSee(e, ctx); });
+}
+function characterPool(charId, ctx, includeSecrets) {
+  const charEntity = state.allEntities.find(function (e) { return e.id === charId; });
+  if (!charEntity) return [];
+  if (!includeSecrets) return [charEntity];
+  const others = state.allEntities.filter(function (e) {
+    return e.id !== charId && entityHasSecretsFor(e, ctx);
   });
+  return [charEntity].concat(others);
 }
 
-// --- Per-entity content/lore resolution --------------------------------
+// --- Per-entity content/lore/notes resolution ---------------------------
 
 function resolveExportLoreItems(entity, ctx) {
   return state.allLoreItems
@@ -283,14 +299,32 @@ function resolveExportLoreItems(entity, ctx) {
     .sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
 }
 
+// Canonized (all-players) notes only -- same belongsOnLoreSurface rule
+// the Codex tab's own Lore-tab-style surfaces use, so a still-private
+// note never leaks into an export. Still-private notes are simply
+// omitted, same as the app's own Lore tab omits them.
+function resolveExportNotes(entity, ctx) {
+  return state.allLoreItems
+    .filter(function (item) { return item.entityId === entity.id && item.kind === 'note'; })
+    .filter(belongsOnLoreSurface)
+    .filter(function (item) { return ctx.gmView || canSee(item, ctx); })
+    .sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+}
+
 function buildPerEntityRecord(entity, ctx) {
   const loreItems = resolveExportLoreItems(entity, ctx);
-  const sourceIds = loreItems.map(function (it) { return it.sourceId; }).filter(Boolean);
+  const notes = resolveExportNotes(entity, ctx);
+  const sourceIds = loreItems.concat(notes).map(function (it) { return it.sourceId; }).filter(Boolean);
   if (entity.sourceId) sourceIds.push(entity.sourceId);
   return {
     entity: entity,
     loreContent: loreItems.map(function (it) { return it.content; }).filter(function (c) { return c && c.trim(); }),
-    contentMd: resolveEntityStatBlockMarkdown(entity, ctx, null),
+    noteContent: notes.map(function (it) { return it.content; }).filter(function (c) { return c && c.trim(); }),
+    // Template entities only (Adversary/Ancestry/Equipment/etc stat
+    // blocks) -- resolveEntityStatBlockMarkdown's non-template branch
+    // just re-returns every lore item's content, which would duplicate
+    // the Lore section above for ordinary narrative entities.
+    statBlockMd: entity.useTemplate ? resolveEntityStatBlockMarkdown(entity, ctx, null) : '',
     sourceIds: sourceIds
   };
 }
@@ -362,9 +396,9 @@ function updatePreview() {
     return;
   }
   const perEntity = resolved.pool.map(function (e) { return buildPerEntityRecord(e, resolved.ctx); });
-  const loreCount = perEntity.reduce(function (n, pe) { return n + pe.loreContent.length; }, 0);
+  const loreCount = perEntity.reduce(function (n, pe) { return n + pe.loreContent.length + pe.noteContent.length; }, 0);
   previewEl.textContent = resolved.pool.length + ' entr' + (resolved.pool.length === 1 ? 'y' : 'ies')
-    + ', ' + loreCount + ' lore item' + (loreCount === 1 ? '' : 's') + ' selected for export.';
+    + ', ' + loreCount + ' lore/note item' + (loreCount === 1 ? '' : 's') + ' selected for export.';
   let sourceIds = [];
   perEntity.forEach(function (pe) { sourceIds = sourceIds.concat(pe.sourceIds); });
   renderMarkdownWarning(buildSourcesWarning(sourceIds, state.allSources));
@@ -424,7 +458,10 @@ async function runExport() {
   let sourceIds = [];
   perEntity.forEach(function (pe) { sourceIds = sourceIds.concat(pe.sourceIds); });
 
-  const needsImages = format === 'docx' || format === 'pdf' || (format === 'json' && includeImagesCheck.checked);
+  // Markdown/Word/PDF all show a Gallery section per entity (count-only
+  // for Markdown, embedded for Word/PDF), so all three need the fetch;
+  // JSON keeps its own opt-in checkbox (raw image bytes bloat the file).
+  const needsImages = format !== 'json' || includeImagesCheck.checked;
   let imagesByEntity = {};
   if (needsImages) {
     const images = await fetchImagesForEntities(resolved.pool.map(function (e) { return e.id; }));
@@ -440,16 +477,16 @@ async function runExport() {
     return;
   }
   if (format === 'markdown') {
-    downloadBlob(new Blob([buildMarkdownDocument(perEntity, warningText)], { type: 'text/markdown' }), exportFilename(mode, 'md'));
+    downloadBlob(new Blob([buildMarkdownDocument(perEntity, imagesByEntity, warningText)], { type: 'text/markdown' }), exportFilename(mode, 'md'));
     return;
   }
   if (format === 'docx') {
-    const blob = await buildDocxBlob(perEntity, warningText, imagesByEntity);
+    const blob = await buildDocxBlob(perEntity, imagesByEntity, warningText);
     downloadBlob(blob, exportFilename(mode, 'docx'));
     return;
   }
   if (format === 'pdf') {
-    const blob = await buildPdfBlob(perEntity, warningText, imagesByEntity);
+    const blob = await buildPdfBlob(perEntity, imagesByEntity, warningText);
     downloadBlob(blob, exportFilename(mode, 'pdf'));
   }
 }
