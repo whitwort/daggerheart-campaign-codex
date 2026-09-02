@@ -410,14 +410,13 @@
 
       <div id="admin-db-export" class="admin-db-tab-panel">
         <div class="actions-row">
-          <div class="actions-row-left">
-            <label>Export:
-              <select id="export-mode-select">
-                <option value="selected">Selected Entries</option>
-                <option value="character">Character</option>
-                <option value="party">All Party Visible</option>
-              </select>
-            </label>
+          <div class="actions-row-left export-field-row">
+            <label class="export-field-label" for="export-mode-select">Export:</label>
+            <select id="export-mode-select" class="export-field-select">
+              <option value="selected">Selected Entries</option>
+              <option value="character">Character</option>
+              <option value="party">All Party Visible</option>
+            </select>
             <span id="export-character-inline" style="display:none;">
               <select id="export-character-select"></select>
               <span class="toggle-switch-label">Include this character's secrets</span>
@@ -431,19 +430,18 @@
 
         <div id="export-mode-selected-panel">
           <input type="text" id="export-lore-search" class="entity-picker-search" placeholder="Search…">
-          <div id="export-lore-list" class="entity-picker-list"></div>
+          <div id="export-lore-list" class="entity-picker-list export-entry-well"></div>
         </div>
 
         <div class="actions-row">
-          <div class="actions-row-left">
-            <label>Export as:
-              <select id="export-format-select">
-                <option value="json">JSON</option>
-                <option value="markdown">Markdown</option>
-                <option value="docx">Word (.docx)</option>
-                <option value="pdf">PDF</option>
-              </select>
-            </label>
+          <div class="actions-row-left export-field-row">
+            <label class="export-field-label" for="export-format-select">Export as:</label>
+            <select id="export-format-select" class="export-field-select">
+              <option value="json">JSON</option>
+              <option value="markdown">Markdown</option>
+              <option value="docx">Word (.docx)</option>
+              <option value="pdf">PDF</option>
+            </select>
           </div>
         </div>
 
@@ -466,7 +464,7 @@
             <button type="button" id="export-lore-btn" disabled>Download</button>
           </div>
         </div>
-        <p id="export-lore-status"></p>
+        <p id="export-lore-status" class="export-status-spaced"></p>
       </div>
 
       <div id="admin-db-backup" class="admin-db-tab-panel active">

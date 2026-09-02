@@ -1637,6 +1637,18 @@ button:disabled:hover { border-color: var(--void-line); }
 .entity-picker-panel { z-index: 1100; }
 .entity-picker-search { width: 100%; box-sizing: border-box; padding: 0.4rem 0.6rem; font-size: 0.9rem; margin-bottom: 0.6rem; }
 .entity-picker-list { max-height: 22rem; overflow-y: auto; margin-bottom: 0.6rem; }
+/* Admin > Export Lore: grid-like label/select alignment ("Export:" /
+   "Export as:" rows line up) plus a visually distinct "well" around the
+   Selected Entries browser so it reads as its own contained control,
+   not just floating list markup between the mode row and format row. */
+.export-field-label { display: inline-block; width: 5.5rem; font-family: var(--font-display), sans-serif; font-size: 0.8125rem; color: var(--parchment); }
+.export-field-select { min-width: 12rem; }
+#export-mode-selected-panel { margin: 0.75rem 0; }
+.export-entry-well {
+  background: rgba(233,221,194,0.75); border-radius: 8px; padding: 0.5rem 0.6rem;
+  margin: 0.4rem 0 0.6rem;
+}
+.export-status-spaced { margin-top: 0.75rem; }
 
 /* Card hero, while the picker's Stage B is open: draggable directly on
    the live card. The heading text normally sits above the hero (z-index)
