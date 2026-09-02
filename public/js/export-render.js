@@ -253,17 +253,11 @@ function docxParagraphsFromBlocks(blocks, docxMod) {
 // what already shipped for single-paragraph items), and any further
 // blocks render as indented continuation content under it -- nested
 // list items one bullet-level deeper, plain paragraphs indented but
-// unmarked.
-// A secret item's box needs to wrap ALL of its paragraphs, not just
-// the first -- Word merges the borders of consecutive paragraphs that
-// share an identical border definition and have no spacing between
-// them into one continuous box (no shared-edge double line, no gap),
-// so every paragraph belonging to a secret item gets the same border
-// and spacing:{after:0} except the last, which gets a small closing
-// gap.
+// unmarked. Secret items are marked by the colored/bold tag text alone
+// (a bordered box around multi-paragraph items proved unreliable
+// across renderers -- removed).
 function docxItemListParagraphs(items, secretCharacterName, docxMod, marked) {
   const { Paragraph, TextRun } = docxMod;
-  const secretBorder = { color: SECRET_COLOR_HEX, size: 6, style: 'single', space: 4 };
   const out = [];
   items.forEach(function (item) {
     const blocks = blocksFromMarkdown(item.content, marked);
@@ -276,34 +270,24 @@ function docxItemListParagraphs(items, secretCharacterName, docxMod, marked) {
       if (!r.text) return;
       runs.push(new TextRun({ text: r.text, bold: !!r.bold, italics: !!r.italic }));
     });
+    out.push(new Paragraph({ bullet: { level: 0 }, spacing: { after: 60 }, children: runs }));
 
-    const paras = [];
-    paras.push({ opts: { bullet: { level: 0 }, children: runs } });
-    // 720 twips (0.5in) matches docx's own default level-0 bullet
-    // text indent -- a continuation paragraph at this indent lines up
-    // flush under the bullet's own wrapped text, not further right
-    // (previously 360, which read as a second, deeper indent level).
+    // 720 twips (0.5in) matches docx's own default level-0 bullet text
+    // indent -- a continuation paragraph at this indent lines up flush
+    // under the bullet's own wrapped text, not further right.
     for (let i = 1; i < blocks.length; i++) {
       const block = blocks[i];
       const blockRuns = (block.runs || []).map(function (r) {
         return new TextRun({ text: r.text, bold: !!r.bold, italics: !!r.italic });
       });
       if (block.type === 'listitem') {
-        paras.push({ opts: { bullet: { level: (block.depth || 0) + 1 }, children: blockRuns } });
-      } else if (block.type === 'hr' && !item.secret) {
-        paras.push({ opts: { indent: { left: 720 }, border: { bottom: { color: 'auto', space: 1, style: 'single', size: 4 } }, text: '' }, skipSecretBorder: true });
+        out.push(new Paragraph({ bullet: { level: (block.depth || 0) + 1 }, spacing: { after: 40 }, children: blockRuns }));
+      } else if (block.type === 'hr') {
+        out.push(new Paragraph({ indent: { left: 720 }, border: { bottom: { color: 'auto', space: 1, style: 'single', size: 4 } }, text: '' }));
       } else {
-        paras.push({ opts: { indent: { left: 720 }, children: blockRuns } });
+        out.push(new Paragraph({ indent: { left: 720 }, spacing: { after: 60 }, children: blockRuns }));
       }
     }
-    paras.forEach(function (p, i) {
-      const isLast = i === paras.length - 1;
-      p.opts.spacing = { after: isLast ? 80 : 0 };
-      if (item.secret && !p.skipSecretBorder) {
-        p.opts.border = { top: secretBorder, bottom: secretBorder, left: secretBorder, right: secretBorder };
-      }
-      out.push(new Paragraph(p.opts));
-    });
   });
   return out;
 }
@@ -549,13 +533,12 @@ async function buildPdfBlob(perEntity, imagesByEntity, warningText, secretCharac
       }
     }
 
+    // Reserve the whole item's height up front so a long multi-block
+    // item doesn't split with its later paragraphs stranded alone at
+    // the top of the next page.
     const heights = parts.map(function (p) { return p.hr ? 12 : measureRunsHeight(p.runs, 10, p.indent); });
     const totalHeight = heights.reduce(function (a, b) { return a + b; }, 0);
-    // Reserve the WHOLE item up front -- renderRuns below then never
-    // needs its own mid-render page break, so the box's start/end
-    // coordinates are guaranteed to land on the same page.
-    ensureRoom(totalHeight + (item.secret ? 12 : 6));
-    const startY = y - 9;
+    ensureRoom(totalHeight + 6);
 
     parts.forEach(function (p) {
       if (p.hr) {
@@ -570,12 +553,6 @@ async function buildPdfBlob(perEntity, imagesByEntity, warningText, secretCharac
       if (p.bulletX != null) doc.text('\u2022', p.bulletX, y);
       renderRuns(p.runs, 10, p.indent);
     });
-
-    if (item.secret) {
-      doc.setDrawColor.apply(doc, SECRET_COLOR_RGB);
-      doc.roundedRect(margin - 3, startY, maxWidth + 6, totalHeight + 2, 2, 2, 'S');
-      doc.setDrawColor(0, 0, 0);
-    }
   }
 
   function sectionHeading(text) {
