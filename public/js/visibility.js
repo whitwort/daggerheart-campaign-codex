@@ -294,5 +294,5 @@ function entityHasSecretsFor(entity, ctx) {
 export {
   viewerContext, canSee, visibilityBadge, isShareableToWholeParty, visibilityStateClass,
   hasFullAuthority, isSharedWithActiveCharacter, isNoteAuthor, belongsOnLoreSurface,
-  entityHasSecretsFor, resolveDropOverlay
+  entityHasSecretsFor, isSecretFor, resolveDropOverlay
 };
