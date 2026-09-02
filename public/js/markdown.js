@@ -14,7 +14,7 @@ let markdownModulesPromise = null;
 // as content "flipping" on every Firestore snapshot re-render).
 let loadedModules = null;
 
-function loadMarkdownModules() {
+export function loadMarkdownModules() {
   if (!markdownModulesPromise) {
     markdownModulesPromise = Promise.all([
       import('https://esm.sh/marked@15'),
