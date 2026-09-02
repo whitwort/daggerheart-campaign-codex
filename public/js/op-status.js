@@ -7,11 +7,10 @@
 // Two halves in one file since they share the doc shape:
 //   - Writer side (beginOp/updateOp/endOp): called from the GM-only
 //     operations that already report progress via a local log(line)
-//     callback -- backup.js's restore/entry-restore/purge-images,
-//     import.js's bulk import, srd-import.js's SRD import. Each call
-//     already has its own inline Admin-tab status text; these calls
-//     mirror the same line to the shared doc rather than replacing
-//     anything.
+//     callback -- backup.js's full Restore, import.js's bulk import,
+//     srd-import.js's SRD import. Each call already has its own inline
+//     Admin-tab status text; these calls mirror the same line to the
+//     shared doc rather than replacing anything.
 //   - Listener side (attachOpStatusListener/detachOpStatusListener):
 //     attached for ANY signed-in user right alongside
 //     attachVersionListener() (auth.js) -- shows/hides a blocking modal
@@ -38,9 +37,9 @@ const STALE_MS = 5 * 60 * 1000;
 
 // --- Writer side (GM only -- callers are all GM-gated Admin actions) ----
 
-// op: short machine key ('restore' | 'entry-restore' | 'purge-images' |
-//   'import' | 'srd-import'), label: human-readable title shown in the
-// dialog ("Restoring database…"). Resets progress/percent for a fresh run.
+// op: short machine key ('restore' | 'import' | 'srd-import'),
+// label: human-readable title shown in the dialog ("Restoring database…").
+// Resets progress/percent for a fresh run.
 function beginOp(op, label) {
   return setDoc(opStatusRef, {
     active: true, op: op, label: label, progress: '', percent: null,
