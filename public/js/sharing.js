@@ -419,7 +419,7 @@ function shareImageVisibility(imageDocId, patch) {
 // runDrop/computeDropRecipients). Deliberately targets players only --
 // the GM is always the actor for a Run-tab transition, so (unlike
 // appendShareNotifications) there's no GM-recipient branch.
-function notifyEncounterReveal(loreItem, summary) {
+function notifyEncounterReveal(loreItem, phase, payload) {
   try {
     const universe = playersUniverse();
     const parentEntity = state.allEntities.find(function (e) { return e.id === loreItem.entityId; });
@@ -435,7 +435,9 @@ function notifyEncounterReveal(loreItem, summary) {
         kind: 'encounter-reveal',
         entityId: loreItem.entityId,
         loreItemId: loreItem.id,
-        summary: summary,
+        phase: phase,
+        adversaries: payload.adversaries,
+        loot: payload.loot,
         actorCharacterId: null,
         createdAt: serverTimestamp(),
         seenAt: null

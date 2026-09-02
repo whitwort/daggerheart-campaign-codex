@@ -2298,6 +2298,13 @@ button:disabled:hover { border-color: var(--void-line); }
 .digest-line { margin: 0.15rem 0; }
 .digest-line .character-badge { margin-left: 0; margin-right: 0.1rem; }
 .digest-entity { color: var(--fear); text-decoration: underline dotted; cursor: pointer; }
+/* Encounter-reveal lists (Sep 2026): "You see:"/"You fought:"/"You
+   found:" followed by a real bullet list, each item its own
+   .digest-entity link (or plain text if the recipient can't see that
+   particular entity -- revealItemNode in messages.js). Compact --
+   these sit inside an already-bordered .digest-group card. */
+.digest-reveal-list { list-style: disc; margin: 0.1rem 0 0.3rem 1.2rem; padding: 0; }
+.digest-reveal-list li { margin: 0.05rem 0; }
 .digest-meta { font-size: 0.7rem; color: var(--ink-soft); margin-top: 0.2rem; }
 
 /* --- Character deck viewer (Phase 14 S15) --------------------------------
