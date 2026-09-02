@@ -159,13 +159,14 @@ function draftSubtype(draft) {
 // absent on the doc means none. Legacy docs from before this enum
 // (boolean true) still normalize to 'meta' for editing/badge purposes.
 function normalizeMetaForEdit(v) {
-  if (v === 'meta-details' || v === 'meta-features' || v === 'meta-narrative-backstory' || v === 'meta') return v;
+  if (v === 'meta-details' || v === 'meta-features' || v === 'meta-narrative-backstory' || v === 'meta-encounter' || v === 'meta') return v;
   return v ? 'meta' : '';
 }
 function metaBadgeLabel(v) {
   if (v === 'meta-details') return 'Meta \u00b7 Details';
   if (v === 'meta-features') return 'Meta \u00b7 Features';
   if (v === 'meta-narrative-backstory') return 'Meta \u00b7 Narrative Backstory';
+  if (v === 'meta-encounter') return 'Meta \u00b7 Encounter';
   if (v) return 'Meta';
   return null;
 }
@@ -179,7 +180,7 @@ function openLoreItemEdit(entity, item, isNote, entityAuthority) {
     state.noteEdit = { entityId: entity.id, id: item.id, content: item.content, visibility: item.visibility, authorType: item.authorType, authorId: item.authorId || null, baseUpdatedAtMs: updatedAtMs(item), conflictDismissedAtMs: null };
   } else {
     state.loreEdit = entityAuthority
-      ? { entityId: entity.id, id: item.id, content: item.content, visibility: item.visibility, characterId: item.characterId || null, characterShared: !!item.characterShared, meta: normalizeMetaForEdit(item.meta), sourceId: item.sourceId || null, baseUpdatedAtMs: updatedAtMs(item), conflictDismissedAtMs: null }
+      ? { entityId: entity.id, id: item.id, content: item.content, visibility: item.visibility, characterId: item.characterId || null, characterShared: !!item.characterShared, meta: normalizeMetaForEdit(item.meta), sourceId: item.sourceId || null, encounterId: item.encounterId || null, baseUpdatedAtMs: updatedAtMs(item), conflictDismissedAtMs: null }
       : { entityId: entity.id, id: item.id, content: item.content, sourceId: item.sourceId || null, limited: true };
   }
   renderDetailForSelected();
@@ -1043,6 +1044,20 @@ function buildFeaturesMarkdown(entity, tierFilter) {
   return lines.join('\n').trim();
 }
 function resolveLoreItemMarkdown(entity, item, items) {
+  // Meta-Encounter (Sep 2026, encounter<->Codex integration): applies to
+  // ANY entity, not gated on entity.useTemplate like the branch below --
+  // and each item synthesizes independently (encounterId differs item to
+  // item), unlike meta-details/meta-features' "only the first item of
+  // this meta value" rule (their source data, entity.details/features,
+  // is shared across every same-meta item on the entity; this one's
+  // source, encounterRevealMd, already lives on the item itself). No
+  // live encounter lookup here -- see applyEncounterRevealEffects in
+  // encounters.js for why the block is written, not computed live.
+  if (item.meta === 'meta-encounter') {
+    if (!item.encounterRevealMd) return item.content;
+    if (!item.content) return item.encounterRevealMd;
+    return item.encounterRevealMd + '\n\n' + item.content;
+  }
   if (!entity.useTemplate || !item.meta) return item.content;
   if (item.meta === 'meta-details' || item.meta === 'meta-features') {
     const first = items.find(function (it) { return it.meta === item.meta; });
@@ -2620,7 +2635,12 @@ function splitUnorderedListContent(content) {
 
 function saveLoreEdit(entity, editState, isNew, saveBtn) {
   const content = editState.content;
-  if (!content.trim()) {
+  // Meta-Encounter items can be saved with empty freeform content once
+  // linked -- the encounterId link itself is the "content" (the actual
+  // visible text comes from encounterRevealMd, written by the Run state
+  // machine, not typed here).
+  const hasEncounterLink = editState.meta === 'meta-encounter' && editState.encounterId;
+  if (!content.trim() && !hasEncounterLink) {
     window.alert('Content is required.');
     return;
   }
@@ -2668,6 +2688,7 @@ function saveLoreEdit(entity, editState, isNew, saveBtn) {
         content: c,
         meta: editState.meta || null,
         sourceId: editState.sourceId || null,
+        encounterId: editState.encounterId || null,
         order: maxOrder,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -2680,7 +2701,8 @@ function saveLoreEdit(entity, editState, isNew, saveBtn) {
       characterId: editState.characterId || null,
       characterShared: !!editState.characterShared,
       meta: editState.meta || null,
-      sourceId: editState.sourceId || null
+      sourceId: editState.sourceId || null,
+      encounterId: editState.encounterId || null
     }), 'Saving lore').catch(fail);
   }
   state.loreEdit = null;
@@ -2762,6 +2784,127 @@ function saveSharedLoreItem(editState, saveBtn) {
   });
   state.loreEdit = null;
   renderDetailForSelected();
+}
+
+// Switches to the Encounters tab, Build sub-tab, for the given encounter
+// -- reuses the nav button's own click handler (main.js) rather than
+// importing ensureEncountersTabReady from encounters.js directly, which
+// would create an import cycle (encounters.js already imports FROM this
+// file). Same "set state, dispatch the real tab click" approach as
+// switchToCodexTabForEntity's counterpart in the other direction.
+function openEncounterInBuildMode(encounterId) {
+  state.encountersSelectedId = encounterId;
+  state.encountersDetailTab = 'build';
+  const btn = document.getElementById('tab-btn-encounters');
+  if (btn) btn.click();
+}
+
+// "+ New encounter" from the lore item picker (Sep 2026): per Gregg's
+// call, no inline encounter-builder UI here -- just create a bare
+// encounter (literal defaults, same shape as encounters.js's own
+// createEncounter -- duplicated rather than imported, see the cycle
+// note above) and immediately open it in Build mode. The lore item's
+// link is saved FIRST (same write path Save uses) so navigating away
+// doesn't lose it -- only the in-progress edit BOX closes, matching
+// what Save always does.
+function createEncounterAndLink(entity, editState) {
+  const encRef = doc(collection(db, 'encounters'));
+  const encData = {
+    name: 'New encounter', createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    partySize: 4, partyTier: 2, highDamage: false, environmentId: null,
+    instances: [], loot: [], lootAutoReveal: false,
+    revealAdversariesTiming: 'completion', revealLootOnCompletion: false, runStatus: 'pristine'
+  };
+  trackWrite(setDoc(encRef, encData), 'Creating encounter').then(function () {
+    const savePromise = editState.id
+      ? shareLoreItemVisibility(editState.id, {
+          content: editState.content, visibility: editState.visibility,
+          characterId: editState.characterId || null, characterShared: !!editState.characterShared,
+          meta: 'meta-encounter', sourceId: editState.sourceId || null, encounterId: encRef.id
+        })
+      : createLoreItemShared({
+          entityId: entity.id,
+          kind: editState.authorType === 'character' ? 'character-lore' : 'gm-note',
+          authorId: editState.authorType === 'character' ? editState.authorId : null,
+          authorType: editState.authorType || 'gm',
+          visibility: editState.visibility, characterId: editState.characterId || null,
+          characterShared: !!editState.characterShared, content: editState.content || '',
+          meta: 'meta-encounter', sourceId: editState.sourceId || null, encounterId: encRef.id,
+          order: state.allLoreItems.filter(function (it) { return it.entityId === entity.id; })
+            .reduce(function (a, it) { return Math.max(a, it.order || 0); }, 0) + 1,
+          createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+        });
+    trackWrite(savePromise, 'Saving lore').catch(function (err) {
+      window.alert('Save failed: ' + err.message);
+    });
+    state.loreEdit = null;
+    renderDetailForSelected();
+    openEncounterInBuildMode(encRef.id);
+  }).catch(function (err) {
+    window.alert('Create failed: ' + err.message);
+  });
+}
+
+// Meta-Encounter's linked-encounter picker: search/select an existing
+// encounter, or "+ New encounter" (createEncounterAndLink above). Once
+// linked, shows the name + "Open in Build" + "Unlink" -- no inline
+// content editor for the encounter itself here (Gregg's call).
+function buildEncounterLinkRow(entity, editState) {
+  const row = document.createElement('div');
+  row.className = 'lore-item-encounter-row';
+  const label = document.createElement('span');
+  label.className = 'toggle-switch-label';
+  label.textContent = 'Encounter';
+  row.appendChild(label);
+
+  if (editState.encounterId) {
+    const linked = (state.allEncounters || []).find(function (e) { return e.id === editState.encounterId; });
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'lore-item-encounter-name';
+    nameSpan.textContent = linked ? (linked.name || '(unnamed)') : '(deleted encounter)';
+    row.appendChild(nameSpan);
+    if (linked) {
+      const openBtn = document.createElement('button');
+      openBtn.type = 'button';
+      openBtn.textContent = 'Open in Build';
+      openBtn.addEventListener('click', function () { openEncounterInBuildMode(linked.id); });
+      row.appendChild(openBtn);
+    }
+    const unlinkBtn = document.createElement('button');
+    unlinkBtn.type = 'button';
+    unlinkBtn.textContent = 'Unlink';
+    unlinkBtn.addEventListener('click', function () {
+      editState.encounterId = null;
+      renderDetailForSelected();
+    });
+    row.appendChild(unlinkBtn);
+    return row;
+  }
+
+  const select = document.createElement('select');
+  const emptyOpt = document.createElement('option');
+  emptyOpt.value = ''; emptyOpt.textContent = 'Select encounter\u2026';
+  select.appendChild(emptyOpt);
+  (state.allEncounters || []).slice()
+    .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); })
+    .forEach(function (e) {
+      const opt = document.createElement('option');
+      opt.value = e.id; opt.textContent = e.name || '(unnamed)';
+      select.appendChild(opt);
+    });
+  select.addEventListener('change', function () {
+    if (!select.value) return;
+    editState.encounterId = select.value;
+    renderDetailForSelected();
+  });
+  row.appendChild(select);
+
+  const newBtn = document.createElement('button');
+  newBtn.type = 'button';
+  newBtn.textContent = '+ New encounter';
+  newBtn.addEventListener('click', function () { createEncounterAndLink(entity, editState); });
+  row.appendChild(newBtn);
+  return row;
 }
 
 // One box, used for both editing an existing item (isNew=false) and
@@ -2859,22 +3002,35 @@ function buildLoreEditBox(entity, editState, isNew) {
   metaRow.appendChild(metaRowLabel);
   const metaSelect = document.createElement('select');
   metaSelect.className = 'lore-meta-select';
-  [
+  const metaOptions = [
     ['', 'None'],
     ['meta', 'Meta'],
     ['meta-details', 'Meta \u2014 Details'],
     ['meta-features', 'Meta \u2014 Features'],
     ['meta-narrative-backstory', 'Meta \u2014 Narrative Backstory']
-  ].forEach(function (pair) {
+  ];
+  // GM-only: state.allEncounters is a GM-only listener (encounters.js),
+  // and encounter linking is inherently a GM concern.
+  if (viewerContext().gmView) metaOptions.push(['meta-encounter', 'Meta \u2014 Encounter']);
+  metaOptions.forEach(function (pair) {
     const opt = document.createElement('option');
     opt.value = pair[0];
     opt.textContent = pair[1];
     metaSelect.appendChild(opt);
   });
   metaSelect.value = editState.meta || '';
-  metaSelect.addEventListener('change', function () { editState.meta = metaSelect.value; });
+  metaSelect.addEventListener('change', function () {
+    editState.meta = metaSelect.value;
+    // Re-render: the linked-encounter row below only shows for
+    // meta-encounter, and needs to appear/disappear live on toggle.
+    renderDetailForSelected();
+  });
   metaRow.appendChild(metaSelect);
   box.appendChild(metaRow);
+
+  if (editState.meta === 'meta-encounter') {
+    box.appendChild(buildEncounterLinkRow(entity, editState));
+  }
 
   const bottomRow = document.createElement('div');
   bottomRow.className = 'actions-row';
@@ -3278,8 +3434,8 @@ function renderLoreTab(container, entity, ctx, readOnly) {
       // (authorId = the character's own entity id -- "written by this
       // PC", not "written by a player").
       state.loreEdit = ctx.gmView
-        ? { entityId: entity.id, id: null, content: '', visibility: 'gm-only', characterId: null, characterShared: false, meta: '', sourceId: (sortedSources()[0] && sortedSources()[0].id) || null, authorType: 'gm', authorId: null }
-        : { entityId: entity.id, id: null, content: '', visibility: 'gm-only', characterId: null, characterShared: false, meta: '', sourceId: (sortedSources()[0] && sortedSources()[0].id) || null, authorType: 'character', authorId: entity.id };
+        ? { entityId: entity.id, id: null, content: '', visibility: 'gm-only', characterId: null, characterShared: false, meta: '', sourceId: (sortedSources()[0] && sortedSources()[0].id) || null, encounterId: null, authorType: 'gm', authorId: null }
+        : { entityId: entity.id, id: null, content: '', visibility: 'gm-only', characterId: null, characterShared: false, meta: '', sourceId: (sortedSources()[0] && sortedSources()[0].id) || null, encounterId: null, authorType: 'character', authorId: entity.id };
       renderDetailForSelected();
     });
     right.appendChild(newLoreBtn);

@@ -572,6 +572,8 @@ function buildPlayerDigest(container) {
 
     const discovered = g.items.filter(function (n) { return n.kind === 'discovered'; });
     const learned = g.items.filter(function (n) { return n.kind === 'learned'; });
+    const encounterReveals = g.items.filter(function (n) { return n.kind === 'encounter-reveal'; })
+      .sort(function (a, b) { return tsMs(a.createdAt) - tsMs(b.createdAt); });
     const sharedActors = {};
     g.items.forEach(function (n) {
       if (n.kind === 'shared' && n.actorCharacterId) sharedActors[n.actorCharacterId] = true;
@@ -593,6 +595,19 @@ function buildPlayerDigest(container) {
       line.appendChild(document.createTextNode('.'));
       card.appendChild(line);
     }
+    // Sep 2026 (encounter<->Codex integration): one line per reveal, not
+    // deduped like discovered/learned above -- a Start reveal and a
+    // Completion reveal on the same entity are two genuinely different
+    // pieces of news (what you see vs. what you found), each with its
+    // own short summary already computed at write time (sharing.js's
+    // notifyEncounterReveal) rather than a generic "learned more" line.
+    encounterReveals.forEach(function (n) {
+      const line = document.createElement('div');
+      line.className = 'digest-line';
+      line.appendChild(entityLink());
+      line.appendChild(document.createTextNode(': ' + (n.summary || 'New encounter info.')));
+      card.appendChild(line);
+    });
     Object.keys(sharedActors).forEach(function (charId) {
       const line = document.createElement('div');
       line.className = 'digest-line';
@@ -605,7 +620,7 @@ function buildPlayerDigest(container) {
 
     const meta = document.createElement('div');
     meta.className = 'digest-meta';
-    const updates = learned.length + g.items.filter(function (n) { return n.kind === 'shared'; }).length;
+    const updates = learned.length + encounterReveals.length + g.items.filter(function (n) { return n.kind === 'shared'; }).length;
     meta.textContent = (updates > 1 ? updates + ' updates \u00B7 ' : '') + formatRelative(g.newestMs);
     card.appendChild(meta);
 
