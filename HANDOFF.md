@@ -371,8 +371,7 @@ doc's era; read QOL-BACKLOG.md + this file before code — and when
 picking up a "Next step" from this file, check git log for any named
 commit/file FIRST rather than trusting the text (see this doc's own
 Phase-15 correction above — it happened once, don't let it happen
-again). Gates before EVERY commit: named-import cross-check script
-(regenerate from HANDOFF pattern if not persisted), `npx eslint@8
+again). Gates before EVERY commit: `npx eslint@8
 --no-eslintrc -c .eslintrc.check.json public/js/*.js`, `node --check`
 per touched file, CSS + firestore.rules brace balance,
 `npm run test:rules` if `firestore.rules` or its own test file
@@ -599,9 +598,8 @@ Fresh clone (never reuse a prior working tree); git identity
 doc's era; read QOL-BACKLOG.md + this file before code — and when
 picking up a "Next step" from this file, check git log for any named
 commit/file FIRST rather than trusting the text (see this session's
-Phase-15 correction above). Gates before EVERY commit: named-import
-cross-check script (regenerate from HANDOFF pattern if not persisted),
-`npx eslint@8 --no-eslintrc -c .eslintrc.check.json public/js/*.js`,
+Phase-15 correction above). Gates before EVERY commit: `npx eslint@8
+--no-eslintrc -c .eslintrc.check.json public/js/*.js`,
 `node --check` per touched file, CSS + firestore.rules brace balance.
 Push via PAT URL; rebase FETCH_HEAD if remote moved. CI: sleep ~74s
 then poll Actions API with PAT header. End every session by rewriting
