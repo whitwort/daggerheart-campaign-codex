@@ -131,7 +131,9 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
       document.getElementById('tab-btn-encounters').style.display = (role === 'gm') ? 'inline-block' : 'none';
       document.getElementById('tab-btn-stables').style.display = (role === 'gm') ? 'inline-block' : 'none';
       if (role === 'gm') { attachAdminListeners(); attachEncountersListener(); attachStablesListener(); }
-      if (role === 'player') attachPresenceHeartbeat();
+      // Presence heartbeat attach/detach lives in the playerDocUnsub
+      // snapshot handler below, evaluated independently of roleChanged
+      // (see that handler's comment) -- not called from here anymore.
       const hasAccess = (role === 'gm' || role === 'player');
       if (hasAccess) attachDataListeners();
       loginGateEl.style.display = hasAccess ? 'none' : 'flex';
@@ -227,6 +229,25 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
           // every heartbeat; heartbeat now lives in its own presence/
           // doc (Aug 2026), but the change-check stays cheap and correct
           // regardless of what else this doc's write surface grows into.
+          //
+          // Presence heartbeat attach/detach is DELIBERATELY NOT gated
+          // on roleChanged (bug found Sep 2 2026, Firefox-specific):
+          // onAuthStateChanged can fire more than once for a single
+          // sign-in (observed via Firefox's third-party-cookie/iframe
+          // partitioning around the Auth popup), and EVERY firing
+          // unconditionally tears the heartbeat down via
+          // detachDataListeners() -> detachPresenceHeartbeat(). If a
+          // redundant firing resolves to the SAME role as before,
+          // roleChanged is false, updateAccessUI() (the only other
+          // caller of attachPresenceHeartbeat()) never runs, and the
+          // heartbeat stays dead for the rest of the session -- no
+          // error anywhere, presence/{email} simply never gets written.
+          // Evaluating this independently, on every snapshot, means the
+          // very next snapshot after any such teardown re-establishes
+          // it regardless of whether role "changed". Safe to call
+          // unconditionally: attachPresenceHeartbeat()'s timer setup is
+          // idempotent, and re-stamping "online" a bit more often than
+          // strictly necessary is harmless (see its own comment).
           const data = snap.data();
           const newActiveCharacterId = (data && data.activeCharacterId) || null;
           const newRole = snap.exists() ? 'player' : 'viewer';
@@ -234,6 +255,7 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
           const roleChanged = state.currentRole !== newRole;
           state.activeCharacterId = newActiveCharacterId;
           if (roleChanged) updateAccessUI(newRole);
+          if (newRole === 'player') attachPresenceHeartbeat(); else detachPresenceHeartbeat();
           if (roleChanged || activeCharacterChanged) notifyVisibilityChange();
         }), function (err) {
           console.error('players doc listener failed:', err.message);
