@@ -334,7 +334,7 @@ function buildPerEntityRecord(entity, ctx) {
   };
 }
 
-// The character name to print in a "[Secret - Name only]" tag, or null
+// The character name to print in a "[Secret - Name]" tag, or null
 // when this export's ctx has no active character (nothing can be
 // flagged secret in that case, so nothing needs a name).
 function activeCharacterName(ctx) {

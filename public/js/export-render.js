@@ -7,7 +7,7 @@
 // visibility/canSee logic lives here -- that stays in export-lore.js
 // (and ultimately visibility.js), so this module doesn't need to know
 // about GM vs player vs character ctx beyond the plain secretCharName
-// string it's handed (the name to print in a "[Secret - X only]" tag;
+// string it's handed (the name to print in a "[Secret - X]" tag;
 // null when nothing in this export is secret-tagged).
 //
 // docx/jsPDF are loaded lazily via esm.sh dynamic import, same pattern
@@ -23,7 +23,7 @@
 // Features, template entities only) -> "Lore" (bulleted, if any) ->
 // "Gallery" (if any images) -> "Notes" (bulleted, if any) -- each
 // section heading omitted when its content is empty. Secret items get
-// a "[Secret - Name only]" tag and a teal outline/color.
+// a "[Secret - Name]" tag and a teal outline/color.
 
 import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp } from './firebase.js';
@@ -152,7 +152,7 @@ function itemInlineRuns(content, marked) {
 // Plain-text ("Secret - Name only") flavor used by the Markdown export,
 // which has no color/border to lean on.
 function secretTagText(secretCharacterName) {
-  return '[Secret \u2013 ' + secretCharacterName + ' only] ';
+  return '[Secret \u2013 ' + secretCharacterName + '] ';
 }
 
 // Multiple separate lore/note items on one entity render as an
@@ -202,7 +202,8 @@ function buildMarkdownDocument(perEntity, imagesByEntity, warningText, secretCha
     byCategory[cat]
       .sort(function (a, b) { return (a.entity.name || '').localeCompare(b.entity.name || ''); })
       .forEach(function (pe) {
-        parts.push('## ' + pe.entity.name + (pe.entitySecret ? ' ' + secretTagText(secretCharacterName).trim() : ''));
+        parts.push('## ' + pe.entity.name);
+        if (pe.entitySecret) parts.push(secretTagText(secretCharacterName).trim());
         if (pe.statBlockMd) parts.push(pe.statBlockMd);
         if (pe.loreContent.length) parts.push('### Lore', toBulletListMd(pe.loreContent, secretCharacterName));
         const imgs = imagesByEntity[pe.entity.id] || [];
@@ -307,9 +308,10 @@ async function buildDocxBlob(perEntity, imagesByEntity, warningText, secretChara
     children.push(new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { before: 360, after: 150 }, children: [new TextRun(categoryGroupLabel(cat))] }));
     const list = byCategory[cat].sort(function (a, b) { return (a.entity.name || '').localeCompare(b.entity.name || ''); });
     for (const pe of list) {
-      const nameRuns = [new TextRun(pe.entity.name)];
-      if (pe.entitySecret) nameRuns.push(new TextRun({ text: '  ' + secretTagText(secretCharacterName).trim(), color: SECRET_COLOR_HEX, bold: true, size: 22 }));
-      children.push(new Paragraph({ heading: HeadingLevel.HEADING_2, spacing: { before: 280, after: 100 }, children: nameRuns }));
+      children.push(new Paragraph({ heading: HeadingLevel.HEADING_2, spacing: { before: 280, after: pe.entitySecret ? 20 : 100 }, children: [new TextRun(pe.entity.name)] }));
+      if (pe.entitySecret) {
+        children.push(new Paragraph({ spacing: { after: 100 }, children: [new TextRun({ text: secretTagText(secretCharacterName).trim(), color: SECRET_COLOR_HEX })] }));
+      }
       if (pe.statBlockMd) {
         children.push.apply(children, docxParagraphsFromBlocks(blocksFromMarkdown(pe.statBlockMd, marked), docxMod));
       }
@@ -454,7 +456,7 @@ async function buildPdfBlob(perEntity, imagesByEntity, warningText, secretCharac
   }
 
   // Renders one Lore/Note item as a bullet, drawing a teal outline box
-  // around it (and a colored "[Secret - Name only]" tag) when secret.
+  // around it (and a colored "[Secret - Name]" tag) when secret.
   function renderItem(item) {
     ensureRoom(14);
     const startY = y - 9;
@@ -527,9 +529,10 @@ async function buildPdfBlob(perEntity, imagesByEntity, warningText, secretCharac
       y += 10;
       ensureRoom(20);
       tocEntries.push({ label: pe.entity.name, page: doc.internal.getCurrentPageInfo().pageNumber, indent: 14, bold: false });
-      const nameRuns = [{ text: pe.entity.name, bold: true }];
-      if (pe.entitySecret) nameRuns.push({ text: '  ' + secretTagText(secretCharacterName).trim(), bold: true, color: SECRET_COLOR_RGB });
-      renderRuns(nameRuns, 14, 0);
+      renderRuns([{ text: pe.entity.name, bold: true }], 14, 0);
+      if (pe.entitySecret) {
+        renderRuns([{ text: secretTagText(secretCharacterName).trim(), color: SECRET_COLOR_RGB }], 10, 0);
+      }
       if (pe.statBlockMd) blocksFromMarkdown(pe.statBlockMd, marked).forEach(renderBlock);
       if (pe.loreContent.length) {
         sectionHeading('Lore');
