@@ -222,13 +222,15 @@ service cloud.firestore {
     function isValidNotification() {
       return request.resource.data.keys().hasOnly(
           ['recipientEmail', 'kind', 'entityId', 'loreItemId', 'actorCharacterId', 'createdAt', 'seenAt', 'requestEmail', 'provider',
-           'dropName', 'entityIds', 'summary'])
+           'dropName', 'entityIds', 'phase', 'adversaries', 'loot'])
         && request.resource.data.recipientEmail is string
         && request.resource.data.kind in ['discovered', 'learned', 'shared', 'joinRequest', 'lore-drop', 'character-edited', 'encounter-reveal']
         && (request.resource.data.kind != 'joinRequest' || request.resource.data.requestEmail is string)
         && (request.resource.data.kind != 'lore-drop' ||
             (request.resource.data.dropName is string && request.resource.data.entityIds is list))
-        && (request.resource.data.kind != 'encounter-reveal' || request.resource.data.summary is string)
+        && (request.resource.data.kind != 'encounter-reveal' ||
+            (request.resource.data.phase in ['start', 'completion']
+             && request.resource.data.adversaries is list && request.resource.data.loot is list))
         && (request.resource.data.kind in ['joinRequest', 'lore-drop'] || request.resource.data.entityId is string);
     }
     match /notifications/{notifId} {
