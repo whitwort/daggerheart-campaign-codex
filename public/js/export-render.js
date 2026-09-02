@@ -359,11 +359,14 @@ async function buildDocxBlob(perEntity, imagesByEntity, warningText, secretChara
     features: { updateFields: true },
     styles: {
       default: {
-        document: { run: { font: 'Calibri' } },
-        title: { run: { font: 'Calibri' } },
-        heading1: { run: { font: 'Calibri' } },
-        heading2: { run: { font: 'Calibri' } },
-        heading3: { run: { font: 'Calibri' } }
+        // Only the document-level default -- headings inherit this
+        // font via Word's normal style cascade. Overriding
+        // heading1/heading2/heading3/title individually (tried
+        // previously) REPLACES their whole run definition rather than
+        // merging into it, wiping out docx's built-in bold/size for
+        // those levels and leaving every heading looking like plain
+        // body text.
+        document: { run: { font: 'Calibri' } }
       }
     },
     sections: [{ children: children }]
