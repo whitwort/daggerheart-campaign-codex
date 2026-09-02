@@ -83,7 +83,7 @@ function createEncounter() {
     loot: [],
     lootAutoReveal: false,
     // Inert placeholders — see header comment. 'off'|'start'|'completion'.
-    revealAdversariesTiming: 'off',
+    revealAdversariesTiming: 'completion',
     revealLootOnCompletion: false,
     runStatus: 'pristine'
   };
@@ -1120,8 +1120,8 @@ function buildLootSection(enc) {
 
   const revealRow = document.createElement('div');
   revealRow.className = 'encounter-reveal-row';
-  revealRow.appendChild(revealField);
   revealRow.appendChild(showOnCompletionField);
+  revealRow.appendChild(revealField);
   section.appendChild(revealRow);
 
   const actions = document.createElement('div');
