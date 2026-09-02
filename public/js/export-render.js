@@ -254,8 +254,16 @@ function docxParagraphsFromBlocks(blocks, docxMod) {
 // blocks render as indented continuation content under it -- nested
 // list items one bullet-level deeper, plain paragraphs indented but
 // unmarked.
+// A secret item's box needs to wrap ALL of its paragraphs, not just
+// the first -- Word merges the borders of consecutive paragraphs that
+// share an identical border definition and have no spacing between
+// them into one continuous box (no shared-edge double line, no gap),
+// so every paragraph belonging to a secret item gets the same border
+// and spacing:{after:0} except the last, which gets a small closing
+// gap.
 function docxItemListParagraphs(items, secretCharacterName, docxMod, marked) {
   const { Paragraph, TextRun } = docxMod;
+  const secretBorder = { color: SECRET_COLOR_HEX, size: 6, style: 'single', space: 4 };
   const out = [];
   items.forEach(function (item) {
     const blocks = blocksFromMarkdown(item.content, marked);
@@ -268,26 +276,30 @@ function docxItemListParagraphs(items, secretCharacterName, docxMod, marked) {
       if (!r.text) return;
       runs.push(new TextRun({ text: r.text, bold: !!r.bold, italics: !!r.italic }));
     });
-    const opts = { bullet: { level: 0 }, spacing: { after: 60 }, children: runs };
-    if (item.secret) {
-      const b = { color: SECRET_COLOR_HEX, size: 6, style: 'single', space: 4 };
-      opts.border = { top: b, bottom: b, left: b, right: b };
-    }
-    out.push(new Paragraph(opts));
 
+    const paras = [];
+    paras.push({ opts: { bullet: { level: 0 }, children: runs } });
     for (let i = 1; i < blocks.length; i++) {
       const block = blocks[i];
       const blockRuns = (block.runs || []).map(function (r) {
         return new TextRun({ text: r.text, bold: !!r.bold, italics: !!r.italic });
       });
       if (block.type === 'listitem') {
-        out.push(new Paragraph({ bullet: { level: (block.depth || 0) + 1 }, spacing: { after: 40 }, children: blockRuns }));
-      } else if (block.type === 'hr') {
-        out.push(new Paragraph({ indent: { left: 360 }, border: { bottom: { color: 'auto', space: 1, style: 'single', size: 4 } }, text: '' }));
+        paras.push({ opts: { bullet: { level: (block.depth || 0) + 1 }, children: blockRuns } });
+      } else if (block.type === 'hr' && !item.secret) {
+        paras.push({ opts: { indent: { left: 360 }, border: { bottom: { color: 'auto', space: 1, style: 'single', size: 4 } }, text: '' }, skipSecretBorder: true });
       } else {
-        out.push(new Paragraph({ indent: { left: 360 }, spacing: { after: 60 }, children: blockRuns }));
+        paras.push({ opts: { indent: { left: 360 }, children: blockRuns } });
       }
     }
+    paras.forEach(function (p, i) {
+      const isLast = i === paras.length - 1;
+      p.opts.spacing = { after: isLast ? 80 : 0 };
+      if (item.secret && !p.skipSecretBorder) {
+        p.opts.border = { top: secretBorder, bottom: secretBorder, left: secretBorder, right: secretBorder };
+      }
+      out.push(new Paragraph(p.opts));
+    });
   });
   return out;
 }
@@ -509,46 +521,56 @@ async function buildPdfBlob(perEntity, imagesByEntity, warningText, secretCharac
   // inline runs, which silently dropped nested list blocks entirely.
   // First block is the bulleted/boxed headline; further blocks (a
   // second paragraph, a nested sub-list) render indented underneath.
+  // Whole item (first block + any continuation paragraphs/sub-list
+  // items) renders as one unit: every part's height is measured up
+  // front so the box -- when the item is secret -- can be reserved and
+  // drawn as a single rect spanning the entire item, not just its
+  // first paragraph.
   function renderItem(item) {
     const blocks = blocksFromMarkdown(item.content, marked);
-    const first = blocks[0] || { runs: [] };
+    const parts = [];
     const firstRuns = [];
     if (item.secret) firstRuns.push({ text: secretTagText(secretCharacterName), bold: true, color: SECRET_COLOR_RGB });
-    firstRuns.push.apply(firstRuns, first.runs || []);
-    const textHeight = measureRunsHeight(firstRuns, 10, 12);
-    const boxPad = 6;
-    // Reserve the FULL first block's height up front -- renderRuns
-    // below will then never need its own mid-render page break, so the
-    // box's start/end coordinates are guaranteed to land on the same
-    // page.
-    ensureRoom(textHeight + (item.secret ? boxPad : 0) + 6);
-    const startY = y - 9;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.text('\u2022', margin, y);
-    renderRuns(firstRuns, 10, 12);
-    if (item.secret) {
-      doc.setDrawColor.apply(doc, SECRET_COLOR_RGB);
-      doc.roundedRect(margin - 3, startY, maxWidth + 6, textHeight + 2, 2, 2, 'S');
-      doc.setDrawColor(0, 0, 0);
-    }
+    firstRuns.push.apply(firstRuns, (blocks[0] || {}).runs || []);
+    parts.push({ runs: firstRuns, indent: 12, bulletX: margin });
     for (let i = 1; i < blocks.length; i++) {
       const block = blocks[i];
       if (block.type === 'listitem') {
         const depth = (block.depth || 0) + 1;
-        ensureRoom(14);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.text('\u2022', margin + 12 + depth * 14, y);
-        renderRuns(block.runs, 10, 12 + depth * 14 + 12);
+        parts.push({ runs: block.runs, indent: 12 + depth * 14 + 12, bulletX: margin + 12 + depth * 14 });
       } else if (block.type === 'hr') {
+        parts.push({ hr: true });
+      } else {
+        parts.push({ runs: block.runs, indent: 24, bulletX: null });
+      }
+    }
+
+    const heights = parts.map(function (p) { return p.hr ? 12 : measureRunsHeight(p.runs, 10, p.indent); });
+    const totalHeight = heights.reduce(function (a, b) { return a + b; }, 0);
+    // Reserve the WHOLE item up front -- renderRuns below then never
+    // needs its own mid-render page break, so the box's start/end
+    // coordinates are guaranteed to land on the same page.
+    ensureRoom(totalHeight + (item.secret ? 12 : 6));
+    const startY = y - 9;
+
+    parts.forEach(function (p) {
+      if (p.hr) {
         ensureRoom(10);
         doc.setDrawColor(180);
         doc.line(margin + 24, y, pageWidth - margin, y);
         y += 12;
-      } else {
-        renderRuns(block.runs, 10, 24);
+        return;
       }
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      if (p.bulletX != null) doc.text('\u2022', p.bulletX, y);
+      renderRuns(p.runs, 10, p.indent);
+    });
+
+    if (item.secret) {
+      doc.setDrawColor.apply(doc, SECRET_COLOR_RGB);
+      doc.roundedRect(margin - 3, startY, maxWidth + 6, totalHeight + 2, 2, 2, 'S');
+      doc.setDrawColor(0, 0, 0);
     }
   }
 
