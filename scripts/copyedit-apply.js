@@ -22,6 +22,23 @@
 // write surprises.
 
 const fs = require('fs');
+const path = require('path');
+
+// Load getTemplateSchema/computeSearchIndex straight from the real
+// public/js/templates.js (browser ES module) rather than duplicating its
+// ~190-line TEMPLATE_SCHEMAS table here -- that table changes whenever a
+// new template category is added, and a copy WOULD drift. Strip the
+// trailing `export {...}` (the only ES-module syntax in the file) and
+// eval the rest as CommonJS.
+function loadTemplateHelpers() {
+  const src = fs.readFileSync(path.join(__dirname, '../public/js/templates.js'), 'utf8')
+    .replace(/export\s*\{[^}]*\};?\s*$/, '');
+  const mod = { exports: {} };
+  // eslint-disable-next-line no-new-func
+  new Function('module', 'exports', src + '\nmodule.exports = { getTemplateSchema, computeSearchIndex };')(mod, mod.exports);
+  return mod.exports;
+}
+const { getTemplateSchema, computeSearchIndex } = loadTemplateHelpers();
 
 function parseArgs(argv) {
   const args = {};
@@ -79,6 +96,18 @@ function main() {
     }
     setPath(byCollection[collection][docId].data, field, change.suggested);
     byCollection[collection][docId].data.updatedAt = { __type: 'timestamp', value: new Date().toISOString() };
+  });
+
+  // entities.details.* changes leave searchIndex stale (it's derived,
+  // stored data -- templates.js's computeSearchIndex, not recomputed at
+  // render time). Recompute it for any patched entity that opted into a
+  // template schema, same as codex.js does on every manual save.
+  Object.keys(byCollection.entities).forEach(function (docId) {
+    const data = byCollection.entities[docId].data;
+    if (!data.useTemplate) return;
+    const schema = getTemplateSchema(data.category, data.subtype);
+    if (!schema) return;
+    data.searchIndex = computeSearchIndex(data.details, data.features, schema);
   });
 
   const patch = { collections: {} };
