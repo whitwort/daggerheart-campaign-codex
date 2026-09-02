@@ -8,7 +8,7 @@ import {
   categoryGroupLabel, entityMatchesQuery,
   renderEntityViewCard, enterEntityEditMode, footerReserve, switchToCodexTabForEntity
 } from './codex.js';
-import { renderAdminRootEntitySelect, renderAdminCampaignTypeSelect, renderAdminSrdRepo } from './admin.js';
+import { renderAdminRootEntitySelect, renderAdminCurrentSceneSelect, renderAdminCampaignTypeSelect, renderAdminSrdRepo } from './admin.js';
 import { getCachedImage, putCachedImage } from './images.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
 import { trackWrite } from './connectivity.js';
@@ -1006,6 +1006,7 @@ function attachConfigListener() {
       const wasFollowingRoot = state.currentMapEntityId === lastKnownRootEntityId;
       state.rootEntityId = newRoot;
       state.campaignType = docSnap.exists() ? (docSnap.data().campaignType || 'daggerheart') : 'daggerheart';
+      state.currentSceneId = docSnap.exists() ? (docSnap.data().currentSceneId || null) : null;
       // Phase 16: default is the bundled local JSON. A stored
       // 'seansbox/daggerheart-srd' is the pre-2.0 default, not a choice --
       // treat it as local so a stale config doc can't silently re-import 1.0.
@@ -1018,6 +1019,7 @@ function attachConfigListener() {
       }
       lastKnownRootEntityId = newRoot;
       renderAdminRootEntitySelect();
+      renderAdminCurrentSceneSelect();
       renderAdminCampaignTypeSelect();
       renderAdminSrdRepo();
       if (document.getElementById('map-panel').classList.contains('active')) {

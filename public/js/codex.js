@@ -7,7 +7,7 @@ import { state } from './state.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
 import { trackWrite } from './connectivity.js';
 import { renderMarkdownInto } from './markdown.js';
-import { renderAdminRootEntitySelect, renderAdminPlayersList } from './admin.js';
+import { renderAdminRootEntitySelect, renderAdminCurrentSceneSelect, renderAdminPlayersList } from './admin.js';
 import { parseDateSpec, formatDateSegments } from './dates.js';
 import { buildSourceSelect, renderSourceLabel, registerSourcesChangeHandler, confirmRevealWithoutSource, sortedSources } from './sources.js';
 import {
@@ -231,6 +231,7 @@ function attachCodexListeners() {
       renderList();
       safeRenderDetailForSelected();
       renderAdminRootEntitySelect();
+      renderAdminCurrentSceneSelect();
       renderAdminPlayersList();
       notifyVisibilityChange();
     }), function (err) {
@@ -4431,7 +4432,33 @@ function renderDetailForSelected() {
   if (!entity || !canSee(entity, ctx)) {
     detailPaneEl.classList.add('empty');
     detailEl.classList.remove('vis-hidden', 'vis-visible', 'vis-character');
-    detailEl.innerHTML = '<p class="codex-empty">What would you like to read? Make a selection from your Table of Contents.</p>';
+    detailEl.innerHTML = '';
+    const p = document.createElement('p');
+    p.className = 'codex-empty';
+    p.textContent = 'What would you like to read? Make a selection from your Table of Contents.';
+    detailEl.appendChild(p);
+    if (state.currentSceneId) {
+      const sceneEntity = state.allEntities.find(function (e) { return e.id === state.currentSceneId; });
+      if (sceneEntity && canSee(sceneEntity, ctx)) {
+        const sceneName = sceneEntity.name || sceneEntity.id;
+        p.appendChild(document.createElement('br'));
+        p.appendChild(document.createElement('br'));
+        const textNode = document.createTextNode('Or start with the party\'s latest scene: ');
+        p.appendChild(textNode);
+        const link = document.createElement('a');
+        link.href = '#';
+        link.textContent = sceneName;
+        link.className = 'codex-scene-link';
+        link.dataset.sceneId = sceneEntity.id;
+        link.addEventListener('click', function (e) {
+          e.preventDefault();
+          state.selectedId = sceneEntity.id;
+          renderList();
+          safeRenderDetailForSelected();
+        });
+        p.appendChild(link);
+      }
+    }
     return;
   }
   detailPaneEl.classList.remove('empty');

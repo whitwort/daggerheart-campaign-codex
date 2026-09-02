@@ -24,6 +24,8 @@ const adminAddPlayerErrorEl = document.getElementById('admin-add-player-error');
 const adminPlayersTbodyEl = document.getElementById('admin-players-tbody');
 const adminRootEntitySelectEl = document.getElementById('admin-root-entity-select');
 const adminRootEntityStatusEl = document.getElementById('admin-root-entity-status');
+const adminCurrentSceneSelectEl = document.getElementById('admin-current-scene-select');
+const adminCurrentSceneStatusEl = document.getElementById('admin-current-scene-status');
 const adminCampaignTypeSelectEl = document.getElementById('admin-campaign-type-select');
 const adminCampaignTypeStatusEl = document.getElementById('admin-campaign-type-status');
 const adminDbSrdTabBtnEl = document.getElementById('admin-db-srd-tab-btn');
@@ -79,6 +81,46 @@ const adminSourceErrorEl = document.getElementById('admin-source-error');
         })
         .finally(function () {
           state.adminRootSelectUpdating = false;
+        });
+    });
+
+    // --- Admin: current scene selector. GM-only control for the opening
+    // message on the Codex tab. Reads state.allEntities/state.currentSceneId,
+    // renders Scene entities only. Render calls come from the entities
+    // listener (codex.js) and config listener (map.js).
+
+    function renderAdminCurrentSceneSelect() {
+      if (state.adminCurrentSceneSelectUpdating) return;
+      const previousValue = adminCurrentSceneSelectEl.value;
+      adminCurrentSceneSelectEl.innerHTML = '<option value="">-- none --</option>';
+      state.allEntities
+        .filter(function (e) { return e.category === 'Scene'; })
+        .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); })
+        .forEach(function (e) {
+          const opt = document.createElement('option');
+          opt.value = e.id;
+          opt.textContent = e.name || e.id;
+          adminCurrentSceneSelectEl.appendChild(opt);
+        });
+      adminCurrentSceneSelectEl.value = state.currentSceneId || '';
+      if (adminCurrentSceneSelectEl.value !== (state.currentSceneId || '')) {
+        adminCurrentSceneSelectEl.value = previousValue;
+      }
+    }
+
+    adminCurrentSceneSelectEl.addEventListener('change', function () {
+      const newCurrentSceneId = adminCurrentSceneSelectEl.value || null;
+      state.adminCurrentSceneSelectUpdating = true;
+      adminCurrentSceneStatusEl.textContent = 'Saving...';
+      setDoc(doc(db, 'config', 'campaign'), { currentSceneId: newCurrentSceneId }, { merge: true })
+        .then(function () {
+          adminCurrentSceneStatusEl.textContent = 'Saved.';
+        })
+        .catch(function (err) {
+          adminCurrentSceneStatusEl.textContent = 'Save failed: ' + err.message;
+        })
+        .finally(function () {
+          state.adminCurrentSceneSelectUpdating = false;
         });
     });
 
@@ -641,6 +683,6 @@ document.querySelectorAll('#admin-db-tabs button').forEach(function (btn) {
 });
 
 export {
-  attachAdminListeners, detachAdminListeners, renderAdminRootEntitySelect, renderAdminPlayersList,
-  renderAdminCampaignTypeSelect, renderAdminSrdRepo
+  attachAdminListeners, detachAdminListeners, renderAdminRootEntitySelect, renderAdminCurrentSceneSelect,
+  renderAdminPlayersList, renderAdminCampaignTypeSelect, renderAdminSrdRepo
 };
