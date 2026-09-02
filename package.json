@@ -3,9 +3,11 @@
   "private": true,
   "devDependencies": {
     "@firebase/rules-unit-testing": "^3.0.4",
+    "@playwright/test": "^1.47.0",
     "firebase-tools": "15.28.1"
   },
   "scripts": {
-    "test:rules": "firebase emulators:exec --only firestore --project daggerheart-campaign-codex-dev \"node --test tests/rules/*.test.mjs\""
+    "test:rules": "firebase emulators:exec --only firestore --project daggerheart-campaign-codex-dev \"node --test tests/rules/*.test.mjs\"",
+    "test:e2e": "bash scripts/e2e-run.sh"
   }
 }

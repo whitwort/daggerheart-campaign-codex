@@ -1,7 +1,7 @@
 import { CONFIG, firebaseApp } from './firebase.js';
 import {
   getAuth, GoogleAuthProvider, GithubAuthProvider,
-  signInWithPopup, signOut, onAuthStateChanged
+  signInWithPopup, signInWithCustomToken, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
   getFirestore, doc, setDoc, serverTimestamp, onSnapshot
@@ -23,6 +23,16 @@ import { stampPresenceNow } from './presence.js';
 
 const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
+
+// Playwright e2e suite only (tests/e2e/): the app has no password auth
+// (Google/GitHub popup only, unautomatable in CI), so the suite drives
+// sign-in via a custom token minted against the Auth emulator by
+// tests/e2e/global-setup.mjs. Gated on CONFIG.firebase.useEmulator, set
+// only by firebase-env.emulator.js — undefined (falsy) in every real
+// dev/prod build, so this hook doesn't exist there at all.
+if (CONFIG.firebase.useEmulator) {
+  window.__e2eSignIn = function (token) { return signInWithCustomToken(auth, token); };
+}
 
 // DOM refs owned by other tabs/modules, needed here only for
 // updateAccessUI's show/hide toggles.
