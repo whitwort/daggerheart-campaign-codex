@@ -126,7 +126,20 @@ function blocksFromMarkdown(md, marked) {
     if (tok.type === 'heading') blocks.push({ type: 'heading', level: tok.depth, runs: inlineRuns(tok.tokens) });
     else if (tok.type === 'paragraph') blocks.push({ type: 'paragraph', runs: inlineRuns(tok.tokens) });
     else if (tok.type === 'list') walkList(tok, 0);
-    else if (tok.type === 'blockquote') blocks.push({ type: 'paragraph', runs: [{ text: tok.text, bold: false, italic: true }] });
+    else if (tok.type === 'blockquote') {
+      // marked's blockquote token doesn't reliably populate .text with
+      // the quoted content (that lives in .tokens, as nested block
+      // tokens, same as the top-level token stream) -- relying on
+      // .text silently dropped the whole quote whenever it was empty.
+      // Walk .tokens directly instead, same as everything else here.
+      (tok.tokens || []).forEach(function (inner) {
+        if (inner.tokens && inner.tokens.length) {
+          blocks.push({ type: 'paragraph', runs: inlineRuns(inner.tokens, false, true) });
+        } else if (inner.text) {
+          blocks.push({ type: 'paragraph', runs: [{ text: inner.text, bold: false, italic: true }] });
+        }
+      });
+    }
     else if (tok.type === 'hr') blocks.push({ type: 'hr' });
     // space/code/table/etc: not expected in this app's lore content;
     // silently dropped rather than guessing a rendering.
