@@ -5074,5 +5074,6 @@ export {
   renderEntityViewCard, applyWikiLinks, enterEntityEditMode, appendDateSegments,
   fitCodexTabHeight, footerReserve, switchToCodexTabForEntity, notifyVisibilityChange,
   openNewEntityDialog, resolveEntityStatBlockMarkdown, buildDropChangeLine,
-  DROP_TYPES, dropTypeLabel, openDropRecorder
+  DROP_TYPES, dropTypeLabel, openDropRecorder,
+  categoryPinClassLocal, isCategoryCollapsed, isSubtypeCollapsed, subtypeCollapseKey, subtypeLabel
 };
