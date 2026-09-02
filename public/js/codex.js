@@ -2793,8 +2793,19 @@ function saveSharedLoreItem(editState, saveBtn) {
 // file). Same "set state, dispatch the real tab click" approach as
 // switchToCodexTabForEntity's counterpart in the other direction.
 function openEncounterInBuildMode(encounterId) {
+  openEncounterInTab(encounterId, 'build');
+}
+
+// Sep 2026: GM-view lore-item card gets its own "Run" button (separate
+// from the edit box's "Open in Build") -- same navigation trick, just
+// the Run sub-tab instead of Build.
+function openEncounterInRunMode(encounterId) {
+  openEncounterInTab(encounterId, 'run');
+}
+
+function openEncounterInTab(encounterId, detailTab) {
   state.encountersSelectedId = encounterId;
-  state.encountersDetailTab = 'build';
+  state.encountersDetailTab = detailTab;
   const btn = document.getElementById('tab-btn-encounters');
   if (btn) btn.click();
 }
@@ -3365,6 +3376,22 @@ function renderLoreTab(container, entity, ctx, readOnly) {
     if (!anyActiveEdit && hasChrome) {
       const actionsRow = document.createElement('div');
       actionsRow.className = 'lore-item-actions-row';
+      // Meta-Encounter (Sep 2026): a "Run" button straight from the
+      // card, no need to open Edit first -- GM view only (encounterId
+      // linking is a GM concept; state.allEncounters is a GM-only
+      // listener). Deleted-encounter case (linked.id no longer resolves)
+      // just omits the button, same degrade-gracefully stance as the
+      // edit box's own linked-name display.
+      if (ctx.gmView && item.meta === 'meta-encounter' && item.encounterId) {
+        const linkedEnc = (state.allEncounters || []).find(function (e) { return e.id === item.encounterId; });
+        if (linkedEnc) {
+          const runBtn = document.createElement('button');
+          runBtn.className = 'lore-item-btn';
+          runBtn.textContent = 'Run';
+          runBtn.addEventListener('click', function () { openEncounterInRunMode(linkedEnc.id); });
+          actionsRow.appendChild(runBtn);
+        }
+      }
       const editBtn = document.createElement('button');
       editBtn.className = 'lore-item-btn';
       editBtn.textContent = 'Edit';
