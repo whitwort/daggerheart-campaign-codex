@@ -363,10 +363,11 @@ const adminSourceErrorEl = document.getElementById('admin-source-error');
     // Presence status text (Status column). No presence backend -- this is
     // the same "stamp under 5 min old = Online" heuristic as presence.js's
     // heartbeat comment (4 min period, +1 min slack against a client
-    // mid-interval). Computed at render time only, same staleness
-    // tradeoff the Messages digest's relative-time already carries (no
-    // periodic re-render timer -- re-renders on the next presence
-    // snapshot, admin.js's own listener, split from players/ Aug 2026).
+    // mid-interval). Computed at render time; kept honest by the 60s
+    // re-render tick below (Sep 2026) -- previously render-only, so
+    // "Online" could sit stale indefinitely after a player's last
+    // heartbeat, since nothing re-fires the presence snapshot when
+    // writes STOP arriving.
     const ONLINE_WINDOW_MS = 5 * 60 * 1000;
     function tsMs(v) {
       return (v && typeof v.toMillis === 'function') ? v.toMillis() : null;
@@ -467,6 +468,23 @@ const adminSourceErrorEl = document.getElementById('admin-source-error');
         adminPlayersTbodyEl.appendChild(row);
       });
     }
+
+    // Read-side staleness tick (Sep 2026): the Status column is a
+    // time-relative computation, so it needs a clock, not just snapshot
+    // events. Purely local -- re-renders from state.allPresence already
+    // in memory, zero network. Reuses the full renderAdminPlayersList
+    // path (the already-exercised code) rather than surgically patching
+    // status cells; the edit-mode guard keeps it from wiping an
+    // in-progress displayName edit, same hazard class as the Aug 2026
+    // heartbeat-rerender bug. Skipped while the tab is backgrounded --
+    // a stale display nobody is looking at costs nothing, and the
+    // interval's next visible tick catches up.
+    setInterval(function () {
+      if (state.currentRole !== 'gm') return;
+      if (document.visibilityState !== 'visible') return;
+      if (state.adminPlayerEditId !== null) return;
+      renderAdminPlayersList();
+    }, 60 * 1000);
 
     adminNewPlayerBtn.addEventListener('click', function () {
       adminNewPlayerFormEl.style.display = 'block';
