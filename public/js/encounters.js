@@ -727,7 +727,7 @@ function groupedCounts(list) {
   (list || []).forEach(function (inst) {
     const entity = entityById(inst.entityId);
     const name = (entity && entity.name) || inst.fallbackName || '(unknown)';
-    if (!byId[inst.entityId]) byId[inst.entityId] = { name: name, count: 0 };
+    if (!byId[inst.entityId]) byId[inst.entityId] = { id: inst.entityId, name: name, count: 0 };
     byId[inst.entityId].count += 1;
   });
   return Object.keys(byId).map(function (id) { return byId[id]; })
@@ -768,45 +768,36 @@ function buildEncounterPhaseSection(enc, phase) {
   return lines.join('\n');
 }
 
-// Short one-line plain-text version for the notification digest (no
-// markdown) -- always says SOMETHING even when the phase's toggles are
-// off, since the H3 header itself ("Encounter: X has begun/concluded")
-// is still new info per the "at minimum" spec.
-function buildEncounterRevealSummary(enc, phase) {
-  const name = enc.name || '(unnamed)';
+// Structured reveal data for the NOTIFICATION (separate from the
+// markdown block above -- the digest renders real per-item links, not
+// prose, so it needs {id, name, count} not a formatted string). Empty
+// arrays when the phase's toggles are off -- applyEncounterRevealEffects
+// below skips firing a notification entirely in that case (Sep 2026
+// cleanup: no more generic "Encounter X has begun/concluded" filler
+// when there's nothing actually new to show).
+function buildEncounterRevealPayload(enc, phase) {
   const timing = enc.revealAdversariesTiming || 'off';
-  if (phase === 'start') {
-    if (timing !== 'start') return 'Encounter "' + name + '" has begun.';
-    const groups = groupedCounts(enc.instances);
-    if (!groups.length) return 'Encounter "' + name + '" has begun.';
-    return 'You see: ' + groups.map(countedLine).join(', ') + '.';
-  }
-  const bits = [];
-  if (timing === 'completion') {
-    const groups = groupedCounts(enc.instances);
-    if (groups.length) bits.push('You fought: ' + groups.map(countedLine).join(', '));
-  }
-  if (enc.revealLootOnCompletion) {
-    const groups = groupedCounts(enc.loot);
-    if (groups.length) bits.push('You found: ' + groups.map(countedLine).join(', '));
-  }
-  return bits.length ? bits.join(' ') + '.' : 'Encounter "' + name + '" has concluded.';
+  const adversaries = (timing === phase) ? groupedCounts(enc.instances) : [];
+  const loot = (phase === 'completion' && enc.revealLootOnCompletion) ? groupedCounts(enc.loot) : [];
+  return { adversaries: adversaries, loot: loot };
 }
 
 // Writes into every Meta-Encounter lore item linked to this encounter,
 // flips visibility to Party on the 'start' phase only (completion leaves
-// it alone -- already Party by then), and fires the summary notification.
-// `enc` is the PRE-transition snapshot (runStatus write happens in a
-// separate updateEncounter call around this one) -- phase drives the
-// branch, not enc.runStatus, since that field may not reflect the new
-// state yet at call time.
+// it alone -- already Party by then), and fires the reveal notification
+// -- but only when there's actual adversary/loot content to report;
+// nothing to say means no notification at all. `enc` is the
+// PRE-transition snapshot (runStatus write happens in a separate
+// updateEncounter call around this one) -- phase drives the branch, not
+// enc.runStatus, since that field may not reflect the new state yet at
+// call time.
 function applyEncounterRevealEffects(enc, phase) {
   const items = state.allLoreItems.filter(function (it) {
     return it.meta === 'meta-encounter' && it.encounterId === enc.id;
   });
   if (!items.length) return;
   const section = buildEncounterPhaseSection(enc, phase);
-  const summary = buildEncounterRevealSummary(enc, phase);
+  const payload = buildEncounterRevealPayload(enc, phase);
   const header = 'Encounter: ' + (enc.name || '(unnamed)');
   const batch = writeBatch(db);
   const merged = [];
@@ -820,7 +811,8 @@ function applyEncounterRevealEffects(enc, phase) {
     merged.push(Object.assign({}, it, patch));
   });
   trackWrite(batch.commit(), 'Updating encounter lore').then(function () {
-    merged.forEach(function (it) { notifyEncounterReveal(it, summary); });
+    if (!payload.adversaries.length && !payload.loot.length) return;
+    merged.forEach(function (it) { notifyEncounterReveal(it, phase, payload); });
   });
 }
 

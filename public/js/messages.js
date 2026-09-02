@@ -595,18 +595,48 @@ function buildPlayerDigest(container) {
       line.appendChild(document.createTextNode('.'));
       card.appendChild(line);
     }
-    // Sep 2026 (encounter<->Codex integration): one line per reveal, not
+    // Sep 2026 (encounter<->Codex integration): one block per reveal, not
     // deduped like discovered/learned above -- a Start reveal and a
     // Completion reveal on the same entity are two genuinely different
-    // pieces of news (what you see vs. what you found), each with its
-    // own short summary already computed at write time (sharing.js's
-    // notifyEncounterReveal) rather than a generic "learned more" line.
+    // pieces of news (what you see vs. what you found/fought). No
+    // parent-entity link prefix here (Gregg's call) -- just the phase
+    // label followed by a real list, each item its own link to ITS OWN
+    // entity (not the parent Scene). Gated per-item on canSee since,
+    // unlike the parent entity (already filtered into this group), an
+    // individual adversary/loot entity's own visibility was never
+    // guaranteed flipped by the reveal -- a hidden one renders as plain
+    // text, same "stays plain text, don't leak existence via a link"
+    // stance as applyWikiLinks.
+    function revealItemNode(item) {
+      const entity = state.allEntities.find(function (e) { return e.id === item.id; });
+      const label = item.name + (item.count > 1 ? ' x' + item.count : '');
+      if (entity && canSee(entity, ctx)) {
+        const span = document.createElement('span');
+        span.className = 'digest-entity';
+        span.textContent = label;
+        span.addEventListener('click', function () { switchToCodexTabForEntity(item.id); });
+        return span;
+      }
+      return document.createTextNode(label);
+    }
+    function appendRevealList(label, items) {
+      if (!items || !items.length) return;
+      const heading = document.createElement('div');
+      heading.className = 'digest-line';
+      heading.textContent = label;
+      card.appendChild(heading);
+      const ul = document.createElement('ul');
+      ul.className = 'digest-reveal-list';
+      items.forEach(function (item) {
+        const li = document.createElement('li');
+        li.appendChild(revealItemNode(item));
+        ul.appendChild(li);
+      });
+      card.appendChild(ul);
+    }
     encounterReveals.forEach(function (n) {
-      const line = document.createElement('div');
-      line.className = 'digest-line';
-      line.appendChild(entityLink());
-      line.appendChild(document.createTextNode(': ' + (n.summary || 'New encounter info.')));
-      card.appendChild(line);
+      appendRevealList(n.phase === 'start' ? 'You see:' : 'You fought:', n.adversaries);
+      appendRevealList('You found:', n.loot);
     });
     Object.keys(sharedActors).forEach(function (charId) {
       const line = document.createElement('div');
