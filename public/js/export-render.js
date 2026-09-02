@@ -460,19 +460,51 @@ async function buildPdfBlob(perEntity, imagesByEntity, warningText, secretCharac
 
   // Renders one Lore/Note item as a bullet, drawing a teal outline box
   // around it (and a colored "[Secret - Name]" tag) when secret.
+  // Mirrors renderRuns' own word-wrap decisions exactly (same split/
+  // width logic) but only counts lines -- no drawing. Used to measure a
+  // secret item's box height BEFORE any of it is drawn, so ensureRoom
+  // can reserve the whole thing on one page. Without this, a box that
+  // wrapped across a page break got its start/end coordinates measured
+  // on two different pages, drawing garbage (the reported box glitches).
+  function measureRunsHeight(runs, size, indent) {
+    const x0 = indent || 0;
+    const usableWidth = maxWidth - (indent || 0);
+    let x = x0;
+    let lines = 1;
+    runs.forEach(function (run) {
+      const style = run.bold && run.italic ? 'bolditalic' : run.bold ? 'bold' : run.italic ? 'italic' : 'normal';
+      doc.setFont('helvetica', style);
+      doc.setFontSize(size);
+      run.text.split(/(\s+)/).forEach(function (word) {
+        if (word === '') return;
+        if (word === '\n') { lines++; x = x0; return; }
+        const w = doc.getTextWidth(word);
+        if (x + w > x0 + usableWidth && word.trim() !== '') { lines++; x = x0; }
+        if (word.trim() === '' && x === x0) return;
+        x += w;
+      });
+    });
+    return lines * (size * 1.3);
+  }
+
   function renderItem(item) {
-    ensureRoom(14);
+    const runs = [];
+    if (item.secret) runs.push({ text: secretTagText(secretCharacterName), bold: true, color: SECRET_COLOR_RGB });
+    itemInlineRuns(item.content, marked).forEach(function (r) { if (r.text) runs.push(r); });
+    const textHeight = measureRunsHeight(runs, 10, 12);
+    const boxPad = 6;
+    // Reserve the FULL item's height up front -- renderRuns below will
+    // then never need its own mid-render page break, so the box's
+    // start/end coordinates are guaranteed to land on the same page.
+    ensureRoom(textHeight + (item.secret ? boxPad : 0) + 6);
     const startY = y - 9;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.text('\u2022', margin, y);
-    const runs = [];
-    if (item.secret) runs.push({ text: secretTagText(secretCharacterName), bold: true, color: SECRET_COLOR_RGB });
-    itemInlineRuns(item.content, marked).forEach(function (r) { if (r.text) runs.push(r); });
     renderRuns(runs, 10, 12);
     if (item.secret) {
       doc.setDrawColor.apply(doc, SECRET_COLOR_RGB);
-      doc.roundedRect(margin - 3, startY, maxWidth + 6, (y - startY) - 4, 2, 2, 'S');
+      doc.roundedRect(margin - 3, startY, maxWidth + 6, textHeight + 2, 2, 2, 'S');
       doc.setDrawColor(0, 0, 0);
     }
   }
