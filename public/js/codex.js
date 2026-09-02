@@ -2861,6 +2861,14 @@ function buildEncounterLinkRow(entity, editState) {
     const linked = (state.allEncounters || []).find(function (e) { return e.id === editState.encounterId; });
     const nameSpan = document.createElement('span');
     nameSpan.className = 'lore-item-encounter-name';
+    // data-encounter-id: lets encounters.js's own onSnapshot handler
+    // patch this text directly on a rename (see the bug this fixes --
+    // renaming an encounter in Build mode left an open lore-item edit
+    // box's name stale, since that box only re-renders on
+    // entities/loreItems changes, never on `encounters`). Surgical text
+    // patch, not a box rebuild, so it can't cause the focus-loss class
+    // of bug a full renderDetailForSelected() would risk mid-typing.
+    nameSpan.dataset.encounterId = editState.encounterId;
     nameSpan.textContent = linked ? (linked.name || '(unnamed)') : '(deleted encounter)';
     row.appendChild(nameSpan);
     if (linked) {

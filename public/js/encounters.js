@@ -57,9 +57,26 @@ function attachEncountersListener() {
         state.allEncounters.push(Object.assign({ id: docSnap.id }, docSnap.data()));
       });
       renderEncountersTab();
+      refreshOpenEncounterNameDisplays();
     }), function (err) {
       console.error('encounters listener failed:', err.message);
     });
+  });
+}
+
+// Bug fix: renaming an encounter in Build mode left a currently-open
+// Codex lore-item edit box (buildEncounterLinkRow) showing the OLD
+// name, since that box only re-renders on entities/loreItems changes,
+// never on `encounters`. A full renderDetailForSelected() from here
+// would fix it but risks the exact focus-loss bug class already fixed
+// once this session (a snapshot arriving mid-typing forcing a
+// destructive rebuild) -- so this patches just the name text of any
+// currently-rendered .lore-item-encounter-name span directly, keyed by
+// the data-encounter-id codex.js stamps on it.
+function refreshOpenEncounterNameDisplays() {
+  document.querySelectorAll('.lore-item-encounter-name[data-encounter-id]').forEach(function (el) {
+    const enc = state.allEncounters.find(function (e) { return e.id === el.dataset.encounterId; });
+    el.textContent = enc ? (enc.name || '(unnamed)') : '(deleted encounter)';
   });
 }
 
