@@ -12,20 +12,25 @@ those deleted docs — resolve via git history, don't "fix" the comments.
 
 ## Current state (end of session, Sep 2 2026)
 
-HEAD: `a09d907`. Deployed to **dev only**, CI green. Prod still on v0.7b/`1a08007`.
+HEAD: `44f2812`. Deployed to **dev only**, CI green throughout. Prod remains v0.7b/`1a08007`.
 
-**Current scene configuration: COMPLETE & TESTED, defer prod deploy.**
-Built in commit `4450d32`:
-- New `currentSceneId` field in `config/campaign` doc, state.js, and Admin > Configuration UI.
-- Admin selector filters to Scene entities, GM-editable, same merge-save pattern as rootEntityId/campaignType.
-- Codex opening message: appends "Or start with the party's latest scene: [NAME]" link if currentSceneId is set and visible to player. Link click selects the scene and displays its detail.
-- Render triggers: codex.js entities listener (on Scene list change), map.js config listener (on currentSceneId change).
-- No firestore.rules changes — already in play via `config/campaign` access.
-- **Confirmed functional in dev (Sep 2); defer prod Release until other pending work finishes.**
+**"Current scene" configuration feature: COMPLETE & TESTED, prod Release deferred.**
+Built commit `4450d32`, confirmed functional by Gregg:
+- New `currentSceneId` field in `config/campaign` doc + state.js.
+- Admin > Configuration > "Current scene" selector: filters Scene entities, GM-editable, merge-saved like rootEntityId/campaignType.
+- Codex opening message: if currentSceneId set & visible, appends line "Or start with the party's latest scene: [NAME]" with clickable link. Link click selects scene entity and displays detail.
+- Render: codex.js entities listener (Scene list changes) + map.js config listener (currentSceneId changes).
+- No firestore.rules changes needed — already handled by existing `config/campaign` access rules.
+- All pre-commit gates passed: ESLint, node --check, CSS/rules brace balance.
+- Prod Release deferred per Gregg — other sessions have pending work to finish first.
 
-## Prior sessions
+## Open items
 
-See git log for detailed history.
+- **Prod Release:** current-scene feature at `44f2812` ready to ship; defer until other work finishes.
+- Post-launch optimizations: dynamic-import GM-only modules (~3k lines), codex.js split (4.8k lines).
+- Single-entry restore "delete orphans" mode — deferred, needs concrete use case.
+- Purge-legacy-image-docs scan has no watchdog on `getDocs` read — low priority, only matters if it starts failing.
+- Playwright player-role smoke test — floated during Aug 28 focus-loss retro, not built.
 
 ## Session ritual
 
@@ -37,11 +42,3 @@ public/js/*.js`, `node --check` per touched file, CSS + firestore.rules
 brace balance. Push via PAT URL; rebase FETCH_HEAD if remote moved. CI:
 sleep ~74s then poll Actions API with PAT header. End every session by
 rewriting THIS file.
-
-## Open items
-
-- **Prod Release:** current-scene feature ready to ship (dev 4450d32), defer until other sessions finish.
-- Post-launch optimizations: dynamic-import GM-only modules (~3k lines), codex.js split (4.8k lines).
-- Single-entry restore "delete orphans" mode — deferred, needs concrete use case.
-- Purge-legacy-image-docs scan has no watchdog on `getDocs` read — low priority.
-- Playwright player-role smoke test — just an idea, not built.
