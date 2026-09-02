@@ -78,6 +78,7 @@
   <link rel="modulepreload" href="js/encounters.js">
   <link rel="modulepreload" href="js/entity-images-cache.js">
   <link rel="modulepreload" href="js/export-lore.js">
+  <link rel="modulepreload" href="js/export-render.js">
   <link rel="modulepreload" href="js/firebase.js">
   <link rel="modulepreload" href="js/images.js">
   <link rel="modulepreload" href="js/import.js">
@@ -408,16 +409,59 @@
       </div>
 
       <div id="admin-db-export" class="admin-db-tab-panel">
-        <p class="admin-hint">Pick an entry to export it (and its lore) as JSON in the same shape the Import Lore tab accepts.</p>
-        <input type="text" id="export-lore-search" class="entity-picker-search" placeholder="Search…">
-        <div id="export-lore-list" class="entity-picker-list"></div>
+        <div class="actions-row">
+          <div class="actions-row-left">
+            <label>Export:
+              <select id="export-mode-select">
+                <option value="selected">Selected Entries</option>
+                <option value="character">Character</option>
+                <option value="party">All Party Visible</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div id="export-mode-selected-panel">
+          <input type="text" id="export-lore-search" class="entity-picker-search" placeholder="Search…">
+          <div id="export-lore-list" class="entity-picker-list"></div>
+        </div>
+
+        <div id="export-mode-character-panel" class="actions-row" style="display:none;">
+          <div class="actions-row-left">
+            <select id="export-character-select"></select>
+            <label><input type="checkbox" id="export-character-secrets-check"> Include this character's secrets</label>
+          </div>
+        </div>
+
+        <div class="actions-row">
+          <div class="actions-row-left">
+            <label>Export as:
+              <select id="export-format-select">
+                <option value="json">JSON</option>
+                <option value="markdown">Markdown</option>
+                <option value="docx">Word (.docx)</option>
+                <option value="pdf">PDF</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div id="export-json-options" class="actions-row">
+          <div class="actions-row-left">
+            <label><input type="checkbox" id="export-include-images-check"> Include image data</label>
+          </div>
+        </div>
+
         <div id="export-lore-preview" class="actions-row-left"></div>
+        <p id="export-lore-warning" class="admin-hint"></p>
+
         <div class="actions-row">
           <div class="actions-row-left"></div>
           <div class="actions-row-right">
-            <button type="button" id="export-lore-btn" disabled>Export</button>
+            <button type="button" id="export-lore-btn" disabled>Download</button>
           </div>
         </div>
+        <p id="export-lore-status"></p>
       </div>
 
       <div id="admin-db-backup" class="admin-db-tab-panel active">
