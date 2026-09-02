@@ -37,6 +37,7 @@ import { buildPickerPanel } from './picker-panel.js';
 import { switchToCodexTabForEntity, entityMatchesQuery, resolveEntityStatBlockMarkdown } from './codex.js';
 import { viewerContext } from './visibility.js';
 import { renderMarkdownInto } from './markdown.js';
+import { notifyEncounterReveal } from './sharing.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -649,12 +650,17 @@ function isFullyDefeated(enc) {
 // rides the same write instead of a second round-trip.
 function maybeAutoTransition(enc, updates) {
   const status = enc.runStatus || 'pristine';
+  let becameStarted = false;
   if (status === 'pristine') {
     updates.runStatus = 'started';
+    becameStarted = true;
   }
   const nextEnc = Object.assign({}, enc, updates);
   if ((updates.runStatus || status) === 'started' && isFullyDefeated(nextEnc)) {
     Object.assign(updates, completionFields(enc));
+    applyEncounterRevealEffects(enc, 'completion');
+  } else if (becameStarted) {
+    applyEncounterRevealEffects(enc, 'start');
   }
 }
 
@@ -684,12 +690,147 @@ function revealHiddenLoot(enc) {
   trackWrite(batch.commit(), 'Revealing loot');
 }
 
+// --- Codex Scene<->encounter integration (Sep 2026): Meta-Encounter ----
+// lore items (codex.js) link to an encounter by encounterId and get
+// their content/visibility driven by this Run state machine. Content is
+// WRITTEN (not computed live) into item.encounterRevealMd -- the
+// `encounters` collection is GM-only in firestore.rules, so a player
+// client can never read the live enc doc to compute this itself; the
+// static write is the only way the reveal reaches players. Written text
+// goes stale if the encounter is later renamed (the header bakes in
+// enc.name at write time) -- accepted tradeoff, not worth a live-compute
+// path that would only work for the GM.
+//
+// Accumulates across phases (start's block, then completion's, appended
+// -- never regenerated from scratch) so a "You see:" from Start survives
+// the Complete-phase write, which only knows about its OWN phase's
+// reveal, not Start's.
+function groupedCounts(list) {
+  const byId = {};
+  (list || []).forEach(function (inst) {
+    const entity = entityById(inst.entityId);
+    const name = (entity && entity.name) || inst.fallbackName || '(unknown)';
+    if (!byId[inst.entityId]) byId[inst.entityId] = { name: name, count: 0 };
+    byId[inst.entityId].count += 1;
+  });
+  return Object.keys(byId).map(function (id) { return byId[id]; })
+    .sort(function (a, b) { return a.name.localeCompare(b.name); });
+}
+function countedLine(g) { return g.name + (g.count > 1 ? ' x' + g.count : ''); }
+
+// The markdown block for ONE phase only ('start'|'completion') -- never
+// the whole item, since completion must APPEND to whatever start already
+// wrote rather than replace it (see header comment above).
+function buildEncounterPhaseSection(enc, phase) {
+  const timing = enc.revealAdversariesTiming || 'off';
+  const lines = [];
+  if (phase === 'start' && timing === 'start') {
+    const groups = groupedCounts(enc.instances);
+    if (groups.length) {
+      lines.push('**You see:**');
+      groups.forEach(function (g) { lines.push('- ' + countedLine(g)); });
+    }
+  }
+  if (phase === 'completion') {
+    if (timing === 'completion') {
+      const groups = groupedCounts(enc.instances);
+      if (groups.length) {
+        lines.push('**You fought:**');
+        groups.forEach(function (g) { lines.push('- ' + countedLine(g)); });
+      }
+    }
+    if (enc.revealLootOnCompletion) {
+      const groups = groupedCounts(enc.loot);
+      if (groups.length) {
+        if (lines.length) lines.push('');
+        lines.push('**You found:**');
+        groups.forEach(function (g) { lines.push('- ' + countedLine(g)); });
+      }
+    }
+  }
+  return lines.join('\n');
+}
+
+// Short one-line plain-text version for the notification digest (no
+// markdown) -- always says SOMETHING even when the phase's toggles are
+// off, since the H3 header itself ("Encounter: X has begun/concluded")
+// is still new info per the "at minimum" spec.
+function buildEncounterRevealSummary(enc, phase) {
+  const name = enc.name || '(unnamed)';
+  const timing = enc.revealAdversariesTiming || 'off';
+  if (phase === 'start') {
+    if (timing !== 'start') return 'Encounter "' + name + '" has begun.';
+    const groups = groupedCounts(enc.instances);
+    if (!groups.length) return 'Encounter "' + name + '" has begun.';
+    return 'You see: ' + groups.map(countedLine).join(', ') + '.';
+  }
+  const bits = [];
+  if (timing === 'completion') {
+    const groups = groupedCounts(enc.instances);
+    if (groups.length) bits.push('You fought: ' + groups.map(countedLine).join(', '));
+  }
+  if (enc.revealLootOnCompletion) {
+    const groups = groupedCounts(enc.loot);
+    if (groups.length) bits.push('You found: ' + groups.map(countedLine).join(', '));
+  }
+  return bits.length ? bits.join(' ') + '.' : 'Encounter "' + name + '" has concluded.';
+}
+
+// Writes into every Meta-Encounter lore item linked to this encounter,
+// flips visibility to Party on the 'start' phase only (completion leaves
+// it alone -- already Party by then), and fires the summary notification.
+// `enc` is the PRE-transition snapshot (runStatus write happens in a
+// separate updateEncounter call around this one) -- phase drives the
+// branch, not enc.runStatus, since that field may not reflect the new
+// state yet at call time.
+function applyEncounterRevealEffects(enc, phase) {
+  const items = state.allLoreItems.filter(function (it) {
+    return it.meta === 'meta-encounter' && it.encounterId === enc.id;
+  });
+  if (!items.length) return;
+  const section = buildEncounterPhaseSection(enc, phase);
+  const summary = buildEncounterRevealSummary(enc, phase);
+  const header = 'Encounter: ' + (enc.name || '(unnamed)');
+  const batch = writeBatch(db);
+  const merged = [];
+  items.forEach(function (it) {
+    const existing = it.encounterRevealMd || '';
+    const base = existing || ('### ' + header);
+    const next = section ? (base + '\n\n' + section) : base;
+    const patch = { encounterRevealMd: next, updatedAt: serverTimestamp() };
+    if (phase === 'start' && it.visibility !== 'all-players') patch.visibility = 'all-players';
+    batch.update(doc(db, 'loreItems', it.id), patch);
+    merged.push(Object.assign({}, it, patch));
+  });
+  trackWrite(batch.commit(), 'Updating encounter lore').then(function () {
+    merged.forEach(function (it) { notifyEncounterReveal(it, summary); });
+  });
+}
+
+// Reset (back to pristine) un-reveals with no special-casing needed on
+// the read side -- just wipe the written block back to empty. No
+// notification: un-revealing isn't new info.
+function clearEncounterRevealEffects(enc) {
+  const items = state.allLoreItems.filter(function (it) {
+    return it.meta === 'meta-encounter' && it.encounterId === enc.id;
+  });
+  if (!items.length) return;
+  const batch = writeBatch(db);
+  items.forEach(function (it) {
+    if (!it.encounterRevealMd) return;
+    batch.update(doc(db, 'loreItems', it.id), { encounterRevealMd: '', updatedAt: serverTimestamp() });
+  });
+  trackWrite(batch.commit(), 'Clearing encounter lore');
+}
+
 function startRun(enc) {
   updateEncounter(enc.id, { runStatus: 'started' });
+  applyEncounterRevealEffects(enc, 'start');
 }
 
 function completeRun(enc) {
   updateEncounter(enc.id, completionFields(enc));
+  applyEncounterRevealEffects(enc, 'completion');
 }
 
 function resetRun(enc) {
@@ -698,6 +839,7 @@ function resetRun(enc) {
     return Object.assign({}, i, { hp: 0, stress: 0, conditions: [] });
   });
   updateEncounter(enc.id, { instances: instances, runStatus: 'pristine' });
+  clearEncounterRevealEffects(enc);
 }
 
 // Right-aligned action group for the Build/Run tabsRow, Run tab only

@@ -407,11 +407,52 @@ function shareImageVisibility(imageDocId, patch) {
   return batch.commit();
 }
 
+// --- Encounter reveal notification (Sep 2026, encounter<->Codex --------
+// integration): fired directly by encounters.js at the Run state
+// machine's start/completion transitions, NOT routed through
+// appendShareNotifications' share-diff machinery -- unlike a share, this
+// event can happen with NO visibility change at all (completion reveals
+// "You fought"/"You found" on an item that was already all-players since
+// Start), so there's no "before/after" to diff. Same precedent as
+// Stables' lore-drop: a self-contained batch write + its own notification
+// kind, bypassing the per-item share seam entirely (see that module's
+// runDrop/computeDropRecipients). Deliberately targets players only --
+// the GM is always the actor for a Run-tab transition, so (unlike
+// appendShareNotifications) there's no GM-recipient branch.
+function notifyEncounterReveal(loreItem, summary) {
+  try {
+    const universe = playersUniverse();
+    const parentEntity = state.allEntities.find(function (e) { return e.id === loreItem.entityId; });
+    if (!parentEntity) return Promise.resolve();
+    const exposed = exposedEmailSet(loreItem, universe);
+    const batch = writeBatch(db);
+    let any = false;
+    Object.keys(exposed).forEach(function (email) {
+      if (!canSee(parentEntity, recipientCtxFor(email))) return;
+      any = true;
+      batch.set(doc(collection(db, 'notifications')), {
+        recipientEmail: email,
+        kind: 'encounter-reveal',
+        entityId: loreItem.entityId,
+        loreItemId: loreItem.id,
+        summary: summary,
+        actorCharacterId: null,
+        createdAt: serverTimestamp(),
+        seenAt: null
+      });
+    });
+    return any ? batch.commit() : Promise.resolve();
+  } catch (err) {
+    console.error('encounter reveal notify failed:', err);
+    return Promise.resolve();
+  }
+}
+
 // playersUniverse/exposedEmailSet/recipientCtxFor exported for
 // stables.js's Run-time
 // consolidated 'lore-drop' notification computation (Phase 17 B4) — the
 // same before/after set diff this module uses for per-share fan-out.
 export {
   shareEntityVisibility, shareLoreItemVisibility, shareImageVisibility, createLoreItemShared,
-  playersUniverse, exposedEmailSet, recipientCtxFor, notifyCharacterEdited
+  playersUniverse, exposedEmailSet, recipientCtxFor, notifyCharacterEdited, notifyEncounterReveal
 };

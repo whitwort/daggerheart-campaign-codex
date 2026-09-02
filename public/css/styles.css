@@ -1211,6 +1211,11 @@ select {
 .lore-item-drag-handle:active { cursor: grabbing; }
 .lore-item-toggle-row-right { display: flex; align-items: center; }
 .lore-item-meta-row { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.4rem; }
+/* Meta-Encounter linked-encounter picker (Sep 2026): same row rhythm as
+   .lore-item-meta-row just above -- wraps on narrow widths since the
+   linked state can carry a name + two buttons. */
+.lore-item-encounter-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.4rem; }
+.lore-item-encounter-name { font-style: italic; }
 .lore-item-actions-row { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.4rem; margin-top: 0.4rem; }
 .lore-item-btn { cursor: pointer; }
 /* Exception (8): entry-card action buttons — lore Edit/Delete, + New
