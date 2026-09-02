@@ -15,6 +15,7 @@ import { attachEncountersListener, detachEncountersListener } from './encounters
 import { attachStablesListener, detachStablesListener } from './stables.js';
 import { attachSourcesListener, detachSourcesListener } from './sources.js';
 import { attachVersionListener, detachVersionListener, initUpdateBanner } from './version.js';
+import { attachOpStatusListener, detachOpStatusListener } from './op-status.js';
 import { attachConnectivityListener, detachConnectivityListener } from './connectivity.js';
 import { attachCharacterTransferListeners, detachCharacterTransferListeners } from './characters.js';
 import { attachMessagesListeners, detachMessagesListeners } from './messages.js';
@@ -175,6 +176,7 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
       detachDataListeners();
       detachVersionListener();
       detachConnectivityListener();
+      detachOpStatusListener();
 
       if (user) {
         signInButtonsEl.style.display = 'none';
@@ -182,8 +184,10 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
         userEmailEl.textContent = user.email || '(no email shared)';
         // _meta/version read only needs request.auth != null (see rules) —
         // attach for ANY signed-in user, including not-yet-whitelisted.
+        // opStatus is the same "any signed-in user" read scope (firestore.rules).
         attachVersionListener();
         attachConnectivityListener();
+        attachOpStatusListener();
       } else {
         signInButtonsEl.style.display = 'flex';
         signOutBtn.style.display = 'none';
