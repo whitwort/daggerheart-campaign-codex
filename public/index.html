@@ -418,19 +418,20 @@
                 <option value="party">All Party Visible</option>
               </select>
             </label>
+            <span id="export-character-inline" style="display:none;">
+              <select id="export-character-select"></select>
+              <span class="toggle-switch-label">Include this character's secrets</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="export-character-secrets-check">
+                <span class="toggle-slider"></span>
+              </label>
+            </span>
           </div>
         </div>
 
         <div id="export-mode-selected-panel">
           <input type="text" id="export-lore-search" class="entity-picker-search" placeholder="Search…">
           <div id="export-lore-list" class="entity-picker-list"></div>
-        </div>
-
-        <div id="export-mode-character-panel" class="actions-row" style="display:none;">
-          <div class="actions-row-left">
-            <select id="export-character-select"></select>
-            <label><input type="checkbox" id="export-character-secrets-check"> Include this character's secrets</label>
-          </div>
         </div>
 
         <div class="actions-row">
@@ -448,12 +449,16 @@
 
         <div id="export-json-options" class="actions-row">
           <div class="actions-row-left">
-            <label><input type="checkbox" id="export-include-images-check"> Include image data</label>
+            <span class="toggle-switch-label">Include image data</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="export-include-images-check">
+              <span class="toggle-slider"></span>
+            </label>
           </div>
         </div>
 
         <div id="export-lore-preview" class="actions-row-left"></div>
-        <p id="export-lore-warning" class="admin-hint"></p>
+        <div id="export-lore-warning" class="admin-hint"></div>
 
         <div class="actions-row">
           <div class="actions-row-left"></div>
