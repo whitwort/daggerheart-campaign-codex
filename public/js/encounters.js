@@ -1384,6 +1384,50 @@ function openAdversaryPicker(enc) {
   searchInput.focus();
 }
 
+// --- Loot generation (roll tables, SRD 2.0 p.74/79: choose rarity, roll
+// --- that many d12s, sum, look up the matching Roll entry). Bundled
+// --- srd/items.json + srd/consumables.json carry the raw roll numbers
+// --- (two merged tables per type -- Core Set + Additional -- so most
+// --- roll values have two candidate names); entity.details is empty
+// --- for these subtypes (legacy/unschematized import path, so `roll`
+// --- never became structured data) -- match candidates back to a live
+// --- entity by exact name instead of relying on details.roll.
+const LOOT_TIER_DICE = { common: 1, uncommon: 2, rare: 3, legendary: 4 };
+const lootRollTableCache = {};
+
+function loadLootRollTable(subtype) {
+  if (lootRollTableCache[subtype]) return lootRollTableCache[subtype];
+  const p = fetch('/data/srd/' + subtype + '.json')
+    .then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    })
+    .catch(function () { return []; });
+  lootRollTableCache[subtype] = p;
+  return p;
+}
+
+function rollD12Sum(diceCount) {
+  let sum = 0;
+  for (let i = 0; i < diceCount; i++) sum += 1 + Math.floor(Math.random() * 12);
+  return sum;
+}
+
+// One draw: roll the tier's dice, find every table entry whose `roll`
+// sums to that value (usually 2, one per merged sub-table), pick one at
+// random, then resolve it to a live Equipment entity by exact name.
+// Returns null (not pushed) if the table has no entry for that roll or
+// the matching entity was never imported/was renamed.
+function drawLootEntity(table, subtype, tier) {
+  const target = rollD12Sum(LOOT_TIER_DICE[tier]);
+  const candidates = table.filter(function (rec) { return parseInt(rec.roll, 10) === target; });
+  if (!candidates.length) return null;
+  const rec = candidates[Math.floor(Math.random() * candidates.length)];
+  return state.allEntities.find(function (e) {
+    return e.category === 'Equipment' && e.subtype === subtype && e.name === rec.name;
+  }) || null;
+}
+
 // --- Loot picker (parallel to the Adversary picker above, Equipment --
 // --- category, subtype filter instead of Tier/Type) --------------------
 
@@ -1395,11 +1439,37 @@ function openLootPicker(enc) {
   const panel = built.panel;
   const body = built.body;
 
+  const tabsRow = document.createElement('div');
+  tabsRow.className = 'loot-picker-tabs';
+  const searchTabBtn = document.createElement('button');
+  searchTabBtn.type = 'button'; searchTabBtn.textContent = 'Search'; searchTabBtn.classList.add('active');
+  const generateTabBtn = document.createElement('button');
+  generateTabBtn.type = 'button'; generateTabBtn.textContent = 'Generate';
+  tabsRow.appendChild(searchTabBtn);
+  tabsRow.appendChild(generateTabBtn);
+  body.appendChild(tabsRow);
+
+  const searchPane = document.createElement('div');
+  const generatePane = document.createElement('div');
+  generatePane.style.display = 'none';
+  body.appendChild(searchPane);
+  body.appendChild(generatePane);
+
+  function setTab(tab) {
+    searchTabBtn.classList.toggle('active', tab === 'search');
+    generateTabBtn.classList.toggle('active', tab === 'generate');
+    searchPane.style.display = tab === 'search' ? '' : 'none';
+    generatePane.style.display = tab === 'generate' ? '' : 'none';
+    if (tab === 'search') searchInput.focus();
+  }
+  searchTabBtn.addEventListener('click', function () { setTab('search'); });
+  generateTabBtn.addEventListener('click', function () { setTab('generate'); });
+
   const searchInput = document.createElement('input');
   searchInput.type = 'text';
   searchInput.placeholder = 'Search\u2026';
   searchInput.className = 'encounter-picker-search';
-  body.appendChild(searchInput);
+  searchPane.appendChild(searchInput);
 
   const filterRow = document.createElement('div');
   filterRow.className = 'encounter-picker-filters';
@@ -1418,11 +1488,85 @@ function openLootPicker(enc) {
       subtypeSelect.appendChild(opt);
     });
   filterRow.appendChild(subtypeSelect);
-  body.appendChild(filterRow);
+  searchPane.appendChild(filterRow);
 
   const results = document.createElement('div');
   results.className = 'encounter-picker-results';
-  body.appendChild(results);
+  searchPane.appendChild(results);
+
+  // --- Generate pane: count + tier for Items and Consumables, one
+  // Generate button that rolls both and adds them in a single write. ---
+  const tierOptions = [['common', 'Common'], ['uncommon', 'Uncommon'], ['rare', 'Rare'], ['legendary', 'Legendary']];
+
+  function buildGenerateRow(label) {
+    const row = document.createElement('div');
+    row.className = 'loot-generate-row';
+    const labelEl = document.createElement('label');
+    labelEl.textContent = label;
+    row.appendChild(labelEl);
+    const countInput = document.createElement('input');
+    countInput.type = 'number';
+    countInput.min = '0';
+    countInput.value = '0';
+    countInput.className = 'loot-generate-count';
+    row.appendChild(countInput);
+    const tierSelect = document.createElement('select');
+    tierOptions.forEach(function (pair) {
+      const opt = document.createElement('option');
+      opt.value = pair[0]; opt.textContent = pair[1];
+      tierSelect.appendChild(opt);
+    });
+    row.appendChild(tierSelect);
+    generatePane.appendChild(row);
+    return { countInput: countInput, tierSelect: tierSelect };
+  }
+
+  const itemsRow = buildGenerateRow('Items');
+  const consumablesRow = buildGenerateRow('Consumables');
+
+  const generateBtn = document.createElement('button');
+  generateBtn.type = 'button';
+  generateBtn.textContent = 'Generate';
+  generatePane.appendChild(generateBtn);
+
+  const generateStatus = document.createElement('p');
+  generateStatus.className = 'loot-generate-status';
+  generatePane.appendChild(generateStatus);
+
+  generateBtn.addEventListener('click', function () {
+    const itemCount = Math.max(0, parseInt(itemsRow.countInput.value, 10) || 0);
+    const consumableCount = Math.max(0, parseInt(consumablesRow.countInput.value, 10) || 0);
+    if (!itemCount && !consumableCount) return;
+    generateBtn.disabled = true;
+    generateStatus.textContent = 'Rolling\u2026';
+    Promise.all([loadLootRollTable('items'), loadLootRollTable('consumables')])
+      .then(function (tables) {
+        const draws = [];
+        for (let i = 0; i < itemCount; i++) {
+          draws.push(drawLootEntity(tables[0], 'items', itemsRow.tierSelect.value));
+        }
+        for (let i = 0; i < consumableCount; i++) {
+          draws.push(drawLootEntity(tables[1], 'consumables', consumablesRow.tierSelect.value));
+        }
+        const found = draws.filter(Boolean);
+        const missed = draws.length - found.length;
+        const live = state.allEncounters.find(function (x) { return x.id === encId; });
+        if (live && found.length) {
+          // Local running copy so labels increment correctly across
+          // multiple new instances of the same entity in one batch
+          // (nextLootLabel only sees enc.loot as of before this write).
+          const loot = (live.loot || []).slice();
+          found.forEach(function (entity) {
+            loot.push({ entityId: entity.id, fallbackName: entity.name, label: nextLootLabel({ loot: loot }, entity.id, entity.name) });
+          });
+          updateEncounter(live.id, { loot: loot });
+        }
+        generateStatus.textContent = found.length
+          ? ('Added ' + found.length + '.' + (missed ? ' ' + missed + ' roll' + (missed === 1 ? '' : 's') + ' had no matching Codex entry.' : ''))
+          : 'No matching Codex entries found for those rolls.';
+        generateBtn.disabled = false;
+      });
+  });
 
   const actions = document.createElement('div');
   actions.className = 'modal-actions';
