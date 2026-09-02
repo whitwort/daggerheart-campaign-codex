@@ -950,6 +950,8 @@ select {
 .codex-tags { margin-top: 0.5rem; }
 .codex-tags span { display: inline-block; background: var(--parchment-edge); color: var(--ink); border-radius: 3px; padding: 0.1rem 0.4rem; font-size: 0.75rem; margin-right: 0.25rem; }
 .codex-empty { color: var(--ink-soft); }
+.codex-scene-link { color: var(--fear); text-decoration: underline; cursor: pointer; }
+.codex-scene-link:hover { opacity: 0.8; }
 
 /* Generic action-row placement: gm buttons bottom-right of the
    element they affect; player/gm (shared) buttons/text bottom-left. */
