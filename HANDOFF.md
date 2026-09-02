@@ -12,8 +12,10 @@ those deleted docs — resolve via git history, don't "fix" the comments.
 
 ## Current state (end of session, Sep 2 2026)
 
-HEAD: `c3e8b63` = tag **v0.10b**, deployed to and confirmed working on
-**BOTH dev and prod**. Everything below is DONE, not pending.
+HEAD: `5c9f5e7` = tag **v0.12b**, deployed to prod. Dev is currently
+quota-throttled (Spark plan, not yet upgraded — see item 4 below and
+item 5's note) so its exact deployed state is unverified as of
+writing, but should match main.
 
 **1. Offline copy-editing pass tooling + first real pass: DONE, applied to prod, confirmed working.**
 `scripts/copyedit-extract.js` / `-review.html` / `-apply.js` (commit
@@ -112,8 +114,91 @@ reliable signal), the manual backup went through immediately. No code
 or config change in the repo from this — pure GCP account state,
 flagging here only so a future session recognizes the symptom faster.
 
+**5. Presence/"who's online" bug hunt: patched twice, root cause still not
+fully confirmed, flagged for a possible redesign rather than a third patch.**
+
+Player-reported (well, GM-observed): prod's Manage Party "Status"
+column showed "Never online" for every player except one, despite
+players having genuinely signed in before. Investigation and fixes,
+in the order they actually happened (worth reading in order — several
+hypotheses were chased and abandoned, and the final state is more
+"stopped finding new evidence" than "confirmed root cause"):
+
+1. Ruled out: nothing in this session's Restore/backup tooling touches
+   `presence` (never has — excluded from both backup tools' collection
+   lists, same as `_meta`). Ruled out a TTL policy (none configured
+   anywhere in the repo). Most likely explanation for the ORIGINAL
+   missing docs: manual deletion in the Firestore Console, possibly
+   inadvertent, while Gregg was in there investigating the GCP-quota
+   saga (item 4) around the same time. Never confirmed either way.
+2. `4d0f2a9`: found that `presence.js`'s heartbeat attach was gated
+   behind `auth.js`'s `roleChanged` check — if `onAuthStateChanged`
+   fired more than once for the same already-signed-in user (plausible
+   on Firefox specifically; console showed third-party-cookie/iframe
+   partitioning warnings around the Auth popup), a redundant firing's
+   blanket `detachDataListeners()` would tear the heartbeat down with
+   nothing to re-attach it (roleChanged now false). Fix: evaluate
+   heartbeat attach/detach on every `playerDocUnsub` snapshot,
+   independent of roleChanged. Verified against dev, appeared to work.
+3. Reproduced AGAIN on prod (v0.11b) immediately after that fix — a
+   fresh Firefox sign-in for `sonora.kirintor@gmail.com` still got no
+   presence doc, no console error at all (not even a permission
+   denial — `presence.js`'s own `.catch()` never fired, meaning the
+   write was never attempted). `5c9f5e7`: reasoned that fix #2 only
+   helps if AT LEAST ONE `playerDocUnsub` snapshot survives long enough
+   to fire — if `onAuthStateChanged` fires faster than one Firestore
+   round-trip, every listener could get torn down before ever
+   delivering its first snapshot, so nothing downstream (role
+   resolution, heartbeat, anything) ever runs at all. Fix: compare
+   `user.uid` against the previously-seen uid at the very top of
+   `onAuthStateChanged`; a redundant firing for the same identity now
+   skips the full listener teardown/rebuild entirely rather than
+   racing to rebuild it.
+4. Gregg pushed back hard on the whole auth-churn theory ("extremely
+   skeptical") and asked to test directly on prod rather than
+   dev — reasonable, since dev was ALSO mid-investigation into being
+   Spark-quota-throttled at that point (item 4), which threatened to
+   confound any dev-side test result. Deployed `5c9f5e7` to prod as
+   v0.12b (full CI green, pre-deploy backup succeeded — prod's GCP
+   quota fix from item 4 held up under real use).
+5. **Still reproduced on v0.12b prod** — same symptom, no console
+   error, footer correctly showing `version 0.12b (5c9f5e7 prod)`.
+   This is the point where the auth-churn theory should have been
+   treated as either wrong or insufficient, not patched a third time.
+6. **Actual resolution: testing methodology, not (necessarily) a code
+   bug.** The prior "still reproduced" tests were all done by clicking
+   Sign Out then Sign In *within the same already-open Firefox tab* —
+   which never re-fetches any JS module regardless of server-side
+   `Cache-Control` headers (firebase.json already sets
+   `no-cache, max-age=0, must-revalidate` correctly on everything;
+   that only matters on a NEW navigation, not for already-loaded ES
+   modules sitting in an open tab's memory). The footer's build-hash
+   text lives in `index.html`, which may have been fetched fresh at
+   some point in the session WITHOUT that implying every `.js` module
+   was also freshly re-fetched — same failure class already documented
+   elsewhere in this file for iOS Safari ("served stale JS despite a
+   fresh footer hash"), apparently also reproducible on Firefox.
+   **A brand-new Private Browsing window (guaranteed zero cache/
+   in-memory state) on v0.12b prod worked correctly on the first try.**
+
+**What's NOT resolved:** whether fixes #2/#3 (`4d0f2a9`, `5c9f5e7`)
+were ever actually necessary, or whether the ENTIRE saga — including
+the original "Never online" report — was stale-JS artifacts the whole
+way through and the underlying pre-session code was already fine. No
+clean test isolates this (every failed reproduction after fix #1 could
+have been contaminated by the same in-tab-caching confound as the
+final one). Both fixes are kept — they're defensively reasonable
+regardless (less listener churn, heartbeat correctly decoupled from an
+unrelated optimization) — but this file should not claim they're
+"the fix" if the bug resurfaces. See the redesign discussion in Open
+items below before reaching for a third patch on this feature.
+
 ## Open items
 
+- **Reconsider the presence/"who's online" feature's whole implementation — see item 5 above.** Not urgent (cosmetic GM convenience, not gameplay-blocking), but flagged explicitly by Gregg after today's saga: "our implementation for user status is extremely brittle and subject to browser-specific idiosyncrasies and caching issues." Two real angles to weigh:
+  - **Client-side heartbeat + manual JS timer** (current design) is inherently fragile to auth-state lifecycle edge cases and stale-module caching, as demonstrated today. Firebase Realtime Database's built-in presence pattern (`onDisconnect()` + `.info/connected`) is the standard, battle-tested solution for exactly this problem — server-managed, doesn't depend on a JS `setInterval` surviving tab/auth churn. Adding RTDB to a Firestore-only app is a real architectural addition, not a small change — worth weighing against the feature's actual value (GM convenience only) before committing to it.
+  - Independent of the write-side fragility: the **read/render side has its own staleness bug** (discovered mid-session) — Admin's Manage Party table only re-renders on a `presence` collection snapshot event, so a status can sit showing stale "Online" indefinitely with no live-updating timer. Worth fixing regardless of what happens to the write side (e.g. a periodic re-render tick, or just accept it and document the "reload to refresh" behavior explicitly in the UI).
+  - If a redesign happens, also fold in: the two `auth.js` fixes from this session (`4d0f2a9`, `5c9f5e7`) decouple heartbeat attach from `roleChanged` and skip listener teardown on redundant same-uid auth firings — both are defensively reasonable and should stay regardless of what happens to presence, but their necessity for TODAY's specific bug was never cleanly isolated from the stale-JS-in-an-already-open-tab confound (see item 5) — don't assume they're "the fix" if this resurfaces, and don't be surprised if a from-scratch presence implementation renders them moot.
 - Remaining 1,287 `imported`-kind lore items — copyedit scope not yet extended there (see above); typo/OCR-only if it ever happens.
 - Exercise op-status's indeterminate-bar path (SRD Update) and stale-doc self-heal path live, whenever either comes up naturally.
 - Post-launch optimizations: dynamic-import GM-only modules (~3k lines), codex.js split (4.8k lines).
