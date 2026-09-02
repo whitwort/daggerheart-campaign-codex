@@ -1,8 +1,18 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { initializeFirestore, persistentLocalCache, persistentSingleTabManager } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { initializeFirestore, persistentLocalCache, persistentSingleTabManager, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 export const CONFIG = window.APP_CONFIG;
 export const firebaseApp = initializeApp(CONFIG.firebase);
+
+// Playwright e2e suite only (tests/e2e/): firebase-env.emulator.js is the
+// only env file that sets useEmulator, so this is inert for dev/prod by
+// construction. Auth emulator connect lives here (not auth.js) so it runs
+// before auth.js's getAuth(firebaseApp) call — connectAuthEmulator must
+// run before any other Auth SDK call on this app instance.
+if (CONFIG.firebase.useEmulator) {
+  connectAuthEmulator(getAuth(firebaseApp), 'http://127.0.0.1:9099', { disableWarnings: true });
+}
 
 // Force long-polling transport for Firestore realtime listeners.
 // Safari — especially private browsing, especially iOS — buffers the
@@ -30,8 +40,9 @@ export const firebaseApp = initializeApp(CONFIG.firebase);
 // for environments with no IndexedDB support at all (some iOS
 // private-browsing configurations) — degrades to memory-only cache
 // rather than failing app init.
+let __db;
 try {
-  initializeFirestore(firebaseApp, {
+  __db = initializeFirestore(firebaseApp, {
     localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }),
     experimentalForceLongPolling: true
   });
@@ -40,7 +51,14 @@ try {
   if (window.__showDebugBanner) {
     window.__showDebugBanner('[firebase] offline persistence unavailable, falling back to memory-only cache: ' + (err && err.message ? err.message : err));
   }
-  initializeFirestore(firebaseApp, {
+  __db = initializeFirestore(firebaseApp, {
     experimentalForceLongPolling: true
   });
+}
+// Same useEmulator gate as the Auth emulator connect above. Every other
+// module calls getFirestore(firebaseApp) (returns this same instance),
+// never initializeFirestore directly, so one connect call here covers
+// the whole app.
+if (CONFIG.firebase.useEmulator) {
+  connectFirestoreEmulator(__db, '127.0.0.1', 8080);
 }

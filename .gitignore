@@ -26,3 +26,13 @@ __pycache__/
 # Firestore emulator debug logs (test:rules)
 firestore-debug.log
 ui-debug.log
+
+# Firebase/Auth emulator debug logs + seed handoff (test:e2e)
+firebase-debug.log
+auth-debug.log
+hosting-debug.log
+tests/e2e/.seed.json
+
+# Playwright
+/test-results/
+/playwright-report/
