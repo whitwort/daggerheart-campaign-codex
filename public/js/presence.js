@@ -1,8 +1,9 @@
 // presence.js -- last-online heartbeat for the Admin > Manage Party Status
 // column (admin.js). No presence backend exists (no Realtime Database), so
-// "online" is approximated: stamp presence/{email}.lastOnline on attach and
-// on every tab-foreground, plus a background heartbeat every 4 min while
-// the tab stays open/focused. admin.js treats a stamp under 5 min old as
+// "online" is approximated: stamp presence/{email}.lastOnline on sign-in
+// (auth.js calls stampPresenceNow when role resolves to player) and on
+// every tab-foreground, plus a background heartbeat every 4 min while the
+// tab stays open/focused. admin.js treats a stamp under 5 min old as
 // "Online" -- comfortably wider than the heartbeat period so a client
 // mid-interval doesn't flicker to stale.
 //
@@ -18,12 +19,24 @@
 // the doc removes the interaction entirely rather than special-casing
 // around it.
 //
+// Lifecycle (redesigned Sep 2026, after the "Never online" saga -- see
+// HANDOFF item 5 of that era): the interval + visibilitychange listener
+// are registered ONCE at module load and NEVER torn down. The old
+// attach/detach lifecycle -- inherited from the "every listener tears
+// down on auth change" convention -- was the design flaw behind two
+// successive silent-failure patches: that convention exists because
+// Firestore permanently kills an onSnapshot READ on a permission error,
+// but a fire-and-forget WRITE has no such failure mode, so tying the
+// heartbeat to auth-listener plumbing bought nothing and made every
+// stamp depend on a fragile auth -> attach -> snapshot chain. Instead,
+// stampOnline() self-guards (no-op unless a signed-in player), so a
+// permanently-running timer is correct by construction: signed out or
+// GM, it silently does nothing; the moment state says "player", the
+// next tick/foreground/sign-in stamp works. No attach ordering, no
+// teardown races, nothing to re-establish.
+//
 // Player-only: GM has no players/ doc (role resolved via CONFIG.gmEmail,
 // not the whitelist), so there's nothing to stamp for a GM session.
-// Lifecycle mirrors connectivity.js -- attached post-auth once role
-// resolves to 'player', detached on every auth change (detachDataListeners
-// in auth.js), same "always tear down, never leave a stale timer running
-// across sign-out/in" stance as every other listener in this app.
 
 import {
   getFirestore, doc, setDoc, serverTimestamp
@@ -34,7 +47,6 @@ import { state } from './state.js';
 const db = getFirestore(firebaseApp);
 
 const HEARTBEAT_MS = 4 * 60 * 1000;
-let heartbeatTimer = null;
 
 function stampOnline() {
   if (state.currentRole !== 'player') return;
@@ -44,20 +56,17 @@ function stampOnline() {
     .catch(function (err) { console.error('presence heartbeat failed:', err.message); });
 }
 
-function onVisible() {
+// Immediate stamp for auth.js to call when role resolves to 'player', so
+// the GM sees "Online" right after a sign-in instead of up to one
+// heartbeat period later. Fire-and-forget; self-guarded like every stamp.
+function stampPresenceNow() {
+  stampOnline();
+}
+
+// Registered once, for the life of the page (see lifecycle comment above).
+setInterval(stampOnline, HEARTBEAT_MS);
+document.addEventListener('visibilitychange', function () {
   if (document.visibilityState === 'visible') stampOnline();
-}
+});
 
-function attachPresenceHeartbeat() {
-  stampOnline(); // immediate stamp so "Online" is accurate right after sign-in
-  if (heartbeatTimer) return; // idempotent, same guard style as listeners.js keys
-  heartbeatTimer = setInterval(stampOnline, HEARTBEAT_MS);
-  document.addEventListener('visibilitychange', onVisible);
-}
-
-function detachPresenceHeartbeat() {
-  if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
-  document.removeEventListener('visibilitychange', onVisible);
-}
-
-export { attachPresenceHeartbeat, detachPresenceHeartbeat };
+export { stampPresenceNow };
