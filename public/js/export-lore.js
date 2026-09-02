@@ -16,20 +16,23 @@
 // this replaces); Markdown/Word/PDF are human-readable dumps built from
 // resolveEntityStatBlockMarkdown's rendered content instead.
 import { state } from './state.js';
+import { CONFIG } from './firebase.js';
 import {
   entityMatchesQuery, categoryGroupLabel, registerVisibilityChangeHandler,
-  resolveEntityStatBlockMarkdown
+  resolveEntityStatBlockMarkdown, categoryPinClassLocal, isCategoryCollapsed,
+  isSubtypeCollapsed, subtypeCollapseKey, subtypeLabel
 } from './codex.js';
 import { canSee, viewerContext } from './visibility.js';
 import {
   fetchImagesForEntities, buildSourcesWarning, buildMarkdownDocument,
   buildDocxBlob, buildPdfBlob
 } from './export-render.js';
+import { loadMarkdownModules } from './markdown.js';
 
 const modeSelect = document.getElementById('export-mode-select');
 const formatSelect = document.getElementById('export-format-select');
 const selectedPanel = document.getElementById('export-mode-selected-panel');
-const characterPanel = document.getElementById('export-mode-character-panel');
+const characterInline = document.getElementById('export-character-inline');
 const characterSelect = document.getElementById('export-character-select');
 const secretsCheck = document.getElementById('export-character-secrets-check');
 const jsonOptionsRow = document.getElementById('export-json-options');
@@ -57,7 +60,7 @@ function entitySlug(e) {
 function updateModeUI() {
   const mode = modeSelect.value;
   selectedPanel.style.display = mode === 'selected' ? '' : 'none';
-  characterPanel.style.display = mode === 'character' ? '' : 'none';
+  characterInline.style.display = mode === 'character' ? '' : 'none';
   if (mode === 'character' && !characterSelect.options.length) renderCharacterSelect();
 }
 function updateFormatUI() {
@@ -69,38 +72,48 @@ secretsCheck.addEventListener('change', updatePreview);
 characterSelect.addEventListener('change', updatePreview);
 includeImagesCheck.addEventListener('change', updatePreview);
 
+// PCs only (ownerId set) -- per Gregg's call, NPCs aren't meaningful
+// "export as this character's known lore" targets the way a player's
+// own PC is.
 function renderCharacterSelect() {
   const chars = state.allEntities
-    .filter(function (e) { return e.category === 'Character'; })
+    .filter(function (e) { return e.category === 'Character' && e.ownerId; })
     .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
   const prevValue = characterSelect.value;
   characterSelect.innerHTML = '';
   chars.forEach(function (c) {
     const opt = document.createElement('option');
     opt.value = c.id;
-    opt.textContent = c.name + (c.ownerId ? '' : ' (NPC)');
+    opt.textContent = c.name;
     characterSelect.appendChild(opt);
   });
   if (chars.some(function (c) { return c.id === prevValue; })) characterSelect.value = prevValue;
 }
 
-// --- Selected Entries browser (multi-select, category select-all) ----
+// --- Selected Entries browser -----------------------------------------
+// Deliberately mirrors codex.js's own renderList DOM shape exactly
+// (entity-group-header/-dot/-title/-count/-caret, subtype sub-groups,
+// same collapse state) per Gregg's call -- "the same entry browser UI"
+// means visually identical, not a re-skinned picker. The only behavior
+// difference from the Codex tab's list: clicking a row (de)selects it
+// (toggles .active) instead of navigating to it -- no checkboxes, no
+// state.selectedId involvement, so this can't fight the real Codex
+// tab's own renderList over the same DOM.
 
 function renderExportLoreList() {
   const query = searchEl.value;
-  listEl.innerHTML = '';
   const ctx = viewerContext();
   const pool = state.allEntities
     .filter(function (e) { return ctx.gmView || canSee(e, ctx); })
-    .filter(function (e) { return entityMatchesQuery(e, query); })
-    .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+    .filter(function (e) { return entityMatchesQuery(e, query); });
 
   // Drop selections that no longer exist / no longer match the
-  // player's visibility (stale selection would export data the current
-  // viewer can no longer see).
+  // current viewer's visibility (stale selection would export data the
+  // current viewer can no longer see).
   const poolIds = new Set(pool.map(function (e) { return e.id; }));
   Array.from(selectedIds).forEach(function (id) { if (!poolIds.has(id)) selectedIds.delete(id); });
 
+  listEl.innerHTML = '';
   if (!pool.length) {
     const p = document.createElement('p');
     p.className = 'lore-empty';
@@ -115,55 +128,104 @@ function renderExportLoreList() {
     const cat = e.category || '(uncategorized)';
     (byCategory[cat] = byCategory[cat] || []).push(e);
   });
+  const orderedCats = CONFIG.categories.filter(function (c) { return byCategory[c]; });
+  Object.keys(byCategory).forEach(function (c) { if (orderedCats.indexOf(c) === -1) orderedCats.push(c); });
 
-  Object.keys(byCategory).sort().forEach(function (cat) {
-    const catEntities = byCategory[cat];
-    const allSelected = catEntities.every(function (e) { return selectedIds.has(e.id); });
+  // Same "force-expand while searching" override as the Codex tab.
+  const searchActive = searchEl.value.trim().length > 0;
+
+  function buildEntityLi(entity) {
+    const li = document.createElement('li');
+    li.dataset.id = entity.id;
+    if (selectedIds.has(entity.id)) li.classList.add('active');
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'entity-name';
+    nameDiv.textContent = entity.name;
+    li.appendChild(nameDiv);
+    li.addEventListener('click', function () { toggleEntity(entity.id); });
+    return li;
+  }
+
+  orderedCats.forEach(function (cat) {
+    const entities = byCategory[cat];
+    const collapsed = searchActive ? false : isCategoryCollapsed(cat);
 
     const header = document.createElement('div');
-    header.className = 'entity-group-header';
-    const selectAllBox = document.createElement('input');
-    selectAllBox.type = 'checkbox';
-    selectAllBox.checked = allSelected;
-    selectAllBox.title = 'Select/deselect all in this category';
-    selectAllBox.addEventListener('click', function (e) {
-      e.stopPropagation();
-      catEntities.forEach(function (ent) {
-        if (selectAllBox.checked) selectedIds.add(ent.id); else selectedIds.delete(ent.id);
-      });
-      renderExportLoreList();
-    });
-    header.appendChild(selectAllBox);
+    header.className = 'entity-group-header' + (collapsed ? ' collapsed' : '');
+    const dotSpan = document.createElement('span');
+    dotSpan.className = 'entity-group-dot ' + categoryPinClassLocal(cat);
     const titleSpan = document.createElement('span');
     titleSpan.className = 'entity-group-title';
     titleSpan.textContent = categoryGroupLabel(cat);
     const countSpan = document.createElement('span');
     countSpan.className = 'entity-group-count';
-    countSpan.textContent = '(' + catEntities.length + ')';
+    countSpan.textContent = '(' + entities.length + ')';
+    const caretSpan = document.createElement('span');
+    caretSpan.className = 'entity-group-caret';
+    caretSpan.textContent = '\u25be';
+    header.appendChild(dotSpan);
     header.appendChild(titleSpan);
     header.appendChild(countSpan);
+    header.appendChild(caretSpan);
+    header.addEventListener('click', function () {
+      state.categoryCollapse[cat] = collapsed ? false : true;
+      renderExportLoreList();
+    });
     listEl.appendChild(header);
 
     const ul = document.createElement('ul');
-    ul.className = 'entity-group-list';
-    catEntities
+    ul.className = 'entity-group-list' + (collapsed ? ' collapsed' : '');
+
+    const plainEntities = [];
+    const bySubtype = {};
+    entities.forEach(function (entity) {
+      if (entity.subtype) {
+        (bySubtype[entity.subtype] = bySubtype[entity.subtype] || []).push(entity);
+      } else {
+        plainEntities.push(entity);
+      }
+    });
+
+    plainEntities
       .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); })
-      .forEach(function (e) {
-        const li = document.createElement('li');
-        li.className = 'export-lore-row';
-        if (selectedIds.has(e.id)) li.classList.add('active');
-        const box = document.createElement('input');
-        box.type = 'checkbox';
-        box.checked = selectedIds.has(e.id);
-        box.addEventListener('click', function (ev) { ev.stopPropagation(); toggleEntity(e.id); });
-        li.appendChild(box);
-        const nameDiv = document.createElement('div');
-        nameDiv.className = 'entity-name';
-        nameDiv.textContent = e.name;
-        li.appendChild(nameDiv);
-        li.addEventListener('click', function () { toggleEntity(e.id); });
-        ul.appendChild(li);
+      .forEach(function (entity) { ul.appendChild(buildEntityLi(entity)); });
+
+    Object.keys(bySubtype).sort(function (a, b) { return subtypeLabel(a).localeCompare(subtypeLabel(b)); })
+      .forEach(function (subtype) {
+        const subEntities = bySubtype[subtype].sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+        const subCollapsed = searchActive ? false : isSubtypeCollapsed(cat, subtype);
+
+        const subLi = document.createElement('li');
+        subLi.className = 'entity-subgroup-li';
+        const subHeader = document.createElement('div');
+        subHeader.className = 'entity-subgroup-header' + (subCollapsed ? ' collapsed' : '');
+        const subTitleSpan = document.createElement('span');
+        subTitleSpan.className = 'entity-group-title';
+        subTitleSpan.textContent = subtypeLabel(subtype);
+        const subCountSpan = document.createElement('span');
+        subCountSpan.className = 'entity-group-count';
+        subCountSpan.textContent = '(' + subEntities.length + ')';
+        const subCaretSpan = document.createElement('span');
+        subCaretSpan.className = 'entity-subgroup-caret';
+        subCaretSpan.textContent = '\u25be';
+        subHeader.appendChild(subTitleSpan);
+        subHeader.appendChild(subCountSpan);
+        subHeader.appendChild(subCaretSpan);
+        subHeader.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          state.subtypeCollapse[subtypeCollapseKey(cat, subtype)] = subCollapsed ? false : true;
+          renderExportLoreList();
+        });
+        subLi.appendChild(subHeader);
+
+        const subUl = document.createElement('ul');
+        subUl.className = 'entity-subgroup-list' + (subCollapsed ? ' collapsed' : '');
+        subEntities.forEach(function (entity) { subUl.appendChild(buildEntityLi(entity)); });
+        subLi.appendChild(subUl);
+
+        ul.appendChild(subLi);
       });
+
     listEl.appendChild(ul);
   });
 
@@ -288,14 +350,14 @@ function updatePreview() {
   const mode = modeSelect.value;
   if (mode === 'character' && !characterSelect.value) {
     previewEl.textContent = 'Pick a character.';
-    warningEl.textContent = '';
+    warningEl.innerHTML = '';
     exportBtn.disabled = true;
     return;
   }
   const resolved = resolveExportContext();
   if (!resolved.pool.length) {
     previewEl.textContent = mode === 'selected' ? 'No entries selected.' : 'Nothing visible to export.';
-    warningEl.textContent = '';
+    warningEl.innerHTML = '';
     exportBtn.disabled = true;
     return;
   }
@@ -305,8 +367,26 @@ function updatePreview() {
     + ', ' + loreCount + ' lore item' + (loreCount === 1 ? '' : 's') + ' selected for export.';
   let sourceIds = [];
   perEntity.forEach(function (pe) { sourceIds = sourceIds.concat(pe.sourceIds); });
-  warningEl.textContent = buildSourcesWarning(sourceIds, state.allSources);
+  renderMarkdownWarning(buildSourcesWarning(sourceIds, state.allSources));
   exportBtn.disabled = false;
+}
+
+// warningEl holds markdown (source entries are themselves markdown
+// text, see sources.js) -- rendered rich via the app's one markdown
+// pipeline, same as every other lore surface, rather than shown raw.
+let warningRenderModules = null;
+function renderMarkdownWarning(mdText) {
+  if (warningRenderModules) {
+    warningEl.innerHTML = warningRenderModules.DOMPurify.sanitize(warningRenderModules.marked.parse(mdText, { breaks: true }));
+    return;
+  }
+  warningEl.textContent = mdText;
+  loadMarkdownModules().then(function (mods) {
+    warningRenderModules = mods;
+    if (warningEl.isConnected) {
+      warningEl.innerHTML = mods.DOMPurify.sanitize(mods.marked.parse(mdText, { breaks: true }));
+    }
+  }).catch(function () { /* plain text already shown */ });
 }
 
 // --- Download ------------------------------------------------------------
