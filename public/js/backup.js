@@ -248,36 +248,6 @@ const restoreSummaryEl = document.getElementById('backup-restore-summary');
 
 let pendingDump = null;
 
-// Maintenance: delete the image docs isRestorableImage() rejects. These
-// can't be fixed in place (an update must pass isValidImage, which they
-// don't), only deleted (GM delete has no validation). Was "Admin-SDK
-// script only" in the handoff -- rules allow the GM to do it from here.
-const purgeImagesBtn = document.getElementById('backup-purge-images-btn');
-const purgeImagesStatusEl = document.getElementById('backup-purge-images-status');
-
-purgeImagesBtn.addEventListener('click', function () {
-  purgeImagesBtn.disabled = true;
-  purgeImagesStatusEl.textContent = 'Scanning images\u2026';
-  getDocs(collection(db, 'images')).then(function (snap) {
-    const bad = snap.docs.filter(function (d) { return !isRestorableImage(d.data()); });
-    if (!bad.length) {
-      purgeImagesStatusEl.textContent = 'Scanned ' + snap.size + ' image docs; nothing to purge.';
-      return;
-    }
-    if (!window.confirm('Delete ' + bad.length + ' legacy image doc(s)?\n' + bad.map(function (d) { return d.id; }).join('\n'))) {
-      purgeImagesStatusEl.textContent = 'Cancelled.';
-      return;
-    }
-    const batch = writeBatch(db);
-    bad.forEach(function (d) { batch.delete(d.ref); });
-    return batch.commit().then(function () {
-      purgeImagesStatusEl.textContent = 'Deleted ' + bad.length + ': ' + bad.map(function (d) { return d.id; }).join(', ');
-    });
-  }).catch(function (err) {
-    purgeImagesStatusEl.textContent = 'Purge failed: ' + err.message;
-  }).then(function () { purgeImagesBtn.disabled = false; });
-});
-
 downloadBtn.addEventListener('click', function () {
   downloadBtn.disabled = true;
   downloadStatusEl.textContent = 'Exporting\u2026';
