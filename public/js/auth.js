@@ -172,7 +172,27 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
     initUpdateBanner();
 
     onAuthStateChanged(auth, function (user) {
+      // Sep 2 2026 (prod bug: presence heartbeat dying silently for
+      // Firefox sign-ins, still reproducing after the roleChanged-
+      // independent heartbeat fix below): onAuthStateChanged can fire
+      // more than once for the SAME already-signed-in identity (token
+      // refresh, or Firefox's third-party-cookie/iframe partitioning
+      // around the Auth popup causing extra churn). Every firing used
+      // to unconditionally tear down and rebuild every listener,
+      // including mid-flight ones that hadn't delivered their first
+      // snapshot yet -- if firings arrive faster than a listener's
+      // round-trip to Firestore, NOTHING ever survives long enough to
+      // fire even once, and nothing downstream (including the
+      // presence-heartbeat fix) gets a chance to run at all. Comparing
+      // uid (stable across token refreshes, unlike object identity)
+      // lets a genuinely redundant firing skip the teardown/rebuild
+      // entirely and leave whatever's already attached running
+      // undisturbed. A real account switch (different uid, or signing
+      // out) still falls through to the full reset below.
+      const sameUser = !!(user && state.currentUser && user.uid === state.currentUser.uid);
       state.currentUser = user;
+      if (sameUser) return;
+
       state.activeCharacterId = null;  // reset; playerDocUnsub repopulates it for an actual player
       detachLiveRoleListeners();
       detachDataListeners();
