@@ -10,13 +10,19 @@ last present at the commit tagged v0.2b's successor). Code comments
 citing e.g. "phase-14-design.md §5.1" are historical pointers into
 those deleted docs — resolve via git history, don't "fix" the comments.
 
-## Current state (end of session, Sep 2 2026 — second session this date)
+## Current state (end of session, Sep 2 2026 — third session this date)
 
-HEAD: `a070d7c`, CI green, **deployed to dev only — NOT yet released
-to prod.** Prod remains at tag v0.12b (`5c9f5e7`). Next prod Release
-should pick this up after Gregg confirms the presence redesign behaves
-on dev (or directly on prod if dev's quota state is still murky — see
-the still-standing dev-quota note from the prior session below).
+HEAD: `6af4f1a` (Gregg's direct push, restore-entry button placement —
+picked up by this session's fetch/rebase before push), CI green.
+
+**Prod: v0.13b (`104dcf1`), tested live by Gregg** — presence redesign
+(write-side heartbeat de-lifecycle + read-side 60s staleness tick,
+`a070d7c`) confirmed working in prod. The three verification steps
+from the prior session's handoff are done; no open presence issues.
+
+**This session: built the Playwright player-role e2e smoke suite**
+(see Open items below for full detail) — `793862c`, CI green on push
+and confirmed still green after Gregg's follow-on `6af4f1a`.
 
 **Presence redesign: DONE (write side "option A" + read-side tick),
 deployed to dev, NOT yet verified live.**
@@ -75,7 +81,9 @@ Unchanged: 4-min heartbeat period, 5-min ONLINE_WINDOW_MS,
 firestore.rules (presence match untouched), index.html modulepreload
 (presence.js was already listed). Net diff: 3 files, +71/−50.
 
-**Verification NOT yet done (do next session or when Gregg tests):**
+**Verification: DONE.** Gregg tested prod v0.13b (`104dcf1`) live; all
+three checks below passed, no issues surfaced.
+
 1. Fresh private-window player sign-in → GM sees "Online" within
    seconds. (Use a private window — the entire prior saga's lesson was
    that Sign Out/In inside an already-open tab never re-fetches ES
@@ -95,26 +103,27 @@ retired; don't re-litigate it.
 
 ## Open items
 
-- **Release to prod** (this session's `a070d7c` presence redesign) —
-  pending Gregg's dev verification. Standard Release flow (tag +
-  GitHub Release; prod job's pre-deploy backup is a real Firestore
-  dependency).
-- Remaining 1,287 `imported`-kind lore items — copyedit scope not
-  extended there (prior session's call); typo/OCR-only if ever done.
+- Remaining 1,287 `imported`-kind lore items — **not in scope.**
+  Copyedit scope deliberately not extended there; typo/OCR-only if
+  ever done.
 - Exercise op-status's indeterminate-bar path (SRD Update) and
-  stale-doc self-heal path live, whenever either comes up naturally.
+  stale-doc self-heal path live — **not in scope** (whenever either
+  comes up naturally, not a scheduled task).
 - Post-launch optimizations: dynamic-import GM-only modules (~3k
-  lines), codex.js split (4.8k lines).
-- Single-entry restore "delete orphans" mode — deferred, needs a
-  concrete use case.
+  lines), codex.js split (4.8k lines) — **not in scope.**
+- Single-entry restore "delete orphans" mode — **not in scope,**
+  deferred, needs a concrete use case.
 - Purge-legacy-image-docs scan (backup.js internal logic; UI button
-  removed prior session) has no watchdog on its `getDocs` read — low
-  priority, only matters if it starts failing.
-- Playwright player-role smoke test — floated during the Aug 28
-  focus-loss retro, not built. Note: the presence redesign just
-  removed one of the bug classes it would have guarded, but a player-
-  role CI smoke test would still be the only thing exercising the app
-  as a player pre-deploy.
+  removed prior session) — **not in scope,** low priority, no
+  watchdog on its `getDocs` read.
+- Playwright player-role smoke test — **DONE** (this session).
+  `tests/e2e/`, `npm run test:e2e`, `.github/workflows/e2e.yml`
+  (separate from deploy.yml). 3 tests: player role resolution + GM-UI
+  absence, Aug 2026 focus-loss regression guard, entity detail view
+  without GM-only Edit/Delete. Firestore+Auth emulators, fake seed
+  data, custom-token sign-in via a new gated `window.__e2eSignIn`
+  hook (app has no password auth). Verified green on push (`793862c`)
+  and again on Gregg's next direct push (`6af4f1a`).
 
 ## Carried context from prior session (same date — full detail at `b676d96`'s HANDOFF)
 
@@ -149,7 +158,11 @@ doc's era; read QOL-BACKLOG.md + this file before code. Gates before
 EVERY commit: `npx eslint@8 --no-eslintrc -c .eslintrc.check.json
 public/js/*.js`, `node --check` per touched file, CSS + firestore.rules
 brace balance, `npm run test:rules` if firestore.rules or its own test
-file touched (needs the one-time install above). Push via PAT URL;
+file touched (needs the one-time install above). `npm run test:e2e`
+(Sep 2026, tests/e2e/) if auth.js, firebase.js, or tests/e2e/* touched
+— needs `npm install` once for @playwright/test + one-time `npx
+playwright install --with-deps chromium` (the script also does this
+itself, just slower on a cold cache). Push via PAT URL;
 rebase FETCH_HEAD if remote moved. CI: sleep ~74s then poll Actions
 API with PAT header. Prod deploys are Release-triggered (tag push +
 GitHub Release) — the prod job's pre-deploy backup step is a real
