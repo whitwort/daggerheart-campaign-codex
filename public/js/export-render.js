@@ -279,6 +279,10 @@ function docxItemListParagraphs(items, secretCharacterName, docxMod, marked) {
 
     const paras = [];
     paras.push({ opts: { bullet: { level: 0 }, children: runs } });
+    // 720 twips (0.5in) matches docx's own default level-0 bullet
+    // text indent -- a continuation paragraph at this indent lines up
+    // flush under the bullet's own wrapped text, not further right
+    // (previously 360, which read as a second, deeper indent level).
     for (let i = 1; i < blocks.length; i++) {
       const block = blocks[i];
       const blockRuns = (block.runs || []).map(function (r) {
@@ -287,9 +291,9 @@ function docxItemListParagraphs(items, secretCharacterName, docxMod, marked) {
       if (block.type === 'listitem') {
         paras.push({ opts: { bullet: { level: (block.depth || 0) + 1 }, children: blockRuns } });
       } else if (block.type === 'hr' && !item.secret) {
-        paras.push({ opts: { indent: { left: 360 }, border: { bottom: { color: 'auto', space: 1, style: 'single', size: 4 } }, text: '' }, skipSecretBorder: true });
+        paras.push({ opts: { indent: { left: 720 }, border: { bottom: { color: 'auto', space: 1, style: 'single', size: 4 } }, text: '' }, skipSecretBorder: true });
       } else {
-        paras.push({ opts: { indent: { left: 360 }, children: blockRuns } });
+        paras.push({ opts: { indent: { left: 720 }, children: blockRuns } });
       }
     }
     paras.forEach(function (p, i) {
@@ -541,7 +545,7 @@ async function buildPdfBlob(perEntity, imagesByEntity, warningText, secretCharac
       } else if (block.type === 'hr') {
         parts.push({ hr: true });
       } else {
-        parts.push({ runs: block.runs, indent: 24, bulletX: null });
+        parts.push({ runs: block.runs, indent: 12, bulletX: null });
       }
     }
 
