@@ -35,6 +35,20 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Global operation-status broadcast (Sep 2026): a single well-known
+    // doc the GM's client writes to while a Restore/Import/Upload
+    // operation is running, so every connected client (GM AND players --
+    // same "any signed-in user" read scope as _meta/version above) can
+    // show a blocking status dialog. Not in _meta -- that collection's
+    // whole documented contract is "CI/Admin-SDK write only, no client
+    // write path" (see _meta/version above); mixing in a client-writable
+    // doc there would contradict that. Single fixed doc id ('current'),
+    // same pattern as presence/{email} being one doc per writer.
+    match /opStatus/{docId} {
+      allow read: if request.auth != null;
+      allow write: if isGM();
+    }
+
     // GM's player whitelist. Any signed-in user can read their OWN doc (to
     // resolve their own role, including the not-yet-whitelisted case for
     // the join-request flow); only GM can read the whole collection's other

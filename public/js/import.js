@@ -6,6 +6,7 @@ import { firebaseApp, CONFIG } from './firebase.js';
 import { state } from './state.js';
 import { parseDateSpec } from './dates.js';
 import { getTemplateSchema, computeSearchIndex } from './templates.js';
+import { beginOp, updateOp, endOp } from './op-status.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -513,6 +514,7 @@ function runImport() {
   invalidatePlan();
   importRunBtn.disabled = true;
   importReportEl.textContent = 'Preparing import...';
+  beginOp('import', 'Importing entries\u2026');
 
   // Existing entity docs by id (for hasMapImage/mapId preservation on
   // replace).
@@ -698,17 +700,21 @@ function runImport() {
         });
         return batch.commit().then(function () {
           committed += chunk.length;
-          importReportEl.textContent = 'Importing... ' + committed + '/' + ops.length + ' writes';
+          const line = 'Importing... ' + committed + '/' + ops.length + ' writes';
+          importReportEl.textContent = line;
+          updateOp(line, ops.length ? Math.round(100 * committed / ops.length) : 100);
         });
       });
     });
     return p.then(function () {
-      importReportEl.textContent = 'Import complete: '
+      const line = 'Import complete: '
         + creates.length + ' created, '
         + replaces.length + ' replaced, '
         + updates.length + ' updated, '
         + skipped + ' skipped ('
         + committed + ' writes). Entities list updates live.';
+      importReportEl.textContent = line;
+      endOp(line);
     });
   }).catch(function (err) {
     // Batches are atomic individually but not across chunks: a failure
@@ -716,8 +722,10 @@ function runImport() {
     // entities already committed will now show as conflicts; choose skip
     // (or update, which dedupes lore by exact content) rather than
     // replaying the whole batch blindly.
-    importReportEl.textContent = 'Import FAILED: ' + err.message
+    const line = 'Import FAILED: ' + err.message
       + '\nRevalidating; already-committed entities will show as conflicts (default skip).';
+    importReportEl.textContent = line;
+    endOp(line);
     scheduleValidate();
   });
 }
