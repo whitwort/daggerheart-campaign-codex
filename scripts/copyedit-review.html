@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Codex Copy Edit Review</title>
+<style>
+  :root {
+    --void:           #0D1016;
+    --void-raised:    #1A1F28;
+    --void-line:      #2A313D;
+    --parchment:      #E9DDC2;
+    --parchment-edge: #DACBA6;
+    --ink-soft:       #6B5C48;
+    --hope:           #D9A441;
+    --hope-glow:      rgba(217,164,65,0.45);
+    --notice:         #B5543C;
+    --notice-glow:    rgba(181,84,60,0.5);
+    --del:            #6B3A34;
+    --ins:            #3E5A3A;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--void);
+    color: var(--parchment);
+    font-family: Georgia, 'Iowan Old Style', serif;
+    line-height: 1.5;
+  }
+  header {
+    position: sticky; top: 0; z-index: 5;
+    background: var(--void);
+    border-bottom: 1px solid var(--void-line);
+    padding: 1.25rem 2rem;
+    display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;
+  }
+  h1 { font-size: 1.15rem; font-weight: 600; margin: 0; letter-spacing: 0.01em; }
+  .file-row { display: flex; gap: 0.75rem; align-items: center; font-size: 0.85rem; color: var(--ink-soft); }
+  .file-row label { display: flex; flex-direction: column; gap: 0.25rem; }
+  .file-row input[type=file] {
+    color: var(--parchment); font-size: 0.8rem; max-width: 220px;
+  }
+  .stats { margin-left: auto; display: flex; gap: 1.25rem; font-size: 0.85rem; }
+  .stats b { color: var(--hope); font-weight: 600; }
+  .download-btn {
+    background: var(--hope); color: var(--void); border: none;
+    padding: 0.55rem 1.1rem; border-radius: 4px; font-size: 0.85rem;
+    font-family: inherit; font-weight: 600; cursor: pointer;
+    box-shadow: 0 0 0 rgba(0,0,0,0);
+    transition: box-shadow 0.15s ease;
+  }
+  .download-btn:hover { box-shadow: 0 0 14px var(--hope-glow); }
+  .download-btn:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
+
+  main { max-width: 860px; margin: 0 auto; padding: 1.5rem 2rem 6rem; }
+  .empty-state {
+    text-align: center; color: var(--ink-soft); padding: 4rem 1rem; font-size: 0.95rem;
+  }
+
+  .item {
+    background: var(--void-raised);
+    border: 1px solid var(--void-line);
+    border-radius: 6px;
+    padding: 1.1rem 1.3rem;
+    margin-bottom: 1rem;
+  }
+  .item.rejected { opacity: 0.45; }
+  .item-context {
+    font-size: 0.78rem; color: var(--ink-soft);
+    margin-bottom: 0.65rem;
+    font-family: -apple-system, sans-serif;
+  }
+  .diff-block {
+    font-size: 0.95rem; white-space: pre-wrap;
+    padding: 0.7rem 0.85rem;
+    background: var(--void);
+    border: 1px solid var(--void-line);
+    border-radius: 4px;
+    margin-bottom: 0.6rem;
+  }
+  .diff-block del { color: var(--del); background: rgba(107,58,52,0.28); text-decoration: line-through; }
+  .diff-block ins { color: var(--ins); background: rgba(62,90,58,0.32); text-decoration: none; }
+  textarea.edit-box {
+    width: 100%; min-height: 3.5rem; resize: vertical;
+    background: var(--void); color: var(--parchment);
+    border: 1px solid var(--void-line); border-radius: 4px;
+    padding: 0.6rem 0.75rem; font-family: inherit; font-size: 0.95rem;
+    line-height: 1.5;
+  }
+  textarea.edit-box:focus { outline: none; border-color: var(--hope); }
+  .item-actions { display: flex; gap: 0.5rem; margin-top: 0.7rem; align-items: center; }
+  .toggle-btn {
+    font-family: -apple-system, sans-serif; font-size: 0.78rem; font-weight: 600;
+    padding: 0.35rem 0.85rem; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--void-line); background: transparent; color: var(--ink-soft);
+  }
+  .toggle-btn.accept.active { background: rgba(62,90,58,0.35); border-color: var(--ins); color: var(--parchment); }
+  .toggle-btn.reject.active { background: rgba(181,84,60,0.25); border-color: var(--notice); color: var(--parchment); }
+  .unchanged-note { font-size: 0.78rem; color: var(--ink-soft); font-style: italic; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Codex Copy Edit Review</h1>
+  <div class="file-row">
+    <label>Items <input type="file" id="itemsFile" accept="application/json"></label>
+    <label>Suggestions <input type="file" id="suggestionsFile" accept="application/json"></label>
+  </div>
+  <div class="stats" id="stats" style="display:none;">
+    <span>Flagged: <b id="statFlagged">0</b></span>
+    <span>Accepted: <b id="statAccepted">0</b></span>
+    <span>Rejected: <b id="statRejected">0</b></span>
+  </div>
+  <button class="download-btn" id="downloadBtn" disabled>Download approved changes</button>
+</header>
+<main>
+  <div class="empty-state" id="emptyState">
+    Load <code>copyedit-items.json</code> and <code>copyedit-suggestions.json</code> above to begin.
+  </div>
+  <div id="list"></div>
+</main>
+
+<script>
+let itemsById = {};
+let suggestions = [];
+let decisions = {}; // id -> 'accept' | 'reject'
+let editedText = {}; // id -> current textarea value
+
+const itemsFileInput = document.getElementById('itemsFile');
+const suggestionsFileInput = document.getElementById('suggestionsFile');
+const listEl = document.getElementById('list');
+const emptyState = document.getElementById('emptyState');
+const downloadBtn = document.getElementById('downloadBtn');
+const statsEl = document.getElementById('stats');
+
+function readJsonFile(input, cb) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function () { cb(JSON.parse(reader.result)); };
+  reader.readAsText(file);
+}
+
+itemsFileInput.addEventListener('change', function () {
+  readJsonFile(itemsFileInput, function (data) {
+    itemsById = {};
+    (data.items || []).forEach(function (it) { itemsById[it.id] = it; });
+    tryRender();
+  });
+});
+suggestionsFileInput.addEventListener('change', function () {
+  readJsonFile(suggestionsFileInput, function (data) {
+    suggestions = data.suggestions || data;
+    tryRender();
+  });
+});
+
+// Simple word-level diff (LCS-based). Fine for paragraph-length text;
+// this tool never needs to diff anything large.
+function wordDiff(a, b) {
+  const aw = a.split(/(\s+)/);
+  const bw = b.split(/(\s+)/);
+  const n = aw.length, m = bw.length;
+  const dp = Array.from({ length: n + 1 }, function () { return new Array(m + 1).fill(0); });
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      dp[i][j] = aw[i] === bw[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+  }
+  let i = 0, j = 0;
+  const out = [];
+  while (i < n && j < m) {
+    if (aw[i] === bw[j]) { out.push({ t: 'eq', s: aw[i] }); i++; j++; }
+    else if (dp[i + 1][j] >= dp[i][j + 1]) { out.push({ t: 'del', s: aw[i] }); i++; }
+    else { out.push({ t: 'ins', s: bw[j] }); j++; }
+  }
+  while (i < n) { out.push({ t: 'del', s: aw[i] }); i++; }
+  while (j < m) { out.push({ t: 'ins', s: bw[j] }); j++; }
+  return out;
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function renderDiff(original, suggested) {
+  const parts = wordDiff(original, suggested);
+  return parts.map(function (p) {
+    const t = escapeHtml(p.s);
+    if (p.t === 'del') return '<del>' + t + '</del>';
+    if (p.t === 'ins') return '<ins>' + t + '</ins>';
+    return t;
+  }).join('');
+}
+
+function updateStats() {
+  const flagged = suggestions.length;
+  let accepted = 0, rejected = 0;
+  suggestions.forEach(function (s) {
+    const d = decisions[s.id] || 'accept';
+    if (d === 'accept') accepted++; else rejected++;
+  });
+  document.getElementById('statFlagged').textContent = flagged;
+  document.getElementById('statAccepted').textContent = accepted;
+  document.getElementById('statRejected').textContent = rejected;
+  downloadBtn.disabled = accepted === 0;
+}
+
+function tryRender() {
+  if (!Object.keys(itemsById).length || !suggestions.length) return;
+  emptyState.style.display = 'none';
+  statsEl.style.display = 'flex';
+  listEl.innerHTML = '';
+
+  const changed = suggestions.filter(function (s) {
+    const item = itemsById[s.id];
+    return item && s.suggested !== item.original;
+  });
+
+  changed.forEach(function (s) {
+    const item = itemsById[s.id];
+    if (!(s.id in decisions)) decisions[s.id] = 'accept';
+    if (!(s.id in editedText)) editedText[s.id] = s.suggested;
+
+    const row = document.createElement('div');
+    row.className = 'item';
+    row.dataset.id = s.id;
+
+    const ctx = document.createElement('div');
+    ctx.className = 'item-context';
+    ctx.textContent = item.context;
+    row.appendChild(ctx);
+
+    const diffBlock = document.createElement('div');
+    diffBlock.className = 'diff-block';
+    diffBlock.innerHTML = renderDiff(item.original, editedText[s.id]);
+    row.appendChild(diffBlock);
+
+    const textarea = document.createElement('textarea');
+    textarea.className = 'edit-box';
+    textarea.value = editedText[s.id];
+    textarea.addEventListener('input', function () {
+      editedText[s.id] = textarea.value;
+      diffBlock.innerHTML = renderDiff(item.original, textarea.value);
+    });
+    row.appendChild(textarea);
+
+    const actions = document.createElement('div');
+    actions.className = 'item-actions';
+
+    const acceptBtn = document.createElement('button');
+    acceptBtn.className = 'toggle-btn accept';
+    acceptBtn.textContent = 'Accept';
+    const rejectBtn = document.createElement('button');
+    rejectBtn.className = 'toggle-btn reject';
+    rejectBtn.textContent = 'Reject';
+
+    function refreshToggle() {
+      const d = decisions[s.id];
+      acceptBtn.classList.toggle('active', d === 'accept');
+      rejectBtn.classList.toggle('active', d === 'reject');
+      row.classList.toggle('rejected', d === 'reject');
+    }
+    acceptBtn.addEventListener('click', function () { decisions[s.id] = 'accept'; refreshToggle(); updateStats(); });
+    rejectBtn.addEventListener('click', function () { decisions[s.id] = 'reject'; refreshToggle(); updateStats(); });
+    refreshToggle();
+
+    actions.appendChild(acceptBtn);
+    actions.appendChild(rejectBtn);
+    row.appendChild(actions);
+
+    listEl.appendChild(row);
+  });
+
+  const skipped = suggestions.length - changed.length;
+  if (skipped > 0) {
+    const note = document.createElement('div');
+    note.className = 'unchanged-note';
+    note.textContent = skipped + ' suggestion(s) matched the original text exactly and were skipped.';
+    listEl.appendChild(note);
+  }
+
+  updateStats();
+}
+
+downloadBtn.addEventListener('click', function () {
+  const approved = suggestions
+    .filter(function (s) { return (decisions[s.id] || 'accept') === 'accept' && itemsById[s.id]; })
+    .map(function (s) { return { id: s.id, suggested: editedText[s.id] }; })
+    .filter(function (c) { return c.suggested !== itemsById[c.id].original; });
+
+  const blob = new Blob([JSON.stringify({ approved: approved }, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'copyedit-approved.json';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+</script>
+</body>
+</html>
