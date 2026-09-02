@@ -10,14 +10,114 @@ last present at the commit tagged v0.2b's successor). Code comments
 citing e.g. "phase-14-design.md §5.1" are historical pointers into
 those deleted docs — resolve via git history, don't "fix" the comments.
 
-## Current state (end of session, Sep 1 2026, cont'd)
+## Current state (end of session, Sep 2 2026)
 
-HEAD: `8327a94`. Deployed to **dev only**, CI green both commits below.
-Prod still on v0.7b/`1a08007` — no Release cut today.
+HEAD: `0cb43ed`. Deployed to **dev only**, CI green on every commit
+this session. Prod still on v0.7b/`1a08007` — no Release cut.
 
-**This session (second half, after the deploy-hardening work already
-folded into the section below): Encounters — Loot section, reveal-
-timing toggles (captured, not yet wired), Run state machine.**
+**Codex Scene <-> encounter-builder integration: DONE, confirmed by
+Gregg this session (Sep 2).** This is what the previous session's
+"next step" scoped toward — now built, tested, and closed out.
+
+**Data model, confirmed with Gregg going in (revises the prior
+session's 0-many/0-1 Scene-specific framing):** an encounter can link
+to ANY lore entry (not just Scenes), and a lore entry can carry more
+than one link (multiple Meta-Encounter lore items on the same entity,
+each its own encounter). FK lives on the lore item (`encounterId`),
+never the encounter — survives an encounter rename by construction.
+
+**Built (`00840d5`, `7e47d8f` fix, `f176846` notification cleanup,
+`0cb43ed` Run button):**
+- New lore item meta type `'meta-encounter'`. Picker UI (entity lore
+  editor, GM view only — `state.allEncounters` is a GM-only listener):
+  meta dropdown gets an "Encounter" option; once selected, search+link
+  an existing encounter or "+ New encounter" (bare encounter, literal
+  defaults, no inline builder per Gregg's call — saves the link
+  immediately, then opens the new encounter in Build mode). Linked
+  state shows the name + "Open in Build" + "Unlink". Content is no
+  longer required on save once linked (the link IS the content while
+  pristine).
+- Run state machine drives the linked item's visibility and content:
+  - pristine: untouched, whatever the GM set.
+  - pristine→started: visibility flips to Party; content gets an H3
+    header + "**You see:**" bullets if "Show adversaries on start" is
+    on.
+  - →finished: APPENDS "**You fought:**"/"**You found:**" to whatever
+    Start already wrote (never regenerates from scratch — Start's
+    reveal survives Completion).
+  - Reset: wipes the written block back to empty, no special-casing
+    needed on read.
+  - Content is WRITTEN (`loreItems.encounterRevealMd`, new field) not
+    computed live — `encounters` is GM-only in `firestore.rules`, so a
+    player client can never read the live doc to synthesize this
+    itself. Tradeoff: the header's baked-in encounter name goes stale
+    if renamed AFTER a reveal already fired (accepted, not fixed —
+    flagged during implementation, not raised again).
+  - Each Meta-Encounter item synthesizes independently (own
+    `encounterId`), unlike meta-details/features' "only the first
+    same-meta item" rule.
+  - Adversary/loot names are plain text in the stored markdown —
+    existing `applyWikiLinks` auto-links them on render.
+- Notifications: `sharing.js: notifyEncounterReveal`, modeled on
+  Stables' lore-drop precedent (self-contained batch + own
+  `'encounter-reveal'` kind, players only, bypasses the generic share-
+  diff fan-out since completion has no visibility change to diff
+  against). **Cleaned up this session (`f176846`):** no more generic
+  "Encounter X has begun/concluded" filler — a notification only fires
+  when there's actual adversary/loot content (`buildEncounterRevealPayload`
+  returns non-empty); digest renders a real list per reveal ("You
+  see:"/"You fought:"/"You found:"), each item its own link to ITS OWN
+  entity (not a parent-encounter link prefix), gated per-item on
+  `canSee` since an individual adversary/loot entity's visibility was
+  never guaranteed flipped by the reveal. Notification doc shape:
+  `phase` + `adversaries`/`loot` arrays of `{id, name, count}` — NOT
+  the earlier `summary` string (schema changed mid-session; any
+  `encounter-reveal` docs written before `f176846` in dev are stale
+  test data, safe to ignore/delete, digest just renders them as an
+  empty card now).
+- `firestore.rules`: `loreItems` gains `encounterId`/`encounterRevealMd`
+  + `'meta-encounter'` enum value; `notifications` gains
+  `'encounter-reveal'` kind + `phase`/`adversaries`/`loot` fields.
+  `npm run test:rules` — all 15 cases still pass (none exercise these
+  fields directly; ran as a regression check each rules edit).
+- Bug fixed same session (`7e47d8f`): renaming an encounter in Build
+  mode left an already-open lore-item edit box showing the stale name
+  — `encounters.js`'s snapshot handler only ever called
+  `renderEncountersTab()`, never touched Codex. Fix is a surgical text
+  patch (`data-encounter-id` + `refreshOpenEncounterNameDisplays`),
+  deliberately NOT a full `renderDetailForSelected()` re-render — that
+  would risk the same focus-loss bug class already fixed once before
+  (a snapshot arriving mid-typing forcing a destructive rebuild).
+- GM-view lore-item card (`0cb43ed`): "Run" button, separate from the
+  edit box's "Open in Build" — jumps straight to the Run sub-tab
+  without opening Edit first. Omitted if the linked encounter no
+  longer resolves (deleted).
+- No import cycle: codex.js can't import encounters.js (encounters.js
+  already imports FROM codex.js), so cross-tab navigation
+  (`openEncounterInTab`/`openEncounterInBuildMode`/
+  `openEncounterInRunMode`) dispatches a real click on
+  `#tab-btn-encounters` (main.js's existing handler) instead, and
+  "+ New encounter" duplicates `createEncounter`'s literal defaults
+  rather than importing it.
+
+**Also this session, smaller fixes before the integration work:**
+Run tab Start/Reset/Complete buttons — same width (7rem), fixed a
+tab-style CSS leak that was killing border-radius/text-align/padding
+(`.character-detail-tabs button` matching via shared `tabsRow`
+classes). Encounters list split into Active/Completed sub-tabs
+(mirrors Stables' Current/Previous). Encounters/Stables list-pane
+headings fixed (same `.admin-card h3` specificity leak as the
+Characters-tab S11 fix, just never extended to these two panes).
+Adversaries default to `revealAdversariesTiming:'completion'` on new
+encounters; loot section's two checkboxes reordered ("Show on
+completion" before "Auto-reveal"). Loot picker gained a Generate tab:
+roll Common/Uncommon/Rare/Legendary (1d12/2d12/3d12/4d12 per Gregg's
+simplified mapping) against the bundled `srd/items.json`/
+`consumables.json` roll tables, batches all draws into one write.
+Dead "named-import cross-check script" reference removed from this
+doc — never existed as an actual file, was just a dangling mention.
+
+## Prior session (Sep 1 2026, cont'd): Loot section, reveal-timing toggles, Run state machine
 
 Scoped first: **Scene<->encounter relationship, confirmed with Gregg:
 a Scene can have 0–many encounters; an encounter has 0–1 Scene.** No
@@ -571,10 +671,6 @@ throw.
 
 ## Open items
 
-- **Codex Scene <-> encounter-builder integration — scoping starts
-  next session.** Starting point: Phase 15 design doc §7 (player-visible
-  encounter screen, AAR lore-item-on-conclusion, archiving/duplicate,
-  settings UI). No decisions made yet.
 - Deploy-workflow hardening: rules tests / pre-deploy backup / post-
   deploy smoke test all BUILT this session (approval gate explicitly
   skipped per Gregg) — prod job's new steps unverified until the next
