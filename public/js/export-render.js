@@ -134,22 +134,7 @@ function blocksFromMarkdown(md, marked) {
   return blocks;
 }
 
-// A single Lore/Note item's content flattened to one run list (multi-
-// paragraph items get a blank line between paragraphs) -- these items
-// render as one bullet each, not a nested block structure, so there's
-// no need for the full blocksFromMarkdown list-walk here.
-function itemInlineRuns(content, marked) {
-  const tokens = marked.lexer(content || '', { breaks: true });
-  const runs = [];
-  tokens.forEach(function (tok, i) {
-    if (i > 0) runs.push({ text: '\n' });
-    if (tok.tokens && tok.tokens.length) runs.push.apply(runs, inlineRuns(tok.tokens));
-    else if (tok.text) runs.push({ text: tok.text });
-  });
-  return runs;
-}
-
-// Plain-text ("Secret - Name only") flavor used by the Markdown export,
+// Plain-text ("Secret - Name") flavor used by the Markdown export,
 // which has no color/border to lean on.
 function secretTagText(secretCharacterName) {
   return '[Secret \u2013 ' + secretCharacterName + '] ';
@@ -255,24 +240,56 @@ function docxParagraphsFromBlocks(blocks, docxMod) {
 // blocksFromMarkdown) so a secret item can carry its own colored tag +
 // bordered "outline" box -- that per-item metadata doesn't survive a
 // round-trip through a single combined markdown string.
+// A Lore/Note item's content isn't always a single paragraph -- it can
+// carry its own internal structure (intro paragraph, a second
+// paragraph, a nested bulleted list, etc., same as any lore item on
+// the Codex tab). itemInlineRuns flattened all of that to inline runs,
+// which silently DROPPED list-type blocks entirely (a list token has
+// neither .text nor the .tokens shape inlineRuns expects) -- the
+// reported "sub-bullets missing" bug. Fixed by walking the item's full
+// block structure via blocksFromMarkdown: the first block becomes the
+// bullet's own line (with the secret tag prefixed and, if secret, the
+// bordered box -- box stays on just this first paragraph, matching
+// what already shipped for single-paragraph items), and any further
+// blocks render as indented continuation content under it -- nested
+// list items one bullet-level deeper, plain paragraphs indented but
+// unmarked.
 function docxItemListParagraphs(items, secretCharacterName, docxMod, marked) {
   const { Paragraph, TextRun } = docxMod;
-  return items.map(function (item) {
+  const out = [];
+  items.forEach(function (item) {
+    const blocks = blocksFromMarkdown(item.content, marked);
+    const first = blocks[0] || { runs: [] };
     const runs = [];
     if (item.secret) {
       runs.push(new TextRun({ text: secretTagText(secretCharacterName), bold: true, color: SECRET_COLOR_HEX }));
     }
-    itemInlineRuns(item.content, marked).forEach(function (r) {
+    (first.runs || []).forEach(function (r) {
       if (!r.text) return;
       runs.push(new TextRun({ text: r.text, bold: !!r.bold, italics: !!r.italic }));
     });
-    const opts = { bullet: { level: 0 }, spacing: { after: 80 }, children: runs };
+    const opts = { bullet: { level: 0 }, spacing: { after: 60 }, children: runs };
     if (item.secret) {
       const b = { color: SECRET_COLOR_HEX, size: 6, style: 'single', space: 4 };
       opts.border = { top: b, bottom: b, left: b, right: b };
     }
-    return new Paragraph(opts);
+    out.push(new Paragraph(opts));
+
+    for (let i = 1; i < blocks.length; i++) {
+      const block = blocks[i];
+      const blockRuns = (block.runs || []).map(function (r) {
+        return new TextRun({ text: r.text, bold: !!r.bold, italics: !!r.italic });
+      });
+      if (block.type === 'listitem') {
+        out.push(new Paragraph({ bullet: { level: (block.depth || 0) + 1 }, spacing: { after: 40 }, children: blockRuns }));
+      } else if (block.type === 'hr') {
+        out.push(new Paragraph({ indent: { left: 360 }, border: { bottom: { color: 'auto', space: 1, style: 'single', size: 4 } }, text: '' }));
+      } else {
+        out.push(new Paragraph({ indent: { left: 360 }, spacing: { after: 60 }, children: blockRuns }));
+      }
+    }
   });
+  return out;
 }
 
 // Section sub-headings (Lore/Gallery/Notes) render as Heading 3 --
@@ -487,25 +504,51 @@ async function buildPdfBlob(perEntity, imagesByEntity, warningText, secretCharac
     return lines * (size * 1.3);
   }
 
+  // Same fix as docxItemListParagraphs: walk the item's full block
+  // structure (blocksFromMarkdown) instead of flattening everything to
+  // inline runs, which silently dropped nested list blocks entirely.
+  // First block is the bulleted/boxed headline; further blocks (a
+  // second paragraph, a nested sub-list) render indented underneath.
   function renderItem(item) {
-    const runs = [];
-    if (item.secret) runs.push({ text: secretTagText(secretCharacterName), bold: true, color: SECRET_COLOR_RGB });
-    itemInlineRuns(item.content, marked).forEach(function (r) { if (r.text) runs.push(r); });
-    const textHeight = measureRunsHeight(runs, 10, 12);
+    const blocks = blocksFromMarkdown(item.content, marked);
+    const first = blocks[0] || { runs: [] };
+    const firstRuns = [];
+    if (item.secret) firstRuns.push({ text: secretTagText(secretCharacterName), bold: true, color: SECRET_COLOR_RGB });
+    firstRuns.push.apply(firstRuns, first.runs || []);
+    const textHeight = measureRunsHeight(firstRuns, 10, 12);
     const boxPad = 6;
-    // Reserve the FULL item's height up front -- renderRuns below will
-    // then never need its own mid-render page break, so the box's
-    // start/end coordinates are guaranteed to land on the same page.
+    // Reserve the FULL first block's height up front -- renderRuns
+    // below will then never need its own mid-render page break, so the
+    // box's start/end coordinates are guaranteed to land on the same
+    // page.
     ensureRoom(textHeight + (item.secret ? boxPad : 0) + 6);
     const startY = y - 9;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.text('\u2022', margin, y);
-    renderRuns(runs, 10, 12);
+    renderRuns(firstRuns, 10, 12);
     if (item.secret) {
       doc.setDrawColor.apply(doc, SECRET_COLOR_RGB);
       doc.roundedRect(margin - 3, startY, maxWidth + 6, textHeight + 2, 2, 2, 'S');
       doc.setDrawColor(0, 0, 0);
+    }
+    for (let i = 1; i < blocks.length; i++) {
+      const block = blocks[i];
+      if (block.type === 'listitem') {
+        const depth = (block.depth || 0) + 1;
+        ensureRoom(14);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.text('\u2022', margin + 12 + depth * 14, y);
+        renderRuns(block.runs, 10, 12 + depth * 14 + 12);
+      } else if (block.type === 'hr') {
+        ensureRoom(10);
+        doc.setDrawColor(180);
+        doc.line(margin + 24, y, pageWidth - margin, y);
+        y += 12;
+      } else {
+        renderRuns(block.runs, 10, 24);
+      }
     }
   }
 
