@@ -11,6 +11,14 @@
 // docx/jsPDF are loaded lazily via esm.sh dynamic import, same pattern
 // as marked/DOMPurify in markdown.js and sortablejs elsewhere -- a CDN
 // hiccup only breaks the Word/PDF export path, not the whole app.
+//
+// perEntity (shared shape, built by export-lore.js's buildPerEntityRecord):
+//   { entity, statBlockMd, loreContent: string[], noteContent: string[], sourceIds }
+// imagesByEntity: { [entityId]: imageDoc[] }
+// Every builder below renders, per entity: statBlockMd (Details/
+// Features, template entities only) -> "Lore" (bulleted, if any) ->
+// "Gallery" (if any images) -> "Notes" (bulleted, if any) -- each
+// section heading omitted when its content is empty.
 
 import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp } from './firebase.js';
@@ -42,8 +50,12 @@ function fetchImagesForEntities(entityIds) {
 
 // webp (the app's own upload format) has inconsistent embed support
 // across docx/PDF libraries -- normalize every image to PNG via canvas
-// decode/re-encode before handing it to either builder. Returns a
-// Uint8Array of PNG bytes plus the decoded pixel dimensions.
+// decode/re-encode before handing it to either builder. Returns PNG
+// bytes (docx's ImageRun wants an ArrayBuffer/Uint8Array) AND the
+// source canvas (jsPDF's addImage takes a canvas directly -- avoids
+// round-tripping back through a base64 data URL, which was silently
+// throwing "Maximum call stack size exceeded" on anything but small
+// images via String.fromCharCode.apply on a large byte array).
 function imageToPngBytes(dataUrl) {
   return new Promise(function (resolve, reject) {
     const img = new Image();
@@ -56,7 +68,7 @@ function imageToPngBytes(dataUrl) {
       canvas.toBlob(function (blob) {
         if (!blob) { reject(new Error('PNG re-encode failed')); return; }
         blob.arrayBuffer().then(function (buf) {
-          resolve({ bytes: new Uint8Array(buf), width: img.naturalWidth, height: img.naturalHeight });
+          resolve({ bytes: new Uint8Array(buf), width: img.naturalWidth, height: img.naturalHeight, canvas: canvas });
         }, reject);
       }, 'image/png');
     };
@@ -114,6 +126,18 @@ function blocksFromMarkdown(md, marked) {
   return blocks;
 }
 
+// Multiple separate lore items on one entity render as an unordered
+// list (one bullet per item), mirroring how import.js's own `lore`
+// array turns multiple markdown strings into multiple separate items
+// on the way in -- this is the reverse direction of that same
+// transform. A multi-paragraph item's internal newlines are indented
+// as a markdown list continuation so it stays one logical bullet.
+function toBulletListMd(items) {
+  return items.map(function (c) {
+    return '- ' + c.trim().split('\n').join('\n  ');
+  }).join('\n');
+}
+
 // --- Sources / copyright warning ---------------------------------------
 
 function buildSourcesWarning(sourceIds, allSources) {
@@ -133,8 +157,10 @@ function buildSourcesWarning(sourceIds, allSources) {
 }
 
 // --- Markdown export -----------------------------------------------------
+// No embedded image bytes (keeps the file a lightweight, readable
+// text artifact) -- a non-empty Gallery section just notes the count.
 
-function buildMarkdownDocument(perEntity, warningText) {
+function buildMarkdownDocument(perEntity, imagesByEntity, warningText) {
   const byCategory = {};
   perEntity.forEach(function (pe) {
     const cat = pe.entity.category || '(uncategorized)';
@@ -147,7 +173,13 @@ function buildMarkdownDocument(perEntity, warningText) {
       .sort(function (a, b) { return (a.entity.name || '').localeCompare(b.entity.name || ''); })
       .forEach(function (pe) {
         parts.push('## ' + pe.entity.name);
-        if (pe.contentMd) parts.push(pe.contentMd);
+        if (pe.statBlockMd) parts.push(pe.statBlockMd);
+        if (pe.loreContent.length) parts.push('### Lore', toBulletListMd(pe.loreContent));
+        const imgs = imagesByEntity[pe.entity.id] || [];
+        if (imgs.length) {
+          parts.push('### Gallery', '*(' + imgs.length + ' image' + (imgs.length === 1 ? '' : 's') + ' -- not embedded in this Markdown export)*');
+        }
+        if (pe.noteContent.length) parts.push('### Notes', toBulletListMd(pe.noteContent));
       });
   });
   parts.push('---');
@@ -188,53 +220,89 @@ function docxParagraphsFromBlocks(blocks, docxMod) {
   });
 }
 
-function buildDocxBlob(perEntity, warningText, imagesByEntity) {
-  return loadDocx().then(function (docxMod) {
-    const { Document, Packer, Paragraph, HeadingLevel, ImageRun, TextRun } = docxMod;
-    const byCategory = {};
-    perEntity.forEach(function (pe) {
-      const cat = pe.entity.category || '(uncategorized)';
-      (byCategory[cat] = byCategory[cat] || []).push(pe);
-    });
-    const children = [];
-    return loadMarkdownModules().then(function (mods) {
-      const categories = Object.keys(byCategory).sort();
-      let imageChain = Promise.resolve();
-      categories.forEach(function (cat) {
-        children.push(new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { before: 300, after: 150 }, children: [new TextRun(cat)] }));
-        byCategory[cat]
-          .sort(function (a, b) { return (a.entity.name || '').localeCompare(b.entity.name || ''); })
-          .forEach(function (pe) {
-            children.push(new Paragraph({ heading: HeadingLevel.HEADING_2, spacing: { before: 200, after: 100 }, children: [new TextRun(pe.entity.name)] }));
-            if (pe.contentMd) {
-              children.push.apply(children, docxParagraphsFromBlocks(blocksFromMarkdown(pe.contentMd, mods.marked), docxMod));
-            }
-            const imgs = imagesByEntity[pe.entity.id] || [];
-            imgs.forEach(function (img) {
-              imageChain = imageChain.then(function () { return imageToPngBytes(img.data); }).then(function (png) {
-                const maxW = 400;
-                const scale = png.width > maxW ? maxW / png.width : 1;
-                children.push(new Paragraph({
-                  children: [new ImageRun({ data: png.bytes, transformation: { width: Math.round(png.width * scale), height: Math.round(png.height * scale) }, type: 'png' })]
-                }));
-              }).catch(function () { /* skip an image that fails to decode */ });
-            });
-          });
-      });
-      children.push(new Paragraph({ text: '' }));
-      children.push(new Paragraph({ border: { top: { color: 'auto', space: 1, style: 'single', size: 6 } }, text: '' }));
-      warningText.split('\n').forEach(function (line) {
-        children.push(new Paragraph({ children: [new TextRun({ text: line, italics: true, size: 18 })] }));
-      });
-      return imageChain.then(function () {
-        const doc = new Document({ sections: [{ children: children }] });
-        return Packer.toBlob(doc);
-      });
-    });
+// Section sub-headings (Lore/Gallery/Notes) render as Heading 3 --
+// deliberately excluded from the ToC's headingStyleRange (1-2) so the
+// contents list stays at category/entity granularity, not cluttered
+// with every entity's sub-sections.
+async function buildDocxBlob(perEntity, imagesByEntity, warningText) {
+  const docxMod = await loadDocx();
+  const { Document, Packer, Paragraph, HeadingLevel, ImageRun, TextRun, TableOfContents, PageBreak } = docxMod;
+  const mods = await loadMarkdownModules();
+  const marked = mods.marked;
+
+  function sectionHeading(text) {
+    return new Paragraph({ heading: HeadingLevel.HEADING_3, spacing: { before: 150, after: 80 }, children: [new TextRun(text)] });
+  }
+
+  const byCategory = {};
+  perEntity.forEach(function (pe) {
+    const cat = pe.entity.category || '(uncategorized)';
+    (byCategory[cat] = byCategory[cat] || []).push(pe);
   });
+  const categories = Object.keys(byCategory).sort();
+
+  const children = [
+    new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun('Lore Export')] }),
+    new TableOfContents('Contents', { hyperlink: true, headingStyleRange: '1-2' }),
+    new Paragraph({ children: [new PageBreak()] })
+  ];
+
+  for (const cat of categories) {
+    children.push(new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { before: 300, after: 150 }, children: [new TextRun(cat)] }));
+    const list = byCategory[cat].sort(function (a, b) { return (a.entity.name || '').localeCompare(b.entity.name || ''); });
+    for (const pe of list) {
+      children.push(new Paragraph({ heading: HeadingLevel.HEADING_2, spacing: { before: 200, after: 100 }, children: [new TextRun(pe.entity.name)] }));
+      if (pe.statBlockMd) {
+        children.push.apply(children, docxParagraphsFromBlocks(blocksFromMarkdown(pe.statBlockMd, marked), docxMod));
+      }
+      if (pe.loreContent.length) {
+        children.push(sectionHeading('Lore'));
+        children.push.apply(children, docxParagraphsFromBlocks(blocksFromMarkdown(toBulletListMd(pe.loreContent), marked), docxMod));
+      }
+      const imgs = imagesByEntity[pe.entity.id] || [];
+      if (imgs.length) {
+        children.push(sectionHeading('Gallery'));
+        for (const img of imgs) {
+          try {
+            const png = await imageToPngBytes(img.data);
+            const maxW = 400;
+            const scale = png.width > maxW ? maxW / png.width : 1;
+            children.push(new Paragraph({
+              children: [new ImageRun({ data: png.bytes, transformation: { width: Math.round(png.width * scale), height: Math.round(png.height * scale) }, type: 'png' })]
+            }));
+          } catch (e) {
+            children.push(new Paragraph({ children: [new TextRun({ text: '[image failed to embed]', italics: true })] }));
+          }
+        }
+      }
+      if (pe.noteContent.length) {
+        children.push(sectionHeading('Notes'));
+        children.push.apply(children, docxParagraphsFromBlocks(blocksFromMarkdown(toBulletListMd(pe.noteContent), marked), docxMod));
+      }
+    }
+  }
+
+  children.push(new Paragraph({ children: [new PageBreak()] }));
+  children.push(new Paragraph({ border: { bottom: { color: 'auto', space: 1, style: 'single', size: 6 } }, text: '' }));
+  warningText.split('\n').forEach(function (line) {
+    children.push(new Paragraph({ children: [new TextRun({ text: line, italics: true, size: 18 })] }));
+  });
+
+  const doc = new Document({
+    features: { updateFields: true },
+    sections: [{ children: children }]
+  });
+  return Packer.toBlob(doc);
 }
 
 // --- PDF export --------------------------------------------------------
+// jsPDF has no field-based ToC (unlike docx), so this is a manual
+// two-pass layout: page 1 is reserved blank, the body renders starting
+// on page 2 while recording each category/entity's page number, then
+// the reserved page 1 is drawn last using doc.setPage(1) + those
+// recorded numbers. TOC line height auto-shrinks to whatever fits in
+// one page rather than inserting extra pages (which would shift every
+// already-recorded body page number).
 
 let jsPdfModulePromise = null;
 function loadJsPdf() {
@@ -242,123 +310,169 @@ function loadJsPdf() {
   return jsPdfModulePromise;
 }
 
-function buildPdfBlob(perEntity, warningText, imagesByEntity) {
-  return Promise.all([loadJsPdf(), loadMarkdownModules()]).then(function (mods) {
-    const jsPDF = mods[0].jsPDF || mods[0].default;
-    const marked = mods[1].marked;
-    const doc = new jsPDF({ unit: 'pt', format: 'letter' });
-    const margin = 54;
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const maxWidth = pageWidth - margin * 2;
-    let y = margin;
+async function buildPdfBlob(perEntity, imagesByEntity, warningText) {
+  const jsPdfMod = await loadJsPdf();
+  const jsPDF = jsPdfMod.jsPDF || jsPdfMod.default;
+  const mods = await loadMarkdownModules();
+  const marked = mods.marked;
 
-    function ensureRoom(h) {
-      if (y + h > pageHeight - margin) { doc.addPage(); y = margin; }
-    }
+  const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+  const margin = 54;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const maxWidth = pageWidth - margin * 2;
+  let y = margin;
 
-    function renderRuns(runs, size, indent) {
-      const x0 = margin + (indent || 0);
-      const lineHeight = size * 1.3;
-      let x = x0;
-      ensureRoom(lineHeight);
-      runs.forEach(function (run) {
-        const style = run.bold && run.italic ? 'bolditalic' : run.bold ? 'bold' : run.italic ? 'italic' : 'normal';
-        doc.setFont('helvetica', style);
-        doc.setFontSize(size);
-        run.text.split(/(\s+)/).forEach(function (word) {
-          if (word === '') return;
-          if (word === '\n') { y += lineHeight; x = x0; ensureRoom(lineHeight); return; }
-          const w = doc.getTextWidth(word);
-          if (x + w > x0 + (maxWidth - (indent || 0)) && word.trim() !== '') {
-            y += lineHeight; x = x0; ensureRoom(lineHeight);
-          }
-          if (word.trim() === '' && x === x0) return; // no leading space after a wrap
-          doc.text(word, x, y);
-          x += w;
-        });
+  function ensureRoom(h) {
+    if (y + h > pageHeight - margin) { doc.addPage(); y = margin; }
+  }
+
+  function renderRuns(runs, size, indent) {
+    const x0 = margin + (indent || 0);
+    const lineHeight = size * 1.3;
+    let x = x0;
+    ensureRoom(lineHeight);
+    runs.forEach(function (run) {
+      const style = run.bold && run.italic ? 'bolditalic' : run.bold ? 'bold' : run.italic ? 'italic' : 'normal';
+      doc.setFont('helvetica', style);
+      doc.setFontSize(size);
+      run.text.split(/(\s+)/).forEach(function (word) {
+        if (word === '') return;
+        if (word === '\n') { y += lineHeight; x = x0; ensureRoom(lineHeight); return; }
+        const w = doc.getTextWidth(word);
+        if (x + w > x0 + (maxWidth - (indent || 0)) && word.trim() !== '') {
+          y += lineHeight; x = x0; ensureRoom(lineHeight);
+        }
+        if (word.trim() === '' && x === x0) return; // no leading space after a wrap
+        doc.text(word, x, y);
+        x += w;
       });
-      y += lineHeight;
-    }
-
-    function renderBlock(block) {
-      if (block.type === 'heading') {
-        const size = Math.max(11, 20 - (block.level - 1) * 2);
-        y += 6;
-        renderRuns(block.runs.map(function (r) { return Object.assign({}, r, { bold: true }); }), size, 0);
-        return;
-      }
-      if (block.type === 'listitem') {
-        ensureRoom(14);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.text('\u2022', margin + (block.depth || 0) * 14, y);
-        renderRuns(block.runs, 10, (block.depth || 0) * 14 + 12);
-        return;
-      }
-      if (block.type === 'hr') {
-        ensureRoom(10);
-        doc.setDrawColor(180);
-        doc.line(margin, y, pageWidth - margin, y);
-        y += 12;
-        return;
-      }
-      renderRuns(block.runs, 10, 0);
-    }
-
-    function renderImage(img) {
-      return imageToPngBytes(img.data).then(function (png) {
-        const maxW = maxWidth;
-        const maxH = 260;
-        let w = png.width, h = png.height;
-        if (w > maxW) { h = h * (maxW / w); w = maxW; }
-        if (h > maxH) { w = w * (maxH / h); h = maxH; }
-        ensureRoom(h + 10);
-        const dataUrl = 'data:image/png;base64,' + btoa(String.fromCharCode.apply(null, png.bytes));
-        doc.addImage(dataUrl, 'PNG', margin, y, w, h);
-        y += h + 10;
-      }).catch(function () { /* skip an image that fails to decode */ });
-    }
-
-    let chain = Promise.resolve();
-    const byCategory = {};
-    perEntity.forEach(function (pe) {
-      const cat = pe.entity.category || '(uncategorized)';
-      (byCategory[cat] = byCategory[cat] || []).push(pe);
     });
-    Object.keys(byCategory).sort().forEach(function (cat) {
-      chain = chain.then(function () {
-        ensureRoom(30);
-        renderRuns([{ text: cat, bold: true }], 18, 0);
-      });
-      byCategory[cat]
-        .sort(function (a, b) { return (a.entity.name || '').localeCompare(b.entity.name || ''); })
-        .forEach(function (pe) {
-          chain = chain.then(function () {
-            ensureRoom(20);
-            renderRuns([{ text: pe.entity.name, bold: true }], 14, 0);
-            if (pe.contentMd) blocksFromMarkdown(pe.contentMd, marked).forEach(renderBlock);
-          });
-          (imagesByEntity[pe.entity.id] || []).forEach(function (img) {
-            chain = chain.then(function () { return renderImage(img); });
-          });
-        });
-    });
-    chain = chain.then(function () {
-      ensureRoom(30);
+    y += lineHeight;
+  }
+
+  function renderBlock(block) {
+    if (block.type === 'heading') {
+      const size = Math.max(11, 20 - (block.level - 1) * 2);
+      y += 6;
+      renderRuns(block.runs.map(function (r) { return Object.assign({}, r, { bold: true }); }), size, 0);
+      return;
+    }
+    if (block.type === 'listitem') {
+      ensureRoom(14);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.text('\u2022', margin + (block.depth || 0) * 14, y);
+      renderRuns(block.runs, 10, (block.depth || 0) * 14 + 12);
+      return;
+    }
+    if (block.type === 'hr') {
+      ensureRoom(10);
       doc.setDrawColor(180);
       doc.line(margin, y, pageWidth - margin, y);
-      y += 14;
-      renderRuns(warningText.split('\n').map(function (line) { return { text: line, italic: true }; }).reduce(function (acc, r) {
-        acc.push(r, { text: '\n' });
-        return acc;
-      }, []), 8, 0);
-    });
-    return chain.then(function () { return doc.output('blob'); });
+      y += 12;
+      return;
+    }
+    renderRuns(block.runs, 10, 0);
+  }
+
+  function sectionHeading(text) {
+    ensureRoom(18);
+    renderRuns([{ text: text, bold: true }], 12, 0);
+  }
+
+  async function renderImage(img) {
+    try {
+      const png = await imageToPngBytes(img.data);
+      const maxW = maxWidth;
+      const maxH = 260;
+      let w = png.width, h = png.height;
+      if (w > maxW) { h = h * (maxW / w); w = maxW; }
+      if (h > maxH) { w = w * (maxH / h); h = maxH; }
+      ensureRoom(h + 10);
+      // Pass the decoded canvas directly -- jsPDF accepts a canvas
+      // element for addImage, sidestepping a base64 round-trip that
+      // silently failed (call-stack overflow) on anything but tiny
+      // images.
+      doc.addImage(png.canvas, 'PNG', margin, y, w, h);
+      y += h + 10;
+    } catch (e) {
+      ensureRoom(12);
+      renderRuns([{ text: '[image failed to embed]', italic: true }], 9, 0);
+    }
+  }
+
+  const byCategory = {};
+  perEntity.forEach(function (pe) {
+    const cat = pe.entity.category || '(uncategorized)';
+    (byCategory[cat] = byCategory[cat] || []).push(pe);
   });
+  const categories = Object.keys(byCategory).sort();
+
+  // Reserve page 1 for the ToC; body starts on page 2.
+  doc.addPage();
+  y = margin;
+  const tocEntries = [];
+
+  for (const cat of categories) {
+    ensureRoom(30);
+    tocEntries.push({ label: cat, page: doc.internal.getCurrentPageInfo().pageNumber, indent: 0, bold: true });
+    renderRuns([{ text: cat, bold: true }], 18, 0);
+    const list = byCategory[cat].sort(function (a, b) { return (a.entity.name || '').localeCompare(b.entity.name || ''); });
+    for (const pe of list) {
+      ensureRoom(20);
+      tocEntries.push({ label: pe.entity.name, page: doc.internal.getCurrentPageInfo().pageNumber, indent: 14, bold: false });
+      renderRuns([{ text: pe.entity.name, bold: true }], 14, 0);
+      if (pe.statBlockMd) blocksFromMarkdown(pe.statBlockMd, marked).forEach(renderBlock);
+      if (pe.loreContent.length) {
+        sectionHeading('Lore');
+        blocksFromMarkdown(toBulletListMd(pe.loreContent), marked).forEach(renderBlock);
+      }
+      const imgs = imagesByEntity[pe.entity.id] || [];
+      if (imgs.length) {
+        sectionHeading('Gallery');
+        for (const img of imgs) await renderImage(img);
+      }
+      if (pe.noteContent.length) {
+        sectionHeading('Notes');
+        blocksFromMarkdown(toBulletListMd(pe.noteContent), marked).forEach(renderBlock);
+      }
+    }
+  }
+
+  doc.addPage();
+  y = margin;
+  doc.setDrawColor(180);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 14;
+  renderRuns(warningText.split('\n').map(function (line) { return { text: line, italic: true }; }).reduce(function (acc, r) {
+    acc.push(r, { text: '\n' });
+    return acc;
+  }, []), 9, 0);
+
+  // Draw the reserved ToC page last, now that every entity's page
+  // number is known. Line height shrinks to whatever fits in one page
+  // rather than inserting pages (which would shift the numbers above).
+  doc.setPage(1);
+  y = margin;
+  renderRuns([{ text: 'Contents', bold: true }], 20, 0);
+  y += 8;
+  const availableH = pageHeight - margin - y;
+  const lineH = Math.max(9, Math.min(16, availableH / Math.max(1, tocEntries.length)));
+  tocEntries.forEach(function (e) {
+    const size = e.bold ? Math.min(12, lineH * 0.85) : Math.min(10, lineH * 0.75);
+    doc.setFont('helvetica', e.bold ? 'bold' : 'normal');
+    doc.setFontSize(size);
+    doc.text(e.label, margin + e.indent, y);
+    const pageLabel = String(e.page);
+    doc.text(pageLabel, pageWidth - margin - doc.getTextWidth(pageLabel), y);
+    y += lineH;
+  });
+
+  return doc.output('blob');
 }
 
 export {
-  fetchImagesForEntities, blocksFromMarkdown, buildSourcesWarning,
+  fetchImagesForEntities, blocksFromMarkdown, toBulletListMd, buildSourcesWarning,
   buildMarkdownDocument, buildDocxBlob, buildPdfBlob
 };
