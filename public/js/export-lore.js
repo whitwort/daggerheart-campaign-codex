@@ -22,7 +22,7 @@ import {
   resolveEntityStatBlockMarkdown, categoryPinClassLocal, isCategoryCollapsed,
   isSubtypeCollapsed, subtypeCollapseKey, subtypeLabel
 } from './codex.js';
-import { canSee, viewerContext, entityHasSecretsFor, belongsOnLoreSurface } from './visibility.js';
+import { canSee, viewerContext, entityHasSecretsFor, belongsOnLoreSurface, isSecretFor } from './visibility.js';
 import {
   fetchImagesForEntities, buildSourcesWarning, buildMarkdownDocument,
   buildDocxBlob, buildPdfBlob
@@ -316,10 +316,15 @@ function buildPerEntityRecord(entity, ctx) {
   const notes = resolveExportNotes(entity, ctx);
   const sourceIds = loreItems.concat(notes).map(function (it) { return it.sourceId; }).filter(Boolean);
   if (entity.sourceId) sourceIds.push(entity.sourceId);
+  function toItem(it) { return { content: it.content, secret: isSecretFor(it, ctx) }; }
   return {
     entity: entity,
-    loreContent: loreItems.map(function (it) { return it.content; }).filter(function (c) { return c && c.trim(); }),
-    noteContent: notes.map(function (it) { return it.content; }).filter(function (c) { return c && c.trim(); }),
+    // isSecretFor only ever returns true when ctx.activeCharacterId is
+    // set (Character mode with secrets included) -- other modes' ctx
+    // never sets it, so this is a no-op there.
+    entitySecret: isSecretFor(entity, ctx),
+    loreContent: loreItems.map(toItem).filter(function (it) { return it.content && it.content.trim(); }),
+    noteContent: notes.map(toItem).filter(function (it) { return it.content && it.content.trim(); }),
     // Template entities only (Adversary/Ancestry/Equipment/etc stat
     // blocks) -- resolveEntityStatBlockMarkdown's non-template branch
     // just re-returns every lore item's content, which would duplicate
@@ -327,6 +332,15 @@ function buildPerEntityRecord(entity, ctx) {
     statBlockMd: entity.useTemplate ? resolveEntityStatBlockMarkdown(entity, ctx, null) : '',
     sourceIds: sourceIds
   };
+}
+
+// The character name to print in a "[Secret - Name only]" tag, or null
+// when this export's ctx has no active character (nothing can be
+// flagged secret in that case, so nothing needs a name).
+function activeCharacterName(ctx) {
+  if (!ctx.activeCharacterId) return null;
+  const c = state.allEntities.find(function (e) { return e.id === ctx.activeCharacterId; });
+  return c ? c.name : null;
 }
 
 function groupImagesByOwner(images) {
@@ -352,7 +366,7 @@ function buildJsonEntityRecord(pe, imagesByEntity, includeImages) {
   };
   if (related.length) out.relatedSlugs = related.map(entitySlug);
   if (entity.tags && entity.tags.length) out.tags = entity.tags.slice();
-  if (pe.loreContent.length) out.lore = pe.loreContent;
+  if (pe.loreContent.length) out.lore = pe.loreContent.map(function (it) { return it.content; });
   if (entity.ancestry) out.ancestry = entity.ancestry;
   if (entity.aliases && entity.aliases.length) out.aliases = entity.aliases.slice();
   if (entity.date) out.date = entity.date;
@@ -454,6 +468,7 @@ async function runExport() {
   const format = formatSelect.value;
   const resolved = resolveExportContext();
   if (!resolved.pool.length) return;
+  const secretCharacterName = activeCharacterName(resolved.ctx);
   const perEntity = resolved.pool.map(function (e) { return buildPerEntityRecord(e, resolved.ctx); });
   let sourceIds = [];
   perEntity.forEach(function (pe) { sourceIds = sourceIds.concat(pe.sourceIds); });
@@ -466,7 +481,10 @@ async function runExport() {
   if (needsImages) {
     const images = await fetchImagesForEntities(resolved.pool.map(function (e) { return e.id; }));
     const visible = images.filter(function (img) { return resolved.ctx.gmView || canSee(img, resolved.ctx); });
-    visible.forEach(function (img) { if (img.sourceId) sourceIds.push(img.sourceId); });
+    visible.forEach(function (img) {
+      if (img.sourceId) sourceIds.push(img.sourceId);
+      img.secret = isSecretFor(img, resolved.ctx);
+    });
     imagesByEntity = groupImagesByOwner(visible);
   }
   const warningText = buildSourcesWarning(sourceIds, state.allSources);
@@ -477,16 +495,16 @@ async function runExport() {
     return;
   }
   if (format === 'markdown') {
-    downloadBlob(new Blob([buildMarkdownDocument(perEntity, imagesByEntity, warningText)], { type: 'text/markdown' }), exportFilename(mode, 'md'));
+    downloadBlob(new Blob([buildMarkdownDocument(perEntity, imagesByEntity, warningText, secretCharacterName)], { type: 'text/markdown' }), exportFilename(mode, 'md'));
     return;
   }
   if (format === 'docx') {
-    const blob = await buildDocxBlob(perEntity, imagesByEntity, warningText);
+    const blob = await buildDocxBlob(perEntity, imagesByEntity, warningText, secretCharacterName);
     downloadBlob(blob, exportFilename(mode, 'docx'));
     return;
   }
   if (format === 'pdf') {
-    const blob = await buildPdfBlob(perEntity, imagesByEntity, warningText);
+    const blob = await buildPdfBlob(perEntity, imagesByEntity, warningText, secretCharacterName);
     downloadBlob(blob, exportFilename(mode, 'pdf'));
   }
 }
