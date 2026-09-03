@@ -15,6 +15,7 @@ import {
   setEntityPortrait, setEntityMap, clearEntityMap
 } from './images.js';
 import { getTemplateSchema, normalizeSearchTerm, computeSearchIndex } from './templates.js';
+import { registerRoute, navigateTo } from './router.js';
 import {
   canSee, viewerContext, visibilityBadge, isShareableToWholeParty, visibilityStateClass,
   hasFullAuthority, isSharedWithActiveCharacter, isNoteAuthor, belongsOnLoreSurface,
@@ -1246,6 +1247,7 @@ function selectEntity(entityId, clearSearch) {
   if (clearSearch) searchEl.value = '';
   renderList();
   renderDetailForSelected();
+  navigateTo('/codex/' + encodeURIComponent(entityId));
 }
 
 // Exported for map.js's switchToCodexEntity (a separate pin-click entity
@@ -4484,7 +4486,11 @@ function renderDetailForSelected() {
     renderEntityViewCard(detailEl, entity, ctx, {
       allowEdit: true,
       activeTab: state.detailActiveTab,
-      onTabChange: function (tabKey) { state.detailActiveTab = tabKey; renderDetailForSelected(); },
+      onTabChange: function (tabKey) {
+        state.detailActiveTab = tabKey;
+        renderDetailForSelected();
+        navigateTo('/codex/' + encodeURIComponent(state.selectedId) + (tabKey !== 'lore' ? '?tab=' + tabKey : ''));
+      },
       onRelatedClick: function (id) { selectEntity(id, true); }
     });
     return;
@@ -5075,6 +5081,37 @@ if (searchHelpBtn && searchHelpPopup && searchHelpWrap) {
     if (!searchHelpPopup.hidden && !searchHelpWrap.contains(e.target)) closeSearchHelp();
   });
 }
+
+// Nav phase: self-register with router.js (see that file's header for why
+// this is a one-directional import, not a cycle). activate() runs before
+// the tab is revealed, so it only seeds state/renders within the (still
+// hidden) panel — safe even before entities have loaded, since
+// renderDetailForSelected already degrades to the placeholder state until
+// a later entities-snapshot re-render resolves it (codex.js's own
+// entitiesUnsub callback always calls renderList()+renderDetailForSelected()
+// on every update).
+registerRoute('codex', {
+  activate: function (entityId, params) {
+    if (entityId) {
+      selectEntity(entityId, true);
+      const tab = params.get('tab');
+      if (tab && tab !== state.detailActiveTab) {
+        state.detailActiveTab = tab;
+        renderDetailForSelected();
+      }
+    } else {
+      state.selectedId = null;
+      state.detailActiveTab = 'lore';
+      renderList();
+      renderDetailForSelected();
+    }
+  },
+  currentPath: function () {
+    return state.selectedId
+      ? '/codex/' + encodeURIComponent(state.selectedId) + (state.detailActiveTab !== 'lore' ? '?tab=' + state.detailActiveTab : '')
+      : '/';
+  }
+});
 
 export {
   attachCodexListeners, detachCodexListeners, renderList, renderDetailForSelected,

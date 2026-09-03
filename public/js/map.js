@@ -15,6 +15,7 @@ import { trackWrite } from './connectivity.js';
 import { renderSourceLabel } from './sources.js';
 import { canSee, viewerContext } from './visibility.js';
 import { createEntityImagesCache } from './entity-images-cache.js';
+import { registerRoute, navigateTo } from './router.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -109,6 +110,7 @@ function pinDivIcon(category, extraClass) {
 // stack, so this is a plain jump — no stack bookkeeping needed. -----------
 function navigateToMapForEntity(entityId) {
   state.currentMapEntityId = entityId;
+  navigateTo('/map/' + encodeURIComponent(entityId));
   const mapTabBtn = document.getElementById('tab-btn-map');
   if (mapTabBtn && !document.getElementById('map-panel').classList.contains('active')) {
     mapTabBtn.click();
@@ -1406,6 +1408,22 @@ function detachMapDataListeners() {
   detachListener('configUnsub');
   teardownMapRuntime();
 }
+
+// Nav phase: self-register with router.js (see that file's header). Only
+// seeds state.currentMapEntityId here — activateTab() (called right after
+// by the router) is what actually calls ensureMapTabReady(), so this
+// doesn't duplicate that tab-switch side-effect logic navigateToMapForEntity
+// itself has (that function stays as-is, for direct in-app pin/breadcrumb
+// clicks). A bare '/map' (no entityId) falls back to the configured root,
+// same fallback resolveCurrentMapEntityId uses elsewhere.
+registerRoute('map', {
+  activate: function (entityId) {
+    state.currentMapEntityId = entityId || state.rootEntityId;
+  },
+  currentPath: function () {
+    return state.currentMapEntityId ? '/map/' + encodeURIComponent(state.currentMapEntityId) : '/map';
+  }
+});
 
 export {
   attachPinsListener, attachConfigListener, detachMapDataListeners,

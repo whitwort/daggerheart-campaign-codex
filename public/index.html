@@ -2,6 +2,17 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <!-- Nav phase: path-based routing (router.js) means the document can be
+       served at a nested path like /codex/<id> -- without this, every
+       relative asset reference below (js/main.js, css/styles.css,
+       firebase-env.js, vendor/leaflet/...) would resolve against THAT
+       path instead of the site root, and firebase.json's catch-all
+       rewrite would silently serve index.html in place of the real JS,
+       breaking module load entirely. <base> fixes HTML-relative
+       references only -- ES module import specifiers (./router.js etc.)
+       already resolve against the importing module's own URL, not the
+       page, so they're unaffected either way. -->
+  <base href="/">
   <title>Aether's Children</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
   <script>
@@ -91,6 +102,7 @@
   <link rel="modulepreload" href="js/op-status.js">
   <link rel="modulepreload" href="js/picker-panel.js">
   <link rel="modulepreload" href="js/presence.js">
+  <link rel="modulepreload" href="js/router.js">
   <link rel="modulepreload" href="js/sharing.js">
   <link rel="modulepreload" href="js/sources.js">
   <link rel="modulepreload" href="js/srd-import.js">
