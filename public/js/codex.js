@@ -505,12 +505,15 @@ function portraitRenderInto(imgEl, hWrapEl, vWrapEl, containerEl, img) {
   const iw = img.width * scale, ih = img.height * scale;
   imgEl.style.width = iw + 'px';
   imgEl.style.height = ih + 'px';
-  // scaleX must precede translate: it mirrors the image about its own
-  // center first, so the existing pan/crop translate (in the same px
-  // space as the unflipped case) is unaffected by the flip. Reversed
-  // order would also mirror the translate offset onto the wrong side.
-  imgEl.style.transform = (img.portraitFlipH ? 'scaleX(-1) ' : '') +
-    'translate(' + clamped.x + 'px, ' + clamped.y + 'px)';
+  // CSS applies transform functions right-to-left (rightmost first, on
+  // the original box). scaleX must be RIGHTMOST so it flips the image
+  // about its own center first; translate (applied second/last) then
+  // positions the box normally, unaffected by the flip. Putting scaleX
+  // first/leftmost (as an earlier version of this did) applies translate
+  // first and then mirrors that offset too, which inverts drag direction
+  // and throws off the edge-fade anchor (both assume unflipped geom.x).
+  imgEl.style.transform = 'translate(' + clamped.x + 'px, ' + clamped.y + 'px)' +
+    (img.portraitFlipH ? ' scaleX(-1)' : '');
   // Background layer: the band's bottom edge is the image's bottom edge
   // (y <= 0, so visible image height is y+ih). Absolute layer — height
   // is explicit, nothing in flow depends on it.
