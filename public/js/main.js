@@ -1,4 +1,5 @@
 import { CONFIG } from './firebase.js';
+import { state } from './state.js';
 import { ensureMapTabReady } from './map.js';
 import './auth.js';
 import './admin.js';
@@ -13,6 +14,7 @@ import { ensureEncountersTabReady } from './encounters.js';
 import { ensureStablesTabReady } from './stables.js';
 import { renderMessagesTray } from './messages.js';
 import { renderMarkdownInto } from './markdown.js';
+import { activateTab, syncUrlToTab, registerTabActivator, initRouter } from './router.js';
 
 renderMarkdownInto(
   document.getElementById('build-footer-links'),
@@ -48,41 +50,33 @@ document.getElementById('tab-btn-map').textContent = CONFIG.tabs.map;
 // its own side effects. Percentages re-resolve at layout time, so the
 // entire staleness class is gone.
 
-    // --- Map tab -------------------------------------------------------
+    // --- Tab wiring ------------------------------------------------------
+    // Nav phase: activateTab()/syncUrlToTab() (router.js) now own the
+    // class-toggle + ensureReady dance formerly inline here, so both a
+    // direct button click and a URL-driven (router) activation go through
+    // one place. registerTabActivator covers all 7 tabs (only
+    // codex/map/timeline are actually URL-routed -- see router.js header --
+    // but the other 4 still need their ensureReady wired for plain clicks).
+    registerTabActivator('codex-panel', fitCodexTabHeight);
+    registerTabActivator('map-panel', ensureMapTabReady);
+    registerTabActivator('timeline-panel', ensureTimelineTabReady);
+    registerTabActivator('characters-panel', ensureCharactersTabReady);
+    registerTabActivator('encounters-panel', ensureEncountersTabReady);
+    registerTabActivator('stables-panel', ensureStablesTabReady);
+    registerTabActivator('admin-panel', ensureImportEditorReady);
+
     document.querySelectorAll('nav#tabs button').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        document.querySelectorAll('nav#tabs button').forEach(function (b) { b.classList.remove('active'); });
-        document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
-        btn.classList.add('active');
-        document.getElementById(btn.dataset.tab).classList.add('active');
-
-        if (btn.dataset.tab === 'map-panel') {
-          ensureMapTabReady();
-        }
-        if (btn.dataset.tab === 'codex-panel') {
-          fitCodexTabHeight();
-        }
-        if (btn.dataset.tab === 'admin-panel') {
-          ensureImportEditorReady();
-        }
-        if (btn.dataset.tab === 'timeline-panel') {
-          ensureTimelineTabReady();
-        }
-        if (btn.dataset.tab === 'characters-panel') {
-          ensureCharactersTabReady();
-        }
-        if (btn.dataset.tab === 'encounters-panel') {
-          ensureEncountersTabReady();
-        }
-        if (btn.dataset.tab === 'stables-panel') {
-          ensureStablesTabReady();
-        }
+        activateTab(btn.dataset.tab);
+        syncUrlToTab(btn.dataset.tab.replace('-panel', ''));
       });
     });
 
-// Codex is the default-active tab on load (no click event fires for
-// it) -- fit its height once up front so it's correctly sized before
-// the first render, same as the other tabs' ready-functions do on
-// their own first activation.
-fitCodexTabHeight();
+// hasAccess mirrors auth.js's own updateAccessUI check (role === 'gm' ||
+// role === 'player') -- duplicated rather than imported since auth.js
+// exports nothing today (side-effect-only module); state.currentRole is
+// the shared source of truth either way.
+initRouter(function () {
+  return state.currentRole === 'gm' || state.currentRole === 'player';
+});
 

@@ -17,6 +17,7 @@ import { attachSourcesListener, detachSourcesListener } from './sources.js';
 import { attachVersionListener, detachVersionListener, initUpdateBanner } from './version.js';
 import { attachOpStatusListener, detachOpStatusListener } from './op-status.js';
 import { attachConnectivityListener, detachConnectivityListener } from './connectivity.js';
+import { routeOnAccessGranted } from './router.js';
 import { attachCharacterTransferListeners, detachCharacterTransferListeners } from './characters.js';
 import { attachMessagesListeners, detachMessagesListeners } from './messages.js';
 import { stampPresenceNow } from './presence.js';
@@ -153,6 +154,12 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
       mainAppEl.style.display = hasAccess ? 'block' : 'none';
       renderList();  // player-visibility filter depends on role
       renderDetailForSelected();
+      // Nav phase: initRouter()'s own initial parseAndActivate() (main.js)
+      // runs before auth typically resolves, so its accessCheck was false
+      // at that point and it skipped activation entirely. Re-drive it here
+      // every time access is confirmed -- safe to call repeatedly,
+      // parseAndActivate() just re-syncs from whatever the URL already is.
+      if (hasAccess) routeOnAccessGranted();
     }
 
     requestJoinBtn.addEventListener('click', function () {
