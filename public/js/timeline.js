@@ -8,6 +8,7 @@ import {
 import { formatDateSegments } from './dates.js';
 import { canSee, viewerContext } from './visibility.js';
 import { createEntityImagesCache } from './entity-images-cache.js';
+import { registerRoute, navigateTo } from './router.js';
 
 const panelEl = document.getElementById('timeline-panel');
 let built = false;
@@ -272,6 +273,7 @@ function openEntityInPanel(entityId) {
   const entity = dated.find(function (e) { return e.id === entityId; });
   if (!entity) return;
   selectedId = entityId;
+  navigateTo('/timeline/' + encodeURIComponent(entityId));
   renderCardPane();
   centerOnIfOffscreen(entity);
   render();
@@ -286,6 +288,7 @@ function selectFromList(entityId) {
   const entity = dated.find(function (e) { return e.id === entityId; });
   if (!entity) return;
   selectedId = entityId;
+  navigateTo('/timeline/' + encodeURIComponent(entityId));
   renderCardPane();
   zoomToIsolate(entity);
   dom.listPanel.classList.remove('open');
@@ -362,8 +365,14 @@ function refresh() {
 
   fitLayoutHeight();
   renderListPanel();
-  if (selectedId && !dated.find(function (e) { return e.id === selectedId; })) {
-    selectedId = null; // e.g. visibility toggled off out from under a player
+  // Nav phase: only clear on a CONFIRMED miss (dated is non-empty, i.e.
+  // entities have actually loaded, and selectedId still isn't in it — e.g.
+  // visibility toggled off out from under a player). Previously this also
+  // fired while dated was simply still empty on cold load (entities
+  // snapshot hasn't arrived yet), which silently discarded a router-set
+  // deep-link selection before it ever had a chance to resolve.
+  if (selectedId && dated.length && !dated.find(function (e) { return e.id === selectedId; })) {
+    selectedId = null;
   }
   renderCardPane();
 
@@ -899,5 +908,26 @@ function ensureTimelineTabReady() {
 }
 
 registerVisibilityChangeHandler(renderTimeline);
+
+// Nav phase: self-register with router.js (see that file's header).
+// activate() sets `selectedId` directly rather than going through
+// openEntityInPanel (which requires the entity to already be present in
+// `dated` and no-ops otherwise) — on cold load `dated` may still be empty
+// when the URL is first parsed. refresh()'s clear-on-miss guard above was
+// fixed to only fire on a CONFIRMED miss (dated non-empty), so a deep-link
+// selectedId now survives until a later refresh (ensureTimelineTabReady,
+// called right after this by the router's activateTab, or the next
+// entities-snapshot-triggered renderTimeline) resolves it once `dated` is
+// actually populated. Known minor gap: unlike openEntityInPanel/
+// selectFromList, this doesn't call centerOnIfOffscreen/zoomToIsolate, so a
+// deep link lands on the right card but doesn't auto-center the well view.
+registerRoute('timeline', {
+  activate: function (entityId) {
+    selectedId = entityId;
+  },
+  currentPath: function () {
+    return selectedId ? '/timeline/' + encodeURIComponent(selectedId) : '/timeline';
+  }
+});
 
 export { ensureTimelineTabReady };
