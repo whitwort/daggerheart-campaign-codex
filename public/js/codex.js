@@ -505,7 +505,12 @@ function portraitRenderInto(imgEl, hWrapEl, vWrapEl, containerEl, img) {
   const iw = img.width * scale, ih = img.height * scale;
   imgEl.style.width = iw + 'px';
   imgEl.style.height = ih + 'px';
-  imgEl.style.transform = 'translate(' + clamped.x + 'px, ' + clamped.y + 'px)';
+  // scaleX must precede translate: it mirrors the image about its own
+  // center first, so the existing pan/crop translate (in the same px
+  // space as the unflipped case) is unaffected by the flip. Reversed
+  // order would also mirror the translate offset onto the wrong side.
+  imgEl.style.transform = (img.portraitFlipH ? 'scaleX(-1) ' : '') +
+    'translate(' + clamped.x + 'px, ' + clamped.y + 'px)';
   // Background layer: the band's bottom edge is the image's bottom edge
   // (y <= 0, so visible image height is y+ih). Absolute layer — height
   // is explicit, nothing in flow depends on it.
@@ -3729,7 +3734,8 @@ function openSetPortraitDialog(entity, images) {
       portraitOffsetXFrac: typeof img.portraitOffsetXFrac === 'number' ? img.portraitOffsetXFrac : 0,
       portraitOffsetYFrac: typeof img.portraitOffsetYFrac === 'number' ? img.portraitOffsetYFrac : 0,
       portraitFadeH: typeof img.portraitFadeH === 'number' ? img.portraitFadeH : 12,
-      portraitFadeV: typeof img.portraitFadeV === 'number' ? img.portraitFadeV : 12
+      portraitFadeV: typeof img.portraitFadeV === 'number' ? img.portraitFadeV : 12,
+      portraitFlipH: !!img.portraitFlipH
     };
     portraitPreviewOverride = { entityId: entity.id, img: workingImg };
     galleryPickMode = null;
@@ -3814,6 +3820,19 @@ function openSetPortraitDialog(entity, images) {
     }));
     body.appendChild(controlsWrap);
 
+    const flipRow = document.createElement('label');
+    flipRow.className = 'portrait-flip-row';
+    const flipInput = document.createElement('input');
+    flipInput.type = 'checkbox';
+    flipInput.checked = !!workingImg.portraitFlipH;
+    flipInput.addEventListener('change', function () {
+      workingImg.portraitFlipH = flipInput.checked;
+      renderCardPreview();
+    });
+    flipRow.appendChild(flipInput);
+    flipRow.appendChild(document.createTextNode(' Flip horizontally'));
+    body.appendChild(flipRow);
+
     const actions = document.createElement('div');
     actions.className = 'modal-actions';
     const saveBtn = document.createElement('button');
@@ -3826,7 +3845,8 @@ function openSetPortraitDialog(entity, images) {
         portraitOffsetXFrac: workingImg.portraitOffsetXFrac,
         portraitOffsetYFrac: workingImg.portraitOffsetYFrac,
         portraitFadeH: workingImg.portraitFadeH,
-        portraitFadeV: workingImg.portraitFadeV
+        portraitFadeV: workingImg.portraitFadeV,
+        portraitFlipH: workingImg.portraitFlipH
       }).then(close).catch(function (err) {
         window.alert('Set portrait failed: ' + err.message);
         saveBtn.disabled = false;

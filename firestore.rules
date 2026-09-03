@@ -108,7 +108,7 @@ service cloud.firestore {
     // characterShared, sourceId, data, contentType, width, height,
     // sizeBytes, uploadedAt, isPortrait, isMap, sortOrder, portraitZoomStep,
     // portraitOffsetXFrac, portraitOffsetYFrac, portraitFadeH,
-    // portraitFadeV}. Phase 14 S1: first real shape validation on this
+    // portraitFadeV, portraitFlipH}. Phase 14 S1: first real shape validation on this
     // collection (previously GM-write-only with no isValidImage() at all --
     // see phase-14-design.md §3.3, flagged as required before any player
     // write path could open here). visibility triple mirrors entities/
@@ -118,7 +118,8 @@ service cloud.firestore {
           ['ownerType', 'ownerId', 'role', 'visibility', 'characterId', 'characterShared', 'sourceId',
            'data', 'contentType', 'width', 'height', 'sizeBytes', 'uploadedAt',
            'isPortrait', 'isMap', 'sortOrder',
-           'portraitZoomStep', 'portraitOffsetXFrac', 'portraitOffsetYFrac', 'portraitFadeH', 'portraitFadeV'])
+           'portraitZoomStep', 'portraitOffsetXFrac', 'portraitOffsetYFrac', 'portraitFadeH', 'portraitFadeV',
+           'portraitFlipH'])
         && request.resource.data.ownerType is string
         && request.resource.data.ownerId is string
         && request.resource.data.role is string
