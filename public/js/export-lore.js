@@ -1,6 +1,6 @@
-// Admin > Data > Export Lore. Three export modes (Selected Entries /
-// Character / All Party Visible) x four formats (JSON / Markdown /
-// Word / PDF). Built for GM use here, but the mode+format+resolution
+// Admin > Data > Export Lore. Four export modes (Selected Entries /
+// Character / All Party Visible / All Lore) x four formats (JSON /
+// Markdown / Word / PDF). Built for GM use here, but the mode+format+resolution
 // logic is deliberately viewer-ctx-driven (not "GM sees everything"
 // hardcoded) so a future player-facing reuse only needs a different
 // entry point into resolveExportContext(), not a rewrite.
@@ -30,6 +30,7 @@ import {
 import { loadMarkdownModules } from './markdown.js';
 
 const modeSelect = document.getElementById('export-mode-select');
+const allLoreOption = document.getElementById('export-mode-all-lore-option');
 const formatSelect = document.getElementById('export-format-select');
 const selectedPanel = document.getElementById('export-mode-selected-panel');
 const characterInline = document.getElementById('export-character-inline');
@@ -62,6 +63,20 @@ function updateModeUI() {
   selectedPanel.style.display = mode === 'selected' ? '' : 'none';
   characterInline.style.display = mode === 'character' ? '' : 'none';
   if (mode === 'character' && !characterSelect.options.length) renderCharacterSelect();
+}
+// "All lore" is GM-only. This UI is only ever shown to GMs today (no
+// player-facing entry point exists yet -- see HANDOFF), but gating it
+// here rather than trusting that means it can't be missed when that
+// reuse happens. Falls back to Selected Entries if the option was
+// selected and the viewer stops being a GM mid-session (preview mode).
+function updateGmOnlyOptionVisibility() {
+  const isGm = viewerContext().gmView;
+  allLoreOption.hidden = !isGm;
+  allLoreOption.disabled = !isGm;
+  if (!isGm && modeSelect.value === 'all-lore') {
+    modeSelect.value = 'selected';
+    updateModeUI();
+  }
 }
 function updateFormatUI() {
   jsonOptionsRow.style.display = formatSelect.value === 'json' ? '' : 'none';
@@ -256,8 +271,21 @@ searchEl.addEventListener('input', renderExportLoreList);
 // that drives the Codex tab's own "secret" badge/Show-secrets filter).
 // All-players content the character merely has ordinary access to
 // (like any party member) is out of scope for this export.
+// "All lore" mode is GM-only (full unfiltered dump) and deliberately
+// skips stat-block/reference categories -- Game Mechanics, Equipment,
+// Adversaries, Environments -- since those are SRD/rules reference
+// content, not campaign lore. Internal category keys (singular,
+// matching entity.category) rather than categoryGroupLabel's plural
+// display strings.
+const ALL_LORE_EXCLUDED_CATEGORIES = new Set(['Game Mechanics', 'Equipment', 'Adversary', 'Environment']);
+
 function resolveExportContext() {
   const mode = modeSelect.value;
+  if (mode === 'all-lore') {
+    const ctx = { gmView: true, activeCharacterId: null, ownedCharacterIds: [] };
+    const pool = state.allEntities.filter(function (e) { return !ALL_LORE_EXCLUDED_CATEGORIES.has(e.category); });
+    return { ctx: ctx, pool: pool };
+  }
   if (mode === 'party') {
     const ctx = { gmView: false, activeCharacterId: null, ownedCharacterIds: [] };
     return { ctx: ctx, pool: partyVisiblePool(ctx) };
@@ -460,6 +488,7 @@ function exportFilename(mode, ext) {
     return (c ? entitySlug(c) : 'character') + '-export.' + ext;
   }
   if (mode === 'party') return 'party-visible-lore.' + ext;
+  if (mode === 'all-lore') return 'all-lore.' + ext;
   return 'lore-export.' + ext;
 }
 
@@ -521,7 +550,8 @@ exportBtn.addEventListener('click', function () {
     .finally(function () { updatePreview(); });
 });
 
-registerVisibilityChangeHandler(function () { renderExportLoreList(); renderCharacterSelect(); updatePreview(); });
+registerVisibilityChangeHandler(function () { updateGmOnlyOptionVisibility(); renderExportLoreList(); renderCharacterSelect(); updatePreview(); });
+updateGmOnlyOptionVisibility();
 updateModeUI();
 updateFormatUI();
 renderExportLoreList();
