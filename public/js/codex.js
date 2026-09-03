@@ -2619,11 +2619,20 @@ function deleteEntity(entity) {
 
 // --- Lore tab (inline add/edit, replaces the old lore-form modal) --------
 
+// textarea.value is not guaranteed \n-only -- pasted text can carry
+// \r\n (or lone \r) depending on source/OS/browser, and every \n-split
+// in this file (splitUnorderedListContent, blank-line checks, etc.)
+// silently misbehaves on a stray trailing \r. Normalize once at the
+// input-capture boundary rather than defensively at every consumer.
+function normalizeLineEndings(text) {
+  return text.replace(/\r\n?/g, '\n');
+}
+
 // If content is purely an unordered Markdown list (every non-blank line
 // is a "-"/"*"/"+" bullet, nothing else), split it into one lore item per
 // bullet. A single bullet is left as normal content (nothing to split).
 function splitUnorderedListContent(content) {
-  const nonBlank = content.split('\n').filter(function (l) { return l.trim().length > 0; });
+  const nonBlank = normalizeLineEndings(content).split('\n').filter(function (l) { return l.trim().length > 0; });
   if (nonBlank.length < 2) return null;
   const items = [];
   for (let i = 0; i < nonBlank.length; i++) {
@@ -3011,7 +3020,7 @@ function buildLoreEditBox(entity, editState, isNew) {
   const textarea = document.createElement('textarea');
   textarea.className = 'lore-edit-textarea';
   textarea.value = editState.content;
-  textarea.addEventListener('input', function () { editState.content = textarea.value; });
+  textarea.addEventListener('input', function () { editState.content = normalizeLineEndings(textarea.value); });
   box.appendChild(textarea);
 
   const metaRow = document.createElement('div');
@@ -3111,7 +3120,7 @@ function buildSharedLoreEditBox(editState) {
   const textarea = document.createElement('textarea');
   textarea.className = 'lore-edit-textarea';
   textarea.value = editState.content;
-  textarea.addEventListener('input', function () { editState.content = textarea.value; });
+  textarea.addEventListener('input', function () { editState.content = normalizeLineEndings(textarea.value); });
   box.appendChild(textarea);
 
   const bottomRow = document.createElement('div');
@@ -3200,7 +3209,7 @@ function buildNoteEditBox(entity, editState, isNew) {
   const textarea = document.createElement('textarea');
   textarea.className = 'lore-edit-textarea';
   textarea.value = editState.content;
-  textarea.addEventListener('input', function () { editState.content = textarea.value; });
+  textarea.addEventListener('input', function () { editState.content = normalizeLineEndings(textarea.value); });
   box.appendChild(textarea);
 
   const bottomRow = document.createElement('div');
