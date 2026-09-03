@@ -136,13 +136,32 @@ function blocksFromMarkdown(md, marked) {
         if (inner.tokens && inner.tokens.length) {
           blocks.push({ type: 'paragraph', runs: inlineRuns(inner.tokens, false, true) });
         } else if (inner.text) {
-          blocks.push({ type: 'paragraph', runs: [{ text: inner.text, bold: false, italic: true }] });
+          inner.text.split('\n').forEach(function (line) {
+            if (line.trim()) blocks.push({ type: 'paragraph', runs: [{ text: line, bold: false, italic: true }] });
+          });
         }
       });
     }
     else if (tok.type === 'hr') blocks.push({ type: 'hr' });
-    // space/code/table/etc: not expected in this app's lore content;
-    // silently dropped rather than guessing a rendering.
+    else if (tok.type === 'space') { /* genuinely blank -- nothing to render */ }
+    else if (tok.type === 'code') {
+      // A fenced/indented block -- e.g. someone formatting an in-fiction
+      // quoted document as a code block. No monospace styling here
+      // (not worth a whole new block type for this), but the text must
+      // not vanish: split into one plain paragraph per line.
+      (tok.text || '').split('\n').forEach(function (line) {
+        if (line.trim()) blocks.push({ type: 'paragraph', runs: [{ text: line }] });
+      });
+    }
+    else {
+      // Catch-all for any other/future marked token type (html, def,
+      // table, etc.) -- this app's lore content isn't expected to use
+      // them, but a token we don't specifically handle must still not
+      // silently drop its text, which is what happened with blockquote
+      // above before it got its own case.
+      if (tok.tokens && tok.tokens.length) blocks.push({ type: 'paragraph', runs: inlineRuns(tok.tokens) });
+      else if (tok.text) blocks.push({ type: 'paragraph', runs: [{ text: tok.text }] });
+    }
   });
   return blocks;
 }
