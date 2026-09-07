@@ -86,6 +86,11 @@ function buildCharacterDetailShell(entity, ctx) {
   const editable = hasFullAuthority(entity, ctx);
   wrap.appendChild(buildDeckHeader(entity, ctx, editable));
 
+  // Not-daggerheart campaigns: characters are name/ownership only, no
+  // Daggerheart sheet mechanics (Level, Cards/Sheet tabs, deck/sheet
+  // panel) -- header (badge/name/View-Edit-in-Codex) is the whole pane.
+  if (state.campaignType !== 'daggerheart') return wrap;
+
   // Level dropdown (Phase 14 S17): per Gregg's placement -- right side,
   // below the badge/name/View-Edit-in-Codex row, just above the Cards/
   // Sheet tab strip. Mirrors the same field's editor in the Codex
