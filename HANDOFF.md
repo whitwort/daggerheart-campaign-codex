@@ -19,7 +19,9 @@ pass.
 
 HEAD: `8694fe5`, CI green (E2E + Deploy), live on **dev only**
 (`daggerheart-campaign-codex-dev.web.app` — see the firebaseapp.com
-note below for why the domain matters). Not yet released to prod.
+note below for why the domain matters). Not yet released to prod —
+Gregg wants this batched with campaign-type gating into one release,
+not pushed solo (see Open items).
 
 **Three pieces of work this session, in order:**
 
@@ -74,21 +76,24 @@ note below for why the domain matters). Not yet released to prod.
 
 ## Open items
 
-- **Not yet released to prod.** Nav phase 2 is dev-verified only —
-  needs a Gregg go/no-go + tag+Release before it reaches players.
+- **Release to prod: BATCHED with campaign-type gating, not on its own.**
+  Nav phase 2 is dev-verified and done, but Gregg wants it held and
+  released together with campaign-type gating (below) in one prod push
+  — don't tag/Release nav phase 2 solo. Next session's job is
+  campaign-type gating; once THAT'S also dev-verified, do one combined
+  release for both.
 - **Campaign-type gating ("Not Daggerheart" mode) — findings done, NOT
-  YET a locked design doc, NOT committed to the repo.** Now the ONE
-  remaining piece of the nav/campaign-gating work (nav phase 2 above
-  closed out the other half). Two findings docs were produced in an
-  earlier session (`nav-findings.md`, `campaign-type-findings.md` —
-  neither committed; not in this tree). If a future session doesn't
-  have this in memory/chat history, it needs to be regenerated from
-  the codebase (starting points: `state.js`'s `campaignType` field,
-  `export-lore.js`'s `ALL_LORE_EXCLUDED_CATEGORIES` precedent,
-  `templates.js`'s `TEMPLATE_SCHEMAS` keys). Four open questions still
-  unanswered: Ancestry/Community treatment, `activeCharacterId` scope,
-  whether Codex category-list filtering is in scope for v1, whether a
-  live "Not Daggerheart" campaign exists to test against.
+  YET a locked design doc, NOT committed to the repo. This is next
+  session's work.** Two findings docs were produced in an earlier
+  session (`nav-findings.md`, `campaign-type-findings.md` — neither
+  committed; not in this tree). If a future session doesn't have this
+  in memory/chat history, it needs to be regenerated from the codebase
+  (starting points: `state.js`'s `campaignType` field, `export-lore.js`'s
+  `ALL_LORE_EXCLUDED_CATEGORIES` precedent, `templates.js`'s
+  `TEMPLATE_SCHEMAS` keys). Four open questions still unanswered:
+  Ancestry/Community treatment, `activeCharacterId` scope, whether
+  Codex category-list filtering is in scope for v1, whether a live
+  "Not Daggerheart" campaign exists to test against.
 - Everything else in older HANDOFF open-items lists (Export Lore prod
   verification, remaining imported-kind lore items, op-status
   indeterminate-bar exercise, dynamic-import GM-only modules, codex.js
