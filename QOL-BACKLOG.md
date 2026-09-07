@@ -255,8 +255,7 @@ scattered CSS.
 
 ## Phase 11 (visual styling) — polish follow-ups
 
-- **Base `input` padding audit — base fix APPLIED (same session);
-  iPad spot-check pending.**
+- **Base `input` padding audit — DONE AND TESTED.**
   The app-wide `input, select, textarea` rule declares NO padding, so
   every text input that isn't covered by a scoped rule (e.g.
   `.modal-box input[type="text"]`) renders with its text clipping the
@@ -269,15 +268,10 @@ scattered CSS.
   app-wide for double-padding/layout shifts (scoped rules that
   currently add their own padding, width-sensitive inline fields like
   `.encounter-players-input`, the map pin panel, character sheet
-  fields). Bigger blast radius than a spot fix, so do it as its own
-  dedicated pass with iPad verification — not piecemeal. Until then,
-  any NEW input needs explicit padding.
+  fields).
 
-- **Character-select dropdown JS error — open, deferred to Phase 14.**
-  Confirmed to persist across multiple types of interactions in player
-  view mode. Deferred to the future phase focused on player-view
-  (Phase 14 — player-facing contribution features); revisit repro/fix
-  there rather than in general Phase 11 polish.
+- **Character-select dropdown JS error — DONE AND TESTED.**
+  Confirmed no longer reproducing in player view mode.
 
 Closed this session: Codex TOC entry-row layout stability (accepted as
 good enough), GM-mode 'tab item area' yellow line (accepted as
@@ -287,17 +281,11 @@ scrollbar spot-check — accepted, no further action).
 
 ## Future phases (scoped, not started)
 
-**TODO (Phase 16, prod rollout): test the backup workflow after the
-first prod deployment.** The daily `backup.yml` cron run FAILED on
-`79dc5b4` (noticed Aug 19 2026 session, pre-dating that session's
-changes — cause not yet diagnosed; check the Actions log). After
-Phase 16's first prod deploy, run `workflow_dispatch` manually and
-verify: the run succeeds end-to-end, the dump lands in the private
-`whitwort/aethers-children-data` repo (NEVER the public codex repo),
-and the collection set matches `scripts/firestore-backup.js`'s
-COLLECTIONS (now includes `loreDrops` as of Phase 17). Secrets
-reminder: the script uses `FIRESTORE_ADMIN_SERVICE_ACCOUNT_KEY`
-(Datastore-capable), not the hosting-only deploy key.
+**Backup workflow test (Phase 16, prod rollout) — DONE AND TESTED.**
+`workflow_dispatch` run verified end-to-end against prod: dump lands
+in the private `whitwort/aethers-children-data` repo (never the
+public codex repo), collection set matches `scripts/firestore-backup.js`'s
+COLLECTIONS (incl. `loreDrops` as of Phase 17).
 
 **Phase renumbering (this session, per Gregg):** prod persistence
 rollout — previously "Phase 15" throughout the handoff chain — is now
@@ -447,9 +435,7 @@ it) is done and verified. Next up: Phase 13.
   the "Map container already initialized" Leaflet race, and a stale-
   cache role-namespacing gap that could repaint a GM's own cached
   gm-only map image when toggling Preview-as-player. **Prod persistence
-  rollout is still pending** — everything above has only ever run
-  against the dev Firebase project; needs an explicit go/no-go before
-  Phase 14 work lands on top of it.
+  rollout — DONE AND TESTED.**
 - **Phase 14 — Player-facing contribution features.** Character
   management, in-app GM messaging at the table, codex-unlock
   notifications, and other ways players contribute directly rather than
