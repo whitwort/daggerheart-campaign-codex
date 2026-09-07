@@ -26,6 +26,7 @@ import { trackWrite } from './connectivity.js';
 import { buildDropChangeLine, DROP_TYPES, dropTypeLabel, openDropRecorder } from './codex.js';
 import { canSee } from './visibility.js';
 import { playersUniverse, exposedEmailSet, recipientCtxFor } from './sharing.js';
+import { registerRoute, navigateTo } from './router.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -293,6 +294,7 @@ function renderDropsList() {
       li.appendChild(meta);
       li.addEventListener('click', function () {
         state.stablesSelectedId = d.id;
+        navigateTo('/stables/' + encodeURIComponent(d.id));
         renderStablesTab();
       });
       ul.appendChild(li);
@@ -382,6 +384,7 @@ tabsEl.querySelectorAll('button').forEach(function (btn) {
   btn.addEventListener('click', function () {
     state.stablesDropsTab = btn.dataset.dropsTab;
     state.stablesSelectedId = null;
+    navigateTo('/stables');
     renderStablesTab();
   });
 });
@@ -389,5 +392,19 @@ tabsEl.querySelectorAll('button').forEach(function (btn) {
 function ensureStablesTabReady() {
   renderStablesTab();
 }
+
+// Nav phase 2: self-register with router.js (locked design doc). GM-only --
+// router.js's parseAndActivate() rejects a non-GM deep link before this
+// activate() ever runs. stablesDropsTab (current/previous) stays
+// session-only (Gregg's call) -- not seeded from the URL here.
+registerRoute('stables', {
+  gmOnly: true,
+  activate: function (dropId) {
+    state.stablesSelectedId = dropId;
+  },
+  currentPath: function () {
+    return state.stablesSelectedId ? '/stables/' + encodeURIComponent(state.stablesSelectedId) : '/stables';
+  }
+});
 
 export { attachStablesListener, detachStablesListener, ensureStablesTabReady };

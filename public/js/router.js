@@ -1,26 +1,33 @@
-// router.js — Nav phase (bookmarkable Codex/Map/Timeline URLs). See
-// phase-nav-router-design.md (locked) for the full design. Characters/
-// Encounters/Stables/Admin stay unrouted (follow-up phase) — their tab
-// buttons still work via plain activateTab(), just with no URL.
+// router.js — Nav phase (bookmarkable tab/entity URLs). See
+// phase-nav-router-design.md and phase-nav-router-2-design.md (both locked)
+// for the full design.
 //
-// Deliberately has ZERO imports of codex.js/map.js/timeline.js. Those three
-// modules instead call registerRoute() at their OWN top level (same
-// self-registration pattern codex.js already uses for
-// registerVisibilityChangeHandler/registerMapNavigationHandler) — that
+// Deliberately has ZERO imports of codex.js/map.js/timeline.js/characters.js/
+// encounters.js/stables.js. Those modules instead call registerRoute() at
+// their OWN top level (same self-registration pattern codex.js already uses
+// for registerVisibilityChangeHandler/registerMapNavigationHandler) — that
 // keeps this a one-directional import (feature module -> router.js) with
-// no cycle, even though this module drives their navigation.
+// no cycle, even though this module drives their navigation. state.js is
+// the one exception (imported below for the gmOnly role check) — it has
+// zero imports of its own, so importing it here can't create a cycle.
 //
 // URL scheme (path-based; firebase.json already rewrites ** -> /index.html,
 // no hosting change needed):
-//   /                            -> Codex tab, no selection (default)
-//   /codex/<entityId>            -> Codex tab, entity selected
-//   /codex/<entityId>?tab=notes  -> detailActiveTab (default 'lore', omitted when default)
-//   /map/<entityId>              -> Map tab, showing that Location's map
-//   /map                         -> Map tab, no entity (root)
-//   /timeline/<entityId>         -> Timeline tab, entity selected
-//   /timeline                    -> Timeline tab, no selection
+//   /                              -> Codex tab, no selection (default)
+//   /codex/<entityId>              -> Codex tab, entity selected
+//   /codex/<entityId>?tab=notes    -> detailActiveTab (default 'lore', omitted when default)
+//   /map/<entityId>                -> Map tab, showing that Location's map
+//   /map                           -> Map tab, no entity (root)
+//   /timeline/<entityId>           -> Timeline tab, entity selected
+//   /timeline                      -> Timeline tab, no selection
+//   /characters[/<entityId>]       -> Characters tab (both roles); ?tab=sheet (default cards)
+//   /encounters[/<encId>]          -> Encounters tab (GM only); ?tab=run (default build)
+//   /stables[/<dropId>]            -> Stables tab (GM only)
+//   /admin                         -> Admin tab (GM only, no entity)
 
-const routeHandlers = {}; // prefix ('codex'|'map'|'timeline') -> { activate(entityId, params), currentPath() }
+import { state } from './state.js';
+
+const routeHandlers = {}; // prefix -> { activate(entityId, params), currentPath(), gmOnly? }
 const tabActivators = {}; // tabId ('codex-panel'|...) -> ensureReady fn, for ALL 7 tabs (not just routed ones)
 
 function registerRoute(prefix, handlers) {
@@ -73,8 +80,19 @@ function parseAndActivate() {
   const entityId = parts[1] ? decodeURIComponent(parts[1]) : null;
   const params = new URLSearchParams(location.search);
 
-  if (routeHandlers[prefix]) {
-    routeHandlers[prefix].activate(entityId, params);
+  const handler = routeHandlers[prefix];
+  if (handler) {
+    // gmOnly routes (Encounters/Stables/Admin): their tab BUTTON is already
+    // role-hidden (auth.js), but nothing previously stopped a pasted/
+    // bookmarked link from activating the panel directly for a player.
+    // replaceState (not navigateTo's pushState) so a rejected deep link
+    // doesn't leave a dead entry in the player's back-button history.
+    if (handler.gmOnly && state.currentRole !== 'gm') {
+      history.replaceState(null, '', '/');
+      activateTab('codex-panel');
+      return;
+    }
+    handler.activate(entityId, params);
     activateTab(prefix + '-panel');
     return;
   }

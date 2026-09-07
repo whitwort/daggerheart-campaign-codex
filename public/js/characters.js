@@ -57,6 +57,7 @@ import { notifyCharacterEdited } from './sharing.js';
 import { buildCharacterDeck, buildDeckHeader } from './character-deck.js';
 import { buildCharacterSheet } from './character-sheet.js';
 import { DEFAULT_CARDS, CHARACTER_LEVEL_OPTIONS } from './character-cards.js';
+import { registerRoute, navigateTo } from './router.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -121,6 +122,8 @@ function buildCharacterDetailShell(entity, ctx) {
     if (state.charactersDetailTab === tabKey) tabBtn.classList.add('active');
     tabBtn.addEventListener('click', function () {
       state.charactersDetailTab = tabKey;
+      navigateTo('/characters/' + encodeURIComponent(state.charactersSelectedId) +
+        (tabKey !== 'cards' ? '?tab=' + tabKey : ''));
       renderCharactersTab();
     });
     tabsRow.appendChild(tabBtn);
@@ -200,7 +203,10 @@ function unassignCharacterGm(entity) {
       updateDoc(doc(db, 'players', entity.ownerId), { activeCharacterId: null }).catch(function () {});
     }
   }).catch(function (err) { window.alert('Remove failed: ' + err.message); });
-  if (state.charactersSelectedId === entity.id) state.charactersSelectedId = null;
+  if (state.charactersSelectedId === entity.id) {
+    state.charactersSelectedId = null;
+    navigateTo('/characters');
+  }
 }
 
 // Player self-service: drop your own Character's ownerId to null (NOT a
@@ -212,7 +218,10 @@ function unassignCharacterSelf(entity) {
     updateDoc(doc(db, 'entities', entity.id), { ownerId: null, updatedAt: serverTimestamp() }),
     'Removing character from your list'
   ).catch(function (err) { window.alert('Remove failed: ' + err.message); });
-  if (state.charactersSelectedId === entity.id) state.charactersSelectedId = null;
+  if (state.charactersSelectedId === entity.id) {
+    state.charactersSelectedId = null;
+    navigateTo('/characters');
+  }
 }
 
 
@@ -256,6 +265,8 @@ function buildCharacterLi(entity, rightColBuilder, onClickOverride) {
     if (onClickOverride) { onClickOverride(); return; }
     state.charactersSelectedId = entity.id;
     state.charactersSelectedAutoPicked = false;
+    navigateTo('/characters/' + encodeURIComponent(entity.id) +
+      (state.charactersDetailTab !== 'cards' ? '?tab=' + state.charactersDetailTab : ''));
     renderCharactersTab();
   });
   return li;
@@ -510,6 +521,8 @@ function renderCharactersPlayerView(ctx) {
         state.charactersPickingActive = false;
         state.charactersSelectedId = e.id;
         state.charactersSelectedAutoPicked = false;
+        navigateTo('/characters/' + encodeURIComponent(e.id) +
+          (state.charactersDetailTab !== 'cards' ? '?tab=' + state.charactersDetailTab : ''));
         renderCharactersTab();
       } : null;
       ul.appendChild(buildCharacterLi(e, function (rightCol) {
@@ -698,4 +711,24 @@ if (charactersSetActiveBtnEl) {
 // (TDZ), not a hypothetical. main.js sits outside the cycle and only
 // runs its own top-level code after every static import has FULLY
 // resolved, so it's the safe place for this registration -- see main.js.
+// Nav phase 2: self-register with router.js (see phase-nav-router-2-design.md,
+// locked). router.js only imports state.js, so this top-level call is safe
+// despite this module's own codex.js import cycle (see the NOTE above) --
+// it isn't calling back into codex.js. activate() only seeds state;
+// activateTab() (called right after by the router) is what actually
+// re-renders via ensureCharactersTabReady, same as phase 1's modules.
+registerRoute('characters', {
+  activate: function (entityId, params) {
+    state.charactersSelectedId = entityId;
+    state.charactersSelectedAutoPicked = false;
+    state.charactersDetailTab = (params.get('tab') === 'sheet') ? 'sheet' : 'cards';
+  },
+  currentPath: function () {
+    return state.charactersSelectedId
+      ? '/characters/' + encodeURIComponent(state.charactersSelectedId) +
+        (state.charactersDetailTab !== 'cards' ? '?tab=' + state.charactersDetailTab : '')
+      : '/characters';
+  }
+});
+
 export { ensureCharactersTabReady, renderCharactersTab, attachCharacterTransferListeners, detachCharacterTransferListeners };
