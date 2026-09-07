@@ -11,6 +11,7 @@ import { renderMarkdownInto } from './markdown.js';
 import { addSource, updateSource, deleteSource, reorderSources, sortedSources, registerSourcesChangeHandler } from './sources.js';
 import { renderCharactersTab } from './characters.js';
 import { approveTransferRequest, rejectTransferRequest } from './transfer-requests.js';
+import { registerRoute } from './router.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -707,6 +708,18 @@ document.querySelectorAll('#admin-db-tabs button').forEach(function (btn) {
     btn.classList.add('active');
     document.getElementById(btn.dataset.dbTab).classList.add('active');
   });
+});
+
+// Nav phase 2: self-register with router.js (locked design doc). GM-only,
+// no entity/tab param -- router.js's parseAndActivate() rejects a non-GM
+// deep link before this activate() ever runs; for a GM it's a no-op
+// (nothing to seed). Admin's own sub-tabs (#admin-db-tabs) aren't
+// deep-linked (out of scope, see design doc) -- /admin always lands on
+// whichever sub-tab was last active in-session.
+registerRoute('admin', {
+  gmOnly: true,
+  activate: function () {},
+  currentPath: function () { return '/admin'; }
 });
 
 export {

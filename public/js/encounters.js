@@ -38,6 +38,7 @@ import { switchToCodexTabForEntity, entityMatchesQuery, resolveEntityStatBlockMa
 import { viewerContext } from './visibility.js';
 import { renderMarkdownInto } from './markdown.js';
 import { notifyEncounterReveal } from './sharing.js';
+import { registerRoute, navigateTo } from './router.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -113,6 +114,8 @@ function createEncounter() {
       // selection, just for the filter).
       state.encountersListTab = 'active';
       state.encountersSelectedId = ref.id;
+      navigateTo('/encounters/' + encodeURIComponent(ref.id) +
+        (state.encountersDetailTab !== 'build' ? '?tab=' + state.encountersDetailTab : ''));
       renderEncountersTab();
     });
 }
@@ -126,7 +129,10 @@ function updateEncounter(encId, fields) {
 
 function deleteEncounter(encId) {
   if (!window.confirm('Delete this encounter? This cannot be undone.')) return;
-  if (state.encountersSelectedId === encId) state.encountersSelectedId = null;
+  if (state.encountersSelectedId === encId) {
+    state.encountersSelectedId = null;
+    navigateTo('/encounters');
+  }
   trackWrite(deleteDoc(doc(db, 'encounters', encId)), 'Deleting encounter');
 }
 
@@ -343,6 +349,8 @@ function renderEncounterList() {
     li.appendChild(nameDiv);
     li.addEventListener('click', function () {
       state.encountersSelectedId = enc.id;
+      navigateTo('/encounters/' + encodeURIComponent(enc.id) +
+        (state.encountersDetailTab !== 'build' ? '?tab=' + state.encountersDetailTab : ''));
       renderEncountersTab();
     });
     ul.appendChild(li);
@@ -370,6 +378,8 @@ function renderEncounterDetail() {
     if (state.encountersDetailTab === pair[0]) tabBtn.classList.add('active');
     tabBtn.addEventListener('click', function () {
       state.encountersDetailTab = pair[0];
+      navigateTo('/encounters/' + encodeURIComponent(state.encountersSelectedId) +
+        (pair[0] !== 'build' ? '?tab=' + pair[0] : ''));
       renderEncountersTab();
     });
     tabsRow.appendChild(tabBtn);
@@ -1804,6 +1814,7 @@ listTabsEl.querySelectorAll('button').forEach(function (btn) {
   btn.addEventListener('click', function () {
     state.encountersListTab = btn.dataset.listTab;
     state.encountersSelectedId = null;
+    navigateTo('/encounters');
     renderEncountersTab();
   });
 });
@@ -1813,5 +1824,23 @@ newBtn.addEventListener('click', createEncounter);
 function ensureEncountersTabReady() {
   renderEncountersTab();
 }
+
+// Nav phase 2: self-register with router.js (locked design doc). GM-only --
+// router.js's parseAndActivate() rejects a non-GM deep link before this
+// activate() ever runs. activate() only seeds state; activateTab() (called
+// right after by the router) re-renders via ensureEncountersTabReady.
+registerRoute('encounters', {
+  gmOnly: true,
+  activate: function (encId, params) {
+    state.encountersSelectedId = encId;
+    state.encountersDetailTab = (params.get('tab') === 'run') ? 'run' : 'build';
+  },
+  currentPath: function () {
+    return state.encountersSelectedId
+      ? '/encounters/' + encodeURIComponent(state.encountersSelectedId) +
+        (state.encountersDetailTab !== 'build' ? '?tab=' + state.encountersDetailTab : '')
+      : '/encounters';
+  }
+});
 
 export { attachEncountersListener, detachEncountersListener, ensureEncountersTabReady };
