@@ -11,89 +11,47 @@ pointers into deleted docs — resolve via git history, don't "fix" the
 comments.
 
 `phase-nav-router-design.md` (nav phase 1) and
-`phase-nav-router-2-design.md` (nav phase 2, this session) are both
-locked design docs still in the tree — not yet swept into a cleanup
-pass.
+`phase-nav-router-2-design.md` (nav phase 2) are both locked design
+docs still in the tree — not yet swept into a cleanup pass.
 
 ## Current state (end of session, Sep 7 2026)
 
-HEAD: `8694fe5`, CI green (E2E + Deploy), live on **dev only**
-(`daggerheart-campaign-codex-dev.web.app` — see the firebaseapp.com
-note below for why the domain matters). Not yet released to prod —
-Gregg wants this batched with campaign-type gating into one release,
-not pushed solo (see Open items).
+HEAD: `57e648b`, CI green (Deploy + E2E), live on **dev only**. Not
+released to prod.
 
-**Three pieces of work this session, in order:**
+**Campaign-type gating — DONE, dev-verified.** Scope negotiated down
+from the prior session's four open questions (Gregg's calls, this
+session):
+- Ancestry/Community treatment — **skip**, out of scope (Daggerheart-
+  specific, not worth gating).
+- Codex category-list filtering for v1 — **skip**, out of scope.
+- No live "Not Daggerheart" test campaign exists or is planned —
+  Gregg's only real use case is a Daggerheart campaign; this is a
+  bare-bones off-switch, not a feature built against a second
+  campaign.
+- `activeCharacterId`/ownership/claim/visibility-by-character — **kept
+  as-is**, not Daggerheart-specific, applies in both modes.
+- Actual scope landed on one thing: in not-daggerheart mode, characters
+  are name/ownership only. `buildCharacterDetailShell` (`characters.js`)
+  now returns just `buildDeckHeader` (badge/name/View-Edit-in-Codex)
+  when `state.campaignType !== 'daggerheart'`, skipping the Level
+  dropdown, Cards/Sheet tab strip, and deck/sheet panel entirely.
+  `state.campaignType` defaults to `'daggerheart'` when the config doc
+  or field is missing (`map.js`'s listener normalizes this) — no
+  migration needed for existing campaigns.
+- This closes out the item nav phase 2 was waiting on.
 
-1. **QOL-BACKLOG.md cleanup** (`c86395c`) — marked done+tested: input-
-   padding audit, character-select dropdown JS error, backup-workflow
-   test (Phase 16), Phase 13 prod-persistence rollout. Removed as
-   out-of-scope (per Gregg): player-facing JSON subset export, dev
-   Firestore trial activation.
-
-2. **firebaseapp.com → web.app redirect** (`8b924e4`) — Gregg found
-   that `<project>.firebaseapp.com` and `<project>.web.app` serve
-   identical files but are DIFFERENT ORIGINS (IndexedDB/localStorage —
-   Firestore's `persistentLocalCache`, Firebase Auth session — doesn't
-   carry across). Landing on `.firebaseapp.com` broke back-navigation
-   on dev and never loaded Firestore data on prod. Fixed with a
-   client-side `location.replace` in `index.html`'s FIRST `<head>`
-   script (runs before any module/listener starts). **Always use
-   `.web.app` going forward when sharing/testing links** — recorded in
-   decisions-and-learnings memory too.
-
-3. **Nav phase 2 — bookmarkable Characters/Encounters/Stables/Admin
-   URLs, DONE and e2e-verified on dev** (`1303ce5` design doc,
-   `8694fe5` implementation). Design doc: `phase-nav-router-2-design.md`
-   (locked). This closes out the nav-router work entirely — no more
-   deferred tabs.
-   - `router.js`: `registerRoute()` gains an optional `gmOnly: true`.
-     `parseAndActivate()` now checks `state.currentRole === 'gm'` for
-     those routes and falls back to Codex root via
-     `history.replaceState` (not `navigateTo`'s `pushState`) on
-     failure — a rejected deep link doesn't leave a dead entry in a
-     player's back-button history. This closes a real gap: Encounters/
-     Stables/Admin tab **buttons** were already role-hidden
-     (`auth.js`), but nothing previously stopped a pasted `/encounters/
-     <id>` link from activating the panel for a player.
-   - `characters.js`/`encounters.js`/`stables.js`/`admin.js` each
-     self-register with `router.js` (same zero-cycle pattern as phase
-     1 — `router.js` only imports `state.js`, so this is safe even for
-     characters.js/encounters.js despite their own codex.js import
-     cycle). `?tab=` reused across all routes (Codex/notes,
-     Characters/sheet, Encounters/run) — Gregg's call. List-filter tabs
-     (`encountersListTab`, `stablesDropsTab`) stay session-only, NOT in
-     the URL — also Gregg's call.
-   - Admin/Characters/Encounters/Stables tab-**button** clicks get URL
-     sync for free via main.js's existing generic `syncUrlToTab()` —
-     no main.js changes were needed.
-   - Verified via a throwaway Playwright probe (not committed, deleted
-     after use): Characters select+tab-switch+Back, Encounters
-     create+tab-switch, Stables select, Admin tab-click, and a player
-     deep-link to a gmOnly route landing back on Codex root — all
-     passed. `player-role.spec.mjs` (committed suite) stayed green
-     throughout, 3/3.
+**Nav phase 2** (bookmarkable Characters/Encounters/Stables/Admin URLs)
+remains done and dev-verified from the prior session — no changes this
+session.
 
 ## Open items
 
-- **Release to prod: BATCHED with campaign-type gating, not on its own.**
-  Nav phase 2 is dev-verified and done, but Gregg wants it held and
-  released together with campaign-type gating (below) in one prod push
-  — don't tag/Release nav phase 2 solo. Next session's job is
-  campaign-type gating; once THAT'S also dev-verified, do one combined
-  release for both.
-- **Campaign-type gating ("Not Daggerheart" mode) — findings done, NOT
-  YET a locked design doc, NOT committed to the repo. This is next
-  session's work.** Two findings docs were produced in an earlier
-  session (`nav-findings.md`, `campaign-type-findings.md` — neither
-  committed; not in this tree). If a future session doesn't have this
-  in memory/chat history, it needs to be regenerated from the codebase
-  (starting points: `state.js`'s `campaignType` field, `export-lore.js`'s
-  `ALL_LORE_EXCLUDED_CATEGORIES` precedent, `templates.js`'s
-  `TEMPLATE_SCHEMAS` keys). Four open questions still unanswered:
-  Ancestry/Community treatment, `activeCharacterId` scope, whether
-  Codex category-list filtering is in scope for v1, whether a live
-  "Not Daggerheart" campaign exists to test against.
+- **Release to prod: BOTH nav phase 2 and campaign-type gating are now
+  done and dev-verified — ready for one combined Release.** Next
+  session's job (unless Gregg redirects): tag + create the GitHub
+  Release (`target_commitish: "main"`) covering both. Nothing else is
+  blocking this batch as of this handoff.
 - Everything else in older HANDOFF open-items lists (Export Lore prod
   verification, remaining imported-kind lore items, op-status
   indeterminate-bar exercise, dynamic-import GM-only modules, codex.js
@@ -105,22 +63,21 @@ not pushed solo (see Open items).
 
 ## Carried context
 
-- **firebaseapp.com vs web.app**: different origins, same files — see
-  item 2 above. The redirect fix covers the app itself; still worth
-  remembering when manually testing/sharing links so you're not
-  debugging a phantom "data won't load" report that's actually just
-  the wrong domain.
+- **firebaseapp.com vs web.app**: different origins, same files.
+  Always use `.web.app` when sharing/testing links — see
+  decisions-and-learnings memory for the full writeup.
 - **Dev/prod GCP trial-quota trap**: a project still in Google's
   90-day free-trial status has a hard 50K reads/day cap regardless of
   Blaze billing. Fix is the trial banner's "Activate" button (NOT
-  Billing's "Upgrade"). Prod was fixed this way Sep 2 2026; dev's
-  status still not activated as of this session (Gregg's call to leave
-  it out of scope for now) — if dev misbehaves with resource-exhausted
-  errors, check this before suspecting code.
-- `npm run test:rules`: last known 15/15 (not re-run this session,
-  firestore.rules wasn't touched).
-- `npm run test:e2e`: green throughout this session (after each of the
-  three pieces of work above, and in final CI).
+  Billing's "Upgrade"). Prod activated Sep 2 2026; dev's status still
+  not activated (Gregg's call, out of scope) — if dev misbehaves with
+  resource-exhausted errors, check this before suspecting code.
+- `npm run test:rules`: last known 15/15 (not touched/re-run this
+  session).
+- `npm run test:e2e`: not re-run locally this session (characters.js
+  change didn't touch auth.js/firebase.js/tests/e2e/*, so the local
+  gate wasn't triggered) — CI's own e2e.yml run on `57e648b` is green
+  regardless.
 
 ## Session ritual
 
@@ -136,21 +93,7 @@ touched.
 For navigation/routing work specifically: verify with a throwaway
 Playwright probe (`tests/e2e/_*.spec.mjs` — underscore prefix, delete
 before committing, never part of the committed suite) against the e2e
-emulator rather than reasoning from review alone — nav phase 1's two
-real bugs and nav phase 2's implementation were both confirmed this
-way. Gotchas hit writing this session's probe: (1) Firestore-emulator
-seed docs used in a Playwright `beforeAll` should use deterministic
-doc IDs (`.doc('some-id').set(...)`) not `.add()` — a worker restart
-after a timeout re-runs the file's module scope including `beforeAll`,
-and `.add()` silently duplicates seed data on a re-run while `.set()`
-on a fixed id doesn't; (2) `getByText(...)` isn't scoped to a hidden
-tab panel by default — scope to the panel's container id (e.g.
-`#characters-panel`) to avoid strict-mode violations against
-same-named text elsewhere in the DOM (Export Lore's picker list, in
-this case); (3) the Characters tab's GM roster only lists OWNED
-characters (grouped by owning player) — an unowned seed entity is
-invisible there unless it's also `pc`-tagged and the "+assign" picker
-for a specific player is expanded.
+emulator rather than reasoning from review alone.
 
 When verifying a markdown-rendering bug fix against `marked`, test
 against the ACTUAL esm.sh-served bundle (`curl https://esm.sh/marked@15`
