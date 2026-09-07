@@ -13,6 +13,20 @@
        already resolve against the importing module's own URL, not the
        page, so they're unaffected either way. -->
   <base href="/">
+  <script>
+    // firebaseapp.com and web.app both serve this exact Hosting site, but
+    // are different origins -- IndexedDB/localStorage (Firestore's
+    // persistentLocalCache, Firebase Auth session) is per-origin, so
+    // landing on firebaseapp.com starts from empty storage instead of
+    // whatever this browser already has under web.app. Observed Sep 2026:
+    // breaks back-navigation on dev, and on prod the app never loads
+    // Firestore data. location.replace (not href=) so this doesn't add a
+    // history entry of its own. Runs before anything else in <head> so no
+    // module/listener ever starts against the wrong origin.
+    if (location.hostname.indexOf('.firebaseapp.com') !== -1) {
+      location.replace(location.href.replace('.firebaseapp.com', '.web.app'));
+    }
+  </script>
   <title>Aether's Children</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
   <script>
