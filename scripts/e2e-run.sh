@@ -16,7 +16,21 @@ cd "$(dirname "$0")/.."
 # direct writes need it. Chromium install is idempotent/cached by
 # Playwright after the first run.
 npm install --no-save firebase-admin@12
-npx playwright install --with-deps chromium
+
+# Deliberately `install chromium` (browser binary only, from Playwright's
+# own CDN), NOT `install --with-deps chromium`. --with-deps runs
+# `apt-get update` on the runner, which refreshes ALL configured apt
+# sources -- including a Google Chrome apt repo pre-baked into GitHub's
+# ubuntu-latest image (unrelated to this repo) that has a recurring,
+# long-standing upstream bug (stale Packages.gz vs a newer Release file
+# -> Hash Sum mismatch -> apt-get exits 100, killing the whole install
+# step). ubuntu-latest ships Chrome preinstalled, so the shared-lib
+# dependencies Chromium needs are already present; skipping --with-deps
+# avoids the flaky apt call entirely. If a future runner image lacks a
+# needed lib, install it explicitly with `apt-get install` for that lib
+# only (or `playwright install-deps` scoped away from the google-chrome
+# source list) rather than reintroducing --with-deps wholesale.
+npx playwright install chromium
 
 cp public/firebase-env.js /tmp/dcc-e2e-firebase-env.backup.js
 restore() { cp /tmp/dcc-e2e-firebase-env.backup.js public/firebase-env.js; }
