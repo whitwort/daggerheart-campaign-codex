@@ -150,6 +150,22 @@ function setImportText(text) {
   else importJsonEl.value = text;
 }
 
+// Clears the editor after a successful import without going through the
+// normal 'change' -> scheduleValidate -> validateImport path: that path
+// debounce-clears importReportEl.textContent (empty text -> early return
+// with textContent = '') 650ms later, which would wipe the "Import
+// complete..." success line right after showing it.
+function clearImportTextSilently() {
+  if (cmInstance) {
+    cmInstance.off('change', scheduleValidate);
+    cmInstance.setValue('');
+    cmInstance.on('change', scheduleValidate);
+  } else {
+    importJsonEl.value = '';
+  }
+  importSummaryEl.innerHTML = '';
+}
+
 // Fallback for the (brief, pre-CodeMirror-load) window and in case the
 // CDN load fails.
 importJsonEl.addEventListener('input', function () {
@@ -715,6 +731,7 @@ function runImport() {
         + committed + ' writes). Entities list updates live.';
       importReportEl.textContent = line;
       endOp(line);
+      clearImportTextSilently();
     });
   }).catch(function (err) {
     // Batches are atomic individually but not across chunks: a failure
