@@ -221,3 +221,50 @@ test('default deny: unmatched collection is unreadable and unwritable, even for 
   await assertFails(gm.doc('somethingUnmatched/doc1').set({ x: 1 }));
   await assertFails(gm.doc('somethingUnmatched/doc1').get());
 });
+
+test('party chat: a non-whitelisted signed-in user cannot read threads/party', async () => {
+  await withSecurityRulesDisabled(async (db) => {
+    await db.doc('threads/party').set({ lastMessageAt: new Date(), lastMessagePreview: 'hi' });
+  });
+  const db = playerCtx('stranger@example.com').firestore();
+  await assertFails(db.doc('threads/party').get());
+});
+
+test('party chat: a whitelisted player can read and post to threads/party', async () => {
+  await withSecurityRulesDisabled(async (db) => {
+    await db.doc('players/alice@example.com').set({ activeCharacterId: null });
+  });
+  const db = playerCtx('alice@example.com').firestore();
+  await assertSucceeds(db.doc('threads/party').get());
+  await assertSucceeds(db.doc('threads/party').set(
+    { lastMessageAt: new Date(), lastMessagePreview: 'hi' }, { merge: true }
+  ));
+  await assertSucceeds(db.collection('threads/party/messages').add({
+    authorRole: 'player', authorEmail: 'alice@example.com', text: 'hi', createdAt: new Date()
+  }));
+});
+
+test('party chat: a player cannot post a message spoofing another author\'s email', async () => {
+  await withSecurityRulesDisabled(async (db) => {
+    await db.doc('players/alice@example.com').set({ activeCharacterId: null });
+  });
+  const db = playerCtx('alice@example.com').firestore();
+  await assertFails(db.collection('threads/party/messages').add({
+    authorRole: 'player', authorEmail: 'bob@example.com', text: 'hi', createdAt: new Date()
+  }));
+});
+
+test('party chat: readState is self-only, even between two whitelisted players', async () => {
+  await withSecurityRulesDisabled(async (db) => {
+    await db.doc('players/alice@example.com').set({ activeCharacterId: null });
+    await db.doc('players/bob@example.com').set({ activeCharacterId: null });
+  });
+  const alice = playerCtx('alice@example.com').firestore();
+  await assertSucceeds(
+    alice.doc('threads/party/readState/alice@example.com').set({ lastReadAt: new Date() })
+  );
+  await assertFails(
+    alice.doc('threads/party/readState/bob@example.com').set({ lastReadAt: new Date() })
+  );
+  await assertFails(alice.doc('threads/party/readState/bob@example.com').get());
+});
