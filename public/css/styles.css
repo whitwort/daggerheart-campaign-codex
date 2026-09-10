@@ -2248,9 +2248,17 @@ button:disabled:hover { border-color: var(--void-line); }
      shrink-to-fit capped at the viewport's available space -- with the
      default flex-shrink:1 on children, that squeezed every tab below
      its own text's natural width and let the names visually overlap
-     into their neighbors. flex-shrink:0 below (matches .msg-panel-tab's
-     already-correct treatment) plus overflow-x:auto here turns "too
-     many tabs to fit" into a horizontal scroll instead of a squeeze. */
+     into their neighbors (and the badge-color indicator border, sized
+     to the SHRUNK box, no longer lined up under the now-wider-looking
+     overflowing text). flex-shrink:0 below plus overflow-x:auto here
+     turns "too many tabs to fit" into a horizontal scroll instead of a
+     squeeze. NOTE: this exact bug also existed on .msg-panel-tab (the
+     expanded panel's tab row) -- missed in the first pass since Gregg's
+     original report happened to be reproduced via the collapsed strip;
+     it needed the identical flex-shrink:0 fix, since the panel's
+     DEFAULT width (applyPanelSizing, messages.js) is itself derived
+     from this row's natural scrollWidth. Check both if this class of
+     bug resurfaces anywhere else tabs+overflow-x:auto are combined. */
   max-width: calc(100vw - 1.5rem); overflow-x: auto;
 }
 /* Strip/panel tabs, collapse chevron, Send: QOL-BACKLOG button-width
@@ -2302,7 +2310,7 @@ button:disabled:hover { border-color: var(--void-line); }
 }
 #msg-panel-tabs { display: flex; gap: 0.3rem; flex: 1; min-width: 0; overflow-x: auto; }
 .msg-panel-tab {
-  width: auto; min-width: 0;
+  width: auto; min-width: 0; flex-shrink: 0;
   background: none; border: none; box-shadow: none;
   padding: 0.3rem 0.6rem; color: var(--ink-soft); cursor: pointer; font-size: 0.85rem;
   border-bottom: 2px solid transparent; border-radius: 0; white-space: nowrap;
