@@ -48,14 +48,17 @@ export const state = {
   characterDeckHeritageConditionsSplit: 0.6, // Phase 14 S18 -- character deck viewer: Heritage/Conditions shared-row drag-split fraction (0-1, Heritage's share). Session-only, not persisted.
   characterDeckClassSplit: 0.4,              // Phase 14 S18 -- character deck viewer: Class/Subclass shared-row drag-split fraction (0-1, Class's share). Session-only, not persisted.
   threadsUnsub: null,        // Phase 14 S6 -- GM: full threads collection; player: own threads/{email} doc (messages.js)
-  allThreads: [],            // thread docs (GM: all; player: at most own), {id: playerEmail, lastMessageAt, lastMessagePreview, gmLastReadAt, playerLastReadAt}
+  allThreads: [],            // thread docs (GM: all incl. the shared 'party' doc; player: own 1:1 doc + 'party', the latter via partyThreadUnsub), {id: playerEmail|'party', lastMessageAt, lastMessagePreview, gmLastReadAt?, playerLastReadAt?} -- the party doc omits gmLastReadAt/playerLastReadAt (per-user read state lives in threads/party/readState/{email} instead, since more than two people read it)
+  partyThreadUnsub: null,    // player-only: threads/party doc listener (GM already gets it via threadsUnsub's full-collection query)
+  partyReadStateUnsub: null, // own threads/party/readState/{myEmail} doc listener (both roles)
+  partyLastReadAt: null,     // this user's own party-chat read stamp, from partyReadStateUnsub
   threadMessagesUnsub: null, // per-open-thread messages subcollection listener -- manual lifecycle (target changes with the open tab), like entityImagesUnsub; the app's first subcollection listener
-  threadMessages: [],        // message docs for openThreadKey, sorted oldest-first client-side
-  openThreadKey: null,       // playerEmail of the thread the messages listener currently points at
+  threadMessages: [],        // message docs for openThreadKey, sorted oldest-first client-side; party-thread docs additionally carry authorEmail (needed to tell multiple players' messages apart in the shared channel -- a 1:1 thread's authorRole alone is enough since there's only one possible player)
+  openThreadKey: null,       // playerEmail or 'party' -- the thread the messages listener currently points at
   notificationsUnsub: null,  // GM: full notifications collection; player: where recipientEmail==self (messages.js)
   allNotifications: [],      // notification docs per the listener scope above
   trayExpanded: false,       // Messages tray collapsed strip vs expanded panel
-  trayTab: null,             // open tab: a playerEmail (thread) or 'campaign'
+  trayTab: null,             // open tab: a playerEmail (thread), 'party', or 'campaign'
   msgPanelWidthPx: null,     // Messages panel manual width (px) once the player drags the left-edge handle; null = auto-size to fit the tab strip (see messages.js applyPanelSizing). Session-only, not persisted.
   msgPanelHeightPx: null,    // Messages panel manual height (px) once the player drags the top-edge handle; null = CSS default (min(24rem, 60vh)). Session-only, not persisted.
   adminSourceEditId: null,

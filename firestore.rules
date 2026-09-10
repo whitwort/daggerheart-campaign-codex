@@ -227,6 +227,56 @@ service cloud.firestore {
       }
     }
 
+    // Party chat (Sep 2026): one shared channel doc, keyed by the fixed
+    // literal id 'party' (never a real player email, so it can't collide
+    // with the 1:1 threads above) -- visible to the GM AND every
+    // whitelisted player at once, unlike the 1:1 threads/{playerEmail}
+    // match above. This is a SIBLING match block, not a branch inside
+    // the wildcard one above: Firestore evaluates every applicable match
+    // block for a given path and allows the request if ANY of them
+    // grants it, so this doesn't need to touch (or risk) the existing
+    // 1:1 rules at all.
+    // - Thread doc: {lastMessageAt, lastMessagePreview} only -- no
+    //   per-role read field the way 1:1 threads have gmLastReadAt/
+    //   playerLastReadAt, since "the other side" isn't a single person
+    //   here. Per-user read state instead lives one level down, in
+    //   readState/{email} (self-only, one doc per reader).
+    // - Messages carry authorEmail (1:1 threads don't need it -- the
+    //   parent doc id already identifies the sole possible player).
+    //   Locked to request.auth.token.email so no one can post as anyone
+    //   else. Immutable once sent, same as 1:1 messages.
+    function isValidPartyThread() {
+      return request.resource.data.keys().hasOnly(['lastMessageAt', 'lastMessagePreview']);
+    }
+    function isValidPartyMessage() {
+      return request.resource.data.keys().hasOnly(['authorRole', 'authorEmail', 'text', 'createdAt'])
+        && request.resource.data.authorRole in ['gm', 'player']
+        && request.resource.data.authorEmail == request.auth.token.email
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0;
+    }
+    match /threads/party {
+      allow read: if isGM() || isPlayer();
+      allow create, update: if isValidPartyThread() && (isGM() || isPlayer());
+      allow delete: if isGM();
+
+      match /messages/{msgId} {
+        allow read: if isGM() || isPlayer();
+        allow create: if isValidPartyMessage() && (
+          (isGM() && request.resource.data.authorRole == 'gm') ||
+          (isPlayer() && request.resource.data.authorRole == 'player')
+        );
+        allow update, delete: if false;
+      }
+
+      // One doc per reader, keyed by their own email; only that person
+      // (GM included -- whitwort@gmail.com is as valid a key here as
+      // any player's) may read or write their own read stamp.
+      match /readState/{userEmail} {
+        allow read, write: if request.auth != null && request.auth.token.email == userEmail;
+      }
+    }
+
     // Unlock notifications (Phase 14 §3.5/§6.7, S6). Written at share-time
     // (sharing.js), never diff-detected -- both GM and player clients can
     // create these (trust-the-table model, same as every other collection

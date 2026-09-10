@@ -214,7 +214,11 @@ function threadUnread(t) {
   if (!t) return false;
   const last = tsMs(t.lastMessageAt);
   if (last == null) return false;
-  const read = tsMs(t[myReadField()]);
+  // Party has no gmLastReadAt/playerLastReadAt field on the thread doc
+  // itself (more than two possible readers) -- its own read stamp lives
+  // in threads/party/readState/{myEmail}, mirrored into
+  // state.partyLastReadAt by partyReadStateUnsub.
+  const read = t.id === 'party' ? tsMs(state.partyLastReadAt) : tsMs(t[myReadField()]);
   return read == null || last > read;
 }
 
@@ -222,16 +226,23 @@ function threadUnread(t) {
 // thread doc exists yet -- the doc is created lazily on first message/
 // read), sorted by display name; a player gets exactly one, labeled "GM",
 // keyed by their own email (threads are keyed by the PLAYER's email).
+// Both roles additionally get a fixed 'party' tab (shared channel, all
+// players + GM) appended last -- keeps the existing default-tab-on-open
+// behavior (GM's first player / player's "GM") unchanged.
 function threadTabDefs() {
+  const email = state.currentUser && state.currentUser.email;
+  let defs;
   if (state.currentRole === 'gm') {
-    return (state.allPlayers || []).slice()
+    defs = (state.allPlayers || []).slice()
       .sort(function (a, b) {
         return (a.displayName || a.id).localeCompare(b.displayName || b.id);
       })
       .map(function (p) { return { key: p.id, label: p.displayName || p.id, badgeColor: activeCharacterBadgeColor(p) }; });
+  } else {
+    defs = email ? [{ key: email, label: 'GM', badgeColor: null }] : [];
   }
-  const email = state.currentUser && state.currentUser.email;
-  return email ? [{ key: email, label: 'GM', badgeColor: null }] : [];
+  if (email) defs.push({ key: 'party', label: 'Party', badgeColor: null });
+  return defs;
 }
 
 // Phase 14 S7 (§11.8): color a GM-side player tab by that player's
@@ -248,6 +259,15 @@ function activeCharacterBadgeColor(player) {
   if (!player || !player.activeCharacterId) return null;
   const char = state.allEntities.find(function (e) { return e.id === player.activeCharacterId; });
   return char ? (char.badgeColor || generateDefaultBadgeColor(char.name)) : null;
+}
+
+// Party messages carry only authorEmail (see firestore.rules) -- resolve
+// a display name live from state.allPlayers at render time, same
+// live-lookup convention as everything else here (never freeze a display
+// name into the message doc itself).
+function partyAuthorName(email) {
+  const p = (state.allPlayers || []).find(function (pl) { return pl.id === email; });
+  return (p && p.displayName) || email;
 }
 
 function campaignUnreadCount() {
@@ -330,6 +350,39 @@ function attachMessagesListeners() {
         }),
         function (err) { console.error('notifications listener failed:', err.message); });
     });
+    // GM's threadsUnsub above already covers the party doc (it's a full-
+    // collection query); a player's threadsUnsub is scoped to their own
+    // 1:1 doc only, so the party doc needs its own listener here.
+    attachListener('partyThreadUnsub', function () {
+      return onSnapshot(doc(db, 'threads', 'party'),
+        safeSnapshotHandler('partyThread', function (snap) {
+          upsertPartyThread(snap.exists() ? snap.data() : null);
+          onMessagesData();
+        }),
+        function (err) { console.error('party thread listener failed:', err.message); });
+    });
+  }
+
+  // Own party read-stamp (both roles) -- see isValidPartyThread's comment
+  // in firestore.rules for why this lives in a per-reader subcollection
+  // doc rather than a field on the thread doc itself.
+  attachListener('partyReadStateUnsub', function () {
+    return onSnapshot(doc(db, 'threads', 'party', 'readState', email),
+      safeSnapshotHandler('partyReadState', function (snap) {
+        state.partyLastReadAt = snap.exists() ? snap.data().lastReadAt : null;
+        onMessagesData();
+      }),
+      function (err) { console.error('party read-state listener failed:', err.message); });
+  });
+}
+
+function upsertPartyThread(data) {
+  const idx = state.allThreads.findIndex(function (t) { return t.id === 'party'; });
+  if (data) {
+    const obj = Object.assign({ id: 'party' }, data);
+    if (idx === -1) state.allThreads.push(obj); else state.allThreads[idx] = obj;
+  } else if (idx !== -1) {
+    state.allThreads.splice(idx, 1);
   }
 }
 
@@ -337,10 +390,13 @@ function detachMessagesListeners() {
   detachListener('threadsUnsub');
   detachListener('notificationsUnsub');
   detachListener('threadMessagesUnsub');
+  detachListener('partyThreadUnsub');
+  detachListener('partyReadStateUnsub');
   state.allThreads = [];
   state.allNotifications = [];
   state.threadMessages = [];
   state.openThreadKey = null;
+  state.partyLastReadAt = null;
   state.trayExpanded = false;
   state.trayTab = null;
   prevUnreadTotal = 0;
@@ -386,9 +442,13 @@ function markThreadRead(key) {
   if (!t || !threadUnread(t)) return;
   if (markReadInFlight[key]) return;
   markReadInFlight[key] = true;
-  const patch = {};
-  patch[myReadField()] = serverTimestamp();
-  setDoc(doc(db, 'threads', key), patch, { merge: true })
+  const email = state.currentUser && state.currentUser.email;
+  const ref = key === 'party'
+    ? doc(db, 'threads', 'party', 'readState', email)
+    : doc(db, 'threads', key);
+  const patch = key === 'party' ? { lastReadAt: serverTimestamp() } : {};
+  if (key !== 'party') patch[myReadField()] = serverTimestamp();
+  setDoc(ref, patch, { merge: true })
     .then(function () { markReadInFlight[key] = false; },
           function (err) {
             markReadInFlight[key] = false;
@@ -415,20 +475,36 @@ function markCampaignSeen() {
 function sendMessage(key, text) {
   const trimmed = text.trim();
   if (!trimmed) return;
+  const email = state.currentUser && state.currentUser.email;
+  const authorRole = state.currentRole === 'gm' ? 'gm' : 'player';
   const batch = writeBatch(db);
   const patch = {
     lastMessageAt: serverTimestamp(),
     lastMessagePreview: trimmed.slice(0, 80)
   };
-  // Stamp own read field in the same write: you've read your own message,
-  // and this is what keeps unread meaning "the OTHER side wrote".
-  patch[myReadField()] = serverTimestamp();
-  batch.set(doc(db, 'threads', key), patch, { merge: true });
-  batch.set(doc(collection(db, 'threads', key, 'messages')), {
-    authorRole: state.currentRole === 'gm' ? 'gm' : 'player',
-    text: trimmed,
-    createdAt: serverTimestamp()
-  });
+  if (key === 'party') {
+    // No per-role read field on the party thread doc itself -- stamp
+    // this sender's own readState doc in the same batch instead (same
+    // "you've read your own message" intent as the 1:1 stamp below).
+    batch.set(doc(db, 'threads', 'party'), patch, { merge: true });
+    batch.set(doc(db, 'threads', 'party', 'readState', email), { lastReadAt: serverTimestamp() }, { merge: true });
+    batch.set(doc(collection(db, 'threads', 'party', 'messages')), {
+      authorRole: authorRole,
+      authorEmail: email,
+      text: trimmed,
+      createdAt: serverTimestamp()
+    });
+  } else {
+    // Stamp own read field in the same write: you've read your own message,
+    // and this is what keeps unread meaning "the OTHER side wrote".
+    patch[myReadField()] = serverTimestamp();
+    batch.set(doc(db, 'threads', key), patch, { merge: true });
+    batch.set(doc(collection(db, 'threads', key, 'messages')), {
+      authorRole: authorRole,
+      text: trimmed,
+      createdAt: serverTimestamp()
+    });
+  }
   trackWrite(batch.commit(), 'Sending message').catch(function (err) {
     window.alert('Send failed: ' + err.message);
   });
@@ -864,9 +940,22 @@ function renderMessagesTray() {
       body.appendChild(empty);
     }
     const myRole = role === 'gm' ? 'gm' : 'player';
+    const myEmail = state.currentUser && state.currentUser.email;
+    const isParty = key === 'party';
     state.threadMessages.forEach(function (m) {
+      // Party has more than two participants -- authorRole alone can't
+      // tell "mine" from "theirs" (every other player also has role
+      // 'player'), so compare authorEmail instead. 1:1 threads keep the
+      // original role compare (authorEmail isn't even written there).
+      const mine = isParty ? m.authorEmail === myEmail : m.authorRole === myRole;
       const bubble = document.createElement('div');
-      bubble.className = 'msg-bubble ' + (m.authorRole === myRole ? 'mine' : 'theirs');
+      bubble.className = 'msg-bubble ' + (mine ? 'mine' : 'theirs');
+      if (isParty && !mine) {
+        const author = document.createElement('div');
+        author.className = 'msg-author';
+        author.textContent = m.authorRole === 'gm' ? 'GM' : partyAuthorName(m.authorEmail);
+        bubble.appendChild(author);
+      }
       const text = document.createElement('div');
       text.className = 'msg-text';
       // Markdown + auto wiki-links (Phase 14 S8), same rendering pair

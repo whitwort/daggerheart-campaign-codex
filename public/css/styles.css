@@ -2241,12 +2241,23 @@ button:disabled:hover { border-color: var(--void-line); }
    workflows stack over an open tray rather than under it. */
 #msg-tray { position: fixed; right: 0.75rem; bottom: 0; z-index: 600; font-size: 0.85rem; }
 
-#msg-strip { display: flex; gap: 0.35rem; align-items: flex-end; }
+#msg-strip {
+  display: flex; gap: 0.35rem; align-items: flex-end;
+  /* Gregg's report (GM view, many player tabs): #msg-tray is a fixed-
+     position box anchored only by `right`, so an 'auto' width uses
+     shrink-to-fit capped at the viewport's available space -- with the
+     default flex-shrink:1 on children, that squeezed every tab below
+     its own text's natural width and let the names visually overlap
+     into their neighbors. flex-shrink:0 below (matches .msg-panel-tab's
+     already-correct treatment) plus overflow-x:auto here turns "too
+     many tabs to fit" into a horizontal scroll instead of a squeeze. */
+  max-width: calc(100vw - 1.5rem); overflow-x: auto;
+}
 /* Strip/panel tabs, collapse chevron, Send: QOL-BACKLOG button-width
    exception 13 -- tab-style and small-panel buttons, each needs the full
    width:auto + min-width:0 pair (cascade-fallthrough gotcha). */
 .msg-strip-tab {
-  width: auto; min-width: 0;
+  width: auto; min-width: 0; flex-shrink: 0; white-space: nowrap;
   background: var(--void-raised); border: 1px solid var(--void-line); border-bottom: none;
   border-radius: 6px 6px 0 0; padding: 0.35rem 0.8rem; cursor: pointer; color: var(--parchment);
   font-size: 0.85rem; box-shadow: none; position: relative;
@@ -2324,6 +2335,10 @@ button:disabled:hover { border-color: var(--void-line); }
 .msg-text > :first-child { margin-top: 0; }
 .msg-text > :last-child { margin-bottom: 0; }
 .msg-time { font-size: 0.65rem; color: var(--ink-soft); margin-top: 0.2rem; }
+/* Party chat only (multiple possible senders on 'theirs' bubbles -- 1:1
+   threads never need this, the other side is already known from which
+   tab you're in). */
+.msg-author { font-size: 0.7rem; color: var(--ink-soft); margin-bottom: 0.2rem; }
 
 #msg-compose { display: flex; gap: 0.4rem; padding: 0.5rem; border-top: 1px solid var(--void-line); }
 #msg-compose input {
