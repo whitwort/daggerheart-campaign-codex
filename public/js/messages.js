@@ -182,6 +182,19 @@ function applyPanelSizing(panel, head, tabsRow, collapseBtn) {
 // while this user was away) also pops the tray open once on load --
 // "incoming since you last looked" counts as incoming.
 let prevUnreadTotal = 0;
+// Party's read stamp lives in a separate doc/listener from the party
+// thread doc itself (readState/{email} vs the thread's own
+// lastMessageAt) -- unlike 1:1 threads, where both fields arrive
+// together in one doc/one snapshot and can never be inconsistent with
+// each other. On cold load these two listeners resolve independently;
+// if the thread doc's snapshot lands before readState's first snapshot,
+// state.partyLastReadAt is still its initial `null`, and threadUnread
+// would misread "haven't loaded my read stamp yet" as "definitely
+// unread" -- popping the tray open on every reload regardless of
+// whether anything's actually new. Stays false until partyReadStateUnsub
+// delivers its first snapshot (whether or not the doc exists yet);
+// threadUnread treats party as not-unread until then.
+let partyReadStateLoaded = false;
 // Notification ids that were unseen at the moment the Campaign tab was
 // opened: marked seen in Firestore immediately (so the strip's unread
 // glow clears), but still styled as new in the digest until the tab is
@@ -214,6 +227,7 @@ function threadUnread(t) {
   if (!t) return false;
   const last = tsMs(t.lastMessageAt);
   if (last == null) return false;
+  if (t.id === 'party' && !partyReadStateLoaded) return false;
   // Party has no gmLastReadAt/playerLastReadAt field on the thread doc
   // itself (more than two possible readers) -- its own read stamp lives
   // in threads/party/readState/{myEmail}, mirrored into
@@ -370,6 +384,7 @@ function attachMessagesListeners() {
     return onSnapshot(doc(db, 'threads', 'party', 'readState', email),
       safeSnapshotHandler('partyReadState', function (snap) {
         state.partyLastReadAt = snap.exists() ? snap.data().lastReadAt : null;
+        partyReadStateLoaded = true;
         onMessagesData();
       }),
       function (err) { console.error('party read-state listener failed:', err.message); });
@@ -397,6 +412,7 @@ function detachMessagesListeners() {
   state.threadMessages = [];
   state.openThreadKey = null;
   state.partyLastReadAt = null;
+  partyReadStateLoaded = false;
   state.trayExpanded = false;
   state.trayTab = null;
   prevUnreadTotal = 0;
