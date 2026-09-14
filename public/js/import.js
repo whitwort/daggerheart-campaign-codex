@@ -1,12 +1,12 @@
 import {
-  getFirestore, collection, doc, writeBatch, serverTimestamp,
-  query, where, getDocs
+  getFirestore, collection, doc, writeBatch, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp, CONFIG } from './firebase.js';
 import { state } from './state.js';
 import { parseDateSpec } from './dates.js';
 import { getTemplateSchema, computeSearchIndex } from './templates.js';
 import { beginOp, updateOp, endOp } from './op-status.js';
+import { buildSourceSelect } from './sources.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -91,7 +91,9 @@ const importLogToggleEl = document.getElementById('admin-import-log-toggle');
 const importLogBodyEl = document.getElementById('admin-import-log-body');
 const importUploadBtn = document.getElementById('admin-import-upload-btn');
 const importFileInputEl = document.getElementById('admin-import-file-input');
-const importSourceSelectEl = document.getElementById('admin-import-source-select');
+const importSourceSelectWrapEl = document.getElementById('admin-import-source-select-wrap');
+
+let importSelectedSourceId = null;
 
 importLogToggleEl.addEventListener('click', function () {
   const open = importLogBodyEl.style.display !== 'none';
@@ -140,35 +142,19 @@ function ensureImportEditorReady() {
   }).catch(function (err) {
     console.error('CodeMirror load failed, falling back to plain textarea:', err.message);
   });
-  loadImportSources();
+  buildImportSourceSelect();
 }
 
-let sourcesLoaded = false;
-function loadImportSources() {
-  if (sourcesLoaded) return;
-  sourcesLoaded = true;
-  const q = query(collection(db, 'sources'));
-  getDocs(q).then(function (snap) {
-    const sources = [];
-    snap.forEach(function (doc) {
-      sources.push({ id: doc.id, name: doc.data().name });
-    });
-    sources.sort(function (a, b) { return a.name.localeCompare(b.name); });
-    
-    const currentValue = importSourceSelectEl.value;
-    while (importSourceSelectEl.options.length > 1) {
-      importSourceSelectEl.remove(1);
-    }
-    sources.forEach(function (source) {
-      const option = document.createElement('option');
-      option.value = source.id;
-      option.textContent = source.name;
-      importSourceSelectEl.appendChild(option);
-    });
-    if (currentValue) importSourceSelectEl.value = currentValue;
-  }).catch(function (err) {
-    console.error('Failed to load sources for import:', err);
+let sourceSelectBuilt = false;
+function buildImportSourceSelect() {
+  if (sourceSelectBuilt || !importSourceSelectWrapEl) return;
+  sourceSelectBuilt = true;
+  const select = buildSourceSelect(importSelectedSourceId, function (sourceId) {
+    importSelectedSourceId = sourceId;
   });
+  // Clear any existing content and append the select
+  importSourceSelectWrapEl.innerHTML = '';
+  importSourceSelectWrapEl.appendChild(select);
 }
 
 function getImportText() {
@@ -547,7 +533,7 @@ function fetchLoreFor(entityId) {
 function runImport() {
   if (!validatedPlan) return;
   const creates = validatedPlan.creates;
-  const sourceId = importSourceSelectEl.value || null;
+  const sourceId = importSelectedSourceId || null;
   // Read choices before invalidation tears the selects down.
   const replaces = [];
   const updates = [];
