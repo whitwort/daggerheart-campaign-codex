@@ -1,5 +1,6 @@
 import {
-  getFirestore, collection, doc, writeBatch, serverTimestamp
+  getFirestore, collection, doc, writeBatch, serverTimestamp,
+  query, where, getDocs
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseApp, CONFIG } from './firebase.js';
 import { state } from './state.js';
