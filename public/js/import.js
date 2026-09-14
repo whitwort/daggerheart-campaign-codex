@@ -7,7 +7,7 @@ import { state } from './state.js';
 import { parseDateSpec } from './dates.js';
 import { getTemplateSchema, computeSearchIndex } from './templates.js';
 import { beginOp, updateOp, endOp } from './op-status.js';
-import { buildSourceSelect } from './sources.js';
+import { buildSourceSelect, registerSourcesChangeHandler } from './sources.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -146,17 +146,15 @@ function ensureImportEditorReady() {
   buildImportSourceSelect();
 }
 
-let sourceSelectBuilt = false;
 function buildImportSourceSelect() {
-  if (sourceSelectBuilt || !importSourceSelectWrapEl) return;
-  sourceSelectBuilt = true;
+  if (!importSourceSelectWrapEl) return;
   const select = buildSourceSelect(importSelectedSourceId, function (sourceId) {
     importSelectedSourceId = sourceId;
   });
-  // Clear any existing content and append the select
   importSourceSelectWrapEl.innerHTML = '';
   importSourceSelectWrapEl.appendChild(select);
 }
+registerSourcesChangeHandler(buildImportSourceSelect);
 
 function getImportText() {
   return cmInstance ? cmInstance.getValue() : importJsonEl.value;
