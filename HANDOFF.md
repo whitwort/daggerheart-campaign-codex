@@ -16,11 +16,13 @@ docs still in the tree — not yet swept into a cleanup pass.
 
 ## Current state (end of session, Sep 14 2026)
 
-HEAD: `2eed5bb`, CI green (Deploy + E2E). Confirmed working on **dev**
-by Gregg (new source dropdown populates and applies correctly).
+HEAD: `ed64176`, CI green (Deploy + E2E). Two pieces of work this
+session, both dev-verified pending; not yet in a tagged prod release.
 
-Session work: **Import Lore — sourceId dropdown**, in 4 commits
-(`6fb4ee6` → `2eed5bb`):
+### Import Lore — sourceId dropdown (`6fb4ee6` → `2eed5bb`)
+
+Confirmed working on **dev** by Gregg (dropdown populates and applies
+correctly).
 
 1. **Feature** (`6fb4ee6`): Admin > Import Lore previously had no way
    to set `sourceId` on bulk-imported entities/lore — Gregg was hand-
@@ -57,6 +59,35 @@ either (a) already run after that collection's listener has populated
 `registerXChangeHandler` and rebuild on change — don't assume
 `state.*` is populated just because the listener was attached earlier
 in the session; the snapshot is async.
+
+### Characters > Cards tab: three small display fixes (`ed64176`)
+
+Not yet dev-verified by Gregg (pushed and CI-green same session; ask
+next session if untested).
+
+- **Abilities tab label**: "Experience" → "Experiences"
+  (`character-deck.js`, `buildAbilitiesSection`'s tab list).
+- **Transformation cards hide their Question prompts**: SRD 2.0
+  transformation records (`public/data/srd/transformations.json`)
+  carry a `question` array of roleplay prompts, which
+  `srd-import.js`'s generic leftover-markdown path renders as a
+  `### Question` heading + bullet list, folded into the entity's
+  `meta-details` lore item. On the Conditions/Transformations tray's
+  compact cards this doesn't belong (same reasoning as Class cards
+  already hiding their Background/Connection question lists) — now
+  stripped via the existing `cleanCardMd({stripSections: ['Question']})`
+  mechanism, gated on `linked.subtype === 'transformations'` so plain
+  Conditions are untouched. Scoped to the Cards-tab compact view only;
+  the Codex tab's own Lore tab still shows the full Question list.
+- **Item/Consumable cards truncate at 20 lines**: added a new
+  `truncateCardMd(md, maxLines)` helper (character-deck.js, alongside
+  `cleanCardMd`) — cuts body markdown to 20 lines with a trailing
+  `*...*` marker when longer. Applied only to the Items/Consumables
+  branch of `equipmentCardOptsForLinked` (no templates.js schema, so
+  it's freeform prose with nothing else compacting it); weapons/armor
+  already render compact structured bullets and are unaffected. Full
+  text remains one click away via the card's own Codex link
+  (`codexEntityId`).
 
 ## Pre-1.0 open-items sweep (Sep 10 2026 session — unchanged, not re-verified this session)
 
@@ -108,14 +139,17 @@ requirement for it.
 
 ## Open items
 
-- **Import Lore sourceId feature**: dev-verified working as of this
+- **Cards tab fixes** (Experiences label, Transformation Question
+  strip, Item card truncation): pushed this session (`ed64176`), CI
+  green, not yet confirmed by Gregg in the app. Verify next session.
+- **Import Lore sourceId feature**: dev-verified working as of last
   session (`2eed5bb`). Not yet in a tagged prod release — carry
   forward until confirmed live via prod tag/footer.
 - Six items from the Sep 10 sweep (dynamic-import, codex.js split,
   delete-orphans restore mode, player Export Lore reuse, imported-
   lore-items count) carry forward as confirmed-status per that
   section — see above, don't re-derive from scratch next time.
-- **Nav phase 2 + campaign-type gating**: per last handoff this was
+- **Nav phase 2 + campaign-type gating**: per Sep 10 handoff this was
   expected to ride Gregg's 1.0 tag to prod. Re-verify against the live
   prod tag/footer rather than assuming.
 
@@ -134,14 +168,23 @@ requirement for it.
   `playwright install chromium` (no `--with-deps`) specifically to
   avoid this.
 - **Source dropdowns depend on `state.allSources` being populated
-  async** (see this session's bug 2 above) — any new source-aware UI
-  must register via `registerSourcesChangeHandler` from `sources.js`,
-  not assume the listener attached earlier means data is already
-  there.
+  async** (see last session's Import Lore bug 2 above) — any new
+  source-aware UI must register via `registerSourcesChangeHandler`
+  from `sources.js`, not assume the listener attached earlier means
+  data is already there.
+- **Cards-tab compact-view cleanup mechanism** (`character-deck.js`):
+  `cleanCardMd(md, opts)` — `stripHeadingLines`/`stripSections`/
+  `stripBulletLabels` for hiding heading clutter, whole roleplay-prompt
+  sections, or duplicated bullet lines; `truncateCardMd(md, maxLines)`
+  (new this session) for capping freeform-prose card bodies. Both
+  scoped to the Cards tab only — the Codex tab's own Lore tab always
+  shows full, unmodified content via `resolveEntityStatBlockMarkdown`/
+  `resolveLoreItemMarkdown`. Reach for these first before writing a
+  new one-off truncation/strip for the next compact-card ask.
 - `npm run test:rules`: 19/19 passing as of Sep 10 session (party chat
   added 4 new cases) — not touched this session.
 - `npm run test:e2e`: green on every push this session
-  (`6fb4ee6`→`2eed5bb`, 4/4 runs).
+  (`6fb4ee6`→`ed64176`, all runs).
 
 ## Session ritual
 
