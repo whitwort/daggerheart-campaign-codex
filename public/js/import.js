@@ -91,6 +91,7 @@ const importLogToggleEl = document.getElementById('admin-import-log-toggle');
 const importLogBodyEl = document.getElementById('admin-import-log-body');
 const importUploadBtn = document.getElementById('admin-import-upload-btn');
 const importFileInputEl = document.getElementById('admin-import-file-input');
+const importSourceSelectEl = document.getElementById('admin-import-source-select');
 
 importLogToggleEl.addEventListener('click', function () {
   const open = importLogBodyEl.style.display !== 'none';
@@ -138,6 +139,35 @@ function ensureImportEditorReady() {
     cmInstance.on('change', scheduleValidate);
   }).catch(function (err) {
     console.error('CodeMirror load failed, falling back to plain textarea:', err.message);
+  });
+  loadImportSources();
+}
+
+let sourcesLoaded = false;
+function loadImportSources() {
+  if (sourcesLoaded) return;
+  sourcesLoaded = true;
+  const q = query(collection(db, 'sources'));
+  getDocs(q).then(function (snap) {
+    const sources = [];
+    snap.forEach(function (doc) {
+      sources.push({ id: doc.id, name: doc.data().name });
+    });
+    sources.sort(function (a, b) { return a.name.localeCompare(b.name); });
+    
+    const currentValue = importSourceSelectEl.value;
+    while (importSourceSelectEl.options.length > 1) {
+      importSourceSelectEl.remove(1);
+    }
+    sources.forEach(function (source) {
+      const option = document.createElement('option');
+      option.value = source.id;
+      option.textContent = source.name;
+      importSourceSelectEl.appendChild(option);
+    });
+    if (currentValue) importSourceSelectEl.value = currentValue;
+  }).catch(function (err) {
+    console.error('Failed to load sources for import:', err);
   });
 }
 
@@ -517,6 +547,7 @@ function fetchLoreFor(entityId) {
 function runImport() {
   if (!validatedPlan) return;
   const creates = validatedPlan.creates;
+  const sourceId = importSourceSelectEl.value || null;
   // Read choices before invalidation tears the selects down.
   const replaces = [];
   const updates = [];
@@ -556,69 +587,73 @@ function runImport() {
     // resolveLoreItemMarkdown has somewhere to attach the synthesized
     // Details/Features block (see srd-import.js's buildLoreDocs, same
     // pattern).
-    function newLoreOp(entityId, content, order, meta) {
+    function newLoreOp(entityId, content, order, meta, sourceId) {
+      const loreData = {
+        entityId: entityId,
+        kind: 'imported',
+        authorId: null,
+        authorType: 'gm',
+        visibility: 'gm-only',
+        content: content,
+        meta: meta || null,
+        order: order,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+      if (sourceId) loreData.sourceId = sourceId;
       ops.push({
         type: 'set',
         ref: doc(collection(db, 'loreItems')),
-        data: {
-          entityId: entityId,
-          kind: 'imported',
-          authorId: null,
-          authorType: 'gm',
-          visibility: 'gm-only',
-          content: content,
-          meta: meta || null,
-          order: order,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        }
+        data: loreData
       });
     }
     // Anchor lore items are empty leftover content (details/features are
     // fully structured on the entity doc, nothing unwhitelisted to carry
     // as markdown) — content: ''. Appended after the flavor "lore" items
     // so flavor always displays first.
-    function pushTemplateAnchors(it, startOrder) {
+    function pushTemplateAnchors(it, startOrder, sourceId) {
       let next = startOrder;
       if (it.useTemplate && Object.keys(it.details).length) {
-        newLoreOp(it.id, '', next, 'meta-details');
+        newLoreOp(it.id, '', next, 'meta-details', sourceId);
         next += 1;
       }
       if (it.useTemplate && it.features.length) {
-        newLoreOp(it.id, '', next, 'meta-features');
+        newLoreOp(it.id, '', next, 'meta-features', sourceId);
         next += 1;
       }
       return next;
     }
 
     creates.forEach(function (it) {
+      const entityData = {
+        slug: it.slug,
+        name: it.name,
+        category: it.category,
+        parentId: it.parentId,
+        relatedIds: it.relatedIds,
+        ancestry: it.ancestry,
+        aliases: it.aliases,
+        date: it.date,
+        dateSort: it.dateSort,
+        subtype: it.subtype,
+        visibility: 'gm-only',
+        hasMapImage: false,
+        tags: it.tags,
+        useTemplate: it.useTemplate,
+        details: it.details,
+        features: it.features,
+        searchIndex: it.searchIndex,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+      if (sourceId) entityData.sourceId = sourceId;
       ops.push({
         type: 'set',
         ref: doc(db, 'entities', it.id),
-        data: {
-          slug: it.slug,
-          name: it.name,
-          category: it.category,
-          parentId: it.parentId,
-          relatedIds: it.relatedIds,
-          ancestry: it.ancestry,
-          aliases: it.aliases,
-          date: it.date,
-          dateSort: it.dateSort,
-          subtype: it.subtype,
-          visibility: 'gm-only',
-          hasMapImage: false,
-          tags: it.tags,
-          useTemplate: it.useTemplate,
-          details: it.details,
-          features: it.features,
-          searchIndex: it.searchIndex,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        }
+        data: entityData
       });
-      it.lore.forEach(function (content, order) { newLoreOp(it.id, content, order); });
-      pushTemplateAnchors(it, it.lore.length);
+      it.lore.forEach(function (content, order) { newLoreOp(it.id, content, order, null, sourceId); });
+      pushTemplateAnchors(it, it.lore.length, sourceId);
     });
 
     replaces.forEach(function (it) {
@@ -645,12 +680,13 @@ function runImport() {
         updatedAt: serverTimestamp()
       };
       if (existing.mapId !== undefined) data.mapId = existing.mapId;
+      if (sourceId) data.sourceId = sourceId;
       ops.push({ type: 'set', ref: doc(db, 'entities', it.id), data: data });
       (loreByEntity[it.id] || []).forEach(function (ld) {
         ops.push({ type: 'delete', ref: doc(db, 'loreItems', ld.id) });
       });
-      it.lore.forEach(function (content, order) { newLoreOp(it.id, content, order); });
-      pushTemplateAnchors(it, it.lore.length);
+      it.lore.forEach(function (content, order) { newLoreOp(it.id, content, order, null, sourceId); });
+      pushTemplateAnchors(it, it.lore.length, sourceId);
     });
 
     updates.forEach(function (it) {
@@ -693,10 +729,10 @@ function runImport() {
       let next = maxOrder + 1;
       it.lore.forEach(function (content) {
         if (existingContent[content.trim()]) return;
-        newLoreOp(it.id, content, next);
+        newLoreOp(it.id, content, next, null, sourceId);
         next += 1;
       });
-      if (touchesTemplate) next = pushTemplateAnchors(it, next);
+      if (touchesTemplate) next = pushTemplateAnchors(it, next, sourceId);
     });
 
     // Firestore writeBatch cap is 500 ops; chunk and commit sequentially.

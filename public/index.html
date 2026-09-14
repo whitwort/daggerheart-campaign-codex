@@ -420,7 +420,12 @@
         <p>Paste JSON or Upload a file containing lore data (entities, lore, images, etc.).</p>
         <textarea id="admin-import-json" rows="8" style="width:100%;box-sizing:border-box;" placeholder='{"entities": []}'></textarea>
         <div class="actions-row">
-          <div class="actions-row-left"></div>
+          <div class="actions-row-left">
+            <label for="admin-import-source-select" style="margin-right: 8px;">Source for imported items:</label>
+            <select id="admin-import-source-select" style="padding: 4px 8px;">
+              <option value="">-- No source --</option>
+            </select>
+          </div>
           <div class="actions-row-right">
             <button id="admin-import-run-btn" disabled>Import</button>
             <button type="button" id="admin-import-upload-btn">Upload</button>
