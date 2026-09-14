@@ -524,6 +524,19 @@ function cleanCardMd(md, opts) {
   if (opts.stripBulletLabels) out = stripBulletLines(out, opts.stripBulletLabels);
   return out;
 }
+// Items/Consumables carry freeform hand-authored prose with no
+// structured schema to compact -- unlike weapons/armor/abilities,
+// nothing here is stripped down to a badge + meta line, so a long
+// item description can run the card far taller than its neighbors in
+// the Equipment tray. Truncate to 20 lines with a trailing ellipsis
+// marker; the full text is still one click away via the card's own
+// Codex link (codexEntityId), so nothing is actually lost.
+function truncateCardMd(md, maxLines) {
+  if (!md) return md;
+  const lines = md.split('\n');
+  if (lines.length <= maxLines) return md;
+  return lines.slice(0, maxLines).join('\n') + '\n\n*...*';
+}
 
 // --- Per-type meta-line builders (the "attributes at top" Gregg asked
 // for, one convention per entry type) -------------------------------------
@@ -731,7 +744,7 @@ function buildAbilitiesSection(entity, cards, ctx, editable) {
   // stance list), same shape/placement as the Druid Beastforms tab.
   const isBrawler = className === 'Brawler';
 
-  const tabs = [['active', 'Active'], ['vault', 'Vault'], ['experience', 'Experience']];
+  const tabs = [['active', 'Active'], ['vault', 'Vault'], ['experience', 'Experiences']];
   if (isDruid) tabs.push(['beastforms', 'Beastforms']);
   if (isBrawler) tabs.push(['stances', 'Stances']);
   if (!tabs.some(function (t) { return t[0] === state.characterDeckAbilityTab; })) {
@@ -921,7 +934,9 @@ function buildConditionsSection(entity, cards, ctx, editable) {
     tray.appendChild(buildMiniCard({
       title: c.label,
       titleSuffix: c.note ? ('\u00d7' + c.note) : null,
-      bodyMd: linked ? cleanCardMd(resolveEntityStatBlockMarkdown(linked, ctx, null)) : '',
+      bodyMd: linked ? cleanCardMd(resolveEntityStatBlockMarkdown(linked, ctx, null), {
+        stripSections: linked.subtype === 'transformations' ? ['Question'] : null
+      }) : '',
       controls: controls,
       codexEntityId: linked ? linked.id : null
     }));
@@ -970,7 +985,7 @@ function equipmentCardOptsForLinked(e, ctx) {
     };
   }
   // Items/Consumables: no templates.js schema at all -- text only.
-  return { metaLines: [], bodyMd: cleanCardMd(stripLoneRollDetails(resolveEntityStatBlockMarkdown(e, ctx, null))) };
+  return { metaLines: [], bodyMd: truncateCardMd(cleanCardMd(stripLoneRollDetails(resolveEntityStatBlockMarkdown(e, ctx, null))), 20) };
 }
 // Weapon/Armor slot ASSIGNMENT lives on the Sheet tab now (S17 follow-
 // up) -- character-sheet.js's Equipped panel, to the right of the
