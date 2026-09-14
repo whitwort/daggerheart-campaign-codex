@@ -421,10 +421,8 @@
         <textarea id="admin-import-json" rows="8" style="width:100%;box-sizing:border-box;" placeholder='{"entities": []}'></textarea>
         <div class="actions-row">
           <div class="actions-row-left">
-            <label for="admin-import-source-select" style="margin-right: 8px;">Source for imported items:</label>
-            <select id="admin-import-source-select" style="padding: 4px 8px;">
-              <option value="">-- No source --</option>
-            </select>
+            <label style="margin-right: 8px;">Source for imported items:</label>
+            <div id="admin-import-source-select-wrap" style="display: inline-block;"></div>
           </div>
           <div class="actions-row-right">
             <button id="admin-import-run-btn" disabled>Import</button>
