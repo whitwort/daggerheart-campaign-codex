@@ -14,51 +14,51 @@ comments.
 `phase-nav-router-2-design.md` (nav phase 2) are both locked design
 docs still in the tree — not yet swept into a cleanup pass.
 
-## Current state (end of session, Sep 10 2026)
+## Current state (end of session, Sep 14 2026)
 
-HEAD: `d4dd35c`, CI green (Deploy + E2E). Live on **dev only** as of
-this write — Gregg is tagging **1.0** off this commit right after this
-handoff, so by the time anyone reads this it should also be in prod
-(confirm against the live footer / `_meta/version` if in doubt, same as
-always).
+HEAD: `2eed5bb`, CI green (Deploy + E2E). Confirmed working on **dev**
+by Gregg (new source dropdown populates and applies correctly).
 
-Session work, in order:
-1. **Backup retention** (`scripts/backup-retention.js` + `backup.yml`):
-   keep all daily backups <=14d, 1/week for 15d-6mo, 1/month for
-   6mo-2y, delete older. Runs on `main` directly, not release-gated.
-2. **E2E apt flake fix** (`scripts/e2e-run.sh`): dropped
-   `playwright install --with-deps` (triggered `apt-get update`, which
-   hit a recurring stale-mirror bug in GitHub's pre-baked Google Chrome
-   apt source) for `install chromium` (browser binary only, no apt
-   call). Confirmed via a subsequent green E2E run.
-3. **Import Lore: clear textarea on success** (`import.js`) — clears
-   via a direct CodeMirror `setValue` with the 'change' listener
-   detached, so it doesn't route through the debounce-clear that would
-   otherwise wipe the "Import complete..." line 650ms later.
-4. **Messages: Party chat channel** — new shared tab visible to every
-   whitelisted player + GM at once (`threads/party` doc +
-   `threads/party/messages` subcollection with `authorEmail`, locked
-   server-side to the writer's own auth email; per-user read state in
-   `threads/party/readState/{email}`, self-only). New firestore.rules
-   match block, sibling to the existing 1:1 `threads/{playerEmail}`
-   wildcard (Firestore ORs across matching blocks, so this couldn't
-   weaken the 1:1 rules). 4 new rules tests, 19/19 passing.
-5. **Messages: tab-overlap fix, two passes.** First pass fixed
-   `.msg-strip-tab` (collapsed strip) — missing `flex-shrink:0` let
-   many-player GM views squeeze tab labels into overlapping each
-   other. Gregg reported the SAME symptom persisting afterward on
-   "default chat width" — root cause was that `.msg-panel-tab` (the
-   EXPANDED panel's tab row) had the identical missing
-   `flex-shrink:0`, never actually fixed in pass one, and the panel's
-   default width (`applyPanelSizing`) is derived from that row's
-   natural size. Second pass fixed the panel tabs too; also explains
-   the reported "misaligned color lines" (the badge-color border was
-   sized to the shrunk box, not the overflowing label text). Both
-   fixes are in; if this class of bug resurfaces anywhere else tabs +
-   `overflow-x:auto` are combined, check for missing `flex-shrink:0`
-   first.
+Session work: **Import Lore — sourceId dropdown**, in 4 commits
+(`6fb4ee6` → `2eed5bb`):
 
-## Pre-1.0 open-items sweep (this session)
+1. **Feature** (`6fb4ee6`): Admin > Import Lore previously had no way
+   to set `sourceId` on bulk-imported entities/lore — Gregg was hand-
+   correcting every imported item's source via the per-item dropdowns
+   after the fact. Added a "Source for imported items" dropdown above
+   the Import button; selected value is applied to every created/
+   replaced/updated entity doc and every lore item (including template
+   `meta-details`/`meta-features` anchors) in that batch.
+2. **Bug 1 — dropdown always empty** (`e82c3b5`): first pass queried
+   `sources` directly via `getDocs` instead of reusing `sources.js`'s
+   `buildSourceSelect()` (which reads from `state.allSources`, the
+   real-time-synced source of truth every other source dropdown in the
+   app uses). Switched to `buildSourceSelect()`.
+3. **Lint failure** (`c8f5517`): swapping to `buildSourceSelect()` made
+   `query`/`where`/`getDocs` look unused, so they got stripped from the
+   import line — but `fetchLoreFor()` (replace/update lore fetching)
+   still calls them directly. Restored the imports.
+4. **Bug 2 — dropdown still empty after bug 1 fix** (`2eed5bb`): even
+   with `buildSourceSelect()`, the dropdown was built exactly once,
+   gated by a one-shot flag, at whatever moment the Admin tab first
+   activated. If that happened before Firestore's `onSnapshot` (in
+   `attachSourcesListener`) delivered its first batch, `state.
+   allSources` was empty at build time and nothing ever rebuilt it —
+   unlike `codex.js`/`admin.js`, import.js never registered a
+   `registerSourcesChangeHandler`. Fixed by registering
+   `buildImportSourceSelect` as a sources-change handler (same pattern
+   as the other dropdowns); dropped the one-shot guard; selection is
+   preserved across rebuilds via a module-level `importSelectedSourceId`.
+
+**Lesson for future dropdown/listener work in this codebase:** any UI
+that reads from a Firestore-backed `state.*` collection needs to
+either (a) already run after that collection's listener has populated
+`state`, or (b) subscribe to that collection's own
+`registerXChangeHandler` and rebuild on change — don't assume
+`state.*` is populated just because the listener was attached earlier
+in the session; the snapshot is async.
+
+## Pre-1.0 open-items sweep (Sep 10 2026 session — unchanged, not re-verified this session)
 
 Went through every item HANDOFF had been carrying forward unverified
 across several prod deploys. Verified what code inspection + a fetch
@@ -104,19 +104,20 @@ None of the still-open items above are broken behavior — all are
 deliberate deferrals with their own "not done yet" comment already in
 the code. Nothing here blocks 1.0 unless Gregg wants one of them
 (player Export Lore reuse is the most likely candidate) as a hard
-requirement for it, which as of this handoff he hasn't indicated.
+requirement for it.
 
 ## Open items
 
-- **Nav phase 2 + campaign-type gating**: dev-verified, was the
-  pending prod Release as of last handoff — by the time this reads,
-  Gregg's 1.0 tag should have carried this to prod along with
-  everything in this session. Re-verify against the live prod tag/
-  footer rather than assuming.
-- Six items above (dynamic-import, codex.js split, delete-orphans
-  restore mode, player Export Lore reuse, imported-lore-items count)
-  carry forward as confirmed-status per the sweep — see that section,
-  don't re-derive from scratch next time.
+- **Import Lore sourceId feature**: dev-verified working as of this
+  session (`2eed5bb`). Not yet in a tagged prod release — carry
+  forward until confirmed live via prod tag/footer.
+- Six items from the Sep 10 sweep (dynamic-import, codex.js split,
+  delete-orphans restore mode, player Export Lore reuse, imported-
+  lore-items count) carry forward as confirmed-status per that
+  section — see above, don't re-derive from scratch next time.
+- **Nav phase 2 + campaign-type gating**: per last handoff this was
+  expected to ride Gregg's 1.0 tag to prod. Re-verify against the live
+  prod tag/footer rather than assuming.
 
 ## Carried context
 
@@ -131,14 +132,16 @@ requirement for it, which as of this handoff he hasn't indicated.
   resource-exhausted errors, check this before suspecting code.
 - **Google Chrome apt source flakiness**: `scripts/e2e-run.sh` uses
   `playwright install chromium` (no `--with-deps`) specifically to
-  avoid this — see item 2 above if it needs revisiting.
-- `npm run test:rules`: 19/19 passing as of this session (party chat
-  added 4 new cases). Needed a fresh `npm install` in this sandbox
-  (`@firebase/rules-unit-testing` wasn't present) — not an issue on a
-  normal dev machine with node_modules already installed, just a
-  first-run-in-a-fresh-clone note.
-- `npm run test:e2e`: green on every push this session (`d4dd35c`
-  included) — the apt fix (item 2) has now held across multiple runs.
+  avoid this.
+- **Source dropdowns depend on `state.allSources` being populated
+  async** (see this session's bug 2 above) — any new source-aware UI
+  must register via `registerSourcesChangeHandler` from `sources.js`,
+  not assume the listener attached earlier means data is already
+  there.
+- `npm run test:rules`: 19/19 passing as of Sep 10 session (party chat
+  added 4 new cases) — not touched this session.
+- `npm run test:e2e`: green on every push this session
+  (`6fb4ee6`→`2eed5bb`, 4/4 runs).
 
 ## Session ritual
 
