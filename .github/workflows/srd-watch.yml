@@ -26,22 +26,34 @@ jobs:
           HTML=$(curl -fsSL --max-time 60 "$PAGE")
           LIVE_URLS=$(echo "$HTML" | grep -oiE 'href="[^"]*SRD[^"]*\.pdf"' | sed 's/^href="//i;s/"$//' | sort -u)
           echo "Live SRD links:"; echo "$LIVE_URLS"
-          MSG=""
+          CHANGED=false
           if ! echo "$LIVE_URLS" | grep -qxF "$KNOWN_URL"; then
-            MSG="The SRD page no longer links the PDF we parsed.%0A%0AKnown: $KNOWN_URL%0ALive links:%0A$(echo "$LIVE_URLS" | sed 's/^/- /' | paste -sd '%0A')"
+            CHANGED=true
+            {
+              echo "The SRD page no longer links the PDF we parsed."
+              echo
+              echo "Known: $KNOWN_URL"
+              echo "Live links:"
+              echo "$LIVE_URLS" | sed 's/^/- /'
+            } > /tmp/issue-body.txt
           else
             curl -fsSL --max-time 120 -o /tmp/srd.pdf "$KNOWN_URL"
             LIVE_SHA=$(sha256sum /tmp/srd.pdf | cut -d' ' -f1)
             if [ "$LIVE_SHA" != "$KNOWN_SHA" ]; then
-              MSG="The SRD PDF changed in place (same URL, new bytes).%0AURL: $KNOWN_URL%0AKnown sha256: $KNOWN_SHA%0ALive sha256: $LIVE_SHA"
+              CHANGED=true
+              {
+                echo "The SRD PDF changed in place (same URL, new bytes)."
+                echo "URL: $KNOWN_URL"
+                echo "Known sha256: $KNOWN_SHA"
+                echo "Live sha256: $LIVE_SHA"
+              } > /tmp/issue-body.txt
             fi
           fi
-          if [ -n "$MSG" ]; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-            printf '%b' "${MSG//%0A/\\n}" > /tmp/issue-body.txt
-            printf '\n\nNext: re-run the extraction in scripts/srd-extract/ against the new PDF, diff public/data/srd/, and update SOURCE.json. See docs/srd-update-process.md.\n' >> /tmp/issue-body.txt
+          echo "changed=$CHANGED" >> "$GITHUB_OUTPUT"
+          if [ "$CHANGED" = true ]; then
+            echo >> /tmp/issue-body.txt
+            echo "Next: re-run the extraction in scripts/srd-extract/ against the new PDF, diff public/data/srd/, and update SOURCE.json. See docs/srd-update-process.md." >> /tmp/issue-body.txt
           else
-            echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "SRD unchanged."
           fi
       - name: Open issue (once)
