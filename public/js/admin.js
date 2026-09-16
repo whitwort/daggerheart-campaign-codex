@@ -651,6 +651,12 @@ function renderAdminSourcesList() {
         // hence unaffected) works fine. Forcing SortableJS's own
         // JS-simulated drag for both input types fixes that asymmetry.
         forceFallback: true,
+        // delay/delayOnTouchOnly: same iPad tap-vs-drag fix as the
+        // Gallery tab's drag-reorder (codex.js) -- forceFallback's own
+        // touchstart handling can otherwise swallow a plain tap's
+        // synthetic click before it fires.
+        delay: 150,
+        delayOnTouchOnly: true,
         animation: 150,
         onEnd: function () {
           const orderedIds = Array.prototype.slice.call(adminSourcesListEl.children)
