@@ -416,4 +416,4 @@ function buildCharacterBadge(characterId) {
   return badge;
 }
 
-export { buildVisibilityControl, buildSharedToggle, buildNoteToggle, buildCharacterBadge };
+export { buildVisibilityControl, buildSharedToggle, buildNoteToggle, buildCharacterBadge, partyCharacterOptions };

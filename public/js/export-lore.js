@@ -23,6 +23,7 @@ import {
   isSubtypeCollapsed, subtypeCollapseKey, subtypeLabel
 } from './codex.js';
 import { canSee, viewerContext, entityHasSecretsFor, belongsOnLoreSurface, isSecretFor } from './visibility.js';
+import { partyCharacterOptions } from './visibility-ui.js';
 import {
   fetchImagesForEntities, buildSourcesWarning, buildMarkdownDocument,
   buildDocxBlob, buildPdfBlob
@@ -87,19 +88,20 @@ secretsCheck.addEventListener('change', updatePreview);
 characterSelect.addEventListener('change', updatePreview);
 includeImagesCheck.addEventListener('change', updatePreview);
 
-// PCs only (ownerId set) -- per Gregg's call, NPCs aren't meaningful
-// "export as this character's known lore" targets the way a player's
-// own PC is.
+// Same pool as the visibility popover's character picker (§6.1,
+// visibility-ui.js): PC-tagged OR owner-assigned, not "everything
+// Character-category" -- NPCs still aren't meaningful "export as this
+// character's known lore" targets, but a staged PC the GM hasn't had a
+// player claim yet (tagged, no ownerId) shouldn't be invisible here
+// just because renderCharacterSelect used to key off ownerId alone.
 function renderCharacterSelect() {
-  const chars = state.allEntities
-    .filter(function (e) { return e.category === 'Character' && e.ownerId; })
-    .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+  const chars = partyCharacterOptions();
   const prevValue = characterSelect.value;
   characterSelect.innerHTML = '';
   chars.forEach(function (c) {
     const opt = document.createElement('option');
     opt.value = c.id;
-    opt.textContent = c.name;
+    opt.textContent = c.playerName === '(unassigned)' ? c.name + ' (unassigned)' : c.name + ' \u2014 ' + c.playerName;
     characterSelect.appendChild(opt);
   });
   if (chars.some(function (c) { return c.id === prevValue; })) characterSelect.value = prevValue;
