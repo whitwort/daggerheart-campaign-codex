@@ -4209,83 +4209,43 @@ function renderGalleryTab(container, entity, ctx, readOnly, imagesOverride) {
       const imgEl = document.createElement('img');
       imgEl.src = img.data;
       imgEl.alt = entity.name;
-      // NOT a plain 'click' listener. Gregg's report (iPad, multi-image
-      // galleries only -- Sortable only initializes then, see below):
-      // delay/delayOnTouchOnly on the gallery's Sortable instance alone
-      // didn't fix it. Root-caused the touch half via a throwaway
-      // Playwright probe (real touch events, not a mocked click) logging
-      // every document-level click: a tap genuinely DID open the
-      // lightbox, but the browser's own delayed touch-compatibility
-      // 'click' event then fired a moment later, landed on the
-      // just-opened overlay's own background (the tapped thumbnail is
-      // rarely at the exact viewport center the lightbox image sits at),
-      // and the overlay's own "click background to close" handler closed
-      // it within the same tick -- invisibly fast, reading as "nothing
-      // happened." Fixed touch via touchend+preventDefault (below), which
-      // suppresses that compatibility click at the source.
+      // Gregg's report, three rounds on iPad: (1) tap didn't open the
+      // lightbox on multi-image (Sortable-enabled) galleries -- fixed by
+      // suppressing touch's ghost compatibility click. (2) touch then
+      // worked but trackpad-click still didn't; tried handling mouse
+      // directly via mousedown/mouseup instead of native click -- fixed
+      // it in every automated test (Chromium AND WebKit, both raw
+      // mouse.down/up and .click()) but Gregg confirmed it was STILL
+      // broken on his actual iPad, plus a new clue: clicking made this
+      // item's Source dropdown briefly flash back to its correct value.
+      // (3) Confirmed via a WebKit (not Chromium -- Chromium never
+      // showed this) MutationObserver probe: SortableJS's forceFallback
+      // adds a `sortable-chosen` class and a `draggable` attribute to
+      // the whole card on EVERY mousedown, even a zero-movement click,
+      // then removes them on mouseup -- real, visible DOM churn
+      // (matching the flash) that our own mousedown/mouseup handling
+      // was still racing against rather than preventing. Real iPadOS
+      // trackpad input is translated through a proprietary UIKit layer
+      // no desktop browser engine replicates, so this doesn't
+      // necessarily manifest identically in automation even once you
+      // know to look for it -- confirmed the churn happens, couldn't
+      // confirm it's what breaks the click specifically, given time
+      // spent iterating without real-hardware feedback.
       //
-      // Gregg then reported touch (tap) now works but trackpad-click
-      // still doesn't. Trackpad-as-mouse input generates mousedown/
-      // mouseup/click, not touch events at all, so the touch fix above
-      // never applied to it -- and it isn't the same ghost-click race
-      // either (mouse has no compatibility-click-doubling mechanism; a
-      // real single mouse click is one click event, confirmed working
-      // fine via Playwright's simulated .click() throughout this whole
-      // investigation). The likely mechanism instead: Sortable's
-      // forceFallback (this file, further down) intercepts mousedown
-      // immediately to enable its own JS-simulated drag instead of
-      // native HTML5 DnD -- delayOnTouchOnly deliberately leaves mouse
-      // UNdelayed (preserving the original trackpad-vs-native-DnD fix
-      // that option was added for), so it's calling preventDefault() on
-      // EVERY mousedown on a Sortable-enabled (multi-image) gallery
-      // regardless of whether a drag follows, which per spec suppresses
-      // the native 'click' event outright for mouse -- not delayed or
-      // misdirected the way touch's was, just never fired at all. Same
-      // "only breaks with >1 image" fingerprint either way, since that's
-      // exactly when Sortable is present.
-      //
-      // Fix: stop depending on native click synthesis for EITHER input.
-      // Decide tap-vs-drag ourselves from each input's own raw event
-      // pair (mousedown/mouseup, touchstart/touchend), matching whatever
-      // Sortable itself does to native click for that input type.
-      let downX = null;
-      let downY = null;
-      let downAt = 0;
-      const TAP_MOVE_PX = 10;
-      const TAP_MAX_MS = 500;
-      function openOrPick() {
+      // Fix: stop the image from ever being a Sortable drag-candidate at
+      // all, so none of this -- churn, ghost-click races, click
+      // suppression -- has anything to interact with. `filter` (this
+      // file, further down) excludes matching elements from initiating
+      // a drag; `preventOnFilter: false` leaves the image's own default
+      // behavior (this plain click listener) completely untouched.
+      // Dragging to reorder still works by grabbing anywhere else on
+      // the card -- verified via a throwaway Playwright probe under
+      // WebKit that an actual position swap still persists to Firestore
+      // when grabbing the card's padding instead of the image.
+      imgEl.addEventListener('click', function () {
         if (picking && galleryPickMode) { galleryPickMode.onPick(img); return; }
         openImageLightbox(galleryImages, imgIndex, entity.name);
-      }
-      function isTap(x, y) {
-        return Math.hypot(x - downX, y - downY) <= TAP_MOVE_PX && (Date.now() - downAt) <= TAP_MAX_MS;
-      }
-      imgEl.addEventListener('mousedown', function (e) {
-        downX = e.clientX;
-        downY = e.clientY;
-        downAt = Date.now();
       });
-      imgEl.addEventListener('mouseup', function (e) {
-        if (downX === null) return;
-        const tap = isTap(e.clientX, e.clientY);
-        downX = null;
-        if (tap) openOrPick();
-      });
-      imgEl.addEventListener('touchstart', function (e) {
-        if (e.touches.length !== 1) return;
-        downX = e.touches[0].clientX;
-        downY = e.touches[0].clientY;
-        downAt = Date.now();
-      }, { passive: true });
-      imgEl.addEventListener('touchend', function (e) {
-        if (downX === null) return;
-        const t = e.changedTouches[0];
-        const tap = isTap(t.clientX, t.clientY);
-        downX = null;
-        if (!tap) return;
-        e.preventDefault(); // kill the compatibility click (see comment above)
-        openOrPick();
-      }, { passive: false });
       imgWrap.appendChild(imgEl);
 
       // Explicitly requested exception to the "only add icons when asked"
@@ -4406,6 +4366,25 @@ function renderGalleryTab(container, entity, ctx, readOnly, imagesOverride) {
       loadSortable().then(function (Sortable) {
         // eslint-disable-next-line no-new
         new Sortable(galleryDiv, {
+          // filter/preventOnFilter -- the actual fix (see the click
+          // listener's comment above for the full investigation).
+          // <img> elements are natively draggable in browsers by default
+          // (unlike a plain div), and a WebKit MutationObserver probe
+          // confirmed SortableJS's forceFallback ALSO toggles its own
+          // `draggable` attribute onto the image on every mousedown,
+          // even a zero-movement click -- two separate drag systems
+          // both claiming the same native-draggable element likely is
+          // what shows up on trackpad as "highlights instead of
+          // clicking" (a native drag-select visual cue), matching
+          // Gregg's very first report before any of this investigation
+          // started. filter excludes the image from ever being treated
+          // as a drag candidate at all, so Sortable never touches its
+          // draggable attribute; preventOnFilter:false leaves the
+          // image's own default behavior (this plain click listener)
+          // completely untouched. Dragging to reorder still works by
+          // grabbing anywhere else on the card.
+          filter: 'img',
+          preventOnFilter: false,
           // forceFallback: same fix as the admin Sources drag (admin.js)
           // -- native HTML5 DnD (SortableJS's default for non-touch
           // input) doesn't reliably initiate from trackpad-as-mouse
@@ -4415,17 +4394,10 @@ function renderGalleryTab(container, entity, ctx, readOnly, imagesOverride) {
           // on trackpad. Forcing SortableJS's own JS-simulated drag for
           // both input types fixes the asymmetry.
           forceFallback: true,
-          // delay/delayOnTouchOnly (Gregg's report, iPad): with
-          // forceFallback on, SortableJS's own touchstart handling
-          // starts drag-sensing immediately on every touch, which can
-          // swallow the browser's synthetic click for a plain tap-and-
-          // release before it fires -- inconsistent per-image depending
-          // on tiny touch-coordinate jitter, hence "some images work,
-          // others don't" on a >1-image gallery (a 1-image gallery never
-          // hits this at all, since Sortable only initializes here when
-          // length > 1). delayOnTouchOnly scopes the hold-to-start-drag
-          // requirement to touch input only, leaving mouse/trackpad
-          // (already fixed above) untouched.
+          // delay/delayOnTouchOnly: brief deliberate-hold requirement
+          // before a touch starts a drag from one of the card's non-
+          // image areas (see filter above) -- standard touch-drag
+          // ergonomics.
           delay: 150,
           delayOnTouchOnly: true,
           animation: 150,
