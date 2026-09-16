@@ -1,0 +1,7 @@
+{
+  "page": "https://www.daggerheart.com/srd/",
+  "pdf_url": "https://www.daggerheart.com/wp-content/uploads/2026/08/DH_SRD_2_2026_08_25.pdf",
+  "sha256": "55d8b92b7e58aa1da99a4a59aa77352483ef4fbda71baddb9af9bfc1f333bd2a",
+  "extracted": "2026-08-27",
+  "note": "What public/data/srd/ was parsed from. srd-watch.yml compares the live site against this and opens an issue on drift; update this file (and re-extract) when adopting a new SRD."
+}

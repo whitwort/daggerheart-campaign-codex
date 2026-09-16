@@ -1,0 +1,61 @@
+# Watches daggerheart.com for a new SRD release. public/data/srd/ is a
+# hand-checked local parse of one specific PDF (scripts/srd-extract/);
+# nothing rebuilds it automatically, so this is purely a tripwire: when
+# the linked PDF's URL or bytes stop matching SOURCE.json, open an issue.
+name: SRD watch
+on:
+  schedule:
+    - cron: '17 9 * * 1'   # Mondays 09:17 UTC
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare live SRD against SOURCE.json
+        id: check
+        run: |
+          set -euo pipefail
+          PAGE=$(jq -r .page scripts/srd-extract/SOURCE.json)
+          KNOWN_URL=$(jq -r .pdf_url scripts/srd-extract/SOURCE.json)
+          KNOWN_SHA=$(jq -r .sha256 scripts/srd-extract/SOURCE.json)
+          HTML=$(curl -fsSL --max-time 60 "$PAGE")
+          LIVE_URLS=$(echo "$HTML" | grep -oiE 'href="[^"]*SRD[^"]*\.pdf"' | sed 's/^href="//i;s/"$//' | sort -u)
+          echo "Live SRD links:"; echo "$LIVE_URLS"
+          MSG=""
+          if ! echo "$LIVE_URLS" | grep -qxF "$KNOWN_URL"; then
+            MSG="The SRD page no longer links the PDF we parsed.%0A%0AKnown: $KNOWN_URL%0ALive links:%0A$(echo "$LIVE_URLS" | sed 's/^/- /' | paste -sd '%0A')"
+          else
+            curl -fsSL --max-time 120 -o /tmp/srd.pdf "$KNOWN_URL"
+            LIVE_SHA=$(sha256sum /tmp/srd.pdf | cut -d' ' -f1)
+            if [ "$LIVE_SHA" != "$KNOWN_SHA" ]; then
+              MSG="The SRD PDF changed in place (same URL, new bytes).%0AURL: $KNOWN_URL%0AKnown sha256: $KNOWN_SHA%0ALive sha256: $LIVE_SHA"
+            fi
+          fi
+          if [ -n "$MSG" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            printf '%b' "${MSG//%0A/\\n}" > /tmp/issue-body.txt
+            printf '\n\nNext: re-run the extraction in scripts/srd-extract/ against the new PDF, diff public/data/srd/, and update SOURCE.json. See docs/srd-update-process.md.\n' >> /tmp/issue-body.txt
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "SRD unchanged."
+          fi
+      - name: Open issue (once)
+        if: steps.check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --label srd-watch --state open --json number --jq 'length')
+          if [ "$EXISTING" = "0" ]; then
+            gh label create srd-watch --repo "$GITHUB_REPOSITORY" --color D93F0B --description "Upstream SRD changed" 2>/dev/null || true
+            gh issue create --repo "$GITHUB_REPOSITORY" --label srd-watch \
+              --title "SRD update detected on daggerheart.com" \
+              --body-file /tmp/issue-body.txt
+          else
+            echo "srd-watch issue already open; not duplicating."
+          fi
