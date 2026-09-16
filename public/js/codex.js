@@ -4212,59 +4212,80 @@ function renderGalleryTab(container, entity, ctx, readOnly, imagesOverride) {
       // NOT a plain 'click' listener. Gregg's report (iPad, multi-image
       // galleries only -- Sortable only initializes then, see below):
       // delay/delayOnTouchOnly on the gallery's Sortable instance alone
-      // didn't fix it. Root-caused via a throwaway Playwright probe
-      // (real touch events, not a mocked click) logging every
-      // document-level click: a real touch tap opened the lightbox, but
-      // the browser's own delayed touch-compatibility 'click' event then
-      // fired a moment later, landed on the just-opened overlay's own
-      // background (not the centered image -- the tapped thumbnail is
+      // didn't fix it. Root-caused the touch half via a throwaway
+      // Playwright probe (real touch events, not a mocked click) logging
+      // every document-level click: a tap genuinely DID open the
+      // lightbox, but the browser's own delayed touch-compatibility
+      // 'click' event then fired a moment later, landed on the
+      // just-opened overlay's own background (the tapped thumbnail is
       // rarely at the exact viewport center the lightbox image sits at),
       // and the overlay's own "click background to close" handler closed
       // it within the same tick -- invisibly fast, reading as "nothing
-      // happened." A single mouse click never hits this: there's only
-      // one click event total and it's fully handled before any DOM
-      // mutation, unlike touch's separate/later compatibility click.
-      // preventDefault() on pointerdown/pointerup does NOT suppress this
-      // click (tried it, confirmed via the same probe that the ghost
-      // click still fired) -- whatever's synthesizing it here is tied to
-      // the legacy touchstart/touchend lifecycle, not Pointer Events.
-      // Fix (the standard, long-established pattern for exactly this --
-      // same idea FastClick-style libraries use): handle touchend
-      // directly with preventDefault(), which DOES suppress the
-      // following compatibility click; keep a plain 'click' listener for
-      // mouse, guarded by a recent-touch timestamp so it doesn't
-      // double-fire on devices that support both.
-      let touchStartX = null;
-      let touchStartY = null;
-      let touchStartAt = 0;
-      let lastTouchHandledAt = 0;
+      // happened." Fixed touch via touchend+preventDefault (below), which
+      // suppresses that compatibility click at the source.
+      //
+      // Gregg then reported touch (tap) now works but trackpad-click
+      // still doesn't. Trackpad-as-mouse input generates mousedown/
+      // mouseup/click, not touch events at all, so the touch fix above
+      // never applied to it -- and it isn't the same ghost-click race
+      // either (mouse has no compatibility-click-doubling mechanism; a
+      // real single mouse click is one click event, confirmed working
+      // fine via Playwright's simulated .click() throughout this whole
+      // investigation). The likely mechanism instead: Sortable's
+      // forceFallback (this file, further down) intercepts mousedown
+      // immediately to enable its own JS-simulated drag instead of
+      // native HTML5 DnD -- delayOnTouchOnly deliberately leaves mouse
+      // UNdelayed (preserving the original trackpad-vs-native-DnD fix
+      // that option was added for), so it's calling preventDefault() on
+      // EVERY mousedown on a Sortable-enabled (multi-image) gallery
+      // regardless of whether a drag follows, which per spec suppresses
+      // the native 'click' event outright for mouse -- not delayed or
+      // misdirected the way touch's was, just never fired at all. Same
+      // "only breaks with >1 image" fingerprint either way, since that's
+      // exactly when Sortable is present.
+      //
+      // Fix: stop depending on native click synthesis for EITHER input.
+      // Decide tap-vs-drag ourselves from each input's own raw event
+      // pair (mousedown/mouseup, touchstart/touchend), matching whatever
+      // Sortable itself does to native click for that input type.
+      let downX = null;
+      let downY = null;
+      let downAt = 0;
       const TAP_MOVE_PX = 10;
       const TAP_MAX_MS = 500;
       function openOrPick() {
         if (picking && galleryPickMode) { galleryPickMode.onPick(img); return; }
         openImageLightbox(galleryImages, imgIndex, entity.name);
       }
+      function isTap(x, y) {
+        return Math.hypot(x - downX, y - downY) <= TAP_MOVE_PX && (Date.now() - downAt) <= TAP_MAX_MS;
+      }
+      imgEl.addEventListener('mousedown', function (e) {
+        downX = e.clientX;
+        downY = e.clientY;
+        downAt = Date.now();
+      });
+      imgEl.addEventListener('mouseup', function (e) {
+        if (downX === null) return;
+        const tap = isTap(e.clientX, e.clientY);
+        downX = null;
+        if (tap) openOrPick();
+      });
       imgEl.addEventListener('touchstart', function (e) {
         if (e.touches.length !== 1) return;
-        touchStartX = e.touches[0].clientX;
-        touchStartY = e.touches[0].clientY;
-        touchStartAt = Date.now();
+        downX = e.touches[0].clientX;
+        downY = e.touches[0].clientY;
+        downAt = Date.now();
       }, { passive: true });
       imgEl.addEventListener('touchend', function (e) {
-        if (touchStartX === null) return;
+        if (downX === null) return;
         const t = e.changedTouches[0];
-        const dist = Math.hypot(t.clientX - touchStartX, t.clientY - touchStartY);
-        const duration = Date.now() - touchStartAt;
-        touchStartX = null;
-        if (dist > TAP_MOVE_PX || duration > TAP_MAX_MS) return;
-        e.preventDefault();
-        lastTouchHandledAt = Date.now();
+        const tap = isTap(t.clientX, t.clientY);
+        downX = null;
+        if (!tap) return;
+        e.preventDefault(); // kill the compatibility click (see comment above)
         openOrPick();
       }, { passive: false });
-      imgEl.addEventListener('click', function () {
-        if (Date.now() - lastTouchHandledAt < 500) return; // already handled via touchend above
-        openOrPick();
-      });
       imgWrap.appendChild(imgEl);
 
       // Explicitly requested exception to the "only add icons when asked"
