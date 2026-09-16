@@ -4209,9 +4209,61 @@ function renderGalleryTab(container, entity, ctx, readOnly, imagesOverride) {
       const imgEl = document.createElement('img');
       imgEl.src = img.data;
       imgEl.alt = entity.name;
-      imgEl.addEventListener('click', function () {
+      // NOT a plain 'click' listener. Gregg's report (iPad, multi-image
+      // galleries only -- Sortable only initializes then, see below):
+      // delay/delayOnTouchOnly on the gallery's Sortable instance alone
+      // didn't fix it. Root-caused via a throwaway Playwright probe
+      // (real touch events, not a mocked click) logging every
+      // document-level click: a real touch tap opened the lightbox, but
+      // the browser's own delayed touch-compatibility 'click' event then
+      // fired a moment later, landed on the just-opened overlay's own
+      // background (not the centered image -- the tapped thumbnail is
+      // rarely at the exact viewport center the lightbox image sits at),
+      // and the overlay's own "click background to close" handler closed
+      // it within the same tick -- invisibly fast, reading as "nothing
+      // happened." A single mouse click never hits this: there's only
+      // one click event total and it's fully handled before any DOM
+      // mutation, unlike touch's separate/later compatibility click.
+      // preventDefault() on pointerdown/pointerup does NOT suppress this
+      // click (tried it, confirmed via the same probe that the ghost
+      // click still fired) -- whatever's synthesizing it here is tied to
+      // the legacy touchstart/touchend lifecycle, not Pointer Events.
+      // Fix (the standard, long-established pattern for exactly this --
+      // same idea FastClick-style libraries use): handle touchend
+      // directly with preventDefault(), which DOES suppress the
+      // following compatibility click; keep a plain 'click' listener for
+      // mouse, guarded by a recent-touch timestamp so it doesn't
+      // double-fire on devices that support both.
+      let touchStartX = null;
+      let touchStartY = null;
+      let touchStartAt = 0;
+      let lastTouchHandledAt = 0;
+      const TAP_MOVE_PX = 10;
+      const TAP_MAX_MS = 500;
+      function openOrPick() {
         if (picking && galleryPickMode) { galleryPickMode.onPick(img); return; }
         openImageLightbox(galleryImages, imgIndex, entity.name);
+      }
+      imgEl.addEventListener('touchstart', function (e) {
+        if (e.touches.length !== 1) return;
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        touchStartAt = Date.now();
+      }, { passive: true });
+      imgEl.addEventListener('touchend', function (e) {
+        if (touchStartX === null) return;
+        const t = e.changedTouches[0];
+        const dist = Math.hypot(t.clientX - touchStartX, t.clientY - touchStartY);
+        const duration = Date.now() - touchStartAt;
+        touchStartX = null;
+        if (dist > TAP_MOVE_PX || duration > TAP_MAX_MS) return;
+        e.preventDefault();
+        lastTouchHandledAt = Date.now();
+        openOrPick();
+      }, { passive: false });
+      imgEl.addEventListener('click', function () {
+        if (Date.now() - lastTouchHandledAt < 500) return; // already handled via touchend above
+        openOrPick();
       });
       imgWrap.appendChild(imgEl);
 
