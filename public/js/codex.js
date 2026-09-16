@@ -3463,6 +3463,12 @@ function renderLoreTab(container, entity, ctx, readOnly) {
         // Safari, so force SortableJS's own JS-simulated drag for
         // consistent mouse/trackpad/touch behavior.
         forceFallback: true,
+        // delay/delayOnTouchOnly: same iPad tap-vs-drag fix as the
+        // Gallery tab's drag-reorder (see that call site's comment) --
+        // forceFallback's own touchstart handling can otherwise swallow
+        // a plain tap's synthetic click before it fires.
+        delay: 150,
+        delayOnTouchOnly: true,
         animation: 150,
         onEnd: function () {
           const orderedIds = Array.prototype.slice.call(loreListDiv.children)
@@ -4336,6 +4342,19 @@ function renderGalleryTab(container, entity, ctx, readOnly, imagesOverride) {
           // on trackpad. Forcing SortableJS's own JS-simulated drag for
           // both input types fixes the asymmetry.
           forceFallback: true,
+          // delay/delayOnTouchOnly (Gregg's report, iPad): with
+          // forceFallback on, SortableJS's own touchstart handling
+          // starts drag-sensing immediately on every touch, which can
+          // swallow the browser's synthetic click for a plain tap-and-
+          // release before it fires -- inconsistent per-image depending
+          // on tiny touch-coordinate jitter, hence "some images work,
+          // others don't" on a >1-image gallery (a 1-image gallery never
+          // hits this at all, since Sortable only initializes here when
+          // length > 1). delayOnTouchOnly scopes the hold-to-start-drag
+          // requirement to touch input only, leaving mouse/trackpad
+          // (already fixed above) untouched.
+          delay: 150,
+          delayOnTouchOnly: true,
           animation: 150,
           onEnd: function () {
             const orderedIds = Array.prototype.slice.call(galleryDiv.children)

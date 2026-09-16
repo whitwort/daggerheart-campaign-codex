@@ -215,6 +215,13 @@ function enableCardReorder(container, onReorder) {
       filter: '.character-deck-add-slot',
       preventOnFilter: false,
       forceFallback: true,
+      // delay/delayOnTouchOnly: same iPad tap-vs-drag fix as the Codex
+      // Gallery tab's drag-reorder (codex.js) -- forceFallback's own
+      // touchstart handling can otherwise swallow a plain tap's
+      // synthetic click before it fires (a mini-card here also opens
+      // things on tap, same risk class as a gallery thumbnail).
+      delay: 150,
+      delayOnTouchOnly: true,
       animation: 150,
       onEnd: function () {
         const orderedIds = Array.prototype.slice.call(container.children)
