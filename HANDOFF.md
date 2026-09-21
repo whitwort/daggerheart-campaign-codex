@@ -14,177 +14,196 @@ comments.
 `phase-nav-router-2-design.md` (nav phase 2) are both locked design
 docs still in the tree — not yet swept into a cleanup pass.
 
-## Current state (end of session, Sep 14 2026)
+## Current state (end of session, Sep 21 2026)
 
-HEAD: `ed64176`, CI green (Deploy + E2E). Two pieces of work this
-session, both dev-verified pending; not yet in a tagged prod release.
+HEAD: `16bae33`, CI green (Deploy + E2E + the new Author check).
+Prod is at **`v1.0.2` = `db80d18`** (Gregg tagged 1.0 → 1.0.1 → 1.0.2
+across Sep 10–16; everything through the gallery-lightbox fix is
+live). Only `16bae33` (a CI workflow, not app code) is on dev ahead
+of prod.
 
-### Import Lore — sourceId dropdown (`6fb4ee6` → `2eed5bb`)
+**READ THIS FIRST — every commit hash in this repo changed on Sep 21.**
+A full-history rewrite (`git filter-repo --mailmap`, 685/685 commits
+re-hashed, all 25 tags retargeted) fixed 61 commits authored as
+`Gregg <gregg@example.com>` (54 from the repo's first days, Aug 8–10,
+plus 7 from the Sep 14 session). A prior, smaller rewrite (~Sep 11)
+had already fixed 2 commits mis-attributed to `whitworth@gmail.com`
+(a one-letter typo GitHub linked to a stranger's account,
+"DarrylWhitworth"). Consequences:
+- Any SHA cited in an older HANDOFF, commit message, memory note, or
+  chat transcript that predates Sep 21 no longer resolves. Find
+  commits by message/date (`git log --grep`), never by remembered hash.
+- Any pre-Sep-21 clone must be re-cloned or `git fetch && git reset
+  --hard origin/main && git fetch --tags --force` — a plain pull shows
+  as diverged. (Local tags don't auto-update on fetch; `--force` them.)
+- GitHub's /contributors graph lags hours after a force-push; the
+  commits API is authoritative (verified: 685 scanned, 0 placeholder).
+- **New guard: `.github/workflows/author-check.yml`** (`16bae33`)
+  fails the push if any commit's author OR committer email is outside
+  `whitwort@gmail.com` / `claude@anthropic.com` / the actions bot.
+  Can't block a push to main (no branch protection) but goes red
+  within ~1 min. Adding a legitimate identity = one line in its
+  `ALLOWED` block. Both incidents were an agent session running `git
+  config user.email` wrong despite this file's ritual line being
+  correct every time — the guard exists because the ritual alone
+  wasn't enough twice.
 
-Confirmed working on **dev** by Gregg (dropdown populates and applies
-correctly).
+### Gallery lightbox click on iPad, multi-image galleries only (Sep 16, `997c29b`→`db80d18`) — FIXED, Gregg-confirmed on device
 
-1. **Feature** (`6fb4ee6`): Admin > Import Lore previously had no way
-   to set `sourceId` on bulk-imported entities/lore — Gregg was hand-
-   correcting every imported item's source via the per-item dropdowns
-   after the fact. Added a "Source for imported items" dropdown above
-   the Import button; selected value is applied to every created/
-   replaced/updated entity doc and every lore item (including template
-   `meta-details`/`meta-features` anchors) in that batch.
-2. **Bug 1 — dropdown always empty** (`e82c3b5`): first pass queried
-   `sources` directly via `getDocs` instead of reusing `sources.js`'s
-   `buildSourceSelect()` (which reads from `state.allSources`, the
-   real-time-synced source of truth every other source dropdown in the
-   app uses). Switched to `buildSourceSelect()`.
-3. **Lint failure** (`c8f5517`): swapping to `buildSourceSelect()` made
-   `query`/`where`/`getDocs` look unused, so they got stripped from the
-   import line — but `fetchLoreFor()` (replace/update lore fetching)
-   still calls them directly. Restored the imports.
-4. **Bug 2 — dropdown still empty after bug 1 fix** (`2eed5bb`): even
-   with `buildSourceSelect()`, the dropdown was built exactly once,
-   gated by a one-shot flag, at whatever moment the Admin tab first
-   activated. If that happened before Firestore's `onSnapshot` (in
-   `attachSourcesListener`) delivered its first batch, `state.
-   allSources` was empty at build time and nothing ever rebuilt it —
-   unlike `codex.js`/`admin.js`, import.js never registered a
-   `registerSourcesChangeHandler`. Fixed by registering
-   `buildImportSourceSelect` as a sources-change handler (same pattern
-   as the other dropdowns); dropped the one-shot guard; selection is
-   preserved across rebuilds via a module-level `importSelectedSourceId`.
+Four commits, three wrong-but-real fixes, one right one. Full
+reasoning is in the code comments at `codex.js` `renderGalleryTab`
+(the `imgEl` click listener and the `new Sortable(galleryDiv, …)`
+config). Short version for the next person who touches Sortable:
+- Symptom: tap worked, trackpad-click "just highlighted" the card.
+  Only on galleries with >1 image — exactly when `Sortable`
+  initializes (`galleryImages.length > 1`). That length>1 fingerprint
+  was the one clue that held up throughout.
+- Root cause (confirmed by a WebKit MutationObserver probe, invisible
+  in Chromium): SortableJS `forceFallback` toggles `draggable` onto
+  the `<img>` and adds `sortable-chosen` on every mousedown, even a
+  zero-movement click. `<img>` is natively draggable already; two
+  drag systems claiming one element reads as a drag-select highlight
+  on iPadOS trackpad.
+- Fix: `filter: 'img', preventOnFilter: false` on the gallery's
+  Sortable — the image is never a drag candidate, its plain `click`
+  listener is untouched, drag-reorder still works from the card's
+  padding/edge (verified: real swap persists to Firestore under
+  WebKit). The three intermediate fixes (delay/delayOnTouchOnly on
+  all four Sortable sites; touchend+preventDefault; manual
+  mousedown/mouseup) were each verified in automation and each
+  still broken on the real iPad. `delay:150, delayOnTouchOnly:true`
+  stays on all four Sortable instances — harmless, reasonable touch
+  ergonomics, just not the fix.
+- **Tooling ceiling learned the hard way:** iPadOS trackpad input is
+  translated by a proprietary UIKit layer. Neither Chromium nor
+  Playwright's WebKit reproduced the broken click, even on the exact
+  shipped code. "Passes in every automated browser" and "broken on
+  Gregg's iPad" were both true for three commits. For anything
+  touch/trackpad-specific, treat automation as a regression net and
+  a mechanism probe, not as proof of fix — Gregg's device is the
+  oracle.
 
-**Lesson for future dropdown/listener work in this codebase:** any UI
-that reads from a Firestore-backed `state.*` collection needs to
-either (a) already run after that collection's listener has populated
-`state`, or (b) subscribe to that collection's own
-`registerXChangeHandler` and rebuild on change — don't assume
-`state.*` is populated just because the listener was attached earlier
-in the session; the snapshot is async.
+### Other app changes since the Sep 14 handoff
+- **Export Lore > Character dropdown** (`a04e97e`): now PC-tagged OR
+  owner-assigned (reuses `visibility-ui.js`'s `partyCharacterOptions`,
+  newly exported), was ownerId-only. Labels show owner or
+  "(unassigned)". Probe-verified with a 3-entity matrix.
+- **Party tab auto-opening on reload** (`3b7bc9b`, Sep 10): the party
+  read-stamp lives in a separate doc from the thread doc, so the two
+  listeners raced on cold load; `partyReadStateLoaded` flag gates
+  unread until the reader's own stamp has arrived once.
+- **SRD watch** (`9758464`, `8135429`): another session's weekly
+  Action comparing daggerheart.com's SRD link/PDF hash to
+  `scripts/srd-extract/SOURCE.json`; opens a labeled issue on drift.
+  Not this session's work; noted so it isn't mistaken for a stray.
 
-### Characters > Cards tab: three small display fixes (`ed64176`)
+### Sep 14 session (another session — carried verbatim in substance)
 
-Not yet dev-verified by Gregg (pushed and CI-green same session; ask
-next session if untested).
+**Import Lore — sourceId dropdown** (`285f5c9`→`5f5ca60`). Confirmed
+working on dev by Gregg. Feature + three fixes: (1) first pass
+queried `sources` directly instead of `sources.js`'s
+`buildSourceSelect()` → empty; (2) that swap stripped
+`query`/`where`/`getDocs` imports that `fetchLoreFor()` still uses →
+lint fail, restored; (3) dropdown built once at Admin-tab activation,
+before `attachSourcesListener`'s first snapshot → empty forever. Fixed
+by registering `buildImportSourceSelect` via
+`registerSourcesChangeHandler` (same pattern as codex.js/admin.js),
+dropping the one-shot guard, preserving selection in a module-level
+`importSelectedSourceId`.
+**Lesson:** any UI reading a Firestore-backed `state.*` collection
+must subscribe to that collection's `registerXChangeHandler` and
+rebuild on change — the listener being attached earlier does not mean
+`state` is populated; the snapshot is async.
 
-- **Abilities tab label**: "Experience" → "Experiences"
-  (`character-deck.js`, `buildAbilitiesSection`'s tab list).
-- **Transformation cards hide their Question prompts**: SRD 2.0
-  transformation records (`public/data/srd/transformations.json`)
-  carry a `question` array of roleplay prompts, which
-  `srd-import.js`'s generic leftover-markdown path renders as a
-  `### Question` heading + bullet list, folded into the entity's
-  `meta-details` lore item. On the Conditions/Transformations tray's
-  compact cards this doesn't belong (same reasoning as Class cards
-  already hiding their Background/Connection question lists) — now
-  stripped via the existing `cleanCardMd({stripSections: ['Question']})`
-  mechanism, gated on `linked.subtype === 'transformations'` so plain
-  Conditions are untouched. Scoped to the Cards-tab compact view only;
-  the Codex tab's own Lore tab still shows the full Question list.
-- **Item/Consumable cards truncate at 20 lines**: added a new
-  `truncateCardMd(md, maxLines)` helper (character-deck.js, alongside
-  `cleanCardMd`) — cuts body markdown to 20 lines with a trailing
-  `*...*` marker when longer. Applied only to the Items/Consumables
-  branch of `equipmentCardOptsForLinked` (no templates.js schema, so
-  it's freeform prose with nothing else compacting it); weapons/armor
-  already render compact structured bullets and are unaffected. Full
-  text remains one click away via the card's own Codex link
-  (`codexEntityId`).
+**Characters > Cards tab display fixes** (`f136757`) — **NOT yet
+Gregg-verified in the app**; ask. (a) Abilities tab label
+"Experience"→"Experiences". (b) Transformation cards strip their
+`### Question` prompt section via `cleanCardMd({stripSections:
+['Question']})`, gated on `linked.subtype === 'transformations'`;
+Codex Lore tab still shows it. (c) Item/Consumable cards truncate at
+20 lines via new `truncateCardMd(md, maxLines)` (character-deck.js,
+beside `cleanCardMd`), Items/Consumables branch of
+`equipmentCardOptsForLinked` only.
 
-## Pre-1.0 open-items sweep (Sep 10 2026 session — unchanged, not re-verified this session)
+## Pre-1.0 open-items sweep (Sep 10 — unchanged, not re-verified since)
 
-Went through every item HANDOFF had been carrying forward unverified
-across several prod deploys. Verified what code inspection + a fetch
-of the live prod bundle could confirm; flagged what can't be checked
-without a live authenticated session or DB credentials (neither
-available from an agent sandbox).
+- **Export Lore prod verification — CONFIRMED LIVE** (v0.17b, and
+  now v1.0.2). Not interactively click-tested by an agent.
+- **Op-status indeterminate-bar — DONE, exercised** (`admin.js`
+  `updateOp(line, null)`). Drop from future lists.
+- **Dynamic-import GM-only modules — NOT STARTED.** Zero `import()`
+  in `public/js/`.
+- **codex.js split — NOT DONE.** ~5,200 lines, ~4.5x the next file.
+- **Single-entry restore delete-orphans mode — NOT BUILT** (backup.js
+  comment: deliberately additive-only).
+- **Player-facing Export Lore reuse — NOT BUILT.** UI mounted only
+  under `admin-db-tabs`; logic already viewer-ctx-driven, needs a
+  player mount point, not a rewrite.
+- **Remaining imported-kind lore items — UNVERIFIABLE FROM AN AGENT
+  SANDBOX** (live-data question). Gregg checks.
 
-- **Export Lore prod verification — CONFIRMED LIVE.** Shipped in
-  `v0.17b` (git ancestry: `bcce7fe` predates that tag) and a direct
-  fetch of `daggerheart-campaign-codex.web.app/js/export-lore.js`
-  confirms it's being served from prod. Not click-tested interactively
-  (no browser in an agent sandbox) — if Gregg hasn't personally run
-  through all four mode x format combos in prod, that's still worth a
-  manual pass, but the code is deployed and correct per review.
-- **Op-status indeterminate-bar — DONE, confirmed exercised.**
-  `admin.js` calls `updateOp(line, null)` (SRD import path) — the
-  indeterminate branch isn't just built, it's live in a real op.
-  Nothing left here; drop from future carry-forward lists.
-- **Dynamic-import GM-only modules — CONFIRMED NOT STARTED.** Zero
-  `import()` calls anywhere in `public/js/` — every module is still a
-  static top-level import. Real perf work, not done, no code laid
-  down toward it yet.
-- **codex.js split — CONFIRMED NOT DONE.** Still 5,148 lines, ~4.5x
-  the next-largest file (`encounters.js`, 1,846 lines). Untouched.
-- **Single-entry restore delete-orphans mode — CONFIRMED NOT BUILT.**
-  `backup.js`'s own comment: v1 is deliberately additive/overwrite-by-
-  id only; "a possible future addition if that's ever needed."
-- **Player-facing Export Lore reuse — CONFIRMED NOT BUILT.**
-  `index.html`: the Export Lore UI is mounted only under
-  `admin-db-tabs` (GM-only Admin > Database). `export-lore.js`'s own
-  header comment says the mode/format/resolution logic was
-  deliberately built viewer-ctx-driven for this future reuse, but no
-  player entry point exists yet — would need a new mount point, not a
-  rewrite of the underlying logic.
-- **Remaining imported-kind lore items — UNVERIFIABLE FROM HERE.**
-  This is a live-data/content-curation question (how many
-  `kind:'imported'` lore docs are still unreviewed), not a repo or
-  deploy fact. Needs a logged-in session or DB query Gregg runs
-  himself; carry forward as genuinely unknown, not "still open" in the
-  code sense the other items above are.
-
-None of the still-open items above are broken behavior — all are
-deliberate deferrals with their own "not done yet" comment already in
-the code. Nothing here blocks 1.0 unless Gregg wants one of them
-(player Export Lore reuse is the most likely candidate) as a hard
-requirement for it.
+All deliberate deferrals with in-code "not yet" comments; none is
+broken behavior.
 
 ## Open items
 
-- **Cards tab fixes** (Experiences label, Transformation Question
-  strip, Item card truncation): pushed this session (`ed64176`), CI
-  green, not yet confirmed by Gregg in the app. Verify next session.
-- **Import Lore sourceId feature**: dev-verified working as of last
-  session (`2eed5bb`). Not yet in a tagged prod release — carry
-  forward until confirmed live via prod tag/footer.
-- Six items from the Sep 10 sweep (dynamic-import, codex.js split,
-  delete-orphans restore mode, player Export Lore reuse, imported-
-  lore-items count) carry forward as confirmed-status per that
-  section — see above, don't re-derive from scratch next time.
-- **Nav phase 2 + campaign-type gating**: per Sep 10 handoff this was
-  expected to ride Gregg's 1.0 tag to prod. Re-verify against the live
-  prod tag/footer rather than assuming.
+- **Cards tab fixes** (Sep 14, `f136757`): CI-green, in prod via
+  v1.0.2, but never confirmed by Gregg in the app. Verify.
+- **Author-check workflow** (`16bae33`): passed on its own commit.
+  Not yet seen catching a real bad email (by design, hopefully never).
+- Six Sep 10 sweep items carry forward as confirmed-status above.
+- **HANDOFF hash hygiene going forward:** prefer citing commits by
+  subject + date; if citing a hash, it's only good until the next
+  rewrite, which the author-check guard is meant to make unnecessary.
 
 ## Carried context
 
 - **firebaseapp.com vs web.app**: different origins, same files.
-  Always use `.web.app` when sharing/testing links — see
-  decisions-and-learnings memory for the full writeup.
-- **Dev/prod GCP trial-quota trap**: a project still in Google's
-  90-day free-trial status has a hard 50K reads/day cap regardless of
-  Blaze billing. Fix is the trial banner's "Activate" button (NOT
-  Billing's "Upgrade"). Prod activated Sep 2 2026; dev's status still
-  not activated (Gregg's call, out of scope) — if dev misbehaves with
-  resource-exhausted errors, check this before suspecting code.
+  Always `.web.app` — see decisions-and-learnings memory.
+- **Dev/prod GCP trial-quota trap**: free-trial status caps 50K
+  reads/day regardless of Blaze. Fix = trial banner "Activate", NOT
+  Billing "Upgrade". Prod activated Sep 2; dev still not (Gregg's
+  call). Resource-exhausted on dev → check this before code.
 - **Google Chrome apt source flakiness**: `scripts/e2e-run.sh` uses
-  `playwright install chromium` (no `--with-deps`) specifically to
-  avoid this.
-- **Source dropdowns depend on `state.allSources` being populated
-  async** (see last session's Import Lore bug 2 above) — any new
-  source-aware UI must register via `registerSourcesChangeHandler`
-  from `sources.js`, not assume the listener attached earlier means
-  data is already there.
-- **Cards-tab compact-view cleanup mechanism** (`character-deck.js`):
-  `cleanCardMd(md, opts)` — `stripHeadingLines`/`stripSections`/
-  `stripBulletLabels` for hiding heading clutter, whole roleplay-prompt
-  sections, or duplicated bullet lines; `truncateCardMd(md, maxLines)`
-  (new this session) for capping freeform-prose card bodies. Both
-  scoped to the Cards tab only — the Codex tab's own Lore tab always
-  shows full, unmodified content via `resolveEntityStatBlockMarkdown`/
-  `resolveLoreItemMarkdown`. Reach for these first before writing a
-  new one-off truncation/strip for the next compact-card ask.
-- `npm run test:rules`: 19/19 passing as of Sep 10 session (party chat
-  added 4 new cases) — not touched this session.
-- `npm run test:e2e`: green on every push this session
-  (`6fb4ee6`→`ed64176`, all runs).
+  `playwright install chromium` (no `--with-deps`) to avoid it.
+- **Source dropdowns depend on async `state.allSources`** — register
+  via `registerSourcesChangeHandler` (see Sep 14 lesson).
+- **Cards-tab compact-view cleanup** (`character-deck.js`):
+  `cleanCardMd(md, opts)` (`stripHeadingLines`/`stripSections`/
+  `stripBulletLabels`) and `truncateCardMd(md, maxLines)`. Cards tab
+  only; Codex Lore tab always shows full content. Reach for these
+  before writing a new one-off.
+- **Sortable + clickable children:** if a draggable card contains
+  something with its own click behavior, `filter` that element out
+  with `preventOnFilter: false` rather than racing Sortable's
+  mousedown/touchstart handling. `forceFallback` stays on all four
+  sites (trackpad-vs-native-DnD, see each site's comment).
+- **Playwright WebKit is available and worth it for Safari-family
+  bugs:** `npx --package=@playwright/test playwright install webkit`
+  (must match the project's pinned playwright — plain `npx playwright
+  install webkit` fetched the wrong build), then `npx playwright test
+  … --browser=webkit`. Chromium never showed the Sortable `draggable`
+  churn; WebKit did. Not a substitute for a real iPad (see tooling
+  ceiling above), but strictly more revealing than Chromium alone.
+  The `devices['iPad …']` presets force WebKit; if you only have
+  Chromium, set `viewport`/`hasTouch: true`/`isMobile: true` manually.
+- **Throwaway-probe discipline that paid off this session:** seed
+  data via firebase-admin inside the spec, sign in with
+  `window.__e2eSignIn`, navigate `#tab-btn-codex` → expand category →
+  click entity → click "Gallery" tab (detail defaults to Lore), then
+  assert. Watch DOM with a MutationObserver from `page.evaluate` to
+  see what a library does on a click; log document-level clicks in
+  capture phase to catch ghost clicks. A drag simulation needs
+  multi-step `mouse.move` with pauses and a dwell on the target —
+  a single jump gave a false "reorder broken" the first time.
+- The bash_tool sandbox shell is **dash, not bash**: `$'…'` and `<<<`
+  don't work there. Wrap shell logic in `bash -c` or a script file
+  before trusting a dry-run result (cost two false alarms this
+  session).
+- `npm run test:rules`: 19/19 (party chat's 4 cases included). Fresh
+  clone needs `npm install` first (`@firebase/rules-unit-testing`).
+- `npm run test:e2e`: 3/3 green on Chromium and WebKit as of
+  `db80d18`; green on every push since.
 
 ## Session ritual
 
