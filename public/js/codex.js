@@ -2234,12 +2234,7 @@ function buildTemplateEditor(draft) {
           nameInput.value = f.name;
           nameInput.addEventListener('input', function () { f.name = nameInput.value; });
           row.appendChild(nameInput);
-          const textInput = document.createElement('input');
-          textInput.type = 'text';
-          textInput.placeholder = 'Effect text';
-          textInput.value = f.text;
-          textInput.addEventListener('input', function () { f.text = textInput.value; });
-          row.appendChild(textInput);
+          row.appendChild(buildFeatureTextField(f));
           const removeBtn = document.createElement('button');
           removeBtn.type = 'button';
           removeBtn.className = 'action-btn-compact';
@@ -2303,12 +2298,7 @@ function buildTemplateEditor(draft) {
           typeInput.addEventListener('input', function () { f.type = typeInput.value; });
           row.appendChild(typeInput);
         }
-        const textInput = document.createElement('input');
-        textInput.type = 'text';
-        textInput.placeholder = 'Effect text';
-        textInput.value = f.text;
-        textInput.addEventListener('input', function () { f.text = textInput.value; });
-        row.appendChild(textInput);
+        row.appendChild(buildFeatureTextField(f));
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
         removeBtn.className = 'action-btn-compact';
@@ -2334,6 +2324,95 @@ function buildTemplateEditor(draft) {
   }
 
   return wrap;
+}
+
+// Feature "Effect text" field (Gregg's ask, Sep 2026): the inline
+// one-line input stays -- it's fine for short effects and keeps the row
+// scannable -- plus a small expand button that opens a modal with a
+// real multiline textarea for the long ones. Both edit the same draft
+// feature object; Save in the dialog also syncs the inline input so
+// the row reflects the new text without a re-render (a re-render here
+// would drop focus/scroll position for whoever's mid-edit on another
+// row). Cancel/Esc/overlay-click discard the dialog's text.
+function buildFeatureTextField(f) {
+  const wrap = document.createElement('div');
+  wrap.className = 'template-feature-text-wrap';
+  // A single-row <textarea>, NOT <input type=text>: an input silently
+  // strips newlines from its value, so after saving multiline text from
+  // the dialog, the very next keystroke here would flatten it to one
+  // line via the input handler below (SRD-imported feature text already
+  // carries newlines, so that hazard predates the dialog). Grows to a
+  // few rows while it has focus if the text is multiline.
+  const textInput = document.createElement('textarea');
+  textInput.rows = 1;
+  textInput.placeholder = 'Effect text';
+  textInput.value = f.text;
+  function autosize() {
+    const lines = (textInput.value.match(/\n/g) || []).length + 1;
+    textInput.rows = document.activeElement === textInput ? Math.min(4, Math.max(1, lines)) : 1;
+  }
+  textInput.addEventListener('input', function () { f.text = textInput.value; autosize(); });
+  textInput.addEventListener('focus', autosize);
+  textInput.addEventListener('blur', autosize);
+  wrap.appendChild(textInput);
+  const expandBtn = document.createElement('button');
+  expandBtn.type = 'button';
+  expandBtn.className = 'template-feature-expand-btn';
+  expandBtn.textContent = '\u270E';               // ✎
+  expandBtn.title = 'Edit in a larger box';
+  expandBtn.setAttribute('aria-label', 'Edit effect text in a larger box');
+  expandBtn.addEventListener('click', function () { openFeatureTextDialog(f, textInput); });
+  wrap.appendChild(expandBtn);
+  return wrap;
+}
+
+function openFeatureTextDialog(f, inlineInput) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay open';
+  const box = document.createElement('div');
+  box.className = 'modal-box modal-box-wide feature-text-dialog';
+
+  const h3 = document.createElement('h3');
+  h3.textContent = f.name ? 'Effect text \u2014 ' + f.name : 'Effect text';
+  box.appendChild(h3);
+
+  const textarea = document.createElement('textarea');
+  textarea.value = f.text || '';
+  textarea.setAttribute('aria-label', 'Effect text');
+  box.appendChild(textarea);
+
+  function close() {
+    document.removeEventListener('keydown', onKey);
+    overlay.remove();
+  }
+  function onKey(e) {
+    if (e.key === 'Escape') { e.preventDefault(); close(); }
+  }
+  document.addEventListener('keydown', onKey);
+  overlay.addEventListener('click', function (ev) { if (ev.target === overlay) close(); });
+
+  const actions = document.createElement('div');
+  actions.className = 'modal-actions';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', close);
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.textContent = 'Save';
+  saveBtn.addEventListener('click', function () {
+    f.text = textarea.value;
+    inlineInput.value = f.text;   // a textarea, so newlines survive the sync
+    close();
+  });
+  actions.appendChild(cancelBtn);
+  actions.appendChild(saveBtn);
+  box.appendChild(actions);
+
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  textarea.focus();
+  textarea.setSelectionRange(textarea.value.length, textarea.value.length);
 }
 
 function renderEntityEditBlock(container, entity, draft, ctx) {
