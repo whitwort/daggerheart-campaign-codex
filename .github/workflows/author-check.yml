@@ -1,0 +1,62 @@
+name: Author check
+
+# Fails loudly if any commit in a push to main carries an author or
+# committer email outside the allowlist below. Added after two separate
+# incidents of a session committing under the wrong identity
+# (whitworth@gmail.com -- a typo that GitHub attributed to a stranger's
+# account -- and later gregg@example.com, a placeholder GitHub can't link
+# to anyone), each of which needed a full-history rewrite to clean up.
+# This can't block a push to main (no branch protection), but it turns a
+# bad identity into a red X within minutes instead of a surprise days
+# later. It is deliberately its own workflow, not a step in deploy.yml:
+# a wrong email is worth shouting about, not worth holding a deploy for.
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  author-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check author/committer emails on pushed commits
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+          ALLOWED: |
+            whitwort@gmail.com
+            claude@anthropic.com
+            github-actions[bot]@users.noreply.github.com
+        run: |
+          set -euo pipefail
+          # A force-push or a brand-new branch leaves BEFORE unusable as a
+          # range start (all zeros, or no longer an ancestor of AFTER).
+          # Fall back to the last 50 commits in that case -- wide enough
+          # to cover any single session's work.
+          if [ "$BEFORE" = "0000000000000000000000000000000000000000" ] || ! git merge-base --is-ancestor "$BEFORE" "$AFTER" 2>/dev/null; then
+            RANGE="$AFTER~50..$AFTER"
+            git rev-parse "$AFTER~50" >/dev/null 2>&1 || RANGE="$AFTER"
+            echo "BEFORE unusable (force-push or new branch); checking $RANGE"
+          else
+            RANGE="$BEFORE..$AFTER"
+          fi
+
+          bad=0
+          while IFS=$'\t' read -r sha ae ce subject; do
+            for email in "$ae" "$ce"; do
+              if ! grep -qxF "$email" <<<"$ALLOWED"; then
+                echo "::error::$sha uses non-allowlisted email '$email' -- $subject"
+                bad=1
+              fi
+            done
+          done < <(git log --format='%H%x09%ae%x09%ce%x09%s' "$RANGE")
+
+          if [ "$bad" -ne 0 ]; then
+            echo "::error::One or more commits carry an author/committer email outside the allowlist. Fix with a targeted rebase (see HANDOFF.md) before it spreads."
+            exit 1
+          fi
+          echo "All commits in $RANGE use allowlisted emails."
