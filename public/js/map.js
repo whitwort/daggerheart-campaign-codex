@@ -980,16 +980,14 @@ function updateLegend(categoriesPresent) {
 }
 
 function attachPinsListener() {
-  attachListener('pinsUnsub', function () {
+  attachListener('pinsUnsub', function (onError) {
     return onSnapshot(collection(db, 'pins'), safeSnapshotHandler('pins', function (snapshot) {
       state.allPins = [];
       snapshot.forEach(function (docSnap) {
         state.allPins.push(Object.assign({ id: docSnap.id }, docSnap.data()));
       });
       renderPins();
-    }), function (err) {
-      console.error('pins listener error:', err.message);
-    });
+    }), onError);
   });
 }
 
@@ -1002,7 +1000,7 @@ function attachPinsListener() {
 // position from parentId, not from history).
 let lastKnownRootEntityId = null;
 function attachConfigListener() {
-  attachListener('configUnsub', function () {
+  attachListener('configUnsub', function (onError) {
     return onSnapshot(doc(db, 'config', 'campaign'), safeSnapshotHandler('config', function (docSnap) {
       const newRoot = docSnap.exists() ? (docSnap.data().rootEntityId || null) : null;
       const wasFollowingRoot = state.currentMapEntityId === lastKnownRootEntityId;
@@ -1027,9 +1025,7 @@ function attachConfigListener() {
       if (document.getElementById('map-panel').classList.contains('active')) {
         ensureMapTabReady();
       }
-    }), function (err) {
-      console.error('Config listener error:', err.message);
-    });
+    }), onError);
   });
 }
 

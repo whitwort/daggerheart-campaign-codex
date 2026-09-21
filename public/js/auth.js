@@ -255,7 +255,7 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
       loginGateSignedOutEl.style.display = 'none';
       loginGateUnlistedEl.style.display = 'block';
 
-      attachListener('playerDocUnsub', function () {
+      attachListener('playerDocUnsub', function (onError) {
         return onSnapshot(doc(db, 'players', user.email), safeSnapshotHandler('playerDoc', function (snap) {
           // activeCharacterId (Phase 14 schema): read here for free off the
           // listener that already exists for role resolution. Re-render on
@@ -288,13 +288,11 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
           if (roleChanged) updateAccessUI(newRole);
           if (newRole === 'player') stampPresenceNow();
           if (roleChanged || activeCharacterChanged) notifyVisibilityChange();
-        }), function (err) {
-          console.error('players doc listener failed:', err.message);
-        });
+        }), onError);
       });
 
       requestJoinBtn.disabled = true;
-      attachListener('joinRequestDocUnsub', function () {
+      attachListener('joinRequestDocUnsub', function (onError) {
         return onSnapshot(doc(db, 'joinRequests', user.email), safeSnapshotHandler('joinRequestDoc', function (snap) {
           if (snap.exists()) {
             requestJoinBtn.style.display = 'none';
@@ -304,9 +302,7 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
             requestJoinBtn.disabled = false;
             requestJoinStatusEl.style.display = 'none';
           }
-        }), function (err) {
-          console.error('joinRequest doc listener failed:', err.message);
-        });
+        }), onError);
       });
     });
 

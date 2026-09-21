@@ -51,7 +51,7 @@ const newBtn = document.getElementById('encounters-new-btn');
 // --- the GM branch, per listeners.js invariant 1) ----------------------
 
 function attachEncountersListener() {
-  attachListener('encountersUnsub', function () {
+  attachListener('encountersUnsub', function (onError) {
     return onSnapshot(collection(db, 'encounters'), safeSnapshotHandler('encounters', function (snapshot) {
       state.allEncounters = [];
       snapshot.forEach(function (docSnap) {
@@ -59,9 +59,7 @@ function attachEncountersListener() {
       });
       renderEncountersTab();
       refreshOpenEncounterNameDisplays();
-    }), function (err) {
-      console.error('encounters listener failed:', err.message);
-    });
+    }), onError);
   });
 }
 

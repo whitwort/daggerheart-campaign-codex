@@ -330,64 +330,64 @@ function attachMessagesListeners() {
   if (!email || (role !== 'gm' && role !== 'player')) return;
 
   if (role === 'gm') {
-    attachListener('threadsUnsub', function () {
+    attachListener('threadsUnsub', function (onError) {
       return onSnapshot(collection(db, 'threads'),
         safeSnapshotHandler('threads', function (snap) {
           state.allThreads = collectSnapshot(snap);
           onMessagesData();
         }),
-        function (err) { console.error('threads listener failed:', err.message); });
+        onError);
     });
-    attachListener('notificationsUnsub', function () {
+    attachListener('notificationsUnsub', function (onError) {
       return onSnapshot(collection(db, 'notifications'),
         safeSnapshotHandler('notifications', function (snap) {
           state.allNotifications = collectSnapshot(snap);
           onMessagesData();
           renderAdminNotificationsCard();
         }),
-        function (err) { console.error('notifications listener failed:', err.message); });
+        onError);
     });
   } else {
-    attachListener('threadsUnsub', function () {
+    attachListener('threadsUnsub', function (onError) {
       return onSnapshot(doc(db, 'threads', email),
         safeSnapshotHandler('threads', function (snap) {
           state.allThreads = snap.exists() ? [Object.assign({ id: snap.id }, snap.data())] : [];
           onMessagesData();
         }),
-        function (err) { console.error('thread doc listener failed:', err.message); });
+        onError);
     });
-    attachListener('notificationsUnsub', function () {
+    attachListener('notificationsUnsub', function (onError) {
       return onSnapshot(query(collection(db, 'notifications'), where('recipientEmail', '==', email)),
         safeSnapshotHandler('notifications', function (snap) {
           state.allNotifications = collectSnapshot(snap);
           onMessagesData();
         }),
-        function (err) { console.error('notifications listener failed:', err.message); });
+        onError);
     });
     // GM's threadsUnsub above already covers the party doc (it's a full-
     // collection query); a player's threadsUnsub is scoped to their own
     // 1:1 doc only, so the party doc needs its own listener here.
-    attachListener('partyThreadUnsub', function () {
+    attachListener('partyThreadUnsub', function (onError) {
       return onSnapshot(doc(db, 'threads', 'party'),
         safeSnapshotHandler('partyThread', function (snap) {
           upsertPartyThread(snap.exists() ? snap.data() : null);
           onMessagesData();
         }),
-        function (err) { console.error('party thread listener failed:', err.message); });
+        onError);
     });
   }
 
   // Own party read-stamp (both roles) -- see isValidPartyThread's comment
   // in firestore.rules for why this lives in a per-reader subcollection
   // doc rather than a field on the thread doc itself.
-  attachListener('partyReadStateUnsub', function () {
+  attachListener('partyReadStateUnsub', function (onError) {
     return onSnapshot(doc(db, 'threads', 'party', 'readState', email),
       safeSnapshotHandler('partyReadState', function (snap) {
         state.partyLastReadAt = snap.exists() ? snap.data().lastReadAt : null;
         partyReadStateLoaded = true;
         onMessagesData();
       }),
-      function (err) { console.error('party read-state listener failed:', err.message); });
+      onError);
   });
 }
 
@@ -432,7 +432,7 @@ function ensureThreadMessagesListener(key) {
   detachListener('threadMessagesUnsub');
   state.threadMessages = [];
   state.openThreadKey = key;
-  attachListener('threadMessagesUnsub', function () {
+  attachListener('threadMessagesUnsub', function (onError) {
     return onSnapshot(collection(db, 'threads', key, 'messages'),
       safeSnapshotHandler('threadMessages', function (snap) {
         const arr = collectSnapshot(snap);
@@ -447,7 +447,7 @@ function ensureThreadMessagesListener(key) {
         if (state.trayExpanded && state.trayTab === key) markThreadRead(key);
         renderMessagesTray();
       }),
-      function (err) { console.error('thread messages listener failed:', err.message); });
+      onError);
   });
 }
 

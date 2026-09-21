@@ -14,16 +14,14 @@ const db = getFirestore(firebaseApp);
 // sourceId pointing here — see codex.js/images.js for the per-entry
 // dropdown and lower-left label rendering.
 function attachSourcesListener() {
-  attachListener('sourcesUnsub', function () {
+  attachListener('sourcesUnsub', function (onError) {
     return onSnapshot(collection(db, 'sources'), safeSnapshotHandler('sources', function (snapshot) {
       state.allSources = [];
       snapshot.forEach(function (docSnap) {
         state.allSources.push(Object.assign({ id: docSnap.id }, docSnap.data()));
       });
       notifySourcesChange();
-    }), function (err) {
-      console.error('sources listener failed:', err.message);
-    });
+    }), onError);
   });
 }
 function detachSourcesListener() {

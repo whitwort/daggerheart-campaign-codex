@@ -223,7 +223,7 @@ function categoryPinClassLocal(category) {
 // is true — Firestore permanently kills a listener on permission-denied
 // and never retries. Callers (auth.js) own that gating.
 function attachCodexListeners() {
-  attachListener('entitiesUnsub', function () {
+  attachListener('entitiesUnsub', function (onError) {
     return onSnapshot(collection(db, 'entities'), safeSnapshotHandler('entities', function (snapshot) {
       state.allEntities = [];
       snapshot.forEach(function (docSnap) {
@@ -240,10 +240,11 @@ function attachCodexListeners() {
       const p = document.createElement('p');
       p.textContent = 'Error loading entities: ' + err.message;
       listEl.appendChild(p);
+      onError(err); // resubscribe with backoff (listeners.js) -- the message above is the interim state
     });
   });
 
-  attachListener('loreItemsUnsub', function () {
+  attachListener('loreItemsUnsub', function (onError) {
     return onSnapshot(collection(db, 'loreItems'), safeSnapshotHandler('loreItems', function (snapshot) {
       state.allLoreItems = [];
       snapshot.forEach(function (docSnap) {
@@ -259,6 +260,7 @@ function attachCodexListeners() {
       const p = document.createElement('p');
       p.textContent = 'Error loading lore: ' + err.message;
       detailEl.appendChild(p);
+      onError(err); // resubscribe with backoff (listeners.js)
     });
   });
 
@@ -273,7 +275,7 @@ function attachCodexListeners() {
   // change. Acceptable while secret images stay a handful; if that
   // grows, replace this with a hasSecretImages mirror flag written on
   // the entity doc at share time (sharing.js is already the write seam).
-  attachListener('characterImagesUnsub', function () {
+  attachListener('characterImagesUnsub', function (onError) {
     return onSnapshot(
       query(collection(db, 'images'), where('visibility', '==', 'character')),
       safeSnapshotHandler('characterImages', function (snapshot) {
@@ -284,9 +286,7 @@ function attachCodexListeners() {
           state.allCharacterImages.push(Object.assign({ id: docSnap.id }, d));
         });
         renderList();
-      }), function (err) {
-        console.error('character images listener error:', err.message);
-      });
+      }), onError);
   });
 }
 

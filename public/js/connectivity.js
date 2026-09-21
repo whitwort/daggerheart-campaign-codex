@@ -68,7 +68,7 @@ window.addEventListener('online', function () { deviceOnline = true; update(); }
 window.addEventListener('offline', function () { deviceOnline = false; update(); });
 
 function attachConnectivityListener() {
-  attachListener('connectivityUnsub', function () {
+  attachListener('connectivityUnsub', function (onError) {
     return onSnapshot(doc(db, '_meta', 'version'), { includeMetadataChanges: true },
       safeSnapshotHandler('connectivity', function (snapshot) {
         firestoreFromCache = snapshot.metadata.fromCache;

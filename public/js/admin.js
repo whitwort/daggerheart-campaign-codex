@@ -209,19 +209,17 @@ const adminSourceErrorEl = document.getElementById('admin-source-error');
     // Players.
 
     function attachAdminListeners() {
-      attachListener('joinRequestsUnsub', function () {
+      attachListener('joinRequestsUnsub', function (onError) {
         return onSnapshot(collection(db, 'joinRequests'), safeSnapshotHandler('joinRequests', function (snapshot) {
           state.allJoinRequests = [];
           snapshot.forEach(function (docSnap) {
             state.allJoinRequests.push(Object.assign({ id: docSnap.id }, docSnap.data()));
           });
           renderAdminJoinRequests();
-        }), function (err) {
-          console.error('joinRequests listener failed:', err.message);
-        });
+        }), onError);
       });
 
-      attachListener('playersUnsub', function () {
+      attachListener('playersUnsub', function (onError) {
         return onSnapshot(collection(db, 'players'), safeSnapshotHandler('players', function (snapshot) {
           state.allPlayers = [];
           snapshot.forEach(function (docSnap) {
@@ -229,9 +227,7 @@ const adminSourceErrorEl = document.getElementById('admin-source-error');
           });
           renderAdminPlayersList();
           renderCharactersTab();  // GM flipper groups PCs by player displayName -- needs a re-render on any players change too, not just entities/role (Phase 14 S5)
-        }), function (err) {
-          console.error('players listener failed:', err.message);
-        });
+        }), onError);
       });
 
       // Presence (Aug 2026): split from players/ so presence.js's
@@ -240,23 +236,21 @@ const adminSourceErrorEl = document.getElementById('admin-source-error');
       // same class of bug as the entity-edit-form-loses-focus fix, just
       // on the GM side. Status column only; deliberately doesn't touch
       // renderCharactersTab().
-      attachListener('presenceUnsub', function () {
+      attachListener('presenceUnsub', function (onError) {
         return onSnapshot(collection(db, 'presence'), safeSnapshotHandler('presence', function (snapshot) {
           state.allPresence = [];
           snapshot.forEach(function (docSnap) {
             state.allPresence.push(Object.assign({ id: docSnap.id }, docSnap.data()));
           });
           renderAdminPlayersList();
-        }), function (err) {
-          console.error('presence listener failed:', err.message);
-        });
+        }), onError);
       });
 
       // Character transfer requests (Phase 14 §3.5/§6.5/§8 D8, S5): GM's
       // full collection, consolidated with joinRequests into one Requests
       // section per Gregg's placement call (extend the existing Admin tab
       // section + nav badge, not a separate nav element).
-      attachListener('transferRequestsUnsub', function () {
+      attachListener('transferRequestsUnsub', function (onError) {
         return onSnapshot(collection(db, 'transferRequests'), safeSnapshotHandler('transferRequests', function (snapshot) {
           state.allTransferRequests = [];
           snapshot.forEach(function (docSnap) {
@@ -264,9 +258,7 @@ const adminSourceErrorEl = document.getElementById('admin-source-error');
           });
           renderAdminJoinRequests();
           renderCharactersTab();  // Characters tab GM view duplicates the pending-claims notification (Phase 14 S8) -- needs its own re-render on every transferRequests change, not just Admin's queue
-        }), function (err) {
-          console.error('transferRequests listener failed:', err.message);
-        });
+        }), onError);
       });
     }
 

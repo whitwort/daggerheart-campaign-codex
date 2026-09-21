@@ -38,16 +38,14 @@ const tabsEl = document.getElementById('stables-drops-tabs');
 // --- the GM branch, per listeners.js invariant 1) ----------------------
 
 function attachStablesListener() {
-  attachListener('loreDropsUnsub', function () {
+  attachListener('loreDropsUnsub', function (onError) {
     return onSnapshot(collection(db, 'loreDrops'), safeSnapshotHandler('loreDrops', function (snapshot) {
       state.allLoreDrops = [];
       snapshot.forEach(function (docSnap) {
         state.allLoreDrops.push(Object.assign({ id: docSnap.id }, docSnap.data()));
       });
       renderStablesTab();
-    }), function (err) {
-      console.error('loreDrops listener failed:', err.message);
-    });
+    }), onError);
   });
 }
 

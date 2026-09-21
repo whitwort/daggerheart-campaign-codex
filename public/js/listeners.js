@@ -17,15 +17,62 @@ import { state } from './state.js';
 // race guard (state.loadingMapId) and cache-vs-live rendering logic, and
 // hiding that behind the generic helper would obscure it.
 
-// subscribe: a zero-arg function returning an unsubscribe function
-// (i.e. wrap the onSnapshot(...) call). Not called at all if a listener
-// is already attached under this key.
+// subscribe(onError): returns an unsubscribe function (i.e. wrap the
+// onSnapshot(...) call), passing `onError` as onSnapshot's error
+// callback. Not called at all if a listener is already attached under
+// this key.
+//
+// onError (Sep 2026 -- Gregg's "Delete stopped working / lore edits
+// discarded, but a reload shows both actually happened"): Firestore
+// cancels a listener for good the moment its error callback fires --
+// any stream error, not just permission-denied; a token-refresh hiccup
+// after an iPad has slept is enough. Every call site used to just
+// console.error there, so `state[key]` kept a truthy reference to a
+// dead subscription and this helper's idempotency guard then refused
+// to ever re-attach it: writes kept succeeding (they fetch a fresh
+// token on demand) while the UI silently stopped reflecting them for
+// the rest of the session. onError nulls the guard and resubscribes
+// with capped exponential backoff (1s, 2s, ... 30s); detachListener
+// cancels any pending retry so a logged-out/role-changed session can't
+// resurrect a listener it no longer has rights to (invariant 1 above
+// still holds: the retry re-runs the caller's own subscribe, under the
+// same role gating the original attach ran under).
+const retryTimers = {};
+const retryCounts = {};
+
+function clearRetry(stateKey) {
+  if (retryTimers[stateKey]) {
+    clearTimeout(retryTimers[stateKey]);
+    retryTimers[stateKey] = null;
+  }
+}
+
 function attachListener(stateKey, subscribe) {
   if (state[stateKey]) return;
-  state[stateKey] = subscribe();
+  clearRetry(stateKey);
+  function onError(err) {
+    const code = err && err.code ? ' (' + err.code + ')' : '';
+    console.error('[' + stateKey + '] listener error' + code + ':', err && err.message ? err.message : err);
+    if (window.__showDebugBanner) {
+      window.__showDebugBanner('[' + stateKey + '] listener error' + code + ': ' +
+        (err && err.message ? err.message : err) + ' -- resubscribing');
+    }
+    state[stateKey] = null;                       // the SDK already cancelled it
+    const n = (retryCounts[stateKey] || 0) + 1;
+    retryCounts[stateKey] = n;
+    const delayMs = Math.min(30000, 1000 * Math.pow(2, n - 1));
+    clearRetry(stateKey);
+    retryTimers[stateKey] = setTimeout(function () {
+      retryTimers[stateKey] = null;
+      attachListener(stateKey, subscribe);
+    }, delayMs);
+  }
+  state[stateKey] = subscribe(onError);
 }
 
 function detachListener(stateKey) {
+  clearRetry(stateKey);
+  retryCounts[stateKey] = 0;
   if (state[stateKey]) {
     state[stateKey]();
     state[stateKey] = null;

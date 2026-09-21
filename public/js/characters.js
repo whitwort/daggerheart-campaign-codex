@@ -165,7 +165,7 @@ const charactersPendingClaimsEl = document.getElementById('characters-pending-cl
 function attachCharacterTransferListeners() {
   const email = state.currentUser && state.currentUser.email;
   if (!email) return;
-  attachListener('myTransferRequestsUnsub', function () {
+  attachListener('myTransferRequestsUnsub', function (onError) {
     return onSnapshot(
       query(collection(db, 'transferRequests'), where('toEmail', '==', email)),
       safeSnapshotHandler('myTransferRequests', function (snapshot) {
@@ -175,7 +175,7 @@ function attachCharacterTransferListeners() {
         });
         renderCharactersTab();
       }),
-      function (err) { console.error('myTransferRequests listener failed:', err.message); }
+      onError
     );
   });
 }

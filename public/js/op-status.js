@@ -111,7 +111,7 @@ function hideDialog() {
 }
 
 function attachOpStatusListener() {
-  attachListener('opStatusUnsub', function () {
+  attachListener('opStatusUnsub', function (onError) {
     return onSnapshot(opStatusRef, safeSnapshotHandler('opStatus', function (snap) {
       const data = snap.data();
       if (!data || !data.active) { hideDialog(); return; }

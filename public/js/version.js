@@ -149,7 +149,7 @@ function handleRemoteHash(remoteHash) {
 }
 
 function attachVersionListener() {
-  attachListener('versionUnsub', function () {
+  attachListener('versionUnsub', function (onError) {
     return onSnapshot(doc(db, '_meta', 'version'),
       safeSnapshotHandler('version', function (snapshot) {
         const data = snapshot.data();

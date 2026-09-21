@@ -18,6 +18,7 @@
 // comment).
 
 import { getFirestore, collection, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { safeSnapshotHandler } from './listeners.js';
 import { firebaseApp } from './firebase.js';
 
 const db = getFirestore(firebaseApp);
@@ -38,14 +39,22 @@ function createEntityImagesCache(onChange) {
     if (!entityId) { onChange(images); return; }
     unsub = onSnapshot(
       query(collection(db, 'images'), where('ownerId', '==', entityId)),
-      function (snapshot) {
+      // safeSnapshotHandler (Sep 2026): this was the ONE onSnapshot
+      // observer in the app not wrapped. Per listeners.js's doctrine, an
+      // uncaught throw inside an observer -- here, onChange() rendering a
+      // Map/Timeline portrait card -- wedges the whole SDK client: every
+      // listener stops delivering while writes still succeed, and only a
+      // reload recovers. That is exactly the "Delete / lore edits appear
+      // to do nothing until I reload" report; this module just predates
+      // the helper's adoption everywhere else.
+      safeSnapshotHandler('entityImagesCache', function (snapshot) {
         if (targetId !== entityId) return; // stale snapshot after retarget
         images = [];
         snapshot.forEach(function (docSnap) {
           images.push(Object.assign({ id: docSnap.id }, docSnap.data()));
         });
         onChange(images);
-      },
+      }),
       function (err) {
         // Without this, a transient listener error (network blip, or a
         // retarget racing an in-flight snapshot callback -- more exposed
