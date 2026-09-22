@@ -419,7 +419,33 @@ function shareImageVisibility(imageDocId, patch) {
 // runDrop/computeDropRecipients). Deliberately targets players only --
 // the GM is always the actor for a Run-tab transition, so (unlike
 // appendShareNotifications) there's no GM-recipient branch.
-function notifyEncounterReveal(loreItem, phase, payload) {
+//
+// Two shapes, chosen by encounters.js per §"entry-linked vs standalone"
+// (Sep 2026 notification redesign):
+//   - notifyEncounterReveal: the encounter has a Meta-Encounter lore item
+//     linking it to a real entry (e.g. a Scene). The notification just
+//     points at that entry -- adversaries/loot are already written into
+//     the entry's own markdown (buildEncounterPhaseSection), so the
+//     digest card would only be duplicating them. Fires on EVERY start/
+//     completion, even with both reveal toggles off -- the entry itself
+//     going live (Start's visibility flip, or completion just being new
+//     information) is real news on its own; the toggles only control
+//     what content lands in the entry's markdown, not whether the entry
+//     transition itself is worth telling players about.
+//   - notifyEncounterStandalone: no linked entry exists at all. There's
+//     nothing to point players at, so this is the one place adversaries/
+//     loot are still reported directly in the notification -- and since
+//     that's the ONLY news in this shape, it only fires when there's
+//     actually something to report (same "nothing to say -> no
+//     notification" stance the entry-linked path used to have entirely).
+//     Recipients are the whole party (playersUniverse) since there's no
+//     parent entity to gate visibility on.
+// Both carry encId (and encName, for the digest card header/line) so a
+// Reset can find and delete its own stale notification docs (see
+// encounters.js clearEncounterRevealEffects) and so two encounters
+// sharing one entry, or a standalone encounter's own card, stay
+// distinguishable in the digest.
+function notifyEncounterReveal(loreItem, phase, payload, enc) {
   try {
     const universe = playersUniverse();
     const parentEntity = state.allEntities.find(function (e) { return e.id === loreItem.entityId; });
@@ -435,6 +461,8 @@ function notifyEncounterReveal(loreItem, phase, payload) {
         kind: 'encounter-reveal',
         entityId: loreItem.entityId,
         loreItemId: loreItem.id,
+        encId: enc.id,
+        encName: enc.name || '(unnamed encounter)',
         phase: phase,
         adversaries: payload.adversaries,
         loot: payload.loot,
@@ -450,11 +478,40 @@ function notifyEncounterReveal(loreItem, phase, payload) {
   }
 }
 
+function notifyEncounterStandalone(enc, phase, payload) {
+  try {
+    if (!payload.adversaries.length && !payload.loot.length) return Promise.resolve();
+    const universe = playersUniverse();
+    const batch = writeBatch(db);
+    universe.forEach(function (email) {
+      batch.set(doc(collection(db, 'notifications')), {
+        recipientEmail: email,
+        kind: 'encounter-reveal',
+        entityId: null,
+        loreItemId: null,
+        encId: enc.id,
+        encName: enc.name || '(unnamed encounter)',
+        phase: phase,
+        adversaries: payload.adversaries,
+        loot: payload.loot,
+        actorCharacterId: null,
+        createdAt: serverTimestamp(),
+        seenAt: null
+      });
+    });
+    return universe.length ? batch.commit() : Promise.resolve();
+  } catch (err) {
+    console.error('encounter standalone notify failed:', err);
+    return Promise.resolve();
+  }
+}
+
 // playersUniverse/exposedEmailSet/recipientCtxFor exported for
 // stables.js's Run-time
 // consolidated 'lore-drop' notification computation (Phase 17 B4) — the
 // same before/after set diff this module uses for per-share fan-out.
 export {
   shareEntityVisibility, shareLoreItemVisibility, shareImageVisibility, createLoreItemShared,
-  playersUniverse, exposedEmailSet, recipientCtxFor, notifyCharacterEdited, notifyEncounterReveal
+  playersUniverse, exposedEmailSet, recipientCtxFor, notifyCharacterEdited,
+  notifyEncounterReveal, notifyEncounterStandalone
 };

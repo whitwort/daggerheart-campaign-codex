@@ -37,7 +37,7 @@ import { buildPickerPanel } from './picker-panel.js';
 import { switchToCodexTabForEntity, entityMatchesQuery, resolveEntityStatBlockMarkdown } from './codex.js';
 import { viewerContext } from './visibility.js';
 import { renderMarkdownInto } from './markdown.js';
-import { notifyEncounterReveal } from './sharing.js';
+import { notifyEncounterReveal, notifyEncounterStandalone } from './sharing.js';
 import { registerRoute, navigateTo } from './router.js';
 
 const db = getFirestore(firebaseApp);
@@ -777,12 +777,12 @@ function buildEncounterPhaseSection(enc, phase) {
 }
 
 // Structured reveal data for the NOTIFICATION (separate from the
-// markdown block above -- the digest renders real per-item links, not
-// prose, so it needs {id, name, count} not a formatted string). Empty
-// arrays when the phase's toggles are off -- applyEncounterRevealEffects
-// below skips firing a notification entirely in that case (Sep 2026
-// cleanup: no more generic "Encounter X has begun/concluded" filler
-// when there's nothing actually new to show).
+// markdown block above -- the standalone-notification digest card
+// renders real per-item links, not prose, so it needs {id, name, count}
+// not a formatted string). Empty arrays when the phase's toggles are
+// off. Entry-linked encounters notify regardless (see
+// applyEncounterRevealEffects); only the standalone path (no linked
+// entry) still gates its notification on this being non-empty.
 function buildEncounterRevealPayload(enc, phase) {
   const timing = enc.revealAdversariesTiming || 'off';
   const adversaries = (timing === phase) ? groupedCounts(enc.instances) : [];
@@ -792,20 +792,33 @@ function buildEncounterRevealPayload(enc, phase) {
 
 // Writes into every Meta-Encounter lore item linked to this encounter,
 // flips visibility to Party on the 'start' phase only (completion leaves
-// it alone -- already Party by then), and fires the reveal notification
-// -- but only when there's actual adversary/loot content to report;
-// nothing to say means no notification at all. `enc` is the
-// PRE-transition snapshot (runStatus write happens in a separate
-// updateEncounter call around this one) -- phase drives the branch, not
-// enc.runStatus, since that field may not reflect the new state yet at
-// call time.
+// it alone -- already Party by then), and fires the reveal notification.
+// `enc` is the PRE-transition snapshot (runStatus write happens in a
+// separate updateEncounter call around this one) -- phase drives the
+// branch, not enc.runStatus, since that field may not reflect the new
+// state yet at call time.
+//
+// Sep 2026 notification redesign: entry-linked (a Meta-Encounter lore
+// item exists) vs standalone (none) are now genuinely different shapes,
+// not just a content gate -- see sharing.js's notifyEncounterReveal/
+// notifyEncounterStandalone header comment. Entry-linked always
+// notifies on start/completion (the entry going live -- or, on
+// completion, simply being over -- is news on its own, even with both
+// reveal toggles off; this replaces the old "nothing revealed -> no
+// notification at all" blanket rule, which left Start silently
+// invisible whenever a GM ran an encounter with reveals off). Standalone
+// still gates on content, since a bare "an encounter happened" ping with
+// nothing to point at or list would just be noise.
 function applyEncounterRevealEffects(enc, phase) {
   const items = state.allLoreItems.filter(function (it) {
     return it.meta === 'meta-encounter' && it.encounterId === enc.id;
   });
-  if (!items.length) return;
-  const section = buildEncounterPhaseSection(enc, phase);
   const payload = buildEncounterRevealPayload(enc, phase);
+  if (!items.length) {
+    notifyEncounterStandalone(enc, phase, payload);
+    return;
+  }
+  const section = buildEncounterPhaseSection(enc, phase);
   const header = 'Encounter: ' + (enc.name || '(unnamed)');
   const batch = writeBatch(db);
   const merged = [];
@@ -819,24 +832,31 @@ function applyEncounterRevealEffects(enc, phase) {
     merged.push(Object.assign({}, it, patch));
   });
   trackWrite(batch.commit(), 'Updating encounter lore').then(function () {
-    if (!payload.adversaries.length && !payload.loot.length) return;
-    merged.forEach(function (it) { notifyEncounterReveal(it, phase, payload); });
+    merged.forEach(function (it) { notifyEncounterReveal(it, phase, payload, enc); });
   });
 }
 
 // Reset (back to pristine) un-reveals with no special-casing needed on
-// the read side -- just wipe the written block back to empty. No
-// notification: un-revealing isn't new info.
+// the read side -- just wipe the written block back to empty. Also
+// drops this encounter's own reveal notification docs (Sep 2026): they
+// point at a start/completion that no longer happened, and without this
+// a Start -> Reset -> Start cycle left the earlier "has begun"/adversary
+// list sitting in players' digests alongside the fresh one, with no way
+// to tell which was current.
 function clearEncounterRevealEffects(enc) {
   const items = state.allLoreItems.filter(function (it) {
     return it.meta === 'meta-encounter' && it.encounterId === enc.id;
   });
-  if (!items.length) return;
+  const stale = state.allNotifications.filter(function (n) {
+    return n.kind === 'encounter-reveal' && n.encId === enc.id;
+  });
+  if (!items.length && !stale.length) return;
   const batch = writeBatch(db);
   items.forEach(function (it) {
     if (!it.encounterRevealMd) return;
     batch.update(doc(db, 'loreItems', it.id), { encounterRevealMd: '', updatedAt: serverTimestamp() });
   });
+  stale.forEach(function (n) { batch.delete(doc(db, 'notifications', n.id)); });
   trackWrite(batch.commit(), 'Clearing encounter lore');
 }
 

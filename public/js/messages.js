@@ -570,6 +570,65 @@ function maybeAutoExpand() {
 
 // --- Campaign digest --------------------------------------------------------
 
+// Encounter-reveal rendering helpers (Sep 2026 redesign), shared by both
+// digest shapes: the standalone card (no linked entry -- lists
+// adversaries/loot directly, the one place this notification kind still
+// does that) and, for the entry-linked line below, nothing -- that path
+// only needs encounterRevealLine.
+//
+// revealItem gate: unlike the parent entity (already filtered into its
+// group before this runs), an individual adversary/loot entity's own
+// visibility was never guaranteed flipped by the reveal -- a hidden one
+// renders as plain text, same "stays plain text, don't leak existence
+// via a link" stance as applyWikiLinks.
+function encounterRevealItemNode(item, ctx) {
+  const entity = state.allEntities.find(function (e) { return e.id === item.id; });
+  const label = item.name + (item.count > 1 ? ' x' + item.count : '');
+  if (entity && canSee(entity, ctx)) {
+    const span = document.createElement('span');
+    span.className = 'digest-entity';
+    span.textContent = label;
+    span.addEventListener('click', function () { switchToCodexTabForEntity(item.id); });
+    return span;
+  }
+  return document.createTextNode(label);
+}
+function appendEncounterRevealList(card, ctx, label, items) {
+  if (!items || !items.length) return;
+  const heading = document.createElement('div');
+  heading.className = 'digest-line';
+  heading.textContent = label;
+  card.appendChild(heading);
+  const ul = document.createElement('ul');
+  ul.className = 'digest-reveal-list';
+  items.forEach(function (item) {
+    const li = document.createElement('li');
+    li.appendChild(encounterRevealItemNode(item, ctx));
+    ul.appendChild(li);
+  });
+  card.appendChild(ul);
+}
+// Entry-linked reveal line: "Encounter <name> has begun/concluded at
+// <entry link>." Tense follows the transition itself (begun = Start,
+// concluded = Completion) -- not the adversary/loot reveal toggles,
+// which only govern what's written into the entry's own markdown, not
+// whether the transition happened.
+function encounterRevealLine(n, linkNode) {
+  const line = document.createElement('div');
+  line.className = 'digest-line';
+  line.appendChild(document.createTextNode('Encounter '));
+  if (n.encName) {
+    const em = document.createElement('em');
+    em.textContent = n.encName;
+    line.appendChild(em);
+    line.appendChild(document.createTextNode(' '));
+  }
+  line.appendChild(document.createTextNode((n.phase === 'start' ? 'has begun' : 'has concluded') + ' at '));
+  line.appendChild(linkNode);
+  line.appendChild(document.createTextNode('.'));
+  return line;
+}
+
 // Player digest: own notifications grouped per entity (the presentational
 // dedupe from §6.7 -- GM toggle-flapping produces many docs, one group).
 // The entity gate is render-time canSee: a notification about an entity
@@ -580,11 +639,27 @@ function buildPlayerDigest(container) {
   // docs (dropName + entityIds, no single entityId) -- each is its own
   // card, merged with the per-entity groups by recency below.
   const dropNotifs = state.allNotifications.filter(function (n) { return n.kind === 'lore-drop'; });
+  // Sep 2026: standalone encounter-reveal docs (no linked entry --
+  // entityId: null, see sharing.js notifyEncounterStandalone) have
+  // nothing to group by entity either -- own card per encounter (encId),
+  // same treatment as lore-drop.
+  const standaloneEncNotifs = state.allNotifications.filter(function (n) {
+    return n.kind === 'encounter-reveal' && !n.entityId;
+  });
   const groups = {};
   state.allNotifications.forEach(function (n) {
     if (n.kind === 'lore-drop') return;
+    if (n.kind === 'encounter-reveal' && !n.entityId) return;
     if (!groups[n.entityId]) groups[n.entityId] = { entityId: n.entityId, items: [], newestMs: 0 };
     const g = groups[n.entityId];
+    g.items.push(n);
+    const ms = tsMs(n.createdAt);
+    if (ms != null && ms > g.newestMs) g.newestMs = ms;
+  });
+  const encGroups = {};
+  standaloneEncNotifs.forEach(function (n) {
+    if (!encGroups[n.encId]) encGroups[n.encId] = { encId: n.encId, encName: n.encName, items: [], newestMs: 0 };
+    const g = encGroups[n.encId];
     g.items.push(n);
     const ms = tsMs(n.createdAt);
     if (ms != null && ms > g.newestMs) g.newestMs = ms;
@@ -598,6 +673,11 @@ function buildPlayerDigest(container) {
     .map(function (g) { g.cardKind = 'entity'; return g; })
     .concat(dropNotifs.map(function (n) {
       return { cardKind: 'lore-drop', drop: n, items: [n], newestMs: tsMs(n.createdAt) || 0 };
+    }))
+    .concat(Object.keys(encGroups).map(function (k) {
+      const g = encGroups[k];
+      g.cardKind = 'encounter-standalone';
+      return g;
     }))
     .sort(function (a, b) { return b.newestMs - a.newestMs; })
     .slice(0, 30);
@@ -654,6 +734,34 @@ function buildPlayerDigest(container) {
       return;
     }
 
+    // Sep 2026: standalone encounter-reveal card (no linked entry -- see
+    // sharing.js notifyEncounterStandalone). This is the one place
+    // adversaries/loot are still listed directly in a notification,
+    // since there's no entry to point at instead. Tense follows the
+    // encounter's actual state, same mapping as the entry-linked lines
+    // below: 'You see' (revealed at Start, not yet fought), 'You fought'
+    // (revealed at Completion), 'You found' (loot, Completion only).
+    if (g.cardKind === 'encounter-standalone') {
+      const heading = document.createElement('div');
+      heading.className = 'digest-line';
+      heading.appendChild(document.createTextNode('Encounter: '));
+      const nameEm = document.createElement('em');
+      nameEm.textContent = g.encName || '(unnamed encounter)';
+      heading.appendChild(nameEm);
+      card.appendChild(heading);
+      g.items.slice().sort(function (a, b) { return tsMs(a.createdAt) - tsMs(b.createdAt); })
+        .forEach(function (n) {
+          appendEncounterRevealList(card, ctx, n.phase === 'start' ? 'You see:' : 'You fought:', n.adversaries);
+          appendEncounterRevealList(card, ctx, 'You found:', n.loot);
+        });
+      const encMeta = document.createElement('div');
+      encMeta.className = 'digest-meta';
+      encMeta.textContent = formatRelative(g.newestMs);
+      card.appendChild(encMeta);
+      container.appendChild(card);
+      return;
+    }
+
     function entityLink() {
       const a = document.createElement('span');
       a.className = 'digest-entity';
@@ -687,48 +795,18 @@ function buildPlayerDigest(container) {
       line.appendChild(document.createTextNode('.'));
       card.appendChild(line);
     }
-    // Sep 2026 (encounter<->Codex integration): one block per reveal, not
-    // deduped like discovered/learned above -- a Start reveal and a
-    // Completion reveal on the same entity are two genuinely different
-    // pieces of news (what you see vs. what you found/fought). No
-    // parent-entity link prefix here (Gregg's call) -- just the phase
-    // label followed by a real list, each item its own link to ITS OWN
-    // entity (not the parent Scene). Gated per-item on canSee since,
-    // unlike the parent entity (already filtered into this group), an
-    // individual adversary/loot entity's own visibility was never
-    // guaranteed flipped by the reveal -- a hidden one renders as plain
-    // text, same "stays plain text, don't leak existence via a link"
-    // stance as applyWikiLinks.
-    function revealItemNode(item) {
-      const entity = state.allEntities.find(function (e) { return e.id === item.id; });
-      const label = item.name + (item.count > 1 ? ' x' + item.count : '');
-      if (entity && canSee(entity, ctx)) {
-        const span = document.createElement('span');
-        span.className = 'digest-entity';
-        span.textContent = label;
-        span.addEventListener('click', function () { switchToCodexTabForEntity(item.id); });
-        return span;
-      }
-      return document.createTextNode(label);
-    }
-    function appendRevealList(label, items) {
-      if (!items || !items.length) return;
-      const heading = document.createElement('div');
-      heading.className = 'digest-line';
-      heading.textContent = label;
-      card.appendChild(heading);
-      const ul = document.createElement('ul');
-      ul.className = 'digest-reveal-list';
-      items.forEach(function (item) {
-        const li = document.createElement('li');
-        li.appendChild(revealItemNode(item));
-        ul.appendChild(li);
-      });
-      card.appendChild(ul);
-    }
+    // Sep 2026 notification redesign: entry-linked reveals now just
+    // point at the entry -- the adversary/loot content is already
+    // written into the entry's own markdown (encounters.js
+    // buildEncounterPhaseSection), so listing it again here would be
+    // pure duplication of what the entity link leads to. One line per
+    // reveal, not deduped like discovered/learned above -- a Start
+    // reveal and a Completion reveal on the same entity are two
+    // genuinely different pieces of news ("has begun" vs "has
+    // concluded"). Tense/verb matches the transition, not the reveal
+    // toggles (see encounterRevealLine).
     encounterReveals.forEach(function (n) {
-      appendRevealList(n.phase === 'start' ? 'You see:' : 'You fought:', n.adversaries);
-      appendRevealList('You found:', n.loot);
+      card.appendChild(encounterRevealLine(n, entityLink()));
     });
     Object.keys(sharedActors).forEach(function (charId) {
       const line = document.createElement('div');
@@ -763,7 +841,16 @@ function buildGmDigest(container) {
   // per-entity grouping.
   const dropNotifs = state.allNotifications.filter(function (n) { return n.kind === 'lore-drop'; })
     .sort(function (a, b) { return tsMs(b.createdAt) - tsMs(a.createdAt); });
-  const entityNotifications = state.allNotifications.filter(function (n) { return n.kind !== 'joinRequest' && n.kind !== 'lore-drop'; });
+  // Sep 2026: standalone encounter-reveal docs (no linked entry, entityId
+  // null -- sharing.js notifyEncounterStandalone) have no entity to group
+  // under either -- summarized as their own cards below, same treatment
+  // as lore-drop.
+  const standaloneEncNotifs = state.allNotifications.filter(function (n) {
+    return n.kind === 'encounter-reveal' && !n.entityId;
+  });
+  const entityNotifications = state.allNotifications.filter(function (n) {
+    return n.kind !== 'joinRequest' && n.kind !== 'lore-drop' && !(n.kind === 'encounter-reveal' && !n.entityId);
+  });
   const groups = {};
   entityNotifications.forEach(function (n) {
     if (!groups[n.entityId]) groups[n.entityId] = { entityId: n.entityId, items: [], newestMs: 0 };
@@ -827,7 +914,38 @@ function buildGmDigest(container) {
       container.appendChild(card);
     });
 
-  if (!list.length && !joinRequests.length && !dropNotifs.length) {
+  // Standalone encounter cards (GM summary: name, start/completion,
+  // recipients). Grouped by encounter+phase, not just encounter, since
+  // Start and Completion are separate pieces of news with different
+  // recipient sets and content -- same "one block per reveal" stance as
+  // the player digest's entry-linked lines.
+  const encGroups = {};
+  standaloneEncNotifs.forEach(function (n) {
+    const key = n.encId + '|' + n.phase;
+    if (!encGroups[key]) encGroups[key] = { encName: n.encName, phase: n.phase, newestMs: tsMs(n.createdAt) || 0, recipients: {} };
+    encGroups[key].recipients[n.recipientEmail] = true;
+  });
+  const encGroupList = Object.keys(encGroups).map(function (k) { return encGroups[k]; })
+    .sort(function (a, b) { return b.newestMs - a.newestMs; });
+  encGroupList.forEach(function (g) {
+    const card = document.createElement('div');
+    card.className = 'digest-group';
+    const line = document.createElement('div');
+    line.className = 'digest-line';
+    line.appendChild(document.createTextNode('Encounter: '));
+    const nameEm = document.createElement('em');
+    nameEm.textContent = g.encName || '(unnamed encounter)';
+    line.appendChild(nameEm);
+    line.appendChild(document.createTextNode(' \u2014 ' + (g.phase === 'start' ? 'started' : 'concluded') + ' (no linked entry)'));
+    card.appendChild(line);
+    const meta = document.createElement('div');
+    meta.className = 'digest-meta';
+    meta.textContent = Object.keys(g.recipients).length + ' recipient(s) \u00B7 ' + formatRelative(g.newestMs);
+    card.appendChild(meta);
+    container.appendChild(card);
+  });
+
+  if (!list.length && !joinRequests.length && !dropNotifs.length && !encGroupList.length) {
     const empty = document.createElement('p');
     empty.className = 'msg-empty';
     empty.textContent = 'No notifications have been sent yet.';
@@ -835,6 +953,15 @@ function buildGmDigest(container) {
     return;
   }
 
+  // Friendlier labels than the raw notification `kind` for the GM
+  // per-entity summary line below.
+  const kindLabel = {
+    'encounter-reveal': 'encounter update',
+    discovered: 'discovery',
+    learned: 'update',
+    shared: 'share',
+    'character-edited': 'character edit'
+  };
   list.forEach(function (g) {
     const entity = state.allEntities.find(function (e) { return e.id === g.entityId; });
     const card = document.createElement('div');
@@ -853,13 +980,16 @@ function buildGmDigest(container) {
 
     const kinds = {};
     const recipients = {};
+    const encNames = {};
     g.items.forEach(function (n) {
       kinds[n.kind] = (kinds[n.kind] || 0) + 1;
       recipients[n.recipientEmail] = true;
+      if (n.kind === 'encounter-reveal' && n.encName) encNames[n.encName] = true;
     });
     const meta = document.createElement('div');
     meta.className = 'digest-meta';
-    meta.textContent = Object.keys(kinds).map(function (k) { return kinds[k] + ' ' + k; }).join(', ')
+    meta.textContent = (Object.keys(encNames).length ? Object.keys(encNames).join(', ') + ' \u00B7 ' : '')
+      + Object.keys(kinds).map(function (k) { return kinds[k] + ' ' + (kindLabel[k] || k); }).join(', ')
       + ' \u00B7 ' + Object.keys(recipients).length + ' recipient(s) \u00B7 ' + formatRelative(g.newestMs);
     card.appendChild(meta);
 
