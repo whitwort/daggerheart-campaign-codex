@@ -7,9 +7,10 @@
 // Post-Phase-15 addition (Sep 2026): Loot section (Build tab, Equipment
 // entities, same picker/instance-group shape as Adversaries but no
 // per-instance play state — a loot list is just "what this encounter
-// drops", not individually trackable). `lootAutoReveal` is the one wired
-// behavior: at Run completion, any loot entity still `visibility:
-// 'gm-only'` flips to `'all-players'` ("Party"). The three
+// drops", not individually trackable). At Run completion, any loot
+// entity still `visibility: 'gm-only'` ALWAYS flips to `'all-players'`
+// ("Party") -- Sep 2026: the old per-encounter `lootAutoReveal` toggle
+// is gone (stale values on existing docs are ignored). The three
 // `revealAdversariesTiming`/`revealLootOnCompletion` toggles are captured
 // but INERT — their actual effect is scoped to the future Codex Scene
 // <-> encounter integration, not decided yet. Don't wire behavior to them
@@ -98,7 +99,6 @@ function createEncounter() {
     environmentId: null,
     instances: [],
     loot: [],
-    lootAutoReveal: false,
     // Inert placeholders — see header comment. 'off'|'start'|'completion'.
     revealAdversariesTiming: 'completion',
     revealLootOnCompletion: false,
@@ -691,12 +691,10 @@ function maybeAutoTransition(enc, updates) {
 
 // Fields to merge into an update that transitions the encounter into
 // 'finished' -- shared by the auto-detect path (maybeAutoTransition) and
-// the explicit Complete button (completeRun). Also fires the ONE wired
-// reveal effect: lootAutoReveal flips any still-hidden loot entity to
-// Party. (revealAdversariesTiming/revealLootOnCompletion are read here
-// for future wiring but currently do nothing -- see header comment.)
+// the explicit Complete button (completeRun). Also reveals the loot:
+// any still-hidden loot entity flips to Party (always -- no toggle).
 function completionFields(enc) {
-  if (enc.lootAutoReveal) revealHiddenLoot(enc);
+  revealHiddenLoot(enc);
   return { runStatus: 'finished' };
 }
 
@@ -1317,12 +1315,6 @@ function buildLootSection(enc) {
     section.appendChild(buildLootGroup(enc, g));
   });
 
-  const revealField = buildToggleField(
-    'Auto-reveal to Party on drop (hidden items only)',
-    !!enc.lootAutoReveal,
-    function (checked) { updateEncounter(enc.id, { lootAutoReveal: checked }); }
-  );
-
   // Inert placeholder (header comment).
   const showOnCompletionField = buildToggleField(
     'Show loot on completion',
@@ -1333,7 +1325,6 @@ function buildLootSection(enc) {
   const revealRow = document.createElement('div');
   revealRow.className = 'encounter-reveal-row';
   revealRow.appendChild(showOnCompletionField);
-  revealRow.appendChild(revealField);
   section.appendChild(revealRow);
 
   const actions = document.createElement('div');

@@ -2934,7 +2934,7 @@ function createEncounterAndLink(entity, editState) {
   const encData = {
     name: 'New encounter', createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
     partySize: 4, partyTier: 2, highDamage: false, environmentId: null,
-    instances: [], loot: [], lootAutoReveal: false,
+    instances: [], loot: [],
     revealAdversariesTiming: 'completion', revealLootOnCompletion: false, runStatus: 'pristine'
   };
   trackWrite(setDoc(encRef, encData), 'Creating encounter').then(function () {
