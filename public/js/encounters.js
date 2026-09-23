@@ -726,10 +726,9 @@ function revealHiddenLoot(enc) {
 // enc.name at write time) -- accepted tradeoff, not worth a live-compute
 // path that would only work for the GM.
 //
-// Accumulates across phases (start's block, then completion's, appended
-// -- never regenerated from scratch) so a "You see:" from Start survives
-// the Complete-phase write, which only knows about its OWN phase's
-// reveal, not Start's.
+// Rebuilt from scratch at each phase for the encounter's state AFTER
+// that phase (Sep 2026; it used to append completion's block to
+// start's, which left "You see:" standing on a finished encounter).
 function groupedCounts(list) {
   const byId = {};
   (list || []).forEach(function (inst) {
@@ -743,37 +742,26 @@ function groupedCounts(list) {
 }
 function countedLine(g) { return g.name + (g.count > 1 ? ' x' + g.count : ''); }
 
-// The markdown block for ONE phase only ('start'|'completion') -- never
-// the whole item, since completion must APPEND to whatever start already
-// wrote rather than replace it (see header comment above).
+// The reveal block for the encounter's state after `phase`:
+//   start      -> "You see:" (adversaries, if revealed at start)
+//   completion -> "You fought:" (adversaries, if revealed at start OR
+//                 completion -- tense follows the fight being over) and
+//                 "You found:" (loot, if revealLootOnCompletion).
 function buildEncounterPhaseSection(enc, phase) {
   const timing = enc.revealAdversariesTiming || 'off';
-  const lines = [];
-  if (phase === 'start' && timing === 'start') {
-    const groups = groupedCounts(enc.instances);
-    if (groups.length) {
-      lines.push('**You see:**');
-      groups.forEach(function (g) { lines.push('- ' + countedLine(g)); });
-    }
+  const blocks = [];
+  function block(label, list) {
+    const groups = groupedCounts(list);
+    if (!groups.length) return;
+    blocks.push(['**' + label + '**'].concat(groups.map(function (g) { return '- ' + countedLine(g); })).join('\n'));
   }
-  if (phase === 'completion') {
-    if (timing === 'completion') {
-      const groups = groupedCounts(enc.instances);
-      if (groups.length) {
-        lines.push('**You fought:**');
-        groups.forEach(function (g) { lines.push('- ' + countedLine(g)); });
-      }
-    }
-    if (enc.revealLootOnCompletion) {
-      const groups = groupedCounts(enc.loot);
-      if (groups.length) {
-        if (lines.length) lines.push('');
-        lines.push('**You found:**');
-        groups.forEach(function (g) { lines.push('- ' + countedLine(g)); });
-      }
-    }
+  if (phase === 'start') {
+    if (timing === 'start') block('You see:', enc.instances);
+  } else {
+    if (timing === 'start' || timing === 'completion') block('You fought:', enc.instances);
+    if (enc.revealLootOnCompletion) block('You found:', enc.loot);
   }
-  return lines.join('\n');
+  return blocks.join('\n\n');
 }
 
 // Structured reveal data for the NOTIFICATION (separate from the
@@ -784,7 +772,11 @@ function buildEncounterPhaseSection(enc, phase) {
 // applyEncounterRevealEffects); empty arrays just mean no lists.
 function buildEncounterRevealPayload(enc, phase) {
   const timing = enc.revealAdversariesTiming || 'off';
-  const adversaries = (timing === phase) ? groupedCounts(enc.instances) : [];
+  // Mirrors buildEncounterPhaseSection: completion re-reports
+  // adversaries revealed at start too, so the latest doc alone is the
+  // whole story (the digest shows only the latest per encounter).
+  const revealAdv = phase === 'start' ? timing === 'start' : (timing === 'start' || timing === 'completion');
+  const adversaries = revealAdv ? groupedCounts(enc.instances) : [];
   const loot = (phase === 'completion' && enc.revealLootOnCompletion) ? groupedCounts(enc.loot) : [];
   return { adversaries: adversaries, loot: loot };
 }
@@ -856,11 +848,9 @@ function applyEncounterRevealEffects(enc, phase) {
   const batch = writeBatch(db);
   const merged = [];
   items.forEach(function (it) {
-    // Start always opens a run, so it rebuilds from the header rather
-    // than appending to whatever is there (a leftover block from an
-    // earlier run can't stack up). Completion appends to Start's block.
-    const existing = phase === 'start' ? '' : (it.encounterRevealMd || '');
-    const base = existing || ('### ' + header);
+    // Whole block rebuilt for the post-phase state (see
+    // buildEncounterPhaseSection) -- never appended to what's there.
+    const base = '### ' + header;
     const next = section ? (base + '\n\n' + section) : base;
     const patch = { encounterRevealMd: next, updatedAt: serverTimestamp() };
     if (phase === 'start' && it.visibility !== 'all-players') patch.visibility = 'all-players';

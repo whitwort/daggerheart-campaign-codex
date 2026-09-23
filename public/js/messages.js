@@ -758,7 +758,13 @@ function buildPlayerDigest(container) {
       nameEm.textContent = g.encName || '(unnamed encounter)';
       heading.appendChild(nameEm);
       card.appendChild(heading);
-      g.items.slice().sort(function (a, b) { return tsMs(a.createdAt) - tsMs(b.createdAt); })
+      // Latest transition only (same one-line-per-encounter rule as the
+      // entry-linked lines); a completion doc re-carries start's
+      // adversaries, so nothing is lost. Null createdAt = just written.
+      g.items.slice().sort(function (a, b) {
+        const am = tsMs(a.createdAt), bm = tsMs(b.createdAt);
+        return (am == null ? Infinity : am) - (bm == null ? Infinity : bm);
+      }).slice(-1)
         .forEach(function (n) {
           // Always a transition line (standalone now fires even with
           // both reveal toggles off), then whatever lists it carries.
