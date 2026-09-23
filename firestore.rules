@@ -395,6 +395,9 @@ service cloud.firestore {
     // gameplay resolve through the target(s) instead. Not enforced
     // category-exclusive here (same as 'ancestry'/'cards'/'badgeColor'
     // above) -- client-side convention, GM-authored.
+    // 'pendingRelatedSlugs' (Sep 2026, lore import): slugified relatedSlugs
+    // whose target didn't exist at import time; resolved at read time by
+    // public/js/related.js. Not validated beyond hasOnly -- GM-authored.
     function isValidEntity() {
       return request.resource.data.keys().hasOnly(
           ['slug', 'name', 'category', 'subtype', 'parentId', 'relatedIds', 'mapId',
@@ -402,7 +405,7 @@ service cloud.firestore {
            'badgeColor', 'cards', 'tags', 'createdAt', 'updatedAt',
            'ancestry', 'aliases', 'date', 'dateSort', 'dateEnd', 'dateEndSort',
            'ownerId', 'sourceId', 'meta', 'metaAncestryTargetIds',
-           'useTemplate', 'details', 'features', 'searchIndex'])
+           'useTemplate', 'details', 'features', 'searchIndex', 'pendingRelatedSlugs'])
         && request.resource.data.visibility in ['gm-only', 'all-players', 'character']
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0

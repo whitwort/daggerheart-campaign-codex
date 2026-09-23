@@ -25,6 +25,7 @@ import { shareEntityVisibility, shareLoreItemVisibility, shareImageVisibility, c
 import { buildVisibilityControl, buildSharedToggle, buildNoteToggle, buildCharacterBadge } from './visibility-ui.js';
 import { buildPickerPanel, attachPickerDismiss } from './picker-panel.js';
 import { buildCharacterCardEditor, characterAncestryDisplayName, DEFAULT_CARDS } from './character-cards.js';
+import { resolvedRelatedIds, unresolvedPendingSlugs, relatesTo } from './related.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -1611,7 +1612,12 @@ function buildEntityDraft(entity) {
     dateEnd: entity.dateEnd || '',
     parentId: entity.parentId || '',
     tags: (entity.tags || []).join(', '),
-    relatedIds: (entity.relatedIds || []).slice(),
+    // Pending import links (related.js) that already resolve are folded
+    // into the editable list, so they show as chips and removing one
+    // really removes it; still-unresolved ones ride along untouched and
+    // are written back on save.
+    relatedIds: resolvedRelatedIds(entity),
+    pendingRelatedSlugs: unresolvedPendingSlugs(entity),
     ownerId: entity.ownerId || '',
     sourceId: entity.sourceId || null,
     useTemplate: !!entity.useTemplate,
@@ -1819,6 +1825,9 @@ function saveEntityEdit(entity) {
   // listener's own optimistic local update re-renders almost
   // immediately, which was leaving the edit form open with a duplicate-
   // submission risk on every field, not just new entities).
+  // Only touch the field on docs that already carry it (import-created),
+  // so ordinary saves write exactly the keys they always have.
+  if (entity.pendingRelatedSlugs) entityData.pendingRelatedSlugs = (draft.pendingRelatedSlugs || []).slice();
   trackWrite(updateDoc(doc(db, 'entities', entity.id), entityData), 'Saving entity').catch(function (err) {
     window.alert('Save failed: ' + err.message);
   });
@@ -2545,7 +2554,7 @@ function createNewEntity(source) {
     date: (source && source.date) || null,
     dateSort: (source && source.dateSort != null) ? source.dateSort : null,
     parentId: (source && source.parentId) || null,
-    relatedIds: source ? (source.relatedIds || []).slice() : [],
+    relatedIds: source ? resolvedRelatedIds(source) : [],
     visibility: 'gm-only',
     hasMapImage: false,
     tags: source ? (source.tags || []).slice() : presetTags.slice(),
@@ -5106,12 +5115,14 @@ function renderEntityViewCard(container, entity, ctx, opts) {
   // document — just union it in here — so this stays correct regardless
   // of which entity's data is stale.
   // Player view only links to targets that are themselves player-visible;
-  // dangling IDs (deleted target) silently skipped.
+  // dangling IDs (deleted target) silently skipped. Pending import links
+  // (pendingRelatedSlugs, see related.js) count only once their target
+  // exists -- until then they produce no chip on either side.
   if (activeTab === 'lore') {
     const reverseRelatedIds = state.allEntities
-      .filter(function (e) { return e.id !== entity.id && (e.relatedIds || []).indexOf(entity.id) !== -1; })
+      .filter(function (e) { return e.id !== entity.id && relatesTo(e, entity); })
       .map(function (e) { return e.id; });
-    const relatedIds = (entity.relatedIds || []).concat(reverseRelatedIds)
+    const relatedIds = resolvedRelatedIds(entity).concat(reverseRelatedIds)
       .filter(function (id, idx, arr) { return arr.indexOf(id) === idx; });
     if (relatedIds.length) {
       const visibleRelated = relatedIds

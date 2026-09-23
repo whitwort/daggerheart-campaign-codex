@@ -29,6 +29,7 @@ import {
   buildDocxBlob, buildPdfBlob
 } from './export-render.js';
 import { loadMarkdownModules } from './markdown.js';
+import { resolvedRelatedIds, unresolvedPendingSlugs } from './related.js';
 
 const modeSelect = document.getElementById('export-mode-select');
 const allLoreOption = document.getElementById('export-mode-all-lore-option');
@@ -386,7 +387,7 @@ function buildJsonEntityRecord(pe, imagesByEntity, includeImages) {
   const parent = entity.parentId
     ? state.allEntities.find(function (e) { return e.id === entity.parentId; })
     : null;
-  const related = (entity.relatedIds || [])
+  const related = resolvedRelatedIds(entity)
     .map(function (id) { return state.allEntities.find(function (e) { return e.id === id; }); })
     .filter(Boolean);
   const out = {
@@ -394,7 +395,10 @@ function buildJsonEntityRecord(pe, imagesByEntity, includeImages) {
     category: entity.category,
     parentSlug: parent ? entitySlug(parent) : null
   };
-  if (related.length) out.relatedSlugs = related.map(entitySlug);
+  // Still-unresolved pending import links round-trip as plain slugs, so
+  // re-importing an export doesn't silently drop them.
+  const relatedSlugs = related.map(entitySlug).concat(unresolvedPendingSlugs(entity));
+  if (relatedSlugs.length) out.relatedSlugs = relatedSlugs;
   if (entity.tags && entity.tags.length) out.tags = entity.tags.slice();
   if (pe.loreContent.length) out.lore = pe.loreContent.map(function (it) { return it.content; });
   if (entity.ancestry) out.ancestry = entity.ancestry;

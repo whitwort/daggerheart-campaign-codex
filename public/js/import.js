@@ -67,7 +67,13 @@ const db = getFirestore(firebaseApp);
 //       (order continues), skipping items whose content exactly matches
 //       an existing item, so re-runs don't duplicate.
 // - parentSlug/relatedSlugs resolve against existing entities first, then
-//   other batch items. Unresolvable -> validation error.
+//   other batch items. Unresolvable parentSlug -> validation error.
+//   Unresolvable relatedSlug -> NOT an error (Sep 2026): stored slugified
+//   in the entity's pendingRelatedSlugs and listed in the report as
+//   pending. related.js resolves pending slugs at read time, so the link
+//   appears once an entity with that slug exists (a later import, a
+//   manual create, a rename) and is invisible until then. Lets lore be
+//   imported in any order across batches.
 // - All new entity doc ids are pre-generated at validation time, so batch
 //   items can reference each other in any order.
 // - Created entities: visibility 'gm-only', hasMapImage false.
@@ -400,6 +406,7 @@ function validateImport() {
     });
   });
 
+  const pending = [];  // "Name -> slug" report lines for unresolved relatedSlugs
   // Second pass: resolve references. Incoming refs are slugified too, so
   // "Genesis" or "The Hub" resolve the same as "genesis"/"the-hub".
   function resolveSlug(raw) {
@@ -420,12 +427,19 @@ function validateImport() {
       }
     }
     item.relatedIds = [];
+    item.pendingRelatedSlugs = [];
     item.relatedSlugs.forEach(function (s) {
       const rid = resolveSlug(s);
-      if (rid === null) {
-        errors.push(item.name + ': unresolvable relatedSlug "' + s + '"');
-      } else {
-        item.relatedIds.push(rid);
+      if (rid !== null) {
+        if (item.relatedIds.indexOf(rid) === -1) item.relatedIds.push(rid);
+        return;
+      }
+      const ps = slugify(String(s));
+      if (ps === '') {
+        errors.push(item.name + ': relatedSlug "' + s + '" slugifies to empty');
+      } else if (item.pendingRelatedSlugs.indexOf(ps) === -1) {
+        item.pendingRelatedSlugs.push(ps);
+        pending.push(item.name + ' \u2192 ' + ps);
       }
     });
   });
@@ -440,6 +454,11 @@ function validateImport() {
       + (it.parentSlug ? ' (parent: ' + it.parentSlug + ')' : '')
       + (it.lore.length ? ' [' + it.lore.length + ' lore]' : ''));
   });
+  if (pending.length) {
+    lines.push('Pending related links (' + pending.length + ') \u2014 target doesn\'t exist yet; '
+      + 'hidden until an entity with that slug is created:');
+    pending.forEach(function (p) { lines.push('  ~ ' + p); });
+  }
   if (duplicates.length) {
     lines.push('Conflicts (slug already exists) — choose per entity below: '
       + duplicates.length);
@@ -616,6 +635,7 @@ function runImport() {
         category: it.category,
         parentId: it.parentId,
         relatedIds: it.relatedIds,
+        pendingRelatedSlugs: it.pendingRelatedSlugs,
         ancestry: it.ancestry,
         aliases: it.aliases,
         date: it.date,
@@ -649,6 +669,7 @@ function runImport() {
         category: it.category,
         parentId: it.parentId,
         relatedIds: it.relatedIds,
+        pendingRelatedSlugs: it.pendingRelatedSlugs,
         ancestry: it.ancestry,
         aliases: it.aliases,
         date: it.date,
@@ -682,7 +703,10 @@ function runImport() {
         parentId: it.parentId,
         updatedAt: serverTimestamp()
       };
-      if (it.hasRelated) data.relatedIds = it.relatedIds;
+      if (it.hasRelated) {
+        data.relatedIds = it.relatedIds;
+        data.pendingRelatedSlugs = it.pendingRelatedSlugs;
+      }
       if (it.hasTags) data.tags = it.tags;
       if (it.hasAncestry) data.ancestry = it.ancestry;
       if (it.hasAliases) data.aliases = it.aliases;

@@ -18,6 +18,10 @@ Always `{ "entities": [ {...}, ... ] }`. Bare arrays fail.
 - `lore` — array of strings (one per paragraph), never a bare string.
   Must be pasteable in-world declarative text, not meta-commentary.
 - `relatedSlugs[]`, `tags[]`, `aliases[]`
+  - `relatedSlugs` may name entities that don't exist yet. They're stored
+    as pending links (listed in the import report) and appear
+    automatically once an entity with that slug exists; until then
+    they're invisible.
 - `ancestry` (Character), `date` (Scene/Event),
   `subtype` (Game Mechanics/Equipment; see `CONFIG.subtypesByCategory`)
 - `details{}`, `features[{name, text, type?}]` — only for
@@ -34,14 +38,16 @@ Always `{ "entities": [ {...}, ... ] }`. Bare arrays fail.
 - Leading "The" is kept: "The Talisande River" → `the-talisande-river`.
 - Accents do not fold: "Féileacán Darach" → `f-ileac-n-darach`.
   Compute by the regex or grep the live data; never hand-guess.
-- `parentSlug`/`relatedSlugs` must resolve to an entity that exists
-  (live DB or earlier in the same batch). Concepts mentioned only in
-  prose have no slug — don't reference them.
+- `parentSlug` must resolve to an entity that exists (live DB or anywhere
+  in the same batch). `relatedSlugs` should too, or name an entity that
+  will be imported later — a typo becomes a pending link that never
+  resolves, so check the report's "Pending related links" list.
+  Concepts mentioned only in prose have no slug — don't reference them.
 
 ## Cross-referencing batches
-New entities that reference each other → two files:
-1. step1: pure creates, same-batch forward refs stripped.
-2. step2: updates adding the now-resolvable cross-refs.
+Entities in one batch can reference each other in any order. Related
+links to entities in a *future* batch are fine too (pending until that
+batch lands). Only `parentSlug` must already exist or be in the batch.
 
 ## Lore-pass workflow
 - Work one entity at a time from `all-lore.json` (supplied by Gregg).
@@ -58,7 +64,8 @@ New entities that reference each other → two files:
 1. Categories checked against `public/config.js`.
 2. Every entity has a `parentSlug` key.
 3. Slugs for accented/punctuated names computed, not guessed.
-4. No `relatedSlugs` to non-entities; no `source` key.
+4. `relatedSlugs` name real or planned entities (report lists pending
+   ones — scan for typos); no `source` key.
 5. Validate JSON syntax (no trailing commas, escaped quotes).
 
 ## Common errors
@@ -67,4 +74,4 @@ New entities that reference each other → two files:
 | `Expected an object with an "entities" array` | missing wrapper / bare array |
 | `parentSlug must be a string or null` | key omitted |
 | `bad category "X"` | invented category (e.g. History, Item) |
-| `unresolvable parentSlug/relatedSlug` | guessed slug or non-entity ref |
+| `unresolvable parentSlug` | guessed slug, or parent not yet imported |
