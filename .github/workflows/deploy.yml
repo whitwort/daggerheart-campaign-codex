@@ -40,6 +40,9 @@ jobs:
       - name: Stamp build hash
         run: sed -i "s/__BUILD_HASH__/$(git rev-parse --short HEAD)/" public/index.html
 
+      - name: Cache-bust asset URLs with build hash
+        run: node scripts/stamp-asset-versions.mjs "$(git rev-parse --short HEAD)"
+
       - name: Point build at the dev Firebase project
         run: cp public/firebase-env.dev.js public/firebase-env.js
 
@@ -150,6 +153,7 @@ jobs:
           LABEL="version ${VERSION} (${HASH} prod)"
           sed -i "s#__BUILD_LABEL__#${LABEL}#" public/index.html
           sed -i "s/__BUILD_HASH__/${HASH}/" public/index.html
+          node scripts/stamp-asset-versions.mjs "${HASH}"
 
       - name: Write service account key
         run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}' > /tmp/firebase-key.json

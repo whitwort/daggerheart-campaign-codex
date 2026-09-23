@@ -85,6 +85,14 @@
        (plus the three gstatic Firebase SDK modules) into one parallel
        fetch wave; keep this list in sync when adding/removing modules
        under js/. -->
+  <!-- Deploy-time cache busting: CI (scripts/stamp-asset-versions.mjs)
+       replaces the placeholder below with an import map sending every
+       /js/*.js to /js/*.js?v=<build hash>, and appends the same ?v= to
+       the local src/href URLs in this file -- so each deploy gets fresh
+       URLs and a reload can't mix new HTML with stale cached modules.
+       Must stay ahead of every module fetch (modulepreloads included).
+       Left as an inert comment in unstamped local/emulator builds. -->
+  <!-- __IMPORT_MAP__ -->
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" crossorigin="anonymous">
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" crossorigin="anonymous">
@@ -115,6 +123,7 @@
   <link rel="modulepreload" href="js/messages.js">
   <link rel="modulepreload" href="js/op-status.js">
   <link rel="modulepreload" href="js/picker-panel.js">
+  <link rel="modulepreload" href="js/related.js">
   <link rel="modulepreload" href="js/presence.js">
   <link rel="modulepreload" href="js/router.js">
   <link rel="modulepreload" href="js/sharing.js">

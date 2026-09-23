@@ -44,6 +44,11 @@ Durable; change only with Gregg's explicit direction.
   `index.html`'s first `<head>` script redirects to `.web.app`.
 
 ## CI
+- Cache busting: deploy.yml runs `scripts/stamp-asset-versions.mjs`,
+  which injects an import map (`/js/x.js` -> `/js/x.js?v=<hash>`) at
+  index.html's `__IMPORT_MAP__` placeholder and appends `?v=<hash>` to
+  local src/href URLs. Never hand-add `?v=` to JS import specifiers
+  (two URLs for one module = duplicated singletons like state.js).
 - `scripts/e2e-run.sh` uses `npx playwright install chromium`, never
   `--with-deps` (apt-get update hits a recurring upstream Chrome apt
   hash-mismatch on ubuntu-latest; deps are preinstalled there).
