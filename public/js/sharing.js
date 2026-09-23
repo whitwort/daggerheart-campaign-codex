@@ -445,10 +445,14 @@ function shareImageVisibility(imageDocId, patch) {
 // encounters.js clearEncounterRevealEffects) and so two encounters
 // sharing one entry, or a standalone encounter's own card, stay
 // distinguishable in the digest.
-function notifyEncounterReveal(loreItem, phase, payload, enc) {
+// parentOverride: the entry as it will be after a same-Start reveal
+// (encounters.js applyEncounterRevealEffects), so a just-revealed Scene
+// isn't judged by its possibly-still-hidden copy in state.
+function notifyEncounterReveal(loreItem, phase, payload, enc, parentOverride) {
   try {
     const universe = playersUniverse();
-    const parentEntity = state.allEntities.find(function (e) { return e.id === loreItem.entityId; });
+    const parentEntity = parentOverride ||
+      state.allEntities.find(function (e) { return e.id === loreItem.entityId; });
     if (!parentEntity) return Promise.resolve();
     const exposed = exposedEmailSet(loreItem, universe);
     const batch = writeBatch(db);

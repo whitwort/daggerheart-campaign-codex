@@ -37,7 +37,7 @@ import { buildPickerPanel } from './picker-panel.js';
 import { switchToCodexTabForEntity, entityMatchesQuery, resolveEntityStatBlockMarkdown } from './codex.js';
 import { viewerContext } from './visibility.js';
 import { renderMarkdownInto } from './markdown.js';
-import { notifyEncounterReveal, notifyEncounterStandalone } from './sharing.js';
+import { notifyEncounterReveal, notifyEncounterStandalone, shareEntityVisibility } from './sharing.js';
 import { registerRoute, navigateTo } from './router.js';
 
 const db = getFirestore(firebaseApp);
@@ -832,6 +832,25 @@ function applyEncounterRevealEffects(enc, phase) {
     notifyEncounterStandalone(enc, phase, payload);
     return;
   }
+  // Start also reveals the linked entry itself (e.g. the Scene) when
+  // it's still hidden from the party: running the encounter means the
+  // players are there, and a hidden parent made the reveal invisible --
+  // notifyEncounterReveal skipped every recipient who couldn't see the
+  // entry, and the player digest hides entry groups they can't see.
+  // Routed through shareEntityVisibility so it's an ordinary reveal
+  // (players also get the usual "You have discovered <entry>").
+  // Patched copies go to the notify step below, which otherwise reads
+  // the parent from state and could still see it hidden.
+  const revealedParents = {};
+  if (phase === 'start') {
+    items.forEach(function (it) {
+      if (revealedParents[it.entityId]) return;
+      const parent = state.allEntities.find(function (e) { return e.id === it.entityId; });
+      if (!parent || parent.visibility === 'all-players') return;
+      revealedParents[it.entityId] = Object.assign({}, parent, { visibility: 'all-players' });
+      trackWrite(shareEntityVisibility(parent.id, { visibility: 'all-players' }), 'Revealing encounter entry');
+    });
+  }
   const section = buildEncounterPhaseSection(enc, phase);
   const header = 'Encounter: ' + (enc.name || '(unnamed)');
   const batch = writeBatch(db);
@@ -849,7 +868,7 @@ function applyEncounterRevealEffects(enc, phase) {
     merged.push(Object.assign({}, it, patch));
   });
   trackWrite(batch.commit(), 'Updating encounter lore').then(function () {
-    merged.forEach(function (it) { notifyEncounterReveal(it, phase, payload, enc); });
+    merged.forEach(function (it) { notifyEncounterReveal(it, phase, payload, enc, revealedParents[it.entityId]); });
   });
 }
 
