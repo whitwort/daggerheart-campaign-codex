@@ -885,8 +885,13 @@ function clearEncounterRevealEffects(enc) {
   const items = state.allLoreItems.filter(function (it) {
     return it.meta === 'meta-encounter' && it.encounterId === enc.id;
   });
+  // Legacy reveal docs (written before encId existed) are matched by
+  // the linked lore item instead -- otherwise nothing ever deletes them.
+  const itemIds = items.map(function (it) { return it.id; });
   const stale = state.allNotifications.filter(function (n) {
-    return n.kind === 'encounter-reveal' && n.encId === enc.id;
+    if (n.kind !== 'encounter-reveal') return false;
+    if (n.encId) return n.encId === enc.id;
+    return !!n.loreItemId && itemIds.indexOf(n.loreItemId) !== -1;
   });
   if (!items.length && !stale.length) return;
   const batch = writeBatch(db);

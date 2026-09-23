@@ -608,22 +608,31 @@ function appendEncounterRevealList(card, ctx, label, items) {
   });
   card.appendChild(ul);
 }
-// Entry-linked reveal line: "Encounter <name> has begun/concluded at
-// <entry link>." Tense follows the transition itself (begun = Start,
-// concluded = Completion) -- not the adversary/loot reveal toggles,
-// which only govern what's written into the entry's own markdown, not
-// whether the transition happened.
-function encounterRevealLine(n, linkNode) {
+// Entry-linked reveal line: "Encounter <name> has begun/concluded
+// <prep> <entry link>." Tense follows the transition itself (begun =
+// Start, concluded = Completion) -- not the adversary/loot reveal
+// toggles, which only govern what's written into the entry's own
+// markdown, not whether the transition happened. Preposition follows
+// the entry's category: a place is "at", a Scene/Event is "during"
+// (Gregg: "at" reads wrong for Scenes), anything else "in".
+function encounterPreposition(entity) {
+  const cat = entity && entity.category;
+  if (cat === 'Location' || cat === 'Environment') return 'at';
+  if (cat === 'Scene' || cat === 'Event') return 'during';
+  return 'in';
+}
+function encounterRevealLine(n, linkNode, entity, encName) {
   const line = document.createElement('div');
   line.className = 'digest-line';
   line.appendChild(document.createTextNode('Encounter '));
-  if (n.encName) {
+  if (encName) {
     const em = document.createElement('em');
-    em.textContent = n.encName;
+    em.textContent = encName;
     line.appendChild(em);
     line.appendChild(document.createTextNode(' '));
   }
-  line.appendChild(document.createTextNode((n.phase === 'start' ? 'has begun' : 'has concluded') + ' at '));
+  line.appendChild(document.createTextNode((n.phase === 'start' ? 'has begun' : 'has concluded')
+    + ' ' + encounterPreposition(entity) + ' '));
   line.appendChild(linkNode);
   line.appendChild(document.createTextNode('.'));
   return line;
@@ -778,8 +787,28 @@ function buildPlayerDigest(container) {
 
     const discovered = g.items.filter(function (n) { return n.kind === 'discovered'; });
     const learned = g.items.filter(function (n) { return n.kind === 'learned'; });
-    const encounterReveals = g.items.filter(function (n) { return n.kind === 'encounter-reveal'; })
-      .sort(function (a, b) { return tsMs(a.createdAt) - tsMs(b.createdAt); });
+    // One line per encounter per entry, showing its LATEST transition
+    // (Gregg: one notification for the encounter, not its history).
+    // Keyed by the Meta-Encounter lore item, which every entry-linked
+    // doc carries -- including pre-encId legacy docs, which Reset can't
+    // find and delete, so without this they stacked up forever as
+    // nameless "Encounter has begun" lines. A lore item links to exactly
+    // one encounter, so within one entry's card the key is 1:1 with the
+    // encounter. encName comes from the newest doc that has one.
+    // Null createdAt (local echo of a just-written doc) sorts newest.
+    const encounterByKey = {};
+    g.items.forEach(function (n) {
+      if (n.kind !== 'encounter-reveal') return;
+      const key = n.loreItemId || n.encId || n.id;
+      const ms = tsMs(n.createdAt);
+      const t = ms == null ? Infinity : ms;
+      const cur = encounterByKey[key];
+      if (!cur) { encounterByKey[key] = { latest: n, latestMs: t, encName: n.encName || null, nameMs: n.encName ? t : -1 }; return; }
+      if (t >= cur.latestMs) { cur.latest = n; cur.latestMs = t; }
+      if (n.encName && t >= cur.nameMs) { cur.encName = n.encName; cur.nameMs = t; }
+    });
+    const encounterReveals = Object.keys(encounterByKey).map(function (k) { return encounterByKey[k]; })
+      .sort(function (a, b) { return a.latestMs - b.latestMs; });
     const sharedActors = {};
     g.items.forEach(function (n) {
       if (n.kind === 'shared' && n.actorCharacterId) sharedActors[n.actorCharacterId] = true;
@@ -801,18 +830,13 @@ function buildPlayerDigest(container) {
       line.appendChild(document.createTextNode('.'));
       card.appendChild(line);
     }
-    // Sep 2026 notification redesign: entry-linked reveals now just
-    // point at the entry -- the adversary/loot content is already
-    // written into the entry's own markdown (encounters.js
-    // buildEncounterPhaseSection), so listing it again here would be
-    // pure duplication of what the entity link leads to. One line per
-    // reveal, not deduped like discovered/learned above -- a Start
-    // reveal and a Completion reveal on the same entity are two
-    // genuinely different pieces of news ("has begun" vs "has
-    // concluded"). Tense/verb matches the transition, not the reveal
-    // toggles (see encounterRevealLine).
-    encounterReveals.forEach(function (n) {
-      card.appendChild(encounterRevealLine(n, entityLink()));
+    // Sep 2026 notification redesign: entry-linked reveals just point
+    // at the entry -- the adversary/loot content is already written into
+    // the entry's own markdown (encounters.js buildEncounterPhaseSection),
+    // so listing it again here would duplicate what the link leads to.
+    // Deduped to one line per encounter above.
+    encounterReveals.forEach(function (r) {
+      card.appendChild(encounterRevealLine(r.latest, entityLink(), g.entity, r.encName));
     });
     Object.keys(sharedActors).forEach(function (charId) {
       const line = document.createElement('div');
