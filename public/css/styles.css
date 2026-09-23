@@ -2529,6 +2529,14 @@ button:disabled:hover { border-color: var(--void-line); }
 .character-deck-card-body p { margin: 0 0 0.3rem; }
 .character-deck-card-body p:last-child { margin-bottom: 0; }
 .character-deck-card-body strong { color: #6B4A1E; }
+/* clampLines (buildMiniCard): max-height is set inline in JS (N lines);
+   .overflowing is added only when the rendered text actually exceeds
+   it -- fades the last lines out to mark the cut. */
+.character-deck-card-body.clamped { overflow: hidden; position: relative; }
+.character-deck-card-body.clamped.overflowing {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 2.8em), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 2.8em), transparent);
+}
 /* Tier/Level badge: normalized to the SAME slot (bottom-right) on
    every card type that has one -- Ability's Level, Weapon/Armor/
    Beastform's Tier -- a fixed landmark regardless of which type is

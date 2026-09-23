@@ -309,7 +309,26 @@ function buildMiniCard(opts) {
   if (opts.bodyMd) {
     const body = document.createElement('div');
     body.className = 'character-deck-card-body';
-    renderMarkdownInto(body, opts.bodyMd);
+    // clampLines: cap the RENDERED height at N text lines (N x the
+    // body's 1.4 line-height). The markdown-side truncateCardMd cap
+    // alone missed long prose: it counts source lines, and a whole
+    // paragraph is one source line, so a 4-paragraph item description
+    // sailed under it while rendering 60+ lines tall on a 220px card.
+    // The bottom fade is added only once the rendered body is
+    // measured as actually overflowing (markdown render may be async
+    // on first paint, hence after its Promise).
+    if (opts.clampLines) {
+      body.classList.add('clamped');
+      body.style.maxHeight = (opts.clampLines * 1.4) + 'em';
+    }
+    const rendered = renderMarkdownInto(body, opts.bodyMd);
+    if (opts.clampLines) {
+      rendered.then(function () {
+        requestAnimationFrame(function () {
+          if (body.scrollHeight > body.clientHeight + 1) body.classList.add('overflowing');
+        });
+      });
+    }
     card.appendChild(body);
   }
   if (opts.badge) {
@@ -537,7 +556,9 @@ function cleanCardMd(md, opts) {
 // item description can run the card far taller than its neighbors in
 // the Equipment tray. Truncate to 20 lines with a trailing ellipsis
 // marker; the full text is still one click away via the card's own
-// Codex link (codexEntityId), so nothing is actually lost.
+// Codex link (codexEntityId), so nothing is actually lost. Source-line
+// cap only -- the real length limit is buildMiniCard's clampLines
+// (rendered height), which also catches long single-line paragraphs.
 function truncateCardMd(md, maxLines) {
   if (!md) return md;
   const lines = md.split('\n');
@@ -992,7 +1013,7 @@ function equipmentCardOptsForLinked(e, ctx) {
     };
   }
   // Items/Consumables: no templates.js schema at all -- text only.
-  return { metaLines: [], bodyMd: truncateCardMd(cleanCardMd(stripLoneRollDetails(resolveEntityStatBlockMarkdown(e, ctx, null))), 20) };
+  return { metaLines: [], bodyMd: truncateCardMd(cleanCardMd(stripLoneRollDetails(resolveEntityStatBlockMarkdown(e, ctx, null))), 20), clampLines: 20 };
 }
 // Weapon/Armor slot ASSIGNMENT lives on the Sheet tab now (S17 follow-
 // up) -- character-sheet.js's Equipped panel, to the right of the
