@@ -780,9 +780,8 @@ function buildEncounterPhaseSection(enc, phase) {
 // markdown block above -- the standalone-notification digest card
 // renders real per-item links, not prose, so it needs {id, name, count}
 // not a formatted string). Empty arrays when the phase's toggles are
-// off. Entry-linked encounters notify regardless (see
-// applyEncounterRevealEffects); only the standalone path (no linked
-// entry) still gates its notification on this being non-empty.
+// off. Both notification shapes fire regardless (see
+// applyEncounterRevealEffects); empty arrays just mean no lists.
 function buildEncounterRevealPayload(enc, phase) {
   const timing = enc.revealAdversariesTiming || 'off';
   const adversaries = (timing === phase) ? groupedCounts(enc.instances) : [];
@@ -807,9 +806,24 @@ function buildEncounterRevealPayload(enc, phase) {
 // reveal toggles off; this replaces the old "nothing revealed -> no
 // notification at all" blanket rule, which left Start silently
 // invisible whenever a GM ran an encounter with reveals off). Standalone
-// still gates on content, since a bare "an encounter happened" ping with
-// nothing to point at or list would just be noise.
+// does too (its card says "has begun"/"has concluded", plus any lists)
+// -- gating it on content left toggles-off standalone runs silent.
+// Once-per-run guard, keyed encId|phase. `enc` here is whatever the
+// last encounters snapshot said, and a local write's snapshot can lag
+// (IndexedDB persistence, slow devices): several quick HP/Stress taps
+// on a pristine encounter each called maybeAutoTransition with
+// runStatus still 'pristine' and each fired 'start' -- duplicate
+// notifications, and a second "You see:" block appended to the entry.
+// Same for a double-tapped Start/Complete. Cleared by Reset
+// (clearEncounterRevealEffects), the only way to legitimately re-run a
+// phase. In-memory is enough: the race window is milliseconds, and a
+// page reload re-reads a settled runStatus.
+const revealApplied = {};
+
 function applyEncounterRevealEffects(enc, phase) {
+  const guardKey = enc.id + '|' + phase;
+  if (revealApplied[guardKey]) return;
+  revealApplied[guardKey] = true;
   const items = state.allLoreItems.filter(function (it) {
     return it.meta === 'meta-encounter' && it.encounterId === enc.id;
   });
@@ -823,7 +837,10 @@ function applyEncounterRevealEffects(enc, phase) {
   const batch = writeBatch(db);
   const merged = [];
   items.forEach(function (it) {
-    const existing = it.encounterRevealMd || '';
+    // Start always opens a run, so it rebuilds from the header rather
+    // than appending to whatever is there (a leftover block from an
+    // earlier run can't stack up). Completion appends to Start's block.
+    const existing = phase === 'start' ? '' : (it.encounterRevealMd || '');
     const base = existing || ('### ' + header);
     const next = section ? (base + '\n\n' + section) : base;
     const patch = { encounterRevealMd: next, updatedAt: serverTimestamp() };
@@ -844,6 +861,8 @@ function applyEncounterRevealEffects(enc, phase) {
 // list sitting in players' digests alongside the fresh one, with no way
 // to tell which was current.
 function clearEncounterRevealEffects(enc) {
+  delete revealApplied[enc.id + '|start'];
+  delete revealApplied[enc.id + '|completion'];
   const items = state.allLoreItems.filter(function (it) {
     return it.meta === 'meta-encounter' && it.encounterId === enc.id;
   });

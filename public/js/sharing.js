@@ -434,12 +434,12 @@ function shareImageVisibility(imageDocId, patch) {
 //     transition itself is worth telling players about.
 //   - notifyEncounterStandalone: no linked entry exists at all. There's
 //     nothing to point players at, so this is the one place adversaries/
-//     loot are still reported directly in the notification -- and since
-//     that's the ONLY news in this shape, it only fires when there's
-//     actually something to report (same "nothing to say -> no
-//     notification" stance the entry-linked path used to have entirely).
-//     Recipients are the whole party (playersUniverse) since there's no
-//     parent entity to gate visibility on.
+//     loot are still reported directly in the notification. Fires on
+//     every start/completion like the entry-linked shape (the digest
+//     card always says "has begun"/"has concluded"; the lists are added
+//     only when a reveal toggle put something in them). Recipients are
+//     the whole party (playersUniverse) since there's no parent entity
+//     to gate visibility on.
 // Both carry encId (and encName, for the digest card header/line) so a
 // Reset can find and delete its own stale notification docs (see
 // encounters.js clearEncounterRevealEffects) and so two encounters
@@ -480,7 +480,6 @@ function notifyEncounterReveal(loreItem, phase, payload, enc) {
 
 function notifyEncounterStandalone(enc, phase, payload) {
   try {
-    if (!payload.adversaries.length && !payload.loot.length) return Promise.resolve();
     const universe = playersUniverse();
     const batch = writeBatch(db);
     universe.forEach(function (email) {

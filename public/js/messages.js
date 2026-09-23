@@ -751,6 +751,12 @@ function buildPlayerDigest(container) {
       card.appendChild(heading);
       g.items.slice().sort(function (a, b) { return tsMs(a.createdAt) - tsMs(b.createdAt); })
         .forEach(function (n) {
+          // Always a transition line (standalone now fires even with
+          // both reveal toggles off), then whatever lists it carries.
+          const phaseLine = document.createElement('div');
+          phaseLine.className = 'digest-line';
+          phaseLine.textContent = n.phase === 'start' ? 'The encounter has begun.' : 'The encounter has concluded.';
+          card.appendChild(phaseLine);
           appendEncounterRevealList(card, ctx, n.phase === 'start' ? 'You see:' : 'You fought:', n.adversaries);
           appendEncounterRevealList(card, ctx, 'You found:', n.loot);
         });
