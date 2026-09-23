@@ -27,6 +27,7 @@ import { buildPickerPanel, attachPickerDismiss } from './picker-panel.js';
 import { buildCharacterCardEditor, characterAncestryDisplayName, DEFAULT_CARDS } from './character-cards.js';
 import { resolvedRelatedIds, unresolvedPendingSlugs, relatesTo } from './related.js';
 import { bootDataArrived } from './progress-screen.js';
+import { buildEncounterStatusPanel } from './encounter-status.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -3480,6 +3481,14 @@ function renderLoreTab(container, entity, ctx, readOnly) {
       attachLoreItemExpand(bodyDiv);
     });
     itemDiv.appendChild(bodyDiv);
+    // Live HP/Stress panel while a linked encounter runs (encounter-
+    // status.js). Outside bodyDiv so the long-item collapse never clips
+    // it; party rows are read live, so an entities snapshot (sheet edit)
+    // re-rendering this detail is what keeps them current.
+    if (item.meta === 'meta-encounter' && item.encounterStatus) {
+      const statusPanel = buildEncounterStatusPanel(item.encounterStatus, ctx);
+      if (statusPanel) itemDiv.appendChild(statusPanel);
+    }
 
     // Hide Edit/Delete on other items while one item (or a new draft) is
     // already being edited — forces finishing that edit first, rather

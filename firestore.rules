@@ -475,7 +475,8 @@ service cloud.firestore {
     function isValidLoreItem() {
       return request.resource.data.keys().hasOnly(
           ['entityId', 'kind', 'authorId', 'authorType', 'visibility', 'characterId', 'characterShared',
-           'content', 'meta', 'sourceId', 'order', 'createdAt', 'updatedAt', 'encounterId', 'encounterRevealMd'])
+           'content', 'meta', 'sourceId', 'order', 'createdAt', 'updatedAt', 'encounterId', 'encounterRevealMd',
+           'encounterStatus'])
         && request.resource.data.entityId is string
         && request.resource.data.kind in ['imported', 'gm-note', 'character-lore', 'note', 'player-note']
         && request.resource.data.authorType in ['gm', 'character']

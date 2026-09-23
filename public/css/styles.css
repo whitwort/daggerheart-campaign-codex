@@ -3024,3 +3024,27 @@ button:disabled:hover { border-color: var(--void-line); }
   font-family: var(--font-body), sans-serif;
 }
 .encounter-run-actions button:hover { background: var(--hope); color: #2a2010; }
+
+/* Live encounter status panel (encounter-status.js) on a Meta-Encounter
+   lore item: marked HP/Stress boxes, same filled = marked convention as
+   the character sheet, sized down for the parchment lore card. */
+.encounter-status { margin-top: 0.6rem; padding-top: 0.4rem; border-top: 1px solid var(--parchment-edge); }
+.encounter-status h4 {
+  margin: 0.5rem 0 0.2rem; font-size: 0.72rem; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--ink-soft);
+}
+.encounter-status table { border-collapse: collapse; width: 100%; font-size: 0.8rem; }
+.encounter-status th { text-align: left; font-weight: 600; font-size: 0.68rem; color: var(--ink-soft); padding: 0 0.4rem 0.1rem 0; }
+.encounter-status td { padding: 0.15rem 0.5rem 0.15rem 0; white-space: nowrap; color: var(--ink); }
+.encounter-status .es-name { width: 40%; white-space: normal; }
+.es-track { display: inline-flex; flex-wrap: wrap; gap: 2px; vertical-align: middle; max-width: 9.5rem; }
+.es-track i { display: inline-block; width: 0.7rem; height: 0.7rem; border: 1.5px solid var(--ink-soft); border-radius: 2px; box-sizing: border-box; }
+.es-track i.hp.on { background: #A8433A; border-color: #A8433A; }
+.es-track i.st.on { background: var(--fear); border-color: var(--fear); }
+.es-num { margin-left: 0.3rem; font-size: 0.68rem; color: var(--ink-soft); }
+.encounter-status .es-down .es-name { text-decoration: line-through; color: var(--ink-soft); }
+.es-tag {
+  display: inline-block; margin-left: 0.3rem; padding: 0 0.25rem; border-radius: 3px;
+  font-size: 0.62rem; background: var(--ink-soft); color: var(--parchment);
+}
+.es-live { float: right; font-size: 0.66rem; color: var(--seafoam); }

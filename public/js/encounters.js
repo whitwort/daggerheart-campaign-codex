@@ -40,6 +40,7 @@ import { viewerContext } from './visibility.js';
 import { renderMarkdownInto } from './markdown.js';
 import { notifyEncounterReveal, notifyEncounterStandalone, shareEntityVisibility } from './sharing.js';
 import { registerRoute, navigateTo } from './router.js';
+import { computeEncounterStatus } from './encounter-status.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -60,8 +61,31 @@ function attachEncountersListener() {
       });
       renderEncountersTab();
       refreshOpenEncounterNameDisplays();
+      syncEncounterStatuses();
     }), onError);
   });
+}
+
+// Live status panel (encounter-status.js): derived state, re-synced from
+// every encounters snapshot -- Start, each HP/Stress mark, instance
+// add/remove, toggle flips, Complete and Reset all arrive as one. Writes
+// only the linked lore items whose stored snapshot actually differs, so
+// an unrelated encounter edit (rename, config) costs nothing. No
+// updatedAt bump: this is play-time churn, not an edit to the item.
+function syncEncounterStatuses() {
+  const batch = writeBatch(db);
+  let writes = 0;
+  state.allEncounters.forEach(function (enc) {
+    const want = computeEncounterStatus(enc);
+    const wantJson = JSON.stringify(want);
+    state.allLoreItems.forEach(function (it) {
+      if (it.meta !== 'meta-encounter' || it.encounterId !== enc.id) return;
+      if (JSON.stringify(it.encounterStatus || null) === wantJson) return;
+      batch.update(doc(db, 'loreItems', it.id), { encounterStatus: want });
+      writes += 1;
+    });
+  });
+  if (writes) trackWrite(batch.commit(), 'Updating encounter status');
 }
 
 // Bug fix: renaming an encounter in Build mode left a currently-open
@@ -102,6 +126,8 @@ function createEncounter() {
     // Inert placeholders — see header comment. 'off'|'start'|'completion'.
     revealAdversariesTiming: 'completion',
     revealLootOnCompletion: false,
+    showAdversaryStatus: false,
+    showPlayerStatus: false,
     runStatus: 'pristine'
   };
   trackWrite(addDoc(collection(db, 'encounters'), data), 'Creating encounter')
@@ -395,6 +421,7 @@ function renderEncounterDetail() {
     detailEl.appendChild(buildDifficultyPanel(enc));
     detailEl.appendChild(buildAdversariesSection(enc));
     detailEl.appendChild(buildLootSection(enc));
+    detailEl.appendChild(buildLiveStatusSection(enc));
   }
 }
 
@@ -1300,6 +1327,29 @@ function removeLootGroupInstance(enc, entityId) {
   }
   const victim = group.reduce(function (a, b) { return suffix(b) > suffix(a) ? b : a; });
   updateEncounter(enc.id, { loot: loot.filter(function (i) { return i !== victim; }) });
+}
+
+// Live status toggles (encounter-status.js). Only has an effect on a
+// linked lore item, and only while the run is Started.
+function buildLiveStatusSection(enc) {
+  const section = document.createElement('div');
+  section.className = 'encounter-adversaries encounter-live-status';
+  const heading = document.createElement('div');
+  heading.className = 'encounter-section-heading';
+  heading.textContent = 'Live status';
+  section.appendChild(heading);
+  const row = document.createElement('div');
+  row.className = 'encounter-reveal-row';
+  row.appendChild(buildToggleField('Show Adversary Status', !!enc.showAdversaryStatus,
+    function (checked) { updateEncounter(enc.id, { showAdversaryStatus: checked }); }));
+  row.appendChild(buildToggleField('Show Player Status', !!enc.showPlayerStatus,
+    function (checked) { updateEncounter(enc.id, { showPlayerStatus: checked }); }));
+  section.appendChild(row);
+  const hint = document.createElement('p');
+  hint.className = 'admin-hint';
+  hint.textContent = 'Live HP/Stress on the linked lore item while the run is started.';
+  section.appendChild(hint);
+  return section;
 }
 
 function buildLootSection(enc) {
