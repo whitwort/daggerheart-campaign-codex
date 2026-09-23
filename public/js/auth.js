@@ -8,6 +8,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { state } from './state.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
+import { bootStage, bootDone } from './progress-screen.js';
 import { attachCodexListeners, detachCodexListeners, renderList, renderDetailForSelected, notifyVisibilityChange } from './codex.js';
 import { attachPinsListener, attachConfigListener, detachMapDataListeners } from './map.js';
 import { attachAdminListeners, detachAdminListeners } from './admin.js';
@@ -149,6 +150,10 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
       // Presence heartbeat has no attach/detach anymore (Sep 2026): it
       // runs permanently, self-guarded in presence.js.
       const hasAccess = (role === 'gm' || role === 'player');
+      // Boot screen: with access, wait for campaign data (codex.js calls
+      // bootDataArrived); without, the login gate IS the destination.
+      if (hasAccess) bootStage(70, 'Loading campaign data\u2026');
+      else bootDone();
       if (hasAccess) attachDataListeners();
       loginGateEl.style.display = hasAccess ? 'none' : 'flex';
       mainAppEl.style.display = hasAccess ? 'block' : 'none';
@@ -236,6 +241,8 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
         userEmailEl.textContent = '';
       }
 
+      if (user && user.email && user.email !== CONFIG.gmEmail) bootStage(65, 'Checking access\u2026');
+
       if (!user || !user.email) {
         loginGateSignedOutEl.style.display = 'block';
         loginGateUnlistedEl.style.display = 'none';
@@ -286,6 +293,10 @@ const mapGmControlsEl = document.getElementById('map-gm-controls');
           const roleChanged = state.currentRole !== newRole;
           state.activeCharacterId = newActiveCharacterId;
           if (roleChanged) updateAccessUI(newRole);
+          // Not on the party list: role stays 'viewer' (the initial value),
+          // so updateAccessUI above never runs -- end the boot screen here
+          // so the login gate's "Request to join" is reachable.
+          if (newRole === 'viewer') bootDone();
           if (newRole === 'player') stampPresenceNow();
           if (roleChanged || activeCharacterChanged) notifyVisibilityChange();
         }), onError);

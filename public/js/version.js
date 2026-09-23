@@ -29,6 +29,7 @@ import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
 import { hasPendingWrites } from './connectivity.js';
+import { isOpProgressShowing } from './progress-screen.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -54,6 +55,10 @@ function hasUnsavedEditInProgress() {
   if (state.adminSourceEditId) return true;
   if (state.adminPlayerEditId) return true;
   if (document.querySelector('.modal-overlay.open')) return true;
+  // A GM broadcast operation (Restore/Import) is mid-flight -- its
+  // full-screen progress UI used to be a .modal-overlay (caught above);
+  // since the progress-screen.js unification it needs its own check.
+  if (isOpProgressShowing()) return true;
   if (document.querySelector('.gallery-picker-panel')) return true;
   return false;
 }

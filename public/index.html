@@ -85,6 +85,51 @@
        (plus the three gstatic Firebase SDK modules) into one parallel
        fetch wave; keep this list in sync when adding/removing modules
        under js/. -->
+  <script>
+    // Boot progress, stage 1 (progress-screen.js owns everything after
+    // main.js runs -- it sets __bootHandedOff). Counts first-party module
+    // files (and the Firebase SDK preloads) as they finish downloading,
+    // against the modulepreload list below, and fills 0-60% of the bar
+    // on #progress-screen. Pure DOM + PerformanceObserver: it has to work
+    // before any module has loaded, which is exactly the slow part after
+    // a deploy. Registered ahead of the preloads so no fetch is missed
+    // (buffered:true covers any that finish first anyway).
+    (function () {
+      var seen = {};
+      var SLOW = 'Still working \u2014 first load after an update can take a moment.';
+      function isAsset(name) {
+        return /\/js\/[\w.-]+\.js(\?|$)/.test(name) || name.indexOf('gstatic.com/firebasejs/') !== -1;
+      }
+      function paint() {
+        if (window.__bootHandedOff) return;
+        var fill = document.getElementById('ps-fill');
+        var step = document.getElementById('ps-step');
+        if (!fill || !step) return;
+        var total = document.querySelectorAll('link[rel="modulepreload"]').length;
+        var n = Math.min(Object.keys(seen).length, total);
+        fill.style.width = (total ? 60 * n / total : 0) + '%';
+        step.textContent = 'Loading app\u2026' + (total ? ' (' + n + ' of ' + total + ' files)' : '');
+      }
+      function hint(text) {
+        if (window.__bootHandedOff) return;
+        var h = document.getElementById('ps-hint');
+        if (h) { h.textContent = text; h.hidden = false; }
+      }
+      try {
+        new PerformanceObserver(function (list) {
+          list.getEntries().forEach(function (e) {
+            if (isAsset(e.name)) seen[e.name.split('?')[0]] = true;
+          });
+          paint();
+        }).observe({ type: 'resource', buffered: true });
+      } catch (e) { /* no PerformanceObserver: bar just stays at 0 until handoff */ }
+      window.__bootPaint = paint;
+      setTimeout(function () { window.__bootSlow = true; hint(SLOW); }, 8000);
+      // App never started (module load/eval failure): don't leave a
+      // spinner up forever with no way out.
+      setTimeout(function () { hint('This is taking too long \u2014 try reloading the page.'); }, 45000);
+    })();
+  </script>
   <!-- Deploy-time cache busting: CI (scripts/stamp-asset-versions.mjs)
        replaces the placeholder below with an import map sending every
        /js/*.js to /js/*.js?v=<build hash>, and appends the same ?v= to
@@ -123,6 +168,7 @@
   <link rel="modulepreload" href="js/messages.js">
   <link rel="modulepreload" href="js/op-status.js">
   <link rel="modulepreload" href="js/picker-panel.js">
+  <link rel="modulepreload" href="js/progress-screen.js">
   <link rel="modulepreload" href="js/related.js">
   <link rel="modulepreload" href="js/presence.js">
   <link rel="modulepreload" href="js/router.js">
@@ -140,6 +186,22 @@
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+  <!-- progress-screen.js: full-screen progress UI for first load (boot)
+       and GM broadcast operations (op-status.js). Visible from first
+       paint; hidden by JS once campaign data arrives. -->
+  <div id="progress-screen" class="progress-screen" role="status" aria-live="polite">
+    <div class="ps-box">
+      <div id="ps-title" class="ps-title"></div>
+      <div class="ps-spinner" aria-hidden="true"></div>
+      <div class="ps-track"><div id="ps-fill" class="ps-fill"></div></div>
+      <div id="ps-step" class="ps-step">Loading app&hellip;</div>
+      <div id="ps-hint" class="ps-hint" hidden></div>
+    </div>
+  </div>
+  <script>
+    document.getElementById('ps-title').textContent = (window.APP_CONFIG && window.APP_CONFIG.campaignName) || '';
+    if (window.__bootPaint) window.__bootPaint();
+  </script>
   <header>
     <h1 id="campaign-title"></h1>
     <span id="connectivity-status" class="connectivity-pill" style="display:none;"></span>

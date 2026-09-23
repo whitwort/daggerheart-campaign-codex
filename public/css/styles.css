@@ -520,31 +520,48 @@ nav#tabs button.active { border-bottom: 2px solid var(--hope); color: var(--hope
 .modal-actions button { padding: 0.4rem 0.9rem; cursor: pointer; width: auto; min-width: 0; }
 .modal-error { color: var(--notice); font-size: 0.85rem; margin-top: 0.5rem; display: none; }
 
-/* op-status.js: global "Restore/Import/Upload in progress" dialog, shown
-   to every connected client (GM and players). Reuses .modal-overlay/
-   .modal-box but is never dismissable -- no close/cancel button, no
-   backdrop click handler -- it reflects server-driven state and hides
-   itself the moment opStatus/current.active flips false. */
-.op-status-box { text-align: center; }
-.op-status-progress-text {
-  font-size: 0.85rem; color: var(--ink-soft); min-height: 1.2em;
-  white-space: pre-wrap; word-break: break-word;
+/* progress-screen.js: full-screen progress UI, shared by first-load
+   boot and op-status.js's GM-broadcast Restore/Import/SRD import. Never
+   dismissable -- it reflects load/server state and hides itself.
+   [hidden] must win over display:flex. */
+.progress-screen {
+  position: fixed; inset: 0; z-index: 2000; display: flex;
+  align-items: center; justify-content: center; background: var(--void);
+  opacity: 1; transition: opacity 0.3s ease;
 }
-.op-status-hint { font-size: 0.8rem; color: var(--ink-soft); margin-top: 1rem; margin-bottom: 0; }
-.op-status-bar-track {
-  height: 0.6rem; border-radius: 999px; background: var(--parchment-edge);
-  overflow: hidden; margin-top: 0.75rem;
+.progress-screen[hidden] { display: none; }
+.progress-screen.fading { opacity: 0; pointer-events: none; }
+.ps-box { width: min(320px, 80vw); text-align: center; color: var(--parchment); }
+.ps-title {
+  font-family: 'Comfortaa', sans-serif; font-size: 1.35rem; letter-spacing: 0.02em;
+  margin: 0 0 1.1rem; min-height: 1.4em;
 }
-.op-status-bar-fill {
-  height: 100%; width: 0; background: var(--hope);
-  border-radius: 999px; transition: width 0.3s ease;
+.ps-spinner {
+  width: 34px; height: 34px; margin: 0 auto 1rem; border-radius: 50%;
+  border: 3px solid var(--void-line); border-top-color: var(--hope);
+  box-shadow: 0 0 14px var(--hope-glow); animation: ps-spin 1s linear infinite;
 }
-.op-status-bar-fill.op-status-bar-indeterminate {
-  width: 40% !important; animation: op-status-indeterminate 1.4s ease-in-out infinite;
+@keyframes ps-spin { to { transform: rotate(360deg); } }
+.ps-track {
+  height: 6px; border-radius: 3px; overflow: hidden;
+  background: var(--void-raised); border: 1px solid var(--void-line);
 }
-@keyframes op-status-indeterminate {
+.ps-fill {
+  height: 100%; width: 0; border-radius: 3px;
+  background: linear-gradient(90deg, var(--fear), var(--hope)); transition: width 0.35s ease;
+}
+.ps-fill.indeterminate { width: 40%; animation: ps-indeterminate 1.4s ease-in-out infinite; }
+@keyframes ps-indeterminate {
   0%   { transform: translateX(-100%); }
   100% { transform: translateX(250%); }
+}
+.ps-step {
+  margin-top: 0.6rem; font-size: 0.8rem; color: #A89A80; min-height: 1.2em;
+  white-space: pre-wrap; word-break: break-word;
+}
+.ps-hint { margin-top: 0.35rem; font-size: 0.72rem; color: #7D7262; }
+@media (prefers-reduced-motion: reduce) {
+  .ps-spinner, .ps-fill.indeterminate { animation-duration: 3s; }
 }
 
 /* Map pin action buttons: own exception (7), narrower than the base

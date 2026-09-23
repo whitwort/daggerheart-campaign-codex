@@ -15,6 +15,7 @@ import { ensureStablesTabReady } from './stables.js';
 import { renderMessagesTray } from './messages.js';
 import { renderMarkdownInto } from './markdown.js';
 import { activateTab, syncUrlToTab, registerTabActivator, initRouter } from './router.js';
+import './progress-screen.js';  // takes the boot screen over from index.html's inline script
 
 renderMarkdownInto(
   document.getElementById('build-footer-links'),

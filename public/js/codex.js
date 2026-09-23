@@ -26,6 +26,7 @@ import { buildVisibilityControl, buildSharedToggle, buildNoteToggle, buildCharac
 import { buildPickerPanel, attachPickerDismiss } from './picker-panel.js';
 import { buildCharacterCardEditor, characterAncestryDisplayName, DEFAULT_CARDS } from './character-cards.js';
 import { resolvedRelatedIds, unresolvedPendingSlugs, relatesTo } from './related.js';
+import { bootDataArrived } from './progress-screen.js';
 
 const db = getFirestore(firebaseApp);
 
@@ -230,6 +231,7 @@ function attachCodexListeners() {
       snapshot.forEach(function (docSnap) {
         state.allEntities.push(Object.assign({ id: docSnap.id }, docSnap.data()));
       });
+      bootDataArrived('entities');
       renderList();
       safeRenderDetailForSelected();
       renderAdminRootEntitySelect();
@@ -251,6 +253,7 @@ function attachCodexListeners() {
       snapshot.forEach(function (docSnap) {
         state.allLoreItems.push(Object.assign({ id: docSnap.id }, docSnap.data()));
       });
+      bootDataArrived('lore');
       // Lore visibility affects which entities appear in the player
       // list and which pins render, not just the open detail.
       renderList();

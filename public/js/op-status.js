@@ -13,8 +13,9 @@
 //     shared doc rather than replacing anything.
 //   - Listener side (attachOpStatusListener/detachOpStatusListener):
 //     attached for ANY signed-in user right alongside
-//     attachVersionListener() (auth.js) -- shows/hides a blocking modal
-//     with the current label/progress/percent.
+//     attachVersionListener() (auth.js) -- shows/hides the blocking
+//     full-screen progress UI (progress-screen.js) with the current
+//     label/progress/percent.
 //
 // Self-heal: if a client observes an active doc whose updatedAt is stale
 // (GM's tab crashed/closed mid-operation, so nothing ever wrote
@@ -29,6 +30,7 @@ import {
 import { firebaseApp } from './firebase.js';
 import { state } from './state.js';
 import { attachListener, detachListener, safeSnapshotHandler } from './listeners.js';
+import { showOpProgress, hideOpProgress } from './progress-screen.js';
 
 const db = getFirestore(firebaseApp);
 const opStatusRef = doc(db, 'opStatus', 'current');
@@ -66,48 +68,14 @@ function endOp(finalText) {
 
 // --- Listener side (any signed-in user) ----------------------------------
 
-let dialogEls = null;
-
-function ensureDialog() {
-  if (dialogEls) return dialogEls;
-  const overlay = document.createElement('div');
-  overlay.id = 'op-status-overlay';
-  overlay.className = 'modal-overlay';
-  overlay.innerHTML =
-    '<div class="modal-box op-status-box">' +
-      '<h3 id="op-status-label"></h3>' +
-      '<p id="op-status-progress" class="op-status-progress-text"></p>' +
-      '<div class="op-status-bar-track">' +
-        '<div id="op-status-bar-fill" class="op-status-bar-fill"></div>' +
-      '</div>' +
-      '<p class="op-status-hint">The app isn\u2019t usable until this finishes \u2014 hang tight.</p>' +
-    '</div>';
-  document.body.appendChild(overlay);
-  dialogEls = {
-    overlay: overlay,
-    label: document.getElementById('op-status-label'),
-    progress: document.getElementById('op-status-progress'),
-    fill: document.getElementById('op-status-bar-fill')
-  };
-  return dialogEls;
-}
-
+// Rendering lives in progress-screen.js (Sep 2026: unified with the
+// first-load boot screen -- same full-screen UI for both).
 function showDialog(data) {
-  const els = ensureDialog();
-  els.label.textContent = data.label || 'Working\u2026';
-  els.progress.textContent = data.progress || '';
-  if (typeof data.percent === 'number') {
-    els.fill.classList.remove('op-status-bar-indeterminate');
-    els.fill.style.width = Math.max(0, Math.min(100, data.percent)) + '%';
-  } else {
-    els.fill.classList.add('op-status-bar-indeterminate');
-    els.fill.style.width = '';
-  }
-  els.overlay.classList.add('open');
+  showOpProgress(data.label || 'Working\u2026', data.progress || '', data.percent);
 }
 
 function hideDialog() {
-  if (dialogEls) dialogEls.overlay.classList.remove('open');
+  hideOpProgress();
 }
 
 function attachOpStatusListener() {
