@@ -655,6 +655,18 @@ function renderCharactersTab() {
   // re-renders on activation (main.js adds .active before calling it),
   // same pattern as timeline.js's own active-panel guard.
   if (!document.getElementById('characters-panel').classList.contains('active')) return;
+  // Keep the page where it was. Every entity snapshot (a -/+ stack
+  // click, a Sheet-tab box, any edit) rebuilds the detail by clearing
+  // and refilling it; while it's empty the page is short, the browser
+  // clamps the scroll to the top, and nothing scrolled it back -- so a
+  // control below the fold yanked the view up on every click.
+  const scroller = document.scrollingElement || document.documentElement;
+  const savedScroll = scroller.scrollTop;
+  renderCharactersTabContent();
+  if (scroller.scrollTop !== savedScroll) scroller.scrollTop = savedScroll;
+}
+
+function renderCharactersTabContent() {
   const ctx = viewerContext();
   charactersGmViewEl.style.display = ctx.gmView ? '' : 'none';
   charactersPlayerViewEl.style.display = ctx.gmView ? 'none' : '';
