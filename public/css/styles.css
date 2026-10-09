@@ -2759,6 +2759,20 @@ button:disabled:hover { border-color: var(--void-line); }
 .character-sheet-track-box.marked { background: var(--parchment); }
 .character-sheet-track-box.locked { border-style: dotted; border-color: var(--void-line); }
 .character-sheet-track-box:disabled { cursor: default; }
+/* Resource tracks (HP/Stress/Hope/Armor): one grid column per box
+   (--track-n, set in JS), so a track never wraps. With four tracks per
+   row (Armor added Oct 2026) the panels got narrow enough that the
+   flex layout above wrapped 12 boxes into 9 + 3, and flex-grow
+   stretched the short last line into wide boxes. Scoped to the sheet's
+   track fields -- Gold and the encounter tracker keep the flex rules. */
+.character-sheet-track-field > .character-sheet-track-boxes {
+  display: grid; grid-template-columns: repeat(var(--track-n, 12), minmax(0, 1fr));
+}
+/* Global button rules set a fixed width that flex-basis used to
+   override; in a grid cell the box must fill its column instead. */
+.character-sheet-track-field > .character-sheet-track-boxes > .character-sheet-track-box {
+  width: 100%; min-width: 0; max-width: none; margin: 0;
+}
 
 /* Equipped slot panel (moved here from the Cards tab's per-item
    Equipment select, which didn't have room on the mini-cards). Row 4

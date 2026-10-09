@@ -440,6 +440,8 @@ function buildTrackBoxes(entity, sheet, key, labelText, editable, ceiling, allow
 
   const boxesRow = document.createElement('div');
   boxesRow.className = 'character-sheet-track-boxes';
+  // One grid column per box (styles.css) -- keeps every box on one line.
+  boxesRow.style.setProperty('--track-n', String(ceiling));
   for (let i = 0; i < ceiling; i++) {
     const locked = allowLocked && i >= active;
     const checked = i < marked;
