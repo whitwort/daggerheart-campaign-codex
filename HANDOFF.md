@@ -109,7 +109,28 @@ Features / fixes:
   level and Codex edit-form saves still notify (Gregg asked whether to
   silence Cards-tab conditions/equipment too — unanswered).
 
+## Since v1.1.0 (Oct 9) — on dev, not yet released
+
+- **Armor Slots track** (`e0524ab`): Sheet tab Row 2, 12 boxes, usable
+  count = Armor Score field (no double-click lock on this track),
+  `cards.sheet.armor.marked`.
+- **Stackable items** (`e0524ab`): `isStackableItem` in
+  character-cards.js (explicit `entities.stackable` wins, else
+  Equipment/consumables). Codex edit-form toggle for Equipment;
+  Cards-tab -/+ stepper for stackable + custom items (minus at 1
+  removes; adding a carried stackable item bumps qty). Stepper writes
+  skip the GM notification. **firestore.rules change** (entities
+  hasOnly + `stackable`) — ships with the next Release.
+- **Resource tracks one line each** (`c78e73f`): grid, one column per
+  box (four tracks per row made 12 boxes wrap 9+3).
+- **Characters tab keeps scroll on re-render** (`34e3c48`): -/+ near
+  the bottom jumped the page to the top on Gregg's device (didn't
+  reproduce in Chromium); saving/restoring scrollTop around
+  `renderCharactersTab` fixed it — Gregg-confirmed.
+
 ## Open items
+
+- **Next Release** for the four items above (includes a rules change).
 
 - **Loading screen**: GM boot path and Restore/Import op screen not yet
   seen live by Gregg.
@@ -163,6 +184,16 @@ Features / fixes:
   `codex.js` `renderGalleryTab` comments). iPadOS trackpad behavior
   is not reproducible in Chromium or Playwright WebKit — Gregg's
   device is the oracle for touch/trackpad bugs.
+- **Full-rebuild renders lose scroll on Safari/iPad**: clearing and
+  refilling a container can clamp the page scroll even though Chromium
+  keeps it. Save/restore `document.scrollingElement.scrollTop` around
+  the rebuild (see `renderCharactersTab`). Chromium can't confirm such
+  a fix; Gregg's device can.
+- **Harness for UI checks here**: serve `public/` and route the three
+  gstatic Firebase modules to stub modules exporting every imported
+  name (writes captured to `window.__writes`); then import real modules
+  in `page.evaluate`. Set `state.campaignType = 'daggerheart'` for
+  Characters-tab sheet/deck UI. Avoid port 5060 (Chromium unsafe port).
 - **modulepreload list in index.html must list every `js/*.js`** —
   add a line when adding a module (related.js was missed once).
 - `npm run test:rules`: 19/19. Fresh clone needs `npm install`.
