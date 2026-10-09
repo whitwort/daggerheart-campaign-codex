@@ -20,13 +20,14 @@ still in the tree (locked nav design docs, not yet swept).
 
 ## Current state (end of session, Sep 23–24 2026)
 
-HEAD: `9ddcd05`, CI green on every push this session (Deploy + E2E +
-Author check), except the one Author-check failure noted below.
-**Prod is at `v1.0.3` = `533506f`** (Sep 21). **14 commits on dev
-ahead of prod** — everything in the list below. Next Release ships
-all of it, including two `firestore.rules` changes (loreItems
-`encounterStatus`, entities `pendingRelatedSlugs`) and the deploy-time
-cache-busting step (first prod run of `scripts/stamp-asset-versions.mjs`).
+CI green on every push this session (Deploy + E2E + Author check),
+except the one Author-check failure noted below.
+**Prod is at `v1.1.0` = `9ddcd05`** (released Sep 24, prod Deploy run
+green). It shipped everything in the list below, including two
+`firestore.rules` changes (loreItems `encounterStatus`, entities
+`pendingRelatedSlugs`) and the first prod run of the deploy-time
+cache-busting step (`scripts/stamp-asset-versions.mjs`). Only this
+HANDOFF rewrite is on dev ahead of prod.
 
 **Known red X, left on purpose (Gregg's call):** `cb17ea7` "Test push
 access to main (empty commit)" was committed as `noreply@anthropic.com`
@@ -40,7 +41,7 @@ GitHub web "Contributors" sidebar still shows the old typo account
 API are all clean (verified Sep 23) — it's a stale GitHub web cache.
 Fix is a GitHub Support request, not more rewriting.
 
-## This session (Sep 22–24) — all on dev, none in prod yet
+## This session (Sep 22–24) — all in prod as of v1.1.0
 
 Applied from patches (chat sessions that couldn't push):
 - **Encounter notifications redesign** (`0d85f05`): entry-linked vs
@@ -110,7 +111,6 @@ Features / fixes:
 
 ## Open items
 
-- **Prod Release** for the 14 commits above — Gregg's call.
 - **Loading screen**: GM boot path and Restore/Import op screen not yet
   seen live by Gregg.
 - **Cards-tab GM notifications** (conditions/equipment during play):
