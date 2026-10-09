@@ -50,6 +50,9 @@ const DEFAULT_SHEET = {
   // checked. Ceiling (12/12/6) is a fixed game-rule constant, not
   // stored -- see HP_CEILING/STRESS_CEILING/HOPE_CEILING below.
   hp: { max: 0, marked: 0 }, stress: { max: 6, marked: 0 }, hope: { max: 6, marked: 2 },
+  // Armor Slots (Oct 2026): marks only -- the usable count is the Armor
+  // Score field above, not a stored max (see buildTrackBoxes opts).
+  armor: { marked: 0 },
   thresholds: { major: 0, severe: 0 },
   gold: { handfuls: 0, bags: 0, chest: 0 },
   // §12.3: what liveSuggestion WAS at the time each suggestible field
@@ -391,9 +394,16 @@ function buildNumberField(labelText, value, editable, onChange, opts) {
 const HP_CEILING = 12;
 const STRESS_CEILING = 12;
 const HOPE_CEILING = 6;
+const ARMOR_CEILING = 12; // SRD max Armor Score
 const DOUBLE_CLICK_WINDOW_MS = 300;
-function buildTrackBoxes(entity, sheet, key, labelText, editable, ceiling, allowLocked, suggestKey, suggestion) {
+// opts (Armor track, Oct 2026): { active } overrides the stored max as
+// the unlocked count (Armor Slots = the Armor Score field), and with it
+// there's no double-click lock/unlock -- the boundary moves only with
+// Armor Score -- so clicks act immediately, without the double-click
+// wait.
+function buildTrackBoxes(entity, sheet, key, labelText, editable, ceiling, allowLocked, suggestKey, suggestion, opts) {
   const track = sheet[key];
+  const fixedActive = !!(opts && typeof opts.active === 'number');
   // Bug fix: when allowLocked is false (Hope), Active must be the fixed
   // ceiling, not read from stored track.max at all -- reading it caused
   // a real bug. Any character whose cards.sheet.hope was already saved
@@ -405,7 +415,9 @@ function buildTrackBoxes(entity, sheet, key, labelText, editable, ceiling, allow
   // double-click is intentionally a no-op for it). Hope conceptually
   // never has an Active concept distinct from its ceiling -- "hope
   // never has a not-yet-unlocked box" -- so just hardcode it.
-  const active = allowLocked ? Math.max(0, Math.min(ceiling, track.max || 0)) : ceiling;
+  const active = fixedActive
+    ? Math.max(0, Math.min(ceiling, opts.active || 0))
+    : (allowLocked ? Math.max(0, Math.min(ceiling, track.max || 0)) : ceiling);
   const marked = Math.max(0, Math.min(active, track.marked || 0));
 
   const wrap = document.createElement('div');
@@ -435,7 +447,18 @@ function buildTrackBoxes(entity, sheet, key, labelText, editable, ceiling, allow
     box.type = 'button';
     box.className = 'character-sheet-track-box' + (checked ? ' marked' : '') + (locked ? ' locked' : '');
     box.disabled = !editable;
-    box.title = locked ? 'Locked -- double-click/tap to unlock' : (checked ? 'Checked -- click to uncheck' : 'Click to check, double-click to lock');
+    box.title = fixedActive
+      ? (locked ? 'Beyond Armor Score' : (checked ? 'Marked -- click to unmark' : 'Click to mark'))
+      : (locked ? 'Locked -- double-click/tap to unlock' : (checked ? 'Checked -- click to uncheck' : 'Click to check, double-click to lock'));
+
+    if (fixedActive) {
+      box.addEventListener('click', function () {
+        if (locked) return;
+        patchSheet(entity, { [key]: Object.assign({}, track, { marked: checked ? i : i + 1 }) });
+      });
+      boxesRow.appendChild(box);
+      continue;
+    }
 
     let pendingSingle = null;
     box.addEventListener('click', function () {
@@ -575,6 +598,8 @@ function buildResourcesBlock(entity, sheet, editable, suggestions, topCards) {
   trackRow.appendChild(buildTrackBoxes(entity, sheet, 'hp', 'HP', editable, HP_CEILING, true, 'hpMax', suggestions.hpMax));
   trackRow.appendChild(buildTrackBoxes(entity, sheet, 'stress', 'Stress', editable, STRESS_CEILING, true));
   trackRow.appendChild(buildTrackBoxes(entity, sheet, 'hope', 'Hope', editable, HOPE_CEILING, false));
+  trackRow.appendChild(buildTrackBoxes(entity, sheet, 'armor', 'Armor', editable, ARMOR_CEILING, true, null, null,
+    { active: sheet.armorScore }));
   wrap.appendChild(trackRow);
 
   // Row 3: Evasion, Armor Score, Major Threshold, Severe Threshold

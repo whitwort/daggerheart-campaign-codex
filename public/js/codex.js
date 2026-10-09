@@ -24,7 +24,7 @@ import {
 import { shareEntityVisibility, shareLoreItemVisibility, shareImageVisibility, createLoreItemShared, notifyCharacterEdited } from './sharing.js';
 import { buildVisibilityControl, buildSharedToggle, buildNoteToggle, buildCharacterBadge } from './visibility-ui.js';
 import { buildPickerPanel, attachPickerDismiss } from './picker-panel.js';
-import { buildCharacterCardEditor, characterAncestryDisplayName, DEFAULT_CARDS } from './character-cards.js';
+import { buildCharacterCardEditor, characterAncestryDisplayName, DEFAULT_CARDS, isStackableItem } from './character-cards.js';
 import { resolvedRelatedIds, unresolvedPendingSlugs, relatesTo } from './related.js';
 import { bootDataArrived } from './progress-screen.js';
 import { buildEncounterStatusPanel } from './encounter-status.js';
@@ -1611,6 +1611,10 @@ function buildEntityDraft(entity) {
     category: entity.category || CONFIG.categories[0],
     ancestry: entity.ancestry || '',
     subtype: entity.subtype || '',
+    // Explicit override only (true/false); null = category default (see
+    // isStackableItem). Kept tri-state so an untouched item keeps
+    // following its subtype's default.
+    stackable: (typeof entity.stackable === 'boolean') ? entity.stackable : null,
     aliases: (entity.aliases || []).join(', '),
     date: entity.date || '',
     dateEnd: entity.dateEnd || '',
@@ -1796,6 +1800,7 @@ function saveEntityEdit(entity) {
     category: cat,
     ancestry: (cat === 'Character' && draft.ancestry.trim()) ? draft.ancestry.trim() : null,
     subtype: subtype,
+    stackable: (cat === 'Equipment' && typeof draft.stackable === 'boolean') ? draft.stackable : null,
     aliases: (cat === 'Character') ? aliases : [],
     date: dateStr || null,
     dateSort: dateSort,
@@ -4802,9 +4807,39 @@ function renderDetailForSelected() {
       subtypeSelect.appendChild(opt);
     });
     subtypeSelect.value = draft.subtype || '';
-    subtypeSelect.addEventListener('change', function () { draft.subtype = subtypeSelect.value; });
     subtypeWrap.appendChild(subtypeSelect);
     leftCol.appendChild(subtypeWrap);
+
+    // Stackable (Equipment only): one inventory card with a -/+ count.
+    // Shows the effective value; flipping it stores an explicit override.
+    let stackInput = null;
+    if (draft.category === 'Equipment') {
+      const stackRow = document.createElement('div');
+      stackRow.className = 'entity-edit-meta-row';
+      const stackLabel = document.createElement('label');
+      stackLabel.className = 'toggle-switch';
+      stackInput = document.createElement('input');
+      stackInput.type = 'checkbox';
+      stackInput.checked = isStackableItem({ category: 'Equipment', subtype: draft.subtype, stackable: draft.stackable });
+      stackInput.addEventListener('change', function () { draft.stackable = stackInput.checked; });
+      const stackSlider = document.createElement('span');
+      stackSlider.className = 'toggle-slider';
+      stackLabel.appendChild(stackInput);
+      stackLabel.appendChild(stackSlider);
+      stackRow.appendChild(stackLabel);
+      const stackText = document.createElement('span');
+      stackText.className = 'toggle-switch-label';
+      stackText.textContent = 'Stackable (inventory keeps a count)';
+      stackRow.appendChild(stackText);
+      leftCol.appendChild(stackRow);
+    }
+    subtypeSelect.addEventListener('change', function () {
+      draft.subtype = subtypeSelect.value;
+      // Untouched toggle follows the new subtype's default.
+      if (stackInput && draft.stackable === null) {
+        stackInput.checked = isStackableItem({ category: 'Equipment', subtype: draft.subtype, stackable: null });
+      }
+    });
   }
 
   if (draft.category === 'Character') {

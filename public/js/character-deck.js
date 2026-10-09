@@ -52,7 +52,7 @@ import { buildInfoPopup } from './info-popup.js';
 import {
   DEFAULT_CARDS, TIER_OPTIONS, normalizeAncestryIds, resolveFunctionalIds,
   cumulativeTierKeys, buildFloatingPickerPanel, openAbilityPickerPopup, openExperiencePickerPopup,
-  tierForCharacterLevel
+  tierForCharacterLevel, isStackableItem
 } from './character-cards.js';
 
 const db = getFirestore(firebaseApp);
@@ -60,11 +60,14 @@ const db = getFirestore(firebaseApp);
 function byName(a, b) { return (a.name || '').localeCompare(b.name || ''); }
 function newLocalId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
-function patchCards(entity, patch) {
+// opts.silent: skip the GM "character edited" notification -- for
+// play-time bookkeeping (stack -/+ counts), same reasoning as the Sheet
+// tab's marks (character-sheet.js patchSheet).
+function patchCards(entity, patch, opts) {
   const cards = Object.assign({}, DEFAULT_CARDS, entity.cards || {}, patch);
   trackWrite(updateDoc(doc(db, 'entities', entity.id), { cards: cards, updatedAt: serverTimestamp() }), 'Saving character')
     .catch(function (err) { window.alert('Save failed: ' + err.message); });
-  notifyCharacterEdited(entity);
+  if (!(opts && opts.silent)) notifyCharacterEdited(entity);
 }
 
 // --- Shared card/tray/section builders ------------------------------------
@@ -212,7 +215,11 @@ function enableCardReorder(container, onReorder) {
   loadSortable().then(function (Sortable) {
     // eslint-disable-next-line no-new
     new Sortable(container, {
-      filter: '.character-deck-add-slot',
+      // Stepper (stackable items): its -/+ buttons are clicked rapidly
+      // and must never start a drag -- same filter + preventOnFilter:
+      // false pattern as the gallery's <img> (HANDOFF, Sortable +
+      // clickable children).
+      filter: '.character-deck-add-slot, .character-deck-stepper',
       preventOnFilter: false,
       forceFallback: true,
       // delay/delayOnTouchOnly: same iPad tap-vs-drag fix as the Codex
@@ -330,6 +337,30 @@ function buildMiniCard(opts) {
       });
     }
     card.appendChild(body);
+  }
+  // stepper (Oct 2026, stackable inventory): {value, onMinus, onPlus}.
+  // Bottom-right, same slot as the Tier/Level badge (stackable items
+  // never carry one).
+  if (opts.stepper) {
+    card.classList.add('has-stepper');
+    const stepper = document.createElement('div');
+    stepper.className = 'character-deck-stepper';
+    const minus = document.createElement('button');
+    minus.type = 'button';
+    minus.textContent = '\u2212';
+    minus.title = opts.stepper.value > 1 ? 'Use one' : 'Remove';
+    minus.addEventListener('click', opts.stepper.onMinus);
+    const count = document.createElement('span');
+    count.textContent = String(opts.stepper.value);
+    const plus = document.createElement('button');
+    plus.type = 'button';
+    plus.textContent = '+';
+    plus.title = 'Add one';
+    plus.addEventListener('click', opts.stepper.onPlus);
+    stepper.appendChild(minus);
+    stepper.appendChild(count);
+    stepper.appendChild(plus);
+    card.appendChild(stepper);
   }
   if (opts.badge) {
     const badge = document.createElement('div');
@@ -1057,10 +1088,27 @@ function buildEquipmentSection(entity, cards, ctx, editable) {
       icon: '&times;', title: 'Remove', cls: 'ctl-remove',
       onClick: function () { patchCards(entity, { equipment: equipment.filter(function (x) { return x.id !== it.id; }) }); }
     }] : [];
+    // Stackable: a linked item flagged stackable (isStackableItem), or
+    // any custom item (they already carry a qty). Editable -> -/+
+    // stepper (minus at 1 removes the card); read-only -> plain xN.
+    const qty = it.qty || 1;
+    const stackable = it.entityId ? isStackableItem(linked) : true;
+    const stepper = (stackable && editable) ? {
+      value: qty,
+      onMinus: function () {
+        patchCards(entity, { equipment: qty > 1
+          ? equipment.map(function (x) { return x.id === it.id ? Object.assign({}, x, { qty: qty - 1 }) : x; })
+          : equipment.filter(function (x) { return x.id !== it.id; }) }, { silent: true });
+      },
+      onPlus: function () {
+        patchCards(entity, { equipment: equipment.map(function (x) { return x.id === it.id ? Object.assign({}, x, { qty: qty + 1 }) : x; }) }, { silent: true });
+      }
+    } : null;
     const miniCard = buildMiniCard(Object.assign({
       title: it.label,
-      titleSuffix: it.qty && it.qty !== 1 ? ('\u00d7' + it.qty) : null,
+      titleSuffix: (!stepper && qty !== 1) ? ('\u00d7' + qty) : null,
       controls: controls,
+      stepper: stepper,
       codexEntityId: linked ? linked.id : null,
       reorderId: editable ? it.id : null
     }, typeOpts));
@@ -1086,6 +1134,15 @@ function buildEquipmentSection(entity, cards, ctx, editable) {
         customLabel: 'Custom item',
         customExtraField: 'qty',
         onSelect: function (e) {
+          // Stackable and already carried: bump that card's count
+          // instead of adding a second card.
+          const existing = isStackableItem(e) && equipment.find(function (x) { return x.entityId === e.id; });
+          if (existing) {
+            patchCards(entity, { equipment: equipment.map(function (x) {
+              return x.id === existing.id ? Object.assign({}, x, { qty: (x.qty || 1) + 1 }) : x;
+            }) });
+            return;
+          }
           patchCards(entity, { equipment: equipment.concat([{ id: newLocalId(), entityId: e.id, label: e.name, qty: 1 }]) });
         },
         onCustom: function (name, qty) {

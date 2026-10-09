@@ -90,6 +90,17 @@ export const DEFAULT_CARDS = {
 // Daggerheart domain knowledge the dropdown and the cumulative-tier
 // display below both depend on, not something that should silently
 // follow whatever order a schema happens to list its groups in.
+// Stackable inventory items (Oct 2026). An Equipment entity's explicit
+// `stackable` boolean (Codex edit form toggle) wins; absent/null falls
+// back to the default -- Consumables stack, everything else doesn't.
+// Stackable items carry one inventory card with a -/+ count
+// (character-deck.js), and adding the same item again bumps the count.
+export function isStackableItem(entity) {
+  if (!entity || entity.category !== 'Equipment') return false;
+  if (typeof entity.stackable === 'boolean') return entity.stackable;
+  return entity.subtype === 'consumables';
+}
+
 export const TIER_OPTIONS = [
   { key: 'foundation', label: 'Foundation' },
   { key: 'specialization', label: 'Specialization' },
